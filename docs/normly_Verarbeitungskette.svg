@@ -1,0 +1,149 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1360" width="1080" height="1360" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#6b7280"/>
+    </marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0f766e"/>
+    </marker>
+  </defs>
+
+  <rect width="1080" height="1360" fill="#fbfbfa"/>
+
+  <text x="48" y="52" font-size="25" font-weight="600" fill="#1c1c1a">normly — Verarbeitungskette</text>
+  <text x="48" y="78" font-size="14" fill="#6b7280">Von der Quelle bis zur Ausspielung · eine Kette, Herkunft als Attribut · SRS Kap. 3.12</text>
+  <line x1="48" y1="96" x2="1032" y2="96" stroke="#e2e0dc" stroke-width="1"/>
+
+  <!-- lineage rail -->
+  <rect x="924" y="120" width="108" height="1010" rx="8" fill="#f0f7f6" stroke="#99c7c1" stroke-width="1"/>
+  <text x="978" y="150" font-size="12" font-weight="600" fill="#0f766e" text-anchor="middle">Abstammung</text>
+  <text x="978" y="168" font-size="11" fill="#0f766e" text-anchor="middle">REQ-PIPE-005</text>
+  <text x="978" y="600" font-size="11.5" fill="#3f6b66" text-anchor="middle" transform="rotate(90 978 600)">jedes Artefakt kennt seine Quelllieferung → kaskadierende Rücknahme</text>
+
+  <!-- 1 Quellenregister -->
+  <text x="48" y="140" font-size="12" font-weight="600" fill="#9a9793">1 · ERFASSUNG</text>
+  <rect x="48" y="152" width="840" height="66" rx="8" fill="#fff" stroke="#c9c5be" stroke-width="1.5"/>
+  <text x="68" y="180" font-size="16" font-weight="600" fill="#1c1c1a">Quellenregister</text>
+  <text x="68" y="202" font-size="13" fill="#5c5952">Herausgeber · Abrufweg · Rechtsgrundlage · Rechtsraum · Prüfdatum — kein Ingest ohne Eintrag</text>
+  <text x="866" y="180" font-size="11" fill="#9a9793" text-anchor="end">REQ-PIPE-002</text>
+
+  <rect x="48" y="230" width="840" height="52" rx="8" fill="#fdf6ec" stroke="#e0b877" stroke-width="1.5"/>
+  <text x="68" y="252" font-size="14" font-weight="600" fill="#8a5f16">Prüfung Nutzungsvorbehalt · § 44b Abs. 3 UrhG</text>
+  <text x="68" y="271" font-size="12.5" fill="#8a5f16">Ergebnis datiert und belegt im Register · Wiedervorlage</text>
+  <text x="866" y="252" font-size="11" fill="#b08a3e" text-anchor="end">REQ-PIPE-003</text>
+
+  <line x1="468" y1="282" x2="468" y2="318" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- 2 Adapter -->
+  <text x="48" y="338" font-size="12" font-weight="600" fill="#9a9793">2 · INGEST-ADAPTER</text>
+  <rect x="48" y="350" width="268" height="86" rx="8" fill="#fff" stroke="#c9c5be" stroke-width="1.5"/>
+  <text x="68" y="376" font-size="14.5" font-weight="600" fill="#1c1c1a">Web-Scraper</text>
+  <text x="68" y="397" font-size="12.5" fill="#5c5952">Kataloge, Normen-</text>
+  <text x="68" y="414" font-size="12.5" fill="#5c5952">verzeichnisse · Metadaten</text>
+
+  <rect x="334" y="350" width="268" height="86" rx="8" fill="#fff" stroke="#c9c5be" stroke-width="1.5"/>
+  <text x="354" y="376" font-size="14.5" font-weight="600" fill="#1c1c1a">API-Adapter</text>
+  <text x="354" y="397" font-size="12.5" fill="#5c5952">EUR-Lex, DGUV, BAuA</text>
+  <text x="354" y="414" font-size="12.5" fill="#5c5952">freie Volltexte</text>
+
+  <rect x="620" y="350" width="268" height="86" rx="8" fill="#f2f6fb" stroke="#7ea3cc" stroke-width="1.5"/>
+  <text x="640" y="376" font-size="14.5" font-weight="600" fill="#1e4e79">Partnerportal</text>
+  <text x="640" y="397" font-size="12.5" fill="#31597f">lizenzierte Volltexte</text>
+  <text x="640" y="414" font-size="12.5" fill="#31597f">PDF / XML · REQ-PART-001</text>
+
+  <path d="M182 436 L182 462 L468 462" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+  <path d="M468 436 L468 462" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+  <path d="M754 436 L754 462 L468 462" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+  <line x1="468" y1="462" x2="468" y2="500" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="484" y="484" font-size="11.5" fill="#9a9793">ab hier ist die Herkunft nur noch ein Attribut</text>
+
+  <!-- 3 Identity -->
+  <text x="48" y="520" font-size="12" font-weight="600" fill="#9a9793">3 · IDENTITÄTSAUFLÖSUNG</text>
+  <rect x="48" y="532" width="600" height="72" rx="8" fill="#fff" stroke="#c9c5be" stroke-width="1.5"/>
+  <text x="68" y="558" font-size="16" font-weight="600" fill="#1c1c1a">Identifikator · Dubletten · nationale Übernahmen</text>
+  <text x="68" y="582" font-size="13" fill="#5c5952">ein Regelwerk = ein Knoten, sprachunabhängig · REQ-GRAPH-005</text>
+
+  <rect x="666" y="532" width="222" height="72" rx="8" fill="#fff" stroke="#c9c5be" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <text x="686" y="558" font-size="13.5" font-weight="600" fill="#5c5952">Prüfoberfläche</text>
+  <text x="686" y="578" font-size="12" fill="#7a766e">unklare Fälle manuell</text>
+  <text x="686" y="595" font-size="11" fill="#9a9793">REQ-PIPE-007</text>
+  <line x1="648" y1="568" x2="662" y2="568" stroke="#9a9793" stroke-width="1.5" stroke-dasharray="4 3"/>
+
+  <line x1="468" y1="604" x2="468" y2="640" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- 4 Gate -->
+  <text x="48" y="660" font-size="12" font-weight="600" fill="#9a9793">4 · RECHTEKLASSIFIKATION — DAS TOR</text>
+  <rect x="48" y="672" width="840" height="94" rx="8" fill="#fdf1f1" stroke="#c98b8b" stroke-width="2"/>
+  <text x="68" y="700" font-size="16.5" font-weight="600" fill="#8a2f2f">Je Dokument und Rechtsraum: was ist erlaubt?</text>
+  <text x="68" y="723" font-size="13" fill="#7a3a3a">verarbeiten · Volltext indexieren · Passagen zitieren · frei exportieren</text>
+  <text x="68" y="747" font-size="13" font-weight="600" fill="#8a2f2f">Ohne Klassifikation keine Weiterverarbeitung — fehlend ≠ vorläufig erlaubt</text>
+  <text x="866" y="700" font-size="11" fill="#b06767" text-anchor="end">REQ-PIPE-004 · REQ-GRAPH-006</text>
+
+  <path d="M280 766 L280 800" fill="none" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/>
+  <path d="M700 766 L700 800" fill="none" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- 5-7 processing -->
+  <text x="48" y="820" font-size="12" font-weight="600" fill="#9a9793">5–7 · VERARBEITUNG</text>
+
+  <rect x="48" y="832" width="464" height="66" rx="8" fill="#fff" stroke="#c9c5be" stroke-width="1.5"/>
+  <text x="68" y="858" font-size="14.5" font-weight="600" fill="#1c1c1a">Metadaten-Pfad</text>
+  <text x="68" y="880" font-size="12.5" fill="#5c5952">Titel · Nummer · Ausgabestand · Status · Ersetzungsketten</text>
+
+  <rect x="536" y="832" width="352" height="66" rx="8" fill="#f2f6fb" stroke="#7ea3cc" stroke-width="1.5"/>
+  <text x="556" y="858" font-size="14.5" font-weight="600" fill="#1e4e79">Volltext-Pfad</text>
+  <text x="556" y="880" font-size="12.5" fill="#31597f">Strukturextraktion · Abschnitte · Tabellen</text>
+
+  <line x1="280" y1="898" x2="280" y2="928" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="712" y1="898" x2="712" y2="928" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <rect x="48" y="940" width="464" height="80" rx="8" fill="#f0f7f6" stroke="#4f9a92" stroke-width="2"/>
+  <text x="68" y="966" font-size="15.5" font-weight="600" fill="#0f5f58">Verweisextraktion → Referenzgraph</text>
+  <text x="68" y="988" font-size="12.5" fill="#2f6b65">Verweise · Ersetzungen · Gültigkeit · Gesetz → Norm</text>
+  <text x="68" y="1008" font-size="11.5" font-weight="600" fill="#0f5f58">überwiegend aus Metadaten — ohne Volltextvertrag aufbaubar</text>
+
+  <rect x="536" y="940" width="352" height="80" rx="8" fill="#f2f6fb" stroke="#7ea3cc" stroke-width="1.5"/>
+  <text x="556" y="966" font-size="14.5" font-weight="600" fill="#1e4e79">Segmentierung · Einbettung</text>
+  <text x="556" y="988" font-size="12.5" fill="#31597f">getrennt je Herausgeber</text>
+  <text x="556" y="1008" font-size="11.5" fill="#5a7fa5">REQ-PART-004 · Abschnittsebene = kommerziell</text>
+
+  <path d="M280 1020 L280 1052 L468 1052" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+  <path d="M712 1020 L712 1052 L468 1052" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+  <line x1="468" y1="1052" x2="468" y2="1090" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- 8 output -->
+  <text x="48" y="1112" font-size="12" font-weight="600" fill="#9a9793">8 · AUSSPIELUNG — DREI TORE MIT UNTERSCHIEDLICHEN FILTERN</text>
+
+  <rect x="48" y="1124" width="268" height="94" rx="8" fill="#f0f7f6" stroke="#4f9a92" stroke-width="1.5"/>
+  <text x="68" y="1150" font-size="14.5" font-weight="600" fill="#0f5f58">Freier Dump</text>
+  <text x="68" y="1172" font-size="12.5" fill="#2f6b65">ODbL · RDF / JSON-LD</text>
+  <text x="68" y="1191" font-size="12.5" fill="#2f6b65">je Rechtsraum gefiltert</text>
+  <text x="68" y="1209" font-size="11" fill="#5d8b86">REQ-GRAPH-001</text>
+
+  <rect x="334" y="1124" width="268" height="94" rx="8" fill="#f0f7f6" stroke="#4f9a92" stroke-width="1.5"/>
+  <text x="354" y="1150" font-size="14.5" font-weight="600" fill="#0f5f58">Freie API</text>
+  <text x="354" y="1172" font-size="12.5" fill="#2f6b65">Graph-First-Auflösung</text>
+  <text x="354" y="1191" font-size="12.5" fill="#2f6b65">LLM nur bei Synthese</text>
+  <text x="354" y="1209" font-size="11" fill="#5d8b86">REQ-GRAPH-003</text>
+
+  <rect x="620" y="1124" width="268" height="94" rx="8" fill="#f2f6fb" stroke="#7ea3cc" stroke-width="1.5"/>
+  <text x="640" y="1150" font-size="14.5" font-weight="600" fill="#1e4e79">Lizenzierte Instanz</text>
+  <text x="640" y="1172" font-size="12.5" fill="#31597f">SLA · Audit-Trail</text>
+  <text x="640" y="1191" font-size="12.5" fill="#31597f">Attribution je Antwort</text>
+  <text x="640" y="1209" font-size="11" fill="#5a7fa5">REQ-PART-002 · REQ-COM-004</text>
+
+  <!-- attribution loop -->
+  <path d="M888 1171 L906 1171 L906 1250 L214 1250 L214 1224" fill="none" stroke="#0f766e" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ag)"/>
+  <text x="560" y="1244" font-size="12" fill="#0f766e" text-anchor="middle">Attributionsdaten → Umsatzbeteiligung der Herausgeber (REQ-PART-003)</text>
+
+  <line x1="48" y1="1286" x2="1032" y2="1286" stroke="#e2e0dc" stroke-width="1"/>
+  <rect x="48" y="1302" width="14" height="14" rx="3" fill="#fff" stroke="#c9c5be" stroke-width="1.5"/>
+  <text x="70" y="1314" font-size="12" fill="#5c5952">herkunftsunabhängig</text>
+  <rect x="222" y="1302" width="14" height="14" rx="3" fill="#f0f7f6" stroke="#4f9a92" stroke-width="1.5"/>
+  <text x="244" y="1314" font-size="12" fill="#5c5952">freier Kern (AGPL / ODbL)</text>
+  <rect x="424" y="1302" width="14" height="14" rx="3" fill="#f2f6fb" stroke="#7ea3cc" stroke-width="1.5"/>
+  <text x="446" y="1314" font-size="12" fill="#5c5952">lizenzpflichtig / kommerziell</text>
+  <rect x="640" y="1302" width="14" height="14" rx="3" fill="#fdf1f1" stroke="#c98b8b" stroke-width="1.5"/>
+  <text x="662" y="1314" font-size="12" fill="#5c5952">Rechte-Tor</text>
+  <rect x="764" y="1302" width="14" height="14" rx="3" fill="#fdf6ec" stroke="#e0b877" stroke-width="1.5"/>
+  <text x="786" y="1314" font-size="12" fill="#5c5952">rechtliche Prüfung</text>
+</svg>
