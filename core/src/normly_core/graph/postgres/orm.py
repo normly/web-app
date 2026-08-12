@@ -2,7 +2,7 @@
 # Copyright (C) 2026 normly contributors
 
 import uuid
-from datetime import date
+from datetime import date, datetime
 
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
@@ -45,4 +45,22 @@ class SourceORM(Base):
             "legal_basis_category != 'C' OR contract_reference IS NOT NULL",
             name="ck_source_category_c_requires_contract",
         ),
+    )
+
+
+class DeliveryORM(Base):
+    __tablename__ = "delivery"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("source.id"), nullable=False
+    )
+    content_hash: Mapped[str]
+    ingested_at: Mapped[datetime]
+    withdrawn_at: Mapped[datetime | None]
+
+    __table_args__ = (
+        sa.UniqueConstraint("source_id", "content_hash", name="uq_delivery_source_hash"),
     )
