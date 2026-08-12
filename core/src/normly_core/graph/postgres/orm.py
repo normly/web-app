@@ -82,3 +82,42 @@ class DocumentORM(Base):
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), server_default=sa.func.now()
     )
+
+
+class DocumentDesignationORM(Base):
+    __tablename__ = "document_designation"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("document.id"), nullable=False
+    )
+    issuer: Mapped[str]
+    designation: Mapped[str]
+    language: Mapped[str]
+    edition: Mapped[str | None]
+    is_primary: Mapped[bool] = mapped_column(default=False)
+    delivery_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("delivery.id"), nullable=False
+    )
+
+    __table_args__ = (
+        sa.UniqueConstraint("issuer", "designation", name="uq_designation_issuer_designation"),
+    )
+
+
+class DocumentTitleORM(Base):
+    __tablename__ = "document_title"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("document.id"), nullable=False
+    )
+    language: Mapped[str]
+    title: Mapped[str]
+    delivery_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("delivery.id"), nullable=False
+    )

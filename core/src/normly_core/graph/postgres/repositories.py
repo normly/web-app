@@ -11,11 +11,19 @@ from sqlalchemy.orm import Session
 from normly_core.graph.domain import (
     Delivery,
     Document,
+    DocumentDesignation,
+    DocumentTitle,
     LegalBasisCategory,
     Source,
     TdmOptOutResult,
 )
-from normly_core.graph.postgres.orm import DeliveryORM, DocumentORM, SourceORM
+from normly_core.graph.postgres.orm import (
+    DeliveryORM,
+    DocumentORM,
+    DocumentDesignationORM,
+    DocumentTitleORM,
+    SourceORM,
+)
 
 
 def _source_to_domain(orm: SourceORM) -> Source:
@@ -147,6 +155,29 @@ def _document_to_domain(orm: DocumentORM) -> Document:
     )
 
 
+def _designation_to_domain(orm: DocumentDesignationORM) -> DocumentDesignation:
+    return DocumentDesignation(
+        id=orm.id,
+        document_id=orm.document_id,
+        issuer=orm.issuer,
+        designation=orm.designation,
+        language=orm.language,
+        edition=orm.edition,
+        is_primary=orm.is_primary,
+        delivery_id=orm.delivery_id,
+    )
+
+
+def _title_to_domain(orm: DocumentTitleORM) -> DocumentTitle:
+    return DocumentTitle(
+        id=orm.id,
+        document_id=orm.document_id,
+        language=orm.language,
+        title=orm.title,
+        delivery_id=orm.delivery_id,
+    )
+
+
 class PostgresDocumentRepository:
     def __init__(self, session: Session):
         self._session = session
@@ -176,3 +207,56 @@ class PostgresDocumentRepository:
     def get_document(self, document_id: uuid.UUID) -> Document | None:
         orm = self._session.get(DocumentORM, document_id)
         return _document_to_domain(orm) if orm else None
+
+    def add_designation(
+        self,
+        *,
+        document_id: uuid.UUID,
+        issuer: str,
+        designation: str,
+        language: str,
+        edition: str | None,
+        is_primary: bool,
+        delivery_id: uuid.UUID,
+    ) -> DocumentDesignation:
+        orm = DocumentDesignationORM(
+            id=uuid.uuid4(),
+            document_id=document_id,
+            issuer=issuer,
+            designation=designation,
+            language=language,
+            edition=edition,
+            is_primary=is_primary,
+            delivery_id=delivery_id,
+        )
+        self._session.add(orm)
+        self._session.flush()
+        return _designation_to_domain(orm)
+
+    def add_title(
+        self, *, document_id: uuid.UUID, language: str, title: str, delivery_id: uuid.UUID
+    ) -> DocumentTitle:
+        orm = DocumentTitleORM(
+            id=uuid.uuid4(),
+            document_id=document_id,
+            language=language,
+            title=title,
+            delivery_id=delivery_id,
+        )
+        self._session.add(orm)
+        self._session.flush()
+        return _title_to_domain(orm)
+
+    def list_designations(self, document_id: uuid.UUID) -> list[DocumentDesignation]:
+        rows = self._session.execute(
+            select(DocumentDesignationORM).where(
+                DocumentDesignationORM.document_id == document_id
+            )
+        ).scalars()
+        return [_designation_to_domain(row) for row in rows]
+
+    def list_titles(self, document_id: uuid.UUID) -> list[DocumentTitle]:
+        rows = self._session.execute(
+            select(DocumentTitleORM).where(DocumentTitleORM.document_id == document_id)
+        ).scalars()
+        return [_title_to_domain(row) for row in rows]
