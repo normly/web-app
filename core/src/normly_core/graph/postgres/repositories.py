@@ -10,11 +10,12 @@ from sqlalchemy.orm import Session
 
 from normly_core.graph.domain import (
     Delivery,
+    Document,
     LegalBasisCategory,
     Source,
     TdmOptOutResult,
 )
-from normly_core.graph.postgres.orm import DeliveryORM, SourceORM
+from normly_core.graph.postgres.orm import DeliveryORM, DocumentORM, SourceORM
 
 
 def _source_to_domain(orm: SourceORM) -> Source:
@@ -132,3 +133,46 @@ class PostgresDeliveryRepository:
             return
         orm.withdrawn_at = datetime.now(orm.ingested_at.tzinfo)
         self._session.flush()
+
+
+def _document_to_domain(orm: DocumentORM) -> Document:
+    return Document(
+        id=orm.id,
+        origin_issuer=orm.origin_issuer,
+        origin_number=orm.origin_number,
+        edition=orm.edition,
+        part=orm.part,
+        created_via_delivery_id=orm.created_via_delivery_id,
+        created_at=orm.created_at,
+    )
+
+
+class PostgresDocumentRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def create_document(
+        self,
+        *,
+        origin_issuer: str,
+        origin_number: str,
+        edition: str,
+        part: str | None,
+        delivery_id: uuid.UUID,
+    ) -> Document:
+        orm = DocumentORM(
+            id=uuid.uuid4(),
+            origin_issuer=origin_issuer,
+            origin_number=origin_number,
+            edition=edition,
+            part=part,
+            created_via_delivery_id=delivery_id,
+        )
+        self._session.add(orm)
+        self._session.flush()
+        self._session.refresh(orm)
+        return _document_to_domain(orm)
+
+    def get_document(self, document_id: uuid.UUID) -> Document | None:
+        orm = self._session.get(DocumentORM, document_id)
+        return _document_to_domain(orm) if orm else None

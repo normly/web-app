@@ -64,3 +64,21 @@ class DeliveryORM(Base):
     __table_args__ = (
         sa.UniqueConstraint("source_id", "content_hash", name="uq_delivery_source_hash"),
     )
+
+
+class DocumentORM(Base):
+    __tablename__ = "document"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    origin_issuer: Mapped[str]
+    origin_number: Mapped[str]
+    edition: Mapped[str]
+    part: Mapped[str | None]
+    created_via_delivery_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("delivery.id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
