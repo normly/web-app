@@ -84,3 +84,69 @@ def test_document_titles_are_multilingual(db_session):
 
     titles = doc_repo.list_titles(document.id)
     assert {t.language for t in titles} == {"en", "de"}
+
+
+def test_add_designation_is_idempotent_by_issuer_designation(db_session):
+    delivery = _make_delivery(db_session, content_hash="sha256:idempotent-designation")
+    doc_repo = PostgresDocumentRepository(db_session)
+    document = doc_repo.create_document(
+        origin_issuer="ISO",
+        origin_number="9001",
+        edition="2015",
+        part=None,
+        delivery_id=delivery.id,
+    )
+
+    first = doc_repo.add_designation(
+        document_id=document.id,
+        issuer="DIN",
+        designation="DIN EN ISO 9001",
+        language="de",
+        edition=None,
+        is_primary=False,
+        delivery_id=delivery.id,
+    )
+
+    second = doc_repo.add_designation(
+        document_id=document.id,
+        issuer="DIN",
+        designation="DIN EN ISO 9001",
+        language="de",
+        edition=None,
+        is_primary=False,
+        delivery_id=delivery.id,
+    )
+
+    assert first.id == second.id
+    designations = doc_repo.list_designations(document.id)
+    assert len(designations) == 1
+
+
+def test_add_title_is_idempotent_by_document_language_title(db_session):
+    delivery = _make_delivery(db_session, content_hash="sha256:idempotent-title")
+    doc_repo = PostgresDocumentRepository(db_session)
+    document = doc_repo.create_document(
+        origin_issuer="ISO",
+        origin_number="9001",
+        edition="2015",
+        part=None,
+        delivery_id=delivery.id,
+    )
+
+    first = doc_repo.add_title(
+        document_id=document.id,
+        language="en",
+        title="Quality management systems — Requirements",
+        delivery_id=delivery.id,
+    )
+
+    second = doc_repo.add_title(
+        document_id=document.id,
+        language="en",
+        title="Quality management systems — Requirements",
+        delivery_id=delivery.id,
+    )
+
+    assert first.id == second.id
+    titles = doc_repo.list_titles(document.id)
+    assert len(titles) == 1

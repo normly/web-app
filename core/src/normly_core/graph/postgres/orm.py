@@ -121,3 +121,7 @@ class DocumentTitleORM(Base):
     delivery_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), sa.ForeignKey("delivery.id"), nullable=False
     )
+
+    __table_args__ = (
+        sa.UniqueConstraint("document_id", "language", "title", name="uq_title_document_language_title"),
+    )

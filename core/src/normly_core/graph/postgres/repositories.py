@@ -219,6 +219,15 @@ class PostgresDocumentRepository:
         is_primary: bool,
         delivery_id: uuid.UUID,
     ) -> DocumentDesignation:
+        existing = self._session.execute(
+            select(DocumentDesignationORM).where(
+                DocumentDesignationORM.issuer == issuer,
+                DocumentDesignationORM.designation == designation,
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            return _designation_to_domain(existing)
+
         orm = DocumentDesignationORM(
             id=uuid.uuid4(),
             document_id=document_id,
@@ -229,13 +238,35 @@ class PostgresDocumentRepository:
             is_primary=is_primary,
             delivery_id=delivery_id,
         )
-        self._session.add(orm)
-        self._session.flush()
+        try:
+            with self._session.begin_nested():
+                self._session.add(orm)
+                self._session.flush()
+        except IntegrityError:
+            existing = self._session.execute(
+                select(DocumentDesignationORM).where(
+                    DocumentDesignationORM.issuer == issuer,
+                    DocumentDesignationORM.designation == designation,
+                )
+            ).scalar_one_or_none()
+            if existing is None:
+                raise
+            return _designation_to_domain(existing)
         return _designation_to_domain(orm)
 
     def add_title(
         self, *, document_id: uuid.UUID, language: str, title: str, delivery_id: uuid.UUID
     ) -> DocumentTitle:
+        existing = self._session.execute(
+            select(DocumentTitleORM).where(
+                DocumentTitleORM.document_id == document_id,
+                DocumentTitleORM.language == language,
+                DocumentTitleORM.title == title,
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            return _title_to_domain(existing)
+
         orm = DocumentTitleORM(
             id=uuid.uuid4(),
             document_id=document_id,
@@ -243,8 +274,21 @@ class PostgresDocumentRepository:
             title=title,
             delivery_id=delivery_id,
         )
-        self._session.add(orm)
-        self._session.flush()
+        try:
+            with self._session.begin_nested():
+                self._session.add(orm)
+                self._session.flush()
+        except IntegrityError:
+            existing = self._session.execute(
+                select(DocumentTitleORM).where(
+                    DocumentTitleORM.document_id == document_id,
+                    DocumentTitleORM.language == language,
+                    DocumentTitleORM.title == title,
+                )
+            ).scalar_one_or_none()
+            if existing is None:
+                raise
+            return _title_to_domain(existing)
         return _title_to_domain(orm)
 
     def list_designations(self, document_id: uuid.UUID) -> list[DocumentDesignation]:
