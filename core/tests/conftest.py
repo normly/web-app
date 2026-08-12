@@ -40,11 +40,14 @@ def migrated_engine(db_url):
 def db_session(migrated_engine):
     connection = migrated_engine.connect()
     transaction = connection.begin()
-    session_factory = sessionmaker(bind=connection)
+    nested = connection.begin_nested()
+    session_factory = sessionmaker(bind=connection, join_transaction_mode="create_savepoint")
     session = session_factory()
 
     yield session
 
     session.close()
+    if nested.is_active:
+        nested.rollback()
     transaction.rollback()
     connection.close()
