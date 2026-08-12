@@ -5,6 +5,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from normly_core.graph.domain import (
@@ -106,7 +107,19 @@ class PostgresDeliveryRepository:
             withdrawn_at=None,
         )
         self._session.add(orm)
-        self._session.flush()
+        try:
+            self._session.flush()
+        except IntegrityError:
+            self._session.rollback()
+            existing = self._session.execute(
+                select(DeliveryORM).where(
+                    DeliveryORM.source_id == source_id,
+                    DeliveryORM.content_hash == content_hash,
+                )
+            ).scalar_one_or_none()
+            if existing is None:
+                raise
+            return _delivery_to_domain(existing)
         return _delivery_to_domain(orm)
 
     def get_delivery(self, delivery_id: uuid.UUID) -> Delivery | None:
