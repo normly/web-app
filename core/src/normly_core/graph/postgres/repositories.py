@@ -106,11 +106,11 @@ class PostgresDeliveryRepository:
             ingested_at=ingested_at,
             withdrawn_at=None,
         )
-        self._session.add(orm)
         try:
-            self._session.flush()
+            with self._session.begin_nested():
+                self._session.add(orm)
+                self._session.flush()
         except IntegrityError:
-            self._session.rollback()
             existing = self._session.execute(
                 select(DeliveryORM).where(
                     DeliveryORM.source_id == source_id,

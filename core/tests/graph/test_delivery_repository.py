@@ -2,16 +2,13 @@
 # Copyright (C) 2026 normly contributors
 
 from datetime import date, datetime, timezone
-from unittest.mock import patch, MagicMock
-
-from sqlalchemy.exc import IntegrityError
+from unittest.mock import patch
 
 from normly_core.graph.domain import LegalBasisCategory
 from normly_core.graph.postgres.repositories import (
     PostgresDeliveryRepository,
     PostgresSourceRepository,
 )
-from normly_core.graph.postgres.orm import DeliveryORM
 
 
 def _make_source(db_session):
@@ -76,61 +73,59 @@ def test_record_delivery_handles_concurrent_insert_race(db_session):
     """
     Test that record_delivery is race-safe under concurrent inserts.
 
-    The race condition scenario: two threads both pass the SELECT check
-    before either flushes, causing the second flush to raise IntegrityError.
-    The fix must catch this and return the existing delivery without crashing.
+    Simulates the TOCTOU (time-of-check-to-time-of-use) race condition:
+    1. Thread A and B both execute the pre-check SELECT
+    2. Both find no existing delivery (race window)
+    3. Thread A flushes first → succeeds, row now in DB
+    4. Thread B tries to flush → raises IntegrityError (duplicate key)
+    5. Thread B's exception handler catches it and re-selects the row
+    6. Thread B returns the existing delivery (idempotent behavior)
 
-    This test verifies the exception handling by:
-    1. Creating a delivery
-    2. Expunging the session (simulating a separate transaction/thread)
-    3. Patching flush to raise IntegrityError on first call
-    4. Verifying that record_delivery's try-except path handles it correctly
-
-    The key property: after record_delivery catches IntegrityError and rolls back,
-    the re-select must find the row that was inserted by the "other thread".
+    This test simulates the race by making the pre-check SELECT lie (return None)
+    even though the row genuinely exists in the DB. When the real INSERT then
+    executes, it hits the real unique constraint and raises a genuine IntegrityError.
+    The exception handler must catch it and re-select to find the existing row.
     """
     source = _make_source(db_session)
     delivery_repo = PostgresDeliveryRepository(db_session)
     now = datetime.now(timezone.utc)
 
-    # Create the first delivery to establish it exists
+    # Create the first delivery for real (row exists in DB)
     first = delivery_repo.record_delivery(
-        source_id=source.id, content_hash="sha256:race_test", ingested_at=now
+        source_id=source.id, content_hash="sha256:race", ingested_at=now
     )
 
-    # Expunge the session to clear the identity map (simulating a new transaction)
-    db_session.expunge_all()
+    # Simulate the TOCTOU window: make the pre-check SELECT return None
+    # even though the row exists, forcing the real INSERT to hit the unique constraint
+    original_execute = db_session.execute
+    call_count = {"n": 0}
 
-    # Now simulate the race: patch flush to raise IntegrityError on first call
-    # This simulates the scenario where the SELECT found nothing, but then
-    # another thread inserted it before we could flush.
-    call_count = [0]
-    original_flush = db_session.flush
+    def execute_with_first_select_lying(statement, *args, **kwargs):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            # First call (pre-check SELECT) lies and returns None
+            class _EmptyResult:
+                def scalar_one_or_none(self):
+                    return None
+            return _EmptyResult()
+        # Subsequent calls (re-select after exception) use real execute
+        return original_execute(statement, *args, **kwargs)
 
-    def mock_flush_raises_once(*args, **kwargs):
-        call_count[0] += 1
-        if call_count[0] == 1:
-            # First flush raises IntegrityError (simulating duplicate key)
-            raise IntegrityError(
-                "statement", "params",
-                Exception("duplicate key value violates unique constraint")
-            )
-        # Subsequent flushes succeed
-        return original_flush(*args, **kwargs)
+    with patch.object(db_session, "execute", side_effect=execute_with_first_select_lying):
+        # This call will:
+        # 1. Execute pre-check SELECT → mocked to return None (TOCTOU window)
+        # 2. Create DeliveryORM instance
+        # 3. Call begin_nested() for savepoint
+        # 4. Try to flush → real INSERT hits unique constraint → raises IntegrityError
+        # 5. Exception handler catches IntegrityError
+        # 6. Exception handler re-executes SELECT → finds the real row (call_count["n"] == 2)
+        # 7. Returns the existing delivery
+        second = delivery_repo.record_delivery(
+            source_id=source.id, content_hash="sha256:race", ingested_at=now
+        )
 
-    with patch.object(db_session, "flush", side_effect=mock_flush_raises_once):
-        with db_session.no_autoflush:
-            # This call should not raise. The exception handler should:
-            # 1. Catch IntegrityError from flush
-            # 2. Rollback to savepoint
-            # 3. Re-select and find the existing delivery
-            # 4. Return it
-            result = delivery_repo.record_delivery(
-                source_id=source.id, content_hash="sha256:race_test", ingested_at=now
-            )
-
-    # Verify we got back the same delivery
-    assert result.id == first.id
-    assert result.source_id == source.id
-    assert result.content_hash == "sha256:race_test"
-    assert result.withdrawn_at is None
+    # Verify we got back the same delivery (idempotent)
+    assert second.id == first.id
+    assert second.source_id == source.id
+    assert second.content_hash == "sha256:race"
+    assert second.withdrawn_at is None
