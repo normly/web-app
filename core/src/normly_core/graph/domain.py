@@ -148,6 +148,26 @@ class DeliveryRepository(Protocol):
 
 
 class DocumentRepository(Protocol):
+    """
+    The rights-gated read and write surface for document nodes.
+
+    Every read declared here takes a jurisdiction and filters through
+    `rights_classification`; there is deliberately no method that returns
+    documents unfiltered.
+
+    `PostgresDocumentRepository` additionally carries three ungated methods
+    that are **not** part of this Protocol and must not be treated as
+    content-serving API: `get_document_unchecked` (existence check for
+    pipeline and administrative use, e.g. proving a document node survived a
+    delivery revocation), `list_designations` and `list_titles` (identity
+    resolution and pipeline metadata — designations are the identity of a node
+    across national adoptions, independent of any rights question). They are
+    internal implementation methods.
+
+    Any public-facing read path — the API sub-project above all — MUST use
+    `get_document_for_jurisdiction` / `list_documents_for_jurisdiction`.
+    """
+
     def create_document(
         self,
         *,
@@ -157,8 +177,6 @@ class DocumentRepository(Protocol):
         part: str | None,
         delivery_id: uuid.UUID,
     ) -> Document: ...
-
-    def get_document_unchecked(self, document_id: uuid.UUID) -> Document | None: ...
 
     def add_designation(
         self,
@@ -175,10 +193,6 @@ class DocumentRepository(Protocol):
     def add_title(
         self, *, document_id: uuid.UUID, language: str, title: str, delivery_id: uuid.UUID
     ) -> DocumentTitle: ...
-
-    def list_designations(self, document_id: uuid.UUID) -> list[DocumentDesignation]: ...
-
-    def list_titles(self, document_id: uuid.UUID) -> list[DocumentTitle]: ...
 
     def get_document_for_jurisdiction(
         self, document_id: uuid.UUID, jurisdiction: str
