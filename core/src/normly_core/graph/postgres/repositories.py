@@ -7,7 +7,7 @@ from datetime import date, datetime
 import sqlalchemy as sa
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from normly_core.graph.domain import (
     Delivery,
@@ -334,15 +334,17 @@ class PostgresDocumentRepository:
 
     def list_designations(self, document_id: uuid.UUID) -> list[DocumentDesignation]:
         rows = self._session.execute(
-            select(DocumentDesignationORM).where(
-                DocumentDesignationORM.document_id == document_id
-            )
+            select(DocumentDesignationORM)
+            .where(DocumentDesignationORM.document_id == document_id)
+            .order_by(DocumentDesignationORM.id)
         ).scalars()
         return [_designation_to_domain(row) for row in rows]
 
     def list_titles(self, document_id: uuid.UUID) -> list[DocumentTitle]:
         rows = self._session.execute(
-            select(DocumentTitleORM).where(DocumentTitleORM.document_id == document_id)
+            select(DocumentTitleORM)
+            .where(DocumentTitleORM.document_id == document_id)
+            .order_by(DocumentTitleORM.id)
         ).scalars()
         return [_title_to_domain(row) for row in rows]
 
@@ -376,6 +378,7 @@ class PostgresDocumentRepository:
                 RightsClassificationORM.may_process.is_(True),
                 RightsClassificationORM.revoked_at.is_(None),
             )
+            .order_by(DocumentORM.id)
         ).scalars()
         return [_document_to_domain(row) for row in rows]
 
@@ -451,6 +454,28 @@ def _edge_to_domain(orm: EdgeORM) -> Edge:
     )
 
 
+def _active_edge_query(
+    from_document_id: uuid.UUID,
+    to_document_id: uuid.UUID,
+    edge_type: EdgeType,
+    jurisdiction: str | None,
+):
+    """
+    Select the one active edge the partial unique index
+    ``uq_edge_active_from_to_type_jurisdiction`` allows for this tuple.
+
+    The index keys on ``coalesce(jurisdiction, '')`` where ``revoked_at IS
+    NULL``, so a NULL jurisdiction and an empty one are the same key here too.
+    """
+    return select(EdgeORM).where(
+        EdgeORM.from_document_id == from_document_id,
+        EdgeORM.to_document_id == to_document_id,
+        EdgeORM.edge_type == edge_type,
+        sa.func.coalesce(EdgeORM.jurisdiction, "") == (jurisdiction or ""),
+        EdgeORM.revoked_at.is_(None),
+    )
+
+
 class PostgresEdgeRepository:
     def __init__(self, session: Session):
         self._session = session
@@ -465,6 +490,13 @@ class PostgresEdgeRepository:
         layer: Layer,
         delivery_id: uuid.UUID,
     ) -> Edge:
+        query = _active_edge_query(
+            from_document_id, to_document_id, edge_type, jurisdiction
+        )
+        existing = self._session.execute(query).scalar_one_or_none()
+        if existing is not None:
+            return _edge_to_domain(existing)
+
         orm = EdgeORM(
             id=uuid.uuid4(),
             from_document_id=from_document_id,
@@ -475,27 +507,42 @@ class PostgresEdgeRepository:
             delivery_id=delivery_id,
             revoked_at=None,
         )
-        self._session.add(orm)
-        self._session.flush()
+        try:
+            with self._session.begin_nested():
+                self._session.add(orm)
+                self._session.flush()
+        except IntegrityError:
+            existing = self._session.execute(query).scalar_one_or_none()
+            if existing is None:
+                raise
+            return _edge_to_domain(existing)
         self._session.refresh(orm)
         return _edge_to_domain(orm)
 
     def list_edges_for_jurisdiction(
         self, document_id: uuid.UUID, jurisdiction: str
     ) -> list[Edge]:
+        # Both endpoints must be readable in this jurisdiction. Gating the
+        # target alone would still reveal the source's existence and its
+        # reference structure through a jurisdiction the source is not
+        # readable in at all.
+        source_rights = aliased(RightsClassificationORM, name="source_rights")
+        target_rights = aliased(RightsClassificationORM, name="target_rights")
         rows = self._session.execute(
             select(EdgeORM)
-            .join(
-                RightsClassificationORM,
-                RightsClassificationORM.document_id == EdgeORM.to_document_id,
-            )
+            .join(source_rights, source_rights.document_id == EdgeORM.from_document_id)
+            .join(target_rights, target_rights.document_id == EdgeORM.to_document_id)
             .where(
                 EdgeORM.from_document_id == document_id,
                 EdgeORM.revoked_at.is_(None),
                 sa.or_(EdgeORM.jurisdiction.is_(None), EdgeORM.jurisdiction == jurisdiction),
-                RightsClassificationORM.jurisdiction == jurisdiction,
-                RightsClassificationORM.may_process.is_(True),
-                RightsClassificationORM.revoked_at.is_(None),
+                source_rights.jurisdiction == jurisdiction,
+                source_rights.may_process.is_(True),
+                source_rights.revoked_at.is_(None),
+                target_rights.jurisdiction == jurisdiction,
+                target_rights.may_process.is_(True),
+                target_rights.revoked_at.is_(None),
             )
+            .order_by(EdgeORM.id)
         ).scalars()
         return [_edge_to_domain(row) for row in rows]
