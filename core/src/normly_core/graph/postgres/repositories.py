@@ -21,6 +21,7 @@ from normly_core.graph.domain import (
     RightsClassification,
     Source,
     TdmOptOutResult,
+    WithdrawnDeliveryError,
 )
 from normly_core.graph.postgres.orm import (
     DeliveryORM,
@@ -31,6 +32,19 @@ from normly_core.graph.postgres.orm import (
     RightsClassificationORM,
     SourceORM,
 )
+
+
+def _require_active_delivery(session: Session, delivery_id: uuid.UUID) -> None:
+    """
+    Guard every artifact-creating write path.
+
+    A withdrawn delivery must not gain new artifacts, and re-running an
+    ingestion for it must not resurrect what `revoke_delivery` locked —
+    `classify()` in particular writes `revoked_at=None` on every call.
+    """
+    delivery = session.get(DeliveryORM, delivery_id)
+    if delivery is None or delivery.withdrawn_at is not None:
+        raise WithdrawnDeliveryError(delivery_id)
 
 
 def _source_to_domain(orm: SourceORM) -> Source:
@@ -222,6 +236,7 @@ class PostgresDocumentRepository:
         part: str | None,
         delivery_id: uuid.UUID,
     ) -> Document:
+        _require_active_delivery(self._session, delivery_id)
         orm = DocumentORM(
             id=uuid.uuid4(),
             origin_issuer=origin_issuer,
@@ -250,6 +265,7 @@ class PostgresDocumentRepository:
         is_primary: bool,
         delivery_id: uuid.UUID,
     ) -> DocumentDesignation:
+        _require_active_delivery(self._session, delivery_id)
         # The dedupe key includes document_id, even though
         # uq_designation_issuer_designation is global. The constraint stays
         # global on purpose: a designation identifies exactly one node
@@ -298,6 +314,7 @@ class PostgresDocumentRepository:
     def add_title(
         self, *, document_id: uuid.UUID, language: str, title: str, delivery_id: uuid.UUID
     ) -> DocumentTitle:
+        _require_active_delivery(self._session, delivery_id)
         existing = self._session.execute(
             select(DocumentTitleORM).where(
                 DocumentTitleORM.document_id == document_id,
@@ -417,6 +434,7 @@ class PostgresRightsRepository:
         classified_by: str,
         delivery_id: uuid.UUID,
     ) -> RightsClassification:
+        _require_active_delivery(self._session, delivery_id)
         orm = RightsClassificationORM(
             document_id=document_id,
             jurisdiction=jurisdiction,
@@ -490,6 +508,7 @@ class PostgresEdgeRepository:
         layer: Layer,
         delivery_id: uuid.UUID,
     ) -> Edge:
+        _require_active_delivery(self._session, delivery_id)
         query = _active_edge_query(
             from_document_id, to_document_id, edge_type, jurisdiction
         )

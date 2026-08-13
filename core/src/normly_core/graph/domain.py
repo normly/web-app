@@ -35,6 +35,22 @@ class Layer(str, Enum):
     COMMERCIAL = "commercial"
 
 
+class WithdrawnDeliveryError(Exception):
+    """
+    Raised when an artifact would be created or updated on a delivery that is
+    withdrawn or unknown.
+
+    Without this guard a repeat ingestion run — which the idempotency rule
+    requires to be safe — would re-create artifacts a publisher's withdrawal
+    had just locked, and `classify()` would clear `revoked_at` outright. The
+    withdrawal commitment depends on this staying closed.
+    """
+
+    def __init__(self, delivery_id: uuid.UUID):
+        self.delivery_id = delivery_id
+        super().__init__(f"delivery {delivery_id} is withdrawn or does not exist")
+
+
 @dataclass(frozen=True)
 class Source:
     id: uuid.UUID
