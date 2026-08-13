@@ -250,8 +250,17 @@ class PostgresDocumentRepository:
         is_primary: bool,
         delivery_id: uuid.UUID,
     ) -> DocumentDesignation:
+        # The dedupe key includes document_id, even though
+        # uq_designation_issuer_designation is global. The constraint stays
+        # global on purpose: a designation identifies exactly one node
+        # worldwide ("ein Regelwerk = ein Knoten"). Filtering the pre-check on
+        # (issuer, designation) alone silently handed back another document's
+        # row; with document_id in the key the collision instead reaches the
+        # constraint and surfaces as an IntegrityError — an identity-resolution
+        # error, which is what it is.
         existing = self._session.execute(
             select(DocumentDesignationORM).where(
+                DocumentDesignationORM.document_id == document_id,
                 DocumentDesignationORM.issuer == issuer,
                 DocumentDesignationORM.designation == designation,
             )
@@ -276,6 +285,7 @@ class PostgresDocumentRepository:
         except IntegrityError:
             existing = self._session.execute(
                 select(DocumentDesignationORM).where(
+                    DocumentDesignationORM.document_id == document_id,
                     DocumentDesignationORM.issuer == issuer,
                     DocumentDesignationORM.designation == designation,
                 )

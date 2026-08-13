@@ -3,6 +3,9 @@
 
 from datetime import date, datetime, timezone
 
+import pytest
+from sqlalchemy.exc import IntegrityError
+
 from normly_core.graph.domain import LegalBasisCategory
 from normly_core.graph.postgres.repositories import (
     PostgresDeliveryRepository,
@@ -120,6 +123,49 @@ def test_add_designation_is_idempotent_by_issuer_designation(db_session):
     assert first.id == second.id
     designations = doc_repo.list_designations(document.id)
     assert len(designations) == 1
+
+
+def test_same_designation_on_a_second_document_is_rejected_not_silently_merged(db_session):
+    """
+    A designation identifies exactly one node worldwide. Attaching one that
+    already belongs to another document is an identity-resolution error and
+    must surface, not silently hand back the other document's row.
+    """
+    delivery = _make_delivery(db_session, content_hash="sha256:designation-collision")
+    doc_repo = PostgresDocumentRepository(db_session)
+    first_document = doc_repo.create_document(
+        origin_issuer="ISO", origin_number="9001", edition="2015", part=None,
+        delivery_id=delivery.id,
+    )
+    second_document = doc_repo.create_document(
+        origin_issuer="ISO", origin_number="14001", edition="2015", part=None,
+        delivery_id=delivery.id,
+    )
+
+    doc_repo.add_designation(
+        document_id=first_document.id,
+        issuer="DIN",
+        designation="DIN EN ISO 9001",
+        language="de",
+        edition=None,
+        is_primary=True,
+        delivery_id=delivery.id,
+    )
+
+    with pytest.raises(IntegrityError):
+        doc_repo.add_designation(
+            document_id=second_document.id,
+            issuer="DIN",
+            designation="DIN EN ISO 9001",
+            language="de",
+            edition=None,
+            is_primary=True,
+            delivery_id=delivery.id,
+        )
+
+    assert doc_repo.list_designations(second_document.id) == []
+    kept = doc_repo.list_designations(first_document.id)
+    assert [d.document_id for d in kept] == [first_document.id]
 
 
 def test_add_title_is_idempotent_by_document_language_title(db_session):
