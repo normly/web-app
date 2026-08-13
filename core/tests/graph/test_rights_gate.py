@@ -3,7 +3,10 @@
 
 from datetime import date, datetime, timezone
 
+from sqlalchemy import select
+
 from normly_core.graph.domain import LegalBasisCategory
+from normly_core.graph.postgres.orm import RightsClassificationORM
 from normly_core.graph.postgres.repositories import (
     PostgresDeliveryRepository,
     PostgresDocumentRepository,
@@ -87,6 +90,7 @@ def test_classification_does_not_grant_access_in_other_jurisdictions(db_session)
     )
 
     assert doc_repo.get_document_for_jurisdiction(document.id, "US") is None
+    assert doc_repo.list_documents_for_jurisdiction("US") == []
 
 
 def test_may_process_false_still_blocks_read(db_session):
@@ -108,3 +112,81 @@ def test_may_process_false_still_blocks_read(db_session):
     )
 
     assert doc_repo.get_document_for_jurisdiction(document.id, "DE") is None
+    assert doc_repo.list_documents_for_jurisdiction("DE") == []
+
+
+def test_revoked_classification_blocks_read(db_session):
+    document, delivery = _make_document(db_session)
+    rights_repo = PostgresRightsRepository(db_session)
+    doc_repo = PostgresDocumentRepository(db_session)
+
+    rights_repo.classify(
+        document_id=document.id,
+        jurisdiction="DE",
+        may_process=True,
+        may_index_fulltext=True,
+        may_cite_passages=True,
+        may_export_free=True,
+        legal_basis_reference="§ 5 UrhG",
+        classified_at=datetime.now(timezone.utc),
+        classified_by="J. Weber",
+        delivery_id=delivery.id,
+    )
+
+    # Confirm it is readable before revocation, so the assertions below
+    # actually exercise the revoked_at predicate and not some other gap.
+    assert doc_repo.get_document_for_jurisdiction(document.id, "DE") is not None
+
+    orm = db_session.get(RightsClassificationORM, (document.id, "DE"))
+    orm.revoked_at = datetime.now(timezone.utc)
+    db_session.flush()
+
+    assert doc_repo.get_document_for_jurisdiction(document.id, "DE") is None
+    assert doc_repo.list_documents_for_jurisdiction("DE") == []
+
+
+def test_classify_is_idempotent_and_updates_existing_classification(db_session):
+    document, delivery = _make_document(db_session)
+    rights_repo = PostgresRightsRepository(db_session)
+
+    first = rights_repo.classify(
+        document_id=document.id,
+        jurisdiction="DE",
+        may_process=False,
+        may_index_fulltext=False,
+        may_cite_passages=False,
+        may_export_free=False,
+        legal_basis_reference="unklar, in Prüfung",
+        classified_at=datetime.now(timezone.utc),
+        classified_by="J. Weber",
+        delivery_id=delivery.id,
+    )
+
+    second = rights_repo.classify(
+        document_id=document.id,
+        jurisdiction="DE",
+        may_process=True,
+        may_index_fulltext=True,
+        may_cite_passages=True,
+        may_export_free=True,
+        legal_basis_reference="§ 5 UrhG",
+        classified_at=datetime.now(timezone.utc),
+        classified_by="J. Weber",
+        delivery_id=delivery.id,
+    )
+
+    assert first.may_process is False
+    assert second.may_process is True
+    assert second.legal_basis_reference == "§ 5 UrhG"
+
+    fetched = rights_repo.get_classification(document.id, "DE")
+    assert fetched.may_process is True
+    assert fetched.legal_basis_reference == "§ 5 UrhG"
+
+    rows = db_session.execute(
+        select(RightsClassificationORM).where(
+            RightsClassificationORM.document_id == document.id,
+            RightsClassificationORM.jurisdiction == "DE",
+        )
+    ).scalars().all()
+    assert len(rows) == 1
