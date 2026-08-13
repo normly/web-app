@@ -39,6 +39,6 @@ def test_create_and_get_document(db_session):
         delivery_id=delivery.id,
     )
 
-    fetched = repo.get_document(document.id)
+    fetched = repo.get_document_unchecked(document.id)
     assert fetched == document
     assert fetched.created_via_delivery_id == delivery.id

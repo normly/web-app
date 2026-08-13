@@ -206,7 +206,7 @@ class PostgresDocumentRepository:
         self._session.refresh(orm)
         return _document_to_domain(orm)
 
-    def get_document(self, document_id: uuid.UUID) -> Document | None:
+    def get_document_unchecked(self, document_id: uuid.UUID) -> Document | None:
         orm = self._session.get(DocumentORM, document_id)
         return _document_to_domain(orm) if orm else None
 

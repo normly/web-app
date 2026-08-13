@@ -55,7 +55,7 @@ def test_three_national_adoptions_stay_one_node(db_session):
     designations = doc_repo.list_designations(document.id)
     assert len(designations) == 3
     assert {d.issuer for d in designations} == {"DIN", "BSI", "AFNOR"}
-    assert doc_repo.get_document(document.id).id == document.id
+    assert doc_repo.get_document_unchecked(document.id).id == document.id
 
 
 def test_document_titles_are_multilingual(db_session):
