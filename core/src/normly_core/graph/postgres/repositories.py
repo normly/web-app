@@ -4,6 +4,7 @@
 import uuid
 from datetime import date, datetime
 
+import sqlalchemy as sa
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -13,7 +14,10 @@ from normly_core.graph.domain import (
     Document,
     DocumentDesignation,
     DocumentTitle,
+    Edge,
+    EdgeType,
     LegalBasisCategory,
+    Layer,
     RightsClassification,
     Source,
     TdmOptOutResult,
@@ -23,6 +27,7 @@ from normly_core.graph.postgres.orm import (
     DocumentORM,
     DocumentDesignationORM,
     DocumentTitleORM,
+    EdgeORM,
     RightsClassificationORM,
     SourceORM,
 )
@@ -397,3 +402,66 @@ class PostgresRightsRepository:
     ) -> RightsClassification | None:
         orm = self._session.get(RightsClassificationORM, (document_id, jurisdiction))
         return _rights_to_domain(orm) if orm else None
+
+
+def _edge_to_domain(orm: EdgeORM) -> Edge:
+    return Edge(
+        id=orm.id,
+        from_document_id=orm.from_document_id,
+        to_document_id=orm.to_document_id,
+        edge_type=orm.edge_type,
+        jurisdiction=orm.jurisdiction,
+        layer=orm.layer,
+        delivery_id=orm.delivery_id,
+        revoked_at=orm.revoked_at,
+    )
+
+
+class PostgresEdgeRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def create_edge(
+        self,
+        *,
+        from_document_id: uuid.UUID,
+        to_document_id: uuid.UUID,
+        edge_type: EdgeType,
+        jurisdiction: str | None,
+        layer: Layer,
+        delivery_id: uuid.UUID,
+    ) -> Edge:
+        orm = EdgeORM(
+            id=uuid.uuid4(),
+            from_document_id=from_document_id,
+            to_document_id=to_document_id,
+            edge_type=edge_type,
+            jurisdiction=jurisdiction,
+            layer=layer,
+            delivery_id=delivery_id,
+            revoked_at=None,
+        )
+        self._session.add(orm)
+        self._session.flush()
+        self._session.refresh(orm)
+        return _edge_to_domain(orm)
+
+    def list_edges_for_jurisdiction(
+        self, document_id: uuid.UUID, jurisdiction: str
+    ) -> list[Edge]:
+        rows = self._session.execute(
+            select(EdgeORM)
+            .join(
+                RightsClassificationORM,
+                RightsClassificationORM.document_id == EdgeORM.to_document_id,
+            )
+            .where(
+                EdgeORM.from_document_id == document_id,
+                EdgeORM.revoked_at.is_(None),
+                sa.or_(EdgeORM.jurisdiction.is_(None), EdgeORM.jurisdiction == jurisdiction),
+                RightsClassificationORM.jurisdiction == jurisdiction,
+                RightsClassificationORM.may_process.is_(True),
+                RightsClassificationORM.revoked_at.is_(None),
+            )
+        ).scalars()
+        return [_edge_to_domain(row) for row in rows]

@@ -8,7 +8,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from normly_core.graph.domain import LegalBasisCategory, TdmOptOutResult
+from normly_core.graph.domain import EdgeType, LegalBasisCategory, Layer, TdmOptOutResult
 
 
 class Base(DeclarativeBase):
@@ -145,3 +145,41 @@ class RightsClassificationORM(Base):
         UUID(as_uuid=True), sa.ForeignKey("delivery.id"), nullable=False
     )
     revoked_at: Mapped[datetime | None]
+
+
+class EdgeORM(Base):
+    __tablename__ = "edge"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    from_document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("document.id"), nullable=False
+    )
+    to_document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("document.id"), nullable=False
+    )
+    edge_type: Mapped[EdgeType] = mapped_column(
+        sa.Enum(EdgeType, name="edge_type", native_enum=False)
+    )
+    jurisdiction: Mapped[str | None]
+    layer: Mapped[Layer] = mapped_column(sa.Enum(Layer, name="layer", native_enum=False))
+    delivery_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("delivery.id"), nullable=False
+    )
+    revoked_at: Mapped[datetime | None]
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
+
+    __table_args__ = (
+        sa.Index(
+            "uq_edge_active_from_to_type_jurisdiction",
+            "from_document_id",
+            "to_document_id",
+            "edge_type",
+            sa.text("coalesce(jurisdiction, '')"),
+            unique=True,
+            postgresql_where=sa.text("revoked_at IS NULL"),
+        ),
+    )
