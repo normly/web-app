@@ -2788,7 +2788,7 @@ Keine Lücke gefunden.
 
 **Placeholder-Scan:** keine „TBD"/„TODO"/„similar to Task N" gefunden — jeder Schritt trägt vollständigen Code.
 
-**Typkonsistenz:** Repository-Methodennamen aus den Protocols (Task 2) stimmen mit den Implementierungen überein (`create_source`/`get_source`, `record_delivery`/`get_delivery`/`revoke_delivery`, `create_document`/`get_document`/`add_designation`/`add_title`/`list_designations`/`list_titles`/`get_document_for_jurisdiction`/`list_documents_for_jurisdiction`, `classify`/`get_classification`, `create_edge`/`list_edges_for_jurisdiction`) — geprüft gegen jede Task-Implementierung, keine Abweichung gefunden.
+**Typkonsistenz:** Repository-Methodennamen aus den Protocols (Task 2) stimmen mit den Implementierungen überein (`create_source`/`get_source`, `record_delivery`/`get_delivery`/`revoke_delivery`, `create_document`/`get_document_unchecked`/`add_designation`/`add_title`/`list_designations`/`list_titles`/`get_document_for_jurisdiction`/`list_documents_for_jurisdiction`, `classify`/`get_classification`, `create_edge`/`list_edges_for_jurisdiction`) — geprüft gegen jede Task-Implementierung, keine Abweichung gefunden. (`get_document` wurde während Task 8 in `get_document_unchecked` umbenannt.)
 
 ---
 
