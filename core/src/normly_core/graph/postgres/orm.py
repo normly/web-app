@@ -130,6 +130,12 @@ class DocumentTitleORM(Base):
 class RightsClassificationORM(Base):
     __tablename__ = "rights_classification"
 
+    # Primary key is (document_id, jurisdiction): a document has at most one
+    # active classification per jurisdiction, and classify() upserts via
+    # session.merge(). So only one delivery can ever back a document's
+    # readability in a given jurisdiction at a time — a second delivery
+    # cannot independently keep a document readable there once the first
+    # delivery's classification is revoked.
     document_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), sa.ForeignKey("document.id"), primary_key=True
     )

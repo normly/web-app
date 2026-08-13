@@ -43,7 +43,7 @@ def _setup(db_session):
 
 
 def test_revoking_a_delivery_locks_only_its_own_edges(db_session):
-    document, other, delivery_a, delivery_b, doc_repo, delivery_repo = _setup(db_session)
+    document, other, delivery_a, delivery_b, _doc_repo, delivery_repo = _setup(db_session)
     edge_repo = PostgresEdgeRepository(db_session)
 
     edge_from_a = edge_repo.create_edge(
@@ -63,10 +63,21 @@ def test_revoking_a_delivery_locks_only_its_own_edges(db_session):
     assert untouched_edge.revoked_at is None
 
 
-def test_document_stays_readable_when_a_second_delivery_still_supports_it(db_session):
+def test_revoking_a_delivery_locks_its_own_classification_and_spares_other_deliveries_titles(
+    db_session,
+):
     document, _other, delivery_a, delivery_b, doc_repo, delivery_repo = _setup(db_session)
     rights_repo = PostgresRightsRepository(db_session)
 
+    # rights_classification's primary key is (document_id, jurisdiction) and
+    # classify() upserts via session.merge(), so a document can only ever have
+    # one active classification per jurisdiction — a second delivery cannot
+    # independently back readability for the same (document, jurisdiction).
+    # That means revoking delivery_a's classification here makes the document
+    # unreadable in "DE" even though delivery_b still supports it via a title;
+    # this errs safe (over-locking) rather than leaking access. This test
+    # verifies the classification lock and that delivery_b's title survives
+    # untouched — not that the document stays readable.
     rights_repo.classify(
         document_id=document.id, jurisdiction="DE", may_process=True, may_index_fulltext=True,
         may_cite_passages=True, may_export_free=True, legal_basis_reference="§ 5 UrhG",
@@ -96,3 +107,21 @@ def test_designations_from_revoked_delivery_are_removed(db_session):
     delivery_repo.revoke_delivery(delivery_a.id)
 
     assert doc_repo.list_designations(document.id) == []
+
+
+def test_revoke_delivery_covers_every_delivery_scoped_table():
+    from normly_core.graph.postgres.orm import Base
+
+    delivery_scoped_tables = set()
+    for mapper in Base.registry.mappers:
+        for column in mapper.local_table.columns:
+            if column.name in ("delivery_id", "created_via_delivery_id"):
+                delivery_scoped_tables.add(mapper.local_table.name)
+
+    # document is intentionally exempt from revoke_delivery's cascade — it's
+    # an identity node, not a revocable artifact. It becomes unreadable once
+    # its rights_classification is locked, but the row itself is not deleted
+    # or locked by revoke_delivery.
+    expected_cascaded = {"edge", "rights_classification", "document_designation", "document_title"}
+    expected_exempt = {"document"}
+    assert delivery_scoped_tables == expected_cascaded | expected_exempt
