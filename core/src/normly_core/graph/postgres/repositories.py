@@ -14,6 +14,7 @@ from normly_core.graph.domain import (
     DocumentDesignation,
     DocumentTitle,
     LegalBasisCategory,
+    RightsClassification,
     Source,
     TdmOptOutResult,
 )
@@ -22,6 +23,7 @@ from normly_core.graph.postgres.orm import (
     DocumentORM,
     DocumentDesignationORM,
     DocumentTitleORM,
+    RightsClassificationORM,
     SourceORM,
 )
 
@@ -304,3 +306,94 @@ class PostgresDocumentRepository:
             select(DocumentTitleORM).where(DocumentTitleORM.document_id == document_id)
         ).scalars()
         return [_title_to_domain(row) for row in rows]
+
+    def get_document_for_jurisdiction(
+        self, document_id: uuid.UUID, jurisdiction: str
+    ) -> Document | None:
+        orm = self._session.execute(
+            select(DocumentORM)
+            .join(
+                RightsClassificationORM,
+                RightsClassificationORM.document_id == DocumentORM.id,
+            )
+            .where(
+                DocumentORM.id == document_id,
+                RightsClassificationORM.jurisdiction == jurisdiction,
+                RightsClassificationORM.may_process.is_(True),
+                RightsClassificationORM.revoked_at.is_(None),
+            )
+        ).scalar_one_or_none()
+        return _document_to_domain(orm) if orm else None
+
+    def list_documents_for_jurisdiction(self, jurisdiction: str) -> list[Document]:
+        rows = self._session.execute(
+            select(DocumentORM)
+            .join(
+                RightsClassificationORM,
+                RightsClassificationORM.document_id == DocumentORM.id,
+            )
+            .where(
+                RightsClassificationORM.jurisdiction == jurisdiction,
+                RightsClassificationORM.may_process.is_(True),
+                RightsClassificationORM.revoked_at.is_(None),
+            )
+        ).scalars()
+        return [_document_to_domain(row) for row in rows]
+
+
+def _rights_to_domain(orm: RightsClassificationORM) -> RightsClassification:
+    return RightsClassification(
+        document_id=orm.document_id,
+        jurisdiction=orm.jurisdiction,
+        may_process=orm.may_process,
+        may_index_fulltext=orm.may_index_fulltext,
+        may_cite_passages=orm.may_cite_passages,
+        may_export_free=orm.may_export_free,
+        legal_basis_reference=orm.legal_basis_reference,
+        classified_at=orm.classified_at,
+        classified_by=orm.classified_by,
+        delivery_id=orm.delivery_id,
+        revoked_at=orm.revoked_at,
+    )
+
+
+class PostgresRightsRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def classify(
+        self,
+        *,
+        document_id: uuid.UUID,
+        jurisdiction: str,
+        may_process: bool,
+        may_index_fulltext: bool,
+        may_cite_passages: bool,
+        may_export_free: bool,
+        legal_basis_reference: str,
+        classified_at: datetime,
+        classified_by: str,
+        delivery_id: uuid.UUID,
+    ) -> RightsClassification:
+        orm = RightsClassificationORM(
+            document_id=document_id,
+            jurisdiction=jurisdiction,
+            may_process=may_process,
+            may_index_fulltext=may_index_fulltext,
+            may_cite_passages=may_cite_passages,
+            may_export_free=may_export_free,
+            legal_basis_reference=legal_basis_reference,
+            classified_at=classified_at,
+            classified_by=classified_by,
+            delivery_id=delivery_id,
+            revoked_at=None,
+        )
+        merged = self._session.merge(orm)
+        self._session.flush()
+        return _rights_to_domain(merged)
+
+    def get_classification(
+        self, document_id: uuid.UUID, jurisdiction: str
+    ) -> RightsClassification | None:
+        orm = self._session.get(RightsClassificationORM, (document_id, jurisdiction))
+        return _rights_to_domain(orm) if orm else None

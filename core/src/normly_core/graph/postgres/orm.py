@@ -125,3 +125,23 @@ class DocumentTitleORM(Base):
     __table_args__ = (
         sa.UniqueConstraint("document_id", "language", "title", name="uq_title_document_language_title"),
     )
+
+
+class RightsClassificationORM(Base):
+    __tablename__ = "rights_classification"
+
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("document.id"), primary_key=True
+    )
+    jurisdiction: Mapped[str] = mapped_column(primary_key=True)
+    may_process: Mapped[bool]
+    may_index_fulltext: Mapped[bool]
+    may_cite_passages: Mapped[bool]
+    may_export_free: Mapped[bool]
+    legal_basis_reference: Mapped[str]
+    classified_at: Mapped[datetime]
+    classified_by: Mapped[str]
+    delivery_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("delivery.id"), nullable=False
+    )
+    revoked_at: Mapped[datetime | None]
