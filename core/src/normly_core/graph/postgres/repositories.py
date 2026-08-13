@@ -146,7 +146,31 @@ class PostgresDeliveryRepository:
         orm = self._session.get(DeliveryORM, delivery_id)
         if orm is None or orm.withdrawn_at is not None:
             return
-        orm.withdrawn_at = datetime.now(orm.ingested_at.tzinfo)
+
+        now = datetime.now(orm.ingested_at.tzinfo)
+        orm.withdrawn_at = now
+
+        self._session.execute(
+            sa.update(EdgeORM)
+            .where(EdgeORM.delivery_id == delivery_id, EdgeORM.revoked_at.is_(None))
+            .values(revoked_at=now)
+        )
+        self._session.execute(
+            sa.update(RightsClassificationORM)
+            .where(
+                RightsClassificationORM.delivery_id == delivery_id,
+                RightsClassificationORM.revoked_at.is_(None),
+            )
+            .values(revoked_at=now)
+        )
+        self._session.execute(
+            sa.delete(DocumentDesignationORM).where(
+                DocumentDesignationORM.delivery_id == delivery_id
+            )
+        )
+        self._session.execute(
+            sa.delete(DocumentTitleORM).where(DocumentTitleORM.delivery_id == delivery_id)
+        )
         self._session.flush()
 
 
