@@ -38,13 +38,20 @@ def upgrade() -> None:
                 "adopted_from",
                 name="edge_type",
                 native_enum=False,
+                create_constraint=True,
             ),
             nullable=False,
         ),
         sa.Column("jurisdiction", sa.String, nullable=True),
         sa.Column(
             "layer",
-            sa.Enum("free", "commercial", name="layer", native_enum=False),
+            sa.Enum(
+                "free",
+                "commercial",
+                name="layer",
+                native_enum=False,
+                create_constraint=True,
+            ),
             nullable=False,
         ),
         sa.Column(

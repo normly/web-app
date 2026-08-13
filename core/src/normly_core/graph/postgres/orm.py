@@ -11,6 +11,18 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from normly_core.graph.domain import EdgeType, LegalBasisCategory, Layer, TdmOptOutResult
 
 
+def _enum_values(enum_cls: type) -> list[str]:
+    """
+    Persist an enum member's ``.value``, not its ``.name``.
+
+    Without ``values_callable`` SQLAlchemy stores the Python member name
+    (``REPLACES``), while the migrations declare the lowercase values
+    (``replaces``). Any future member whose name and value differ in length
+    would then silently truncate or violate the CHECK constraint.
+    """
+    return [member.value for member in enum_cls]
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -24,7 +36,13 @@ class SourceORM(Base):
     publisher: Mapped[str]
     retrieval_path: Mapped[str]
     legal_basis_category: Mapped[LegalBasisCategory] = mapped_column(
-        sa.Enum(LegalBasisCategory, name="legal_basis_category", native_enum=False)
+        sa.Enum(
+            LegalBasisCategory,
+            name="legal_basis_category",
+            native_enum=False,
+            create_constraint=True,
+            values_callable=_enum_values,
+        )
     )
     jurisdiction: Mapped[str]
     reviewed_at: Mapped[date]
@@ -33,7 +51,13 @@ class SourceORM(Base):
     contract_reference: Mapped[str | None]
     tdm_opt_out_checked_at: Mapped[date | None]
     tdm_opt_out_result: Mapped[TdmOptOutResult | None] = mapped_column(
-        sa.Enum(TdmOptOutResult, name="tdm_opt_out_result", native_enum=False)
+        sa.Enum(
+            TdmOptOutResult,
+            name="tdm_opt_out_result",
+            native_enum=False,
+            create_constraint=True,
+            values_callable=_enum_values,
+        )
     )
 
     __table_args__ = (
@@ -166,10 +190,24 @@ class EdgeORM(Base):
         UUID(as_uuid=True), sa.ForeignKey("document.id"), nullable=False
     )
     edge_type: Mapped[EdgeType] = mapped_column(
-        sa.Enum(EdgeType, name="edge_type", native_enum=False)
+        sa.Enum(
+            EdgeType,
+            name="edge_type",
+            native_enum=False,
+            create_constraint=True,
+            values_callable=_enum_values,
+        )
     )
     jurisdiction: Mapped[str | None]
-    layer: Mapped[Layer] = mapped_column(sa.Enum(Layer, name="layer", native_enum=False))
+    layer: Mapped[Layer] = mapped_column(
+        sa.Enum(
+            Layer,
+            name="layer",
+            native_enum=False,
+            create_constraint=True,
+            values_callable=_enum_values,
+        )
+    )
     delivery_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), sa.ForeignKey("delivery.id"), nullable=False
     )
