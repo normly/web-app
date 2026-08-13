@@ -82,8 +82,8 @@ class DeliveryORM(Base):
         UUID(as_uuid=True), sa.ForeignKey("source.id"), nullable=False
     )
     content_hash: Mapped[str]
-    ingested_at: Mapped[datetime]
-    withdrawn_at: Mapped[datetime | None]
+    ingested_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
+    withdrawn_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
 
     __table_args__ = (
         sa.UniqueConstraint("source_id", "content_hash", name="uq_delivery_source_hash"),
@@ -169,12 +169,12 @@ class RightsClassificationORM(Base):
     may_cite_passages: Mapped[bool]
     may_export_free: Mapped[bool]
     legal_basis_reference: Mapped[str]
-    classified_at: Mapped[datetime]
+    classified_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
     classified_by: Mapped[str]
     delivery_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), sa.ForeignKey("delivery.id"), nullable=False
     )
-    revoked_at: Mapped[datetime | None]
+    revoked_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
 
 
 class EdgeORM(Base):
@@ -211,7 +211,7 @@ class EdgeORM(Base):
     delivery_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), sa.ForeignKey("delivery.id"), nullable=False
     )
-    revoked_at: Mapped[datetime | None]
+    revoked_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), server_default=sa.func.now()
     )
