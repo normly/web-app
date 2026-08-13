@@ -216,16 +216,25 @@ Architektur), nicht per Anwendungslogik-Check.
 
 **Schreibpfad.** Jede schreibende Repository-Methode verlangt `delivery_id` als
 Pflichtparameter. Es gibt keinen Pfad, der einen Knoten, eine Kante, eine Bezeichnung
-oder eine Klassifikation ohne Bezug auf eine Lieferung anlegt.
+oder eine Klassifikation ohne Bezug auf eine Lieferung anlegt. Jede dieser Methoden
+prüft zuerst, ob die Lieferung existiert und nicht zurückgezogen ist; andernfalls
+bricht sie mit `WithdrawnDeliveryError` ab. Ohne diese Prüfung würde ein erneuter
+Ingest-Lauf für eine zurückgezogene Lieferung die Rücknahme wieder aufheben.
 
 **Lesepfad.** Jede für Anzeige, Zitierung oder Export bestimmte Leseoperation verlangt
-einen Rechtsraum-Parameter und filtert intern über `rights_classification`. Es gibt
-keine Methode, die Dokumente ungefiltert zurückgibt.
+einen Rechtsraum-Parameter und filtert intern über `rights_classification`. Im
+öffentlichen Protokoll `DocumentRepository` gibt es keine Methode, die Dokumente
+ungefiltert zurückgibt. Die konkrete Implementierung trägt daneben ungefilterte
+Methoden (`get_document_unchecked`, `list_designations`, `list_titles`) für
+Identitätsauflösung, Pipeline und Administration — sie sind bewusst nicht Teil des
+Protokolls und kein Auslieferungspfad für Inhalte.
 
 **Rücknahmepfad.** `revoke_delivery(delivery_id)` markiert `delivery.withdrawn_at`,
 setzt `revoked_at` auf alle zugehörigen `edge`- und `rights_classification`-Zeilen und
 löscht die zugehörigen `document_designation`- und `document_title`-Zeilen — alles in
-einer Transaktion, mit Protokolleintrag. Ein `document`-Knoten ohne verbleibende aktive
+einer Transaktion, vollständig und atomar. Einen eigenen Protokolleintrag schreibt der
+Pfad heute **nicht**: ein Audit-Trail existiert in diesem Teilprojekt noch nicht (siehe
+Offene Punkte). Ein `document`-Knoten ohne verbleibende aktive
 Bezeichnung, Kante oder Klassifikation gilt als verwaist und wird aus Leseergebnissen
 ausgeschlossen, aber nicht sofort gelöscht (Nachvollziehbarkeit). Bleiben andere
 Lieferungen den Knoten weiter stützen, bleibt er unangetastet — Abstammung wirkt auf
@@ -285,6 +294,12 @@ direkt ab:
 
 ## Offene Punkte / Folgearbeiten
 
+- **Audit-Trail für Rücknahmen.** Der Rücknahmepfad ist atomar und vollständig,
+  hinterlässt aber keinen eigenen Nachweis: es gibt keine Audit-Tabelle, und die
+  gelöschten `document_designation`- und `document_title`-Zeilen sind danach spurlos.
+  Wer wann welche Lieferung zurückgezogen hat, ist aus dem Schema nicht rekonstruierbar.
+  Das ist bewusst auf ein späteres, übergreifendes Observability-/Audit-Verfahren
+  vertagt und nicht Teil dieses Teilprojekts.
 - Konkretes Python-Modullayout und Paketname (Teil der Implementierungsplanung).
 - Segment-/Embedding-Tabellen (folgt mit der Ingestion-Pipeline).
 - Perinorm-/DIN-Media-Format-Adapter (folgt erst mit einem konkreten Kategorie-C-Vertrag).
