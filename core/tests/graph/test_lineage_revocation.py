@@ -4,6 +4,7 @@
 from datetime import date, datetime, timezone
 
 from normly_core.graph.domain import EdgeType, LegalBasisCategory, Layer
+from normly_core.graph.postgres.orm import EdgeORM
 from normly_core.graph.postgres.repositories import (
     PostgresDeliveryRepository,
     PostgresDocumentRepository,
@@ -44,14 +45,7 @@ def _setup(db_session):
 def test_revoking_a_delivery_locks_only_its_own_edges(db_session):
     document, other, delivery_a, delivery_b, doc_repo, delivery_repo = _setup(db_session)
     edge_repo = PostgresEdgeRepository(db_session)
-    rights_repo = PostgresRightsRepository(db_session)
 
-    rights_repo.classify(
-        document_id=other.id, jurisdiction="DE", may_process=True, may_index_fulltext=True,
-        may_cite_passages=True, may_export_free=True, legal_basis_reference="§ 5 UrhG",
-        classified_at=datetime.now(timezone.utc), classified_by="J. Weber",
-        delivery_id=delivery_a.id,
-    )
     edge_from_a = edge_repo.create_edge(
         from_document_id=document.id, to_document_id=other.id, edge_type=EdgeType.REFERENCES,
         jurisdiction=None, layer=Layer.FREE, delivery_id=delivery_a.id,
@@ -63,9 +57,10 @@ def test_revoking_a_delivery_locks_only_its_own_edges(db_session):
 
     delivery_repo.revoke_delivery(delivery_a.id)
 
-    edges_de = edge_repo.list_edges_for_jurisdiction(other.id, "DE")
-    remaining_ids = {e.id for e in edges_de}
-    assert edge_from_a.id not in remaining_ids
+    revoked_edge = db_session.get(EdgeORM, edge_from_a.id)
+    untouched_edge = db_session.get(EdgeORM, edge_from_b.id)
+    assert revoked_edge.revoked_at is not None
+    assert untouched_edge.revoked_at is None
 
 
 def test_document_stays_readable_when_a_second_delivery_still_supports_it(db_session):
