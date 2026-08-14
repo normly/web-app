@@ -201,6 +201,24 @@ class PostgresDeliveryRepository:
         self._session.execute(
             sa.delete(DocumentTitleORM).where(DocumentTitleORM.delivery_id == delivery_id)
         )
+        self._session.execute(
+            sa.delete(SegmentORM).where(SegmentORM.delivery_id == delivery_id)
+        )
+        self._session.execute(
+            sa.delete(EmbeddingORM).where(EmbeddingORM.delivery_id == delivery_id)
+        )
+        self._session.execute(
+            sa.update(IdentityResolutionCaseORM)
+            .where(
+                IdentityResolutionCaseORM.delivery_id == delivery_id,
+                IdentityResolutionCaseORM.status == IdentityResolutionStatus.PENDING,
+            )
+            .values(
+                status=IdentityResolutionStatus.REJECTED,
+                resolved_by="system:delivery_revoked",
+                resolved_at=now,
+            )
+        )
         self._session.flush()
 
 
