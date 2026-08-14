@@ -163,6 +163,15 @@ class PostgresDeliveryRepository:
         orm = self._session.get(DeliveryORM, delivery_id)
         return _delivery_to_domain(orm) if orm else None
 
+    def find_delivery(self, source_id: uuid.UUID, content_hash: str) -> Delivery | None:
+        orm = self._session.execute(
+            select(DeliveryORM).where(
+                DeliveryORM.source_id == source_id,
+                DeliveryORM.content_hash == content_hash,
+            )
+        ).scalar_one_or_none()
+        return _delivery_to_domain(orm) if orm else None
+
     def revoke_delivery(self, delivery_id: uuid.UUID) -> None:
         orm = self._session.get(DeliveryORM, delivery_id)
         if orm is None or orm.withdrawn_at is not None:
@@ -405,6 +414,20 @@ class PostgresDocumentRepository:
             .order_by(DocumentORM.id)
         ).scalars()
         return [_document_to_domain(row) for row in rows]
+
+    def find_by_designation(self, issuer: str, designation: str) -> Document | None:
+        orm = self._session.execute(
+            select(DocumentORM)
+            .join(
+                DocumentDesignationORM,
+                DocumentDesignationORM.document_id == DocumentORM.id,
+            )
+            .where(
+                DocumentDesignationORM.issuer == issuer,
+                DocumentDesignationORM.designation == designation,
+            )
+        ).scalar_one_or_none()
+        return _document_to_domain(orm) if orm else None
 
 
 def _rights_to_domain(orm: RightsClassificationORM) -> RightsClassification:
