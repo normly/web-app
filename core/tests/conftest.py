@@ -15,7 +15,7 @@ CORE_DIR = Path(__file__).parents[1]
 
 @pytest.fixture(scope="session")
 def postgres_container():
-    with PostgresContainer("postgres:16", driver="psycopg") as container:
+    with PostgresContainer("pgvector/pgvector:pg16", driver="psycopg") as container:
         yield container
 
 
