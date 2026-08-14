@@ -7,6 +7,7 @@ from normly_core.graph.domain import LegalBasisCategory
 from normly_core.graph.postgres.repositories import (
     PostgresDeliveryRepository,
     PostgresDocumentRepository,
+    PostgresRightsRepository,
     PostgresSegmentRepository,
     PostgresSourceRepository,
 )
@@ -62,3 +63,27 @@ def test_add_segment_is_idempotent_by_document_and_sequence(db_session):
     )
 
     assert first.id == second.id
+
+
+def test_segments_are_gated_by_jurisdiction(db_session):
+    document, delivery = _make_document(db_session)
+    segment_repo = PostgresSegmentRepository(db_session)
+    rights_repo = PostgresRightsRepository(db_session)
+
+    segment_repo.add_segment(
+        document_id=document.id, delivery_id=delivery.id, sequence_number=1,
+        heading="§ 3", text="Text A", language="de",
+    )
+
+    assert segment_repo.list_segments_for_jurisdiction(document.id, "DE") == []
+
+    rights_repo.classify(
+        document_id=document.id, jurisdiction="DE", may_process=True, may_index_fulltext=True,
+        may_cite_passages=True, may_export_free=True, legal_basis_reference="§ 5 UrhG",
+        classified_at=datetime.now(timezone.utc),
+        classified_by="J. Weber", delivery_id=delivery.id,
+    )
+
+    segments = segment_repo.list_segments_for_jurisdiction(document.id, "DE")
+    assert len(segments) == 1
+    assert segments[0].text == "Text A"

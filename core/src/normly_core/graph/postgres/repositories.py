@@ -631,3 +631,22 @@ class PostgresSegmentRepository:
                 raise
             return _segment_to_domain(existing)
         return _segment_to_domain(orm)
+
+    def list_segments_for_jurisdiction(
+        self, document_id: uuid.UUID, jurisdiction: str
+    ) -> list[Segment]:
+        rows = self._session.execute(
+            select(SegmentORM)
+            .join(
+                RightsClassificationORM,
+                RightsClassificationORM.document_id == SegmentORM.document_id,
+            )
+            .where(
+                SegmentORM.document_id == document_id,
+                RightsClassificationORM.jurisdiction == jurisdiction,
+                RightsClassificationORM.may_process.is_(True),
+                RightsClassificationORM.revoked_at.is_(None),
+            )
+            .order_by(SegmentORM.sequence_number)
+        ).scalars()
+        return [_segment_to_domain(row) for row in rows]
