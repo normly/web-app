@@ -16,6 +16,7 @@ from normly_core.graph.domain import (
     DocumentTitle,
     Edge,
     EdgeType,
+    Embedding,
     LegalBasisCategory,
     Layer,
     RightsClassification,
@@ -30,6 +31,7 @@ from normly_core.graph.postgres.orm import (
     DocumentDesignationORM,
     DocumentTitleORM,
     EdgeORM,
+    EmbeddingORM,
     RightsClassificationORM,
     SegmentORM,
     SourceORM,
@@ -650,3 +652,70 @@ class PostgresSegmentRepository:
             .order_by(SegmentORM.sequence_number)
         ).scalars()
         return [_segment_to_domain(row) for row in rows]
+
+
+def _embedding_to_domain(orm: EmbeddingORM) -> Embedding:
+    return Embedding(
+        id=orm.id,
+        segment_id=orm.segment_id,
+        delivery_id=orm.delivery_id,
+        model_name=orm.model_name,
+        vector=list(orm.vector),
+        created_at=orm.created_at,
+    )
+
+
+class PostgresEmbeddingRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def add_embedding(
+        self,
+        *,
+        segment_id: uuid.UUID,
+        delivery_id: uuid.UUID,
+        model_name: str,
+        vector: list[float],
+    ) -> Embedding:
+        _require_active_delivery(self._session, delivery_id)
+
+        existing = self._session.execute(
+            select(EmbeddingORM).where(
+                EmbeddingORM.segment_id == segment_id,
+                EmbeddingORM.model_name == model_name,
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            return _embedding_to_domain(existing)
+
+        orm = EmbeddingORM(
+            id=uuid.uuid4(),
+            segment_id=segment_id,
+            delivery_id=delivery_id,
+            model_name=model_name,
+            vector=vector,
+        )
+        try:
+            with self._session.begin_nested():
+                self._session.add(orm)
+                self._session.flush()
+        except IntegrityError:
+            existing = self._session.execute(
+                select(EmbeddingORM).where(
+                    EmbeddingORM.segment_id == segment_id,
+                    EmbeddingORM.model_name == model_name,
+                )
+            ).scalar_one_or_none()
+            if existing is None:
+                raise
+            return _embedding_to_domain(existing)
+        return _embedding_to_domain(orm)
+
+    def get_embedding(self, segment_id: uuid.UUID, model_name: str) -> Embedding | None:
+        orm = self._session.execute(
+            select(EmbeddingORM).where(
+                EmbeddingORM.segment_id == segment_id,
+                EmbeddingORM.model_name == model_name,
+            )
+        ).scalar_one_or_none()
+        return _embedding_to_domain(orm) if orm else None

@@ -282,3 +282,28 @@ class SegmentRepository(Protocol):
     def list_segments_for_jurisdiction(
         self, document_id: uuid.UUID, jurisdiction: str
     ) -> list[Segment]: ...
+
+
+@dataclass(frozen=True)
+class Embedding:
+    id: uuid.UUID
+    segment_id: uuid.UUID
+    delivery_id: uuid.UUID
+    model_name: str
+    vector: list[float]
+    created_at: datetime
+
+
+class EmbeddingRepository(Protocol):
+    def add_embedding(
+        self,
+        *,
+        segment_id: uuid.UUID,
+        delivery_id: uuid.UUID,
+        model_name: str,
+        vector: list[float],
+    ) -> Embedding: ...
+
+    def get_embedding(
+        self, segment_id: uuid.UUID, model_name: str
+    ) -> Embedding | None: ...
