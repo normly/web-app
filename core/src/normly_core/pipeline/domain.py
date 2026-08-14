@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Iterable, Protocol
 
 from normly_core.graph.domain import EdgeType
@@ -34,7 +34,7 @@ class RawRecord:
     raw_title: str | None
     full_text: str | None
     raw_references: list[RawReference] = field(default_factory=list)
-    fetched_at: datetime = field(default_factory=datetime.utcnow)
+    fetched_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass(frozen=True)
