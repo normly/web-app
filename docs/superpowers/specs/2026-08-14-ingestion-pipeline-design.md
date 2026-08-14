@@ -32,6 +32,13 @@ Segmentierung und Einbettung, Ausspielung. Das ist zu groß für ein Teilprojekt
 6. Rohdateien werden inhaltsadressiert lokal auf der Festplatte abgelegt. STACKIT Object
    Storage ist eine spätere Deployment-Entscheidung.
 7. Aufruf als CLI (`python -m normly_core.pipeline ingest <quelle>`), kein Scheduler.
+8. `adapter.fetch()` liest für den Start aus einem konfigurierten lokalen Verzeichnis
+   (dorthin werden EUR-Lex-/DGUV-Dateien vorerst manuell heruntergeladen), statt selbst
+   über HTTP abzurufen. Grund: die genauen, aktuellen Schnittstellen von EUR-Lex
+   (SPARQL/CELLAR) und der DGUV-Publikationsdatenbank sind nicht verlässlich genug bekannt,
+   um dafür jetzt präzisen, korrekten Code zu schreiben, ohne zu raten. Die
+   Extraktions-/Parsing-Logik — der eigentlich wertvolle Teil — ist davon unabhängig und
+   vollständig spezifizierbar; ein echter HTTP-Fetcher ersetzt später nur diese eine Stelle.
 
 ## Ziel dieses Teilprojekts
 
@@ -54,6 +61,8 @@ angebunden, ohne dass Schritte hinter dem Adapter angepasst werden müssen.
   (siehe Nicht-Ziele des vorigen Teilprojekts).
 - **STACKIT Object Storage, Scheduler/Orchestrierung für den Produktivbetrieb.**
   Deployment-Entscheidungen, nicht Teil dieses Teilprojekts.
+- **Echte HTTP-Anbindung an EUR-Lex/DGUV.** `adapter.fetch()` liest für den Start aus einem
+  lokalen Verzeichnis (siehe Kontext, Punkt 8) — ein späterer HTTP-Fetcher ist Folgearbeit.
 - **Allgemeine, konfigurierbare Struktur-/Verweisextraktion.** Für den Start
   quellenspezifisch, regelbasiert — kein generisches Dokumentenverständnis.
 
@@ -84,10 +93,15 @@ class RawRecord:
     fetched_at: datetime
 
 class SourceAdapter(Protocol):
-    def fetch(self, since: datetime | None) -> Iterable[RawRecord]: ...
+    def fetch(self) -> Iterable[RawRecord]: ...
     def extract_structure(self, record: RawRecord) -> list[RawSection]: ...
     def classify_rights(self, record: RawRecord) -> RightsRule: ...
 ```
+
+`fetch()` nimmt kein `since` entgegen: Ein Verzeichnis-Adapter listet bei jedem Lauf alle
+konfigurierten Dateien auf (der Ordnerpfad kommt über den Adapter-Konstruktor, nicht über
+`fetch()`); welche Lieferungen tatsächlich neu sind, entscheidet `find_delivery` anhand des
+Inhalts-Hashes (REQ-PIPE-006) — nicht ein Zeitstempel-Filter beim Abruf.
 
 Begleitende Hilfstypen (ebenfalls in `pipeline.domain`, keine SQLAlchemy-Abhängigkeit):
 
@@ -249,7 +263,7 @@ erhält `based_on_law`-Kanten zu gelisteten Normknoten. DGUV: zitierte Normen/Ge
 ## Datenfluss
 
 ```
-für jeden RawRecord aus adapter.fetch(since=letzter_lauf):
+für jeden RawRecord aus adapter.fetch():
     wenn delivery_repo.find_delivery(source_id, content_hash) vorhanden: weiter  # REQ-PIPE-006
     delivery = delivery_repo.record_delivery(source_id, content_hash, ingested_at)
 
