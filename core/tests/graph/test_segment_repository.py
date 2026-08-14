@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 normly contributors
+
+from datetime import date, datetime, timezone
+
+from normly_core.graph.domain import LegalBasisCategory
+from normly_core.graph.postgres.repositories import (
+    PostgresDeliveryRepository,
+    PostgresDocumentRepository,
+    PostgresSegmentRepository,
+    PostgresSourceRepository,
+)
+
+
+def _make_document(db_session, content_hash="sha256:segment-fixture"):
+    source = PostgresSourceRepository(db_session).create_source(
+        publisher="DGUV",
+        retrieval_path="https://publikationen.dguv.de",
+        legal_basis_category=LegalBasisCategory.A,
+        jurisdiction="DE",
+        reviewed_at=date(2026, 1, 15),
+        responsible_person="J. Weber",
+    )
+    delivery = PostgresDeliveryRepository(db_session).record_delivery(
+        source_id=source.id, content_hash=content_hash, ingested_at=datetime.now(timezone.utc)
+    )
+    document = PostgresDocumentRepository(db_session).create_document(
+        origin_issuer="DGUV", origin_number="Vorschrift 1", edition="2026", part=None,
+        delivery_id=delivery.id,
+    )
+    return document, delivery
+
+
+def test_add_segment_and_read_back(db_session):
+    document, delivery = _make_document(db_session)
+    repo = PostgresSegmentRepository(db_session)
+
+    segment = repo.add_segment(
+        document_id=document.id,
+        delivery_id=delivery.id,
+        sequence_number=1,
+        heading="§ 3 Grundpflichten",
+        text="Der Unternehmer hat dafür zu sorgen, dass...",
+        language="de",
+    )
+
+    assert segment.document_id == document.id
+    assert segment.sequence_number == 1
+
+
+def test_add_segment_is_idempotent_by_document_and_sequence(db_session):
+    document, delivery = _make_document(db_session)
+    repo = PostgresSegmentRepository(db_session)
+
+    first = repo.add_segment(
+        document_id=document.id, delivery_id=delivery.id, sequence_number=1,
+        heading="§ 3", text="Text A", language="de",
+    )
+    second = repo.add_segment(
+        document_id=document.id, delivery_id=delivery.id, sequence_number=1,
+        heading="§ 3", text="Text A", language="de",
+    )
+
+    assert first.id == second.id

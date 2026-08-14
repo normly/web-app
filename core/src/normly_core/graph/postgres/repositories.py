@@ -19,6 +19,7 @@ from normly_core.graph.domain import (
     LegalBasisCategory,
     Layer,
     RightsClassification,
+    Segment,
     Source,
     TdmOptOutResult,
     WithdrawnDeliveryError,
@@ -30,6 +31,7 @@ from normly_core.graph.postgres.orm import (
     DocumentTitleORM,
     EdgeORM,
     RightsClassificationORM,
+    SegmentORM,
     SourceORM,
 )
 
@@ -565,3 +567,67 @@ class PostgresEdgeRepository:
             .order_by(EdgeORM.id)
         ).scalars()
         return [_edge_to_domain(row) for row in rows]
+
+
+def _segment_to_domain(orm: SegmentORM) -> Segment:
+    return Segment(
+        id=orm.id,
+        document_id=orm.document_id,
+        delivery_id=orm.delivery_id,
+        sequence_number=orm.sequence_number,
+        heading=orm.heading,
+        text=orm.text,
+        language=orm.language,
+        created_at=orm.created_at,
+    )
+
+
+class PostgresSegmentRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def add_segment(
+        self,
+        *,
+        document_id: uuid.UUID,
+        delivery_id: uuid.UUID,
+        sequence_number: int,
+        heading: str | None,
+        text: str,
+        language: str,
+    ) -> Segment:
+        _require_active_delivery(self._session, delivery_id)
+
+        existing = self._session.execute(
+            select(SegmentORM).where(
+                SegmentORM.document_id == document_id,
+                SegmentORM.sequence_number == sequence_number,
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            return _segment_to_domain(existing)
+
+        orm = SegmentORM(
+            id=uuid.uuid4(),
+            document_id=document_id,
+            delivery_id=delivery_id,
+            sequence_number=sequence_number,
+            heading=heading,
+            text=text,
+            language=language,
+        )
+        try:
+            with self._session.begin_nested():
+                self._session.add(orm)
+                self._session.flush()
+        except IntegrityError:
+            existing = self._session.execute(
+                select(SegmentORM).where(
+                    SegmentORM.document_id == document_id,
+                    SegmentORM.sequence_number == sequence_number,
+                )
+            ).scalar_one_or_none()
+            if existing is None:
+                raise
+            return _segment_to_domain(existing)
+        return _segment_to_domain(orm)

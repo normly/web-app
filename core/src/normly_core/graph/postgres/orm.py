@@ -228,3 +228,30 @@ class EdgeORM(Base):
             postgresql_where=sa.text("revoked_at IS NULL"),
         ),
     )
+
+
+class SegmentORM(Base):
+    __tablename__ = "segment"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("document.id"), nullable=False
+    )
+    delivery_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("delivery.id"), nullable=False
+    )
+    sequence_number: Mapped[int]
+    heading: Mapped[str | None]
+    text: Mapped[str]
+    language: Mapped[str]
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
+
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "document_id", "sequence_number", name="uq_segment_document_sequence"
+        ),
+    )

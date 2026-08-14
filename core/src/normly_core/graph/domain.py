@@ -253,3 +253,32 @@ class EdgeRepository(Protocol):
     def list_edges_for_jurisdiction(
         self, document_id: uuid.UUID, jurisdiction: str
     ) -> list[Edge]: ...
+
+
+@dataclass(frozen=True)
+class Segment:
+    id: uuid.UUID
+    document_id: uuid.UUID
+    delivery_id: uuid.UUID
+    sequence_number: int
+    heading: str | None
+    text: str
+    language: str
+    created_at: datetime
+
+
+class SegmentRepository(Protocol):
+    def add_segment(
+        self,
+        *,
+        document_id: uuid.UUID,
+        delivery_id: uuid.UUID,
+        sequence_number: int,
+        heading: str | None,
+        text: str,
+        language: str,
+    ) -> Segment: ...
+
+    def list_segments_for_jurisdiction(
+        self, document_id: uuid.UUID, jurisdiction: str
+    ) -> list[Segment]: ...
