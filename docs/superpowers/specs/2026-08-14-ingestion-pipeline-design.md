@@ -20,7 +20,13 @@ Segmentierung und Einbettung, Ausspielung. Das ist zu groß für ein Teilprojekt
 1. Umfang: die volle Kette bis einschließlich Segmentierung/Einbettung, aber nur für zwei
    konkrete Quellen — **EUR-Lex** (Listen harmonisierter Normen, nur Metadaten/Verweise, kein
    Volltext) und **DGUV** (Vorschriften, echter Volltext). „Ausspielung" ist explizit nicht
-   Teil dieses Teilprojekts.
+   Teil dieses Teilprojekts. Für EUR-Lex konkret: die von der Kommission veröffentlichten
+   „Summary list of harmonised standards"-PDFs je Richtlinie/Verordnung (z. B. für die
+   Maschinenrichtlinie 2006/42/EC unter
+   `single-market-economy.ec.europa.eu/.../harmonised-standards/machinery-md_en`) — recherchiert
+   und verifiziert (echte, real abgerufene Beispieldatei), nicht das CELLAR/SPARQL-System, für
+   das kein vergleichbar sauberes, dokumentiertes Schema für harmonisierte Normen gefunden
+   wurde.
 2. Nur DGUV durchläuft Strukturextraktion, Segmentierung und Einbettung — EUR-Lex hat keinen
    Volltext, speist nur Katalogeinträge und Graphkanten.
 3. Rechteklassifikation für beide Quellen läuft automatisch nach quellenspezifischer Regel,
@@ -34,11 +40,12 @@ Segmentierung und Einbettung, Ausspielung. Das ist zu groß für ein Teilprojekt
 7. Aufruf als CLI (`python -m normly_core.pipeline ingest <quelle>`), kein Scheduler.
 8. `adapter.fetch()` liest für den Start aus einem konfigurierten lokalen Verzeichnis
    (dorthin werden EUR-Lex-/DGUV-Dateien vorerst manuell heruntergeladen), statt selbst
-   über HTTP abzurufen. Grund: die genauen, aktuellen Schnittstellen von EUR-Lex
-   (SPARQL/CELLAR) und der DGUV-Publikationsdatenbank sind nicht verlässlich genug bekannt,
-   um dafür jetzt präzisen, korrekten Code zu schreiben, ohne zu raten. Die
-   Extraktions-/Parsing-Logik — der eigentlich wertvolle Teil — ist davon unabhängig und
-   vollständig spezifizierbar; ein echter HTTP-Fetcher ersetzt später nur diese eine Stelle.
+   über HTTP abzurufen. Grund: automatisiertes, wiederkehrendes Abrufen (Login-Session,
+   Pagination, Ratenbegrenzung) ist ein eigenes, nicht-triviales Stück Arbeit, das von der
+   eigentlich wertvollen Extraktions-/Parsing-Logik unabhängig ist — die Parsing-Logik selbst
+   ist jetzt gegen echte, verifizierte Formate spezifiziert (siehe Punkt 1 und
+   Architektur-Abschnitt), nur das automatisierte Abrufen bleibt Folgearbeit. Ein echter
+   HTTP-Fetcher ersetzt später nur diese eine Stelle, ohne die Parsing-Logik anzufassen.
 
 ## Ziel dieses Teilprojekts
 
@@ -76,7 +83,7 @@ Drei Ansätze wurden abgewogen:
 2. Adapter schreiben direkt in die Datenbank — verworfen, verletzt REQ-PIPE-001s Vorgabe,
    dass die Verarbeitung ab der Identitätsauflösung herkunftsunabhängig ist.
 3. Ein generischer, konfigurierbarer Adapter (URL+Mapping ohne Code) — verworfen für zwei
-   strukturell sehr unterschiedliche Quellen (EUR-Lex-XML vs. DGUV-PDF); verfrühte
+   strukturell sehr unterschiedliche Quellen (EUR-Lex-Tabellen-PDF vs. DGUV-Fließtext-PDF); verfrühte
    Abstraktion.
 
 **Entschieden: Ansatz 1.**
@@ -88,6 +95,7 @@ class RawRecord:
     content_hash: str
     raw_designation: str
     raw_issuer: str | None
+    raw_title: str | None
     full_text: str | None          # None bei EUR-Lex
     raw_references: list[RawReference]
     fetched_at: datetime
@@ -102,6 +110,29 @@ class SourceAdapter(Protocol):
 konfigurierten Dateien auf (der Ordnerpfad kommt über den Adapter-Konstruktor, nicht über
 `fetch()`); welche Lieferungen tatsächlich neu sind, entscheidet `find_delivery` anhand des
 Inhalts-Hashes (REQ-PIPE-006) — nicht ein Zeitstempel-Filter beim Abruf.
+
+### EUR-Lex-Quellformat: „Summary list of harmonised standards"
+
+Recherchiert und mit einer echten, real abgerufenen Beispieldatei verifiziert (Kommissions-PDF
+für die Maschinenrichtlinie 2006/42/EC, generiert 15.10.2021, abrufbar über
+`single-market-economy.ec.europa.eu`). Konsistente Tabellenstruktur, eine Zeile je Norm:
+
+| Spalte im PDF | Beispiel | Verwendung |
+|---|---|---|
+| Legislation reference | `2006/42/EC` | Adapter-Konfiguration (eine PDF-Datei je Rechtsakt), nicht pro Zeile — wird zur `based_on_law`-Kante |
+| ESO | `CEN` | `raw_issuer` |
+| Reference number of the standard | `EN ISO 12100:2010` | `raw_designation` |
+| Title of the standard | „Safety of machinery - General principles for design..." | `raw_title` |
+| Type | `A` / `B` | vorerst nicht modelliert (YAGNI) |
+| Date of start of presumption of conformity | `08/04/2011` | vorerst nicht modelliert |
+| OJ reference for publication in OJ | `OJ C 110 - 08/04/2011` | Beleg für die `based_on_law`-Kante (nicht als eigenes Feld gespeichert) |
+| Restriction, Datum/OJ-Referenz für Restriction | meist `-` | vorerst nicht modelliert |
+| Date of withdrawal from OJ | z. B. `03/09/2022` | vorerst nicht modelliert — die Tabelle nennt kein Nachfolgestandard, nur ein Rückzugsdatum; eine `withdrawn_by`-Kante bräuchte ein Zieldokument, das hieraus allein nicht sauber ableitbar ist. Bewusste Vereinfachung für den Start, siehe Offene Punkte. |
+
+Pro Zeile entsteht: `document_designation` mit `(issuer="CEN", designation="EN ISO 12100:2010")`,
+`document_title` mit dem Titel, und eine `RawReference(target_designation="2006/42/EC",
+edge_type=EdgeType.BASED_ON_LAW)`. Der Rechtsakt selbst (`2006/42/EC`) wird beim ersten
+Adapter-Lauf als eigener `document`-Knoten angelegt (Herausgeber „EU", Nummer „2006/42/EC").
 
 Begleitende Hilfstypen (ebenfalls in `pipeline.domain`, keine SQLAlchemy-Abhängigkeit):
 
@@ -166,7 +197,7 @@ jeweilige Adapter-Datei beschränkt.
 Wie im vorigen Teilprojekt: kein Mocking der Datenbank (echtes PostgreSQL mit `pgvector`
 über Testcontainers) und kein Mocking des Embedding-Modells (echtes
 `multilingual-e5-large`). Adapter-Tests laufen gegen einmalig aufgezeichnete, echte
-Beispieldateien (ein EUR-Lex-XML-Ausschnitt, ein DGUV-PDF), keine Live-Netzwerkaufrufe.
+Beispieldateien (die echte EUR-Lex-"Summary list"-PDF, ein DGUV-PDF), keine Live-Netzwerkaufrufe.
 
 ## Datenmodell-Erweiterung
 
@@ -308,7 +339,7 @@ Repository-Methoden reihen sich nur ein.
 - Testcontainer wechselt auf ein pgvector-fähiges PostgreSQL-Image; neue Migration
   aktiviert die `vector`-Extension und legt `segment`, `embedding`,
   `identity_resolution_case` an.
-- Adapter-Tests gegen echte, eingecheckte Beispieldateien (EUR-Lex-XML-Ausschnitt,
+- Adapter-Tests gegen echte, eingecheckte Beispieldateien (echte EUR-Lex-"Summary list"-PDF,
   DGUV-PDF) — beides amtliche Kategorie-A-Werke, unproblematisch einzuchecken.
 - Identitätsauflösung isoliert getestet: sauberer Treffer, neuer Knoten, nicht parsbar.
 - End-to-End-Test: volle Pipeline gegen beide Beispieldateien, prüft die
@@ -349,3 +380,11 @@ Repository-Methoden reihen sich nur ein.
   Teilprojekts.
 - **STACKIT Object Storage für Rohdateien** statt lokaler Festplattenablage — ebenfalls eine
   spätere Deployment-Entscheidung, analog zur Datenbank-Frage aus dem vorigen Teilprojekt.
+- **EUR-Lex-Rückzugsdatum ohne Nachfolgestandard.** Die „Summary list"-Tabelle nennt für
+  zurückgezogene Normen nur ein Datum und eine OJ-Referenz, keinen Nachfolgestandard — eine
+  `withdrawn_by`-Kante bräuchte aber ein Zieldokument. Für den Start wird das Rückzugsdatum
+  nicht modelliert; eine spätere Verfeinerung könnte die referenzierte Entscheidung
+  (OJ-Referenz) selbst als Knoten führen.
+- **Echter HTTP-Fetch für EUR-Lex/DGUV** — die Parsing-Formate sind jetzt verifiziert (siehe
+  Architektur), das automatisierte Abrufen selbst (Login/Pagination/Ratenbegrenzung) bleibt
+  Folgearbeit.
