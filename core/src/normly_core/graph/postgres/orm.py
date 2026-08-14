@@ -3,6 +3,7 @@
 
 import uuid
 from datetime import date, datetime
+from enum import Enum
 
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
@@ -11,7 +12,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from normly_core.graph.domain import EdgeType, LegalBasisCategory, Layer, TdmOptOutResult
 
 
-def _enum_values(enum_cls: type) -> list[str]:
+def _enum_values(enum_cls: type[Enum]) -> list[str]:
     """
     Persist an enum member's ``.value``, not its ``.name``.
 
