@@ -201,6 +201,12 @@ class PostgresDeliveryRepository:
         self._session.execute(
             sa.delete(DocumentTitleORM).where(DocumentTitleORM.delivery_id == delivery_id)
         )
+        # Must run before the EmbeddingORM delete below: embedding.segment_id
+        # has ON DELETE CASCADE, so deleting segments here first removes any
+        # embedding attached to a deleted segment regardless of which
+        # delivery created that embedding. The explicit EmbeddingORM delete
+        # then only needs to catch embeddings whose own delivery_id is the
+        # revoked one but whose segment belongs to a still-active delivery.
         self._session.execute(
             sa.delete(SegmentORM).where(SegmentORM.delivery_id == delivery_id)
         )
