@@ -216,26 +216,41 @@ Architektur), nicht per Anwendungslogik-Check.
 
 **Schreibpfad.** Jede schreibende Repository-Methode verlangt `delivery_id` als
 Pflichtparameter. Es gibt keinen Pfad, der einen Knoten, eine Kante, eine Bezeichnung
-oder eine Klassifikation ohne Bezug auf eine Lieferung anlegt.
+oder eine Klassifikation ohne Bezug auf eine Lieferung anlegt. Jede dieser Methoden
+prüft zuerst, ob die Lieferung existiert und nicht zurückgezogen ist; andernfalls
+bricht sie mit `WithdrawnDeliveryError` ab. Ohne diese Prüfung würde ein erneuter
+Ingest-Lauf für eine zurückgezogene Lieferung die Rücknahme wieder aufheben.
 
 **Lesepfad.** Jede für Anzeige, Zitierung oder Export bestimmte Leseoperation verlangt
-einen Rechtsraum-Parameter und filtert intern über `rights_classification`. Es gibt
-keine Methode, die Dokumente ungefiltert zurückgibt.
+einen Rechtsraum-Parameter und filtert intern über `rights_classification`. Im
+öffentlichen Protokoll `DocumentRepository` gibt es keine Methode, die Dokumente
+ungefiltert zurückgibt. Die konkrete Implementierung trägt daneben ungefilterte
+Methoden (`get_document_unchecked`, `list_designations`, `list_titles`) für
+Identitätsauflösung, Pipeline und Administration — sie sind bewusst nicht Teil des
+Protokolls und kein Auslieferungspfad für Inhalte.
 
 **Rücknahmepfad.** `revoke_delivery(delivery_id)` markiert `delivery.withdrawn_at`,
 setzt `revoked_at` auf alle zugehörigen `edge`- und `rights_classification`-Zeilen und
 löscht die zugehörigen `document_designation`- und `document_title`-Zeilen — alles in
-einer Transaktion, mit Protokolleintrag. Ein `document`-Knoten ohne verbleibende aktive
+einer Transaktion, vollständig und atomar. Einen eigenen Protokolleintrag schreibt der
+Pfad heute **nicht**: ein Audit-Trail existiert in diesem Teilprojekt noch nicht (siehe
+Offene Punkte). Ein `document`-Knoten ohne verbleibende aktive
 Bezeichnung, Kante oder Klassifikation gilt als verwaist und wird aus Leseergebnissen
 ausgeschlossen, aber nicht sofort gelöscht (Nachvollziehbarkeit). Bleiben andere
 Lieferungen den Knoten weiter stützen, bleibt er unangetastet — Abstammung wirkt auf
-Artefaktebene, nicht auf Knotenebene.
+Artefaktebene, nicht auf Knotenebene. Klassifiziert eine andere, weiterhin aktive
+Lieferung dasselbe Dokument/denselben Rechtsraum später erneut, hebt das die vorherige
+Rücknahme bewusst auf — das ist eine erneute, eigenständige Rechteprüfung (REQ-PIPE-004),
+kein zweiter Prüfpfad um die Rücknahme herum. Unterbunden wird ausschließlich die
+Wiederverwendung derselben, bereits zurückgezogenen Lieferung (`WithdrawnDeliveryError`,
+siehe Schreibpfad).
 
 ## Fehlerbehandlung
 
 | Fall | Verhalten |
 |---|---|
 | Schreiboperation ohne `delivery_id` | Typfehler zur Aufrufzeit (Pflichtparameter) |
+| Schreiboperation auf eine unbekannte oder bereits zurückgezogene Lieferung | `WithdrawnDeliveryError` (Domänenfehler, kein SQL-Fehler) |
 | Quelle Kategorie D mit `commercial_catalog=true` | DB-Constraint-Verletzung, als eigener Fehlertyp im Repository gefangen und weitergereicht |
 | Quelle Kategorie C ohne `contract_reference` | DB-Constraint-Verletzung, ebenso |
 | Lesezugriff ohne Klassifikation für den Rechtsraum | kein Fehler — leeres Ergebnis (Normalfall, kein Ausnahmezustand) |
@@ -285,8 +300,28 @@ direkt ab:
 
 ## Offene Punkte / Folgearbeiten
 
+- **Audit-Trail für Rücknahmen.** Der Rücknahmepfad ist atomar und vollständig,
+  hinterlässt aber keinen eigenen Nachweis: es gibt keine Audit-Tabelle, und die
+  gelöschten `document_designation`- und `document_title`-Zeilen sind danach spurlos.
+  Wer wann welche Lieferung zurückgezogen hat, ist aus dem Schema nicht rekonstruierbar.
+  Das ist bewusst auf ein späteres, übergreifendes Observability-/Audit-Verfahren
+  vertagt und nicht Teil dieses Teilprojekts.
 - Konkretes Python-Modullayout und Paketname (Teil der Implementierungsplanung).
 - Segment-/Embedding-Tabellen (folgt mit der Ingestion-Pipeline).
 - Perinorm-/DIN-Media-Format-Adapter (folgt erst mit einem konkreten Kategorie-C-Vertrag).
 - Rekursive-CTE-Abfragen für Ersetzungsketten sind hier nur als Repository-fähig
   vorgesehen, nicht im Detail spezifiziert — Teil der Implementierungsplanung.
+- **`create_edge`-Wiederverwendung verwirft abweichende Attribute stillschweigend.**
+  Erneutes Anlegen derselben aktiven Kante (`from`/`to`/`edge_type`/`jurisdiction`) gibt
+  die bestehende Zeile zurück, ohne `layer` oder `delivery_id` gegen die neuen Werte zu
+  prüfen — eine zweite Lieferung, die dieselbe Kante mit anderer Schicht bestätigt,
+  gewinnt keine eigene Abstammung; zieht die erste Lieferung die Kante später zurück,
+  wird auch der Beitrag der zweiten mitentfernt. Das schlägt in dieselbe, bewusst sichere
+  Richtung wie die Deduplizierung bei `document_designation`/`document_title` (eher zu
+  viel als zu wenig zurückgenommen), ist aber nicht weiter spezifiziert.
+- **`_require_active_delivery` hat ein theoretisches TOCTOU-Fenster.** Die Prüfung liest
+  den Lieferungsstatus ohne Zeilensperre; unter READ COMMITTED könnte eine gleichzeitig
+  laufende `revoke_delivery`-Transaktion zwischen Prüfung und Schreiben committen. Bei der
+  aktuell angenommenen Einzel-Schreiber-Pipeline nicht ausnutzbar; sobald ein
+  nebenläufiger Ingest existiert, braucht die Prüfung `SELECT … FOR SHARE` oder eine
+  gleichwertige Sperre.

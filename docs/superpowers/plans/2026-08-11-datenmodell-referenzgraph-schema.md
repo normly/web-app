@@ -374,7 +374,7 @@ class DocumentRepository(Protocol):
         delivery_id: uuid.UUID,
     ) -> Document: ...
 
-    def get_document(self, document_id: uuid.UUID) -> Document | None: ...
+    def get_document_unchecked(self, document_id: uuid.UUID) -> Document | None: ...
 
     def add_designation(
         self,
@@ -1258,7 +1258,7 @@ git commit -s -m "feat: add delivery table with idempotent recording"
 
 **Interfaces:**
 - Consumes: `Document`, `DocumentRepository` from Task 2; `DeliveryORM`/`PostgresDeliveryRepository`, `SourceORM`/`PostgresSourceRepository` from Tasks 4–5.
-- Produces: `DocumentORM`; `PostgresDocumentRepository.create_document` / `.get_document` (the rest of `DocumentRepository`'s methods are added in Tasks 7–8).
+- Produces: `DocumentORM`; `PostgresDocumentRepository.create_document` / `.get_document_unchecked` (the rest of `DocumentRepository`'s methods are added in Tasks 7–8; `get_document` was renamed to `get_document_unchecked` during Task 8's review to avoid an ungated read path sitting next to the rights-gated ones).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1305,7 +1305,7 @@ def test_create_and_get_document(db_session):
         delivery_id=delivery.id,
     )
 
-    fetched = repo.get_document(document.id)
+    fetched = repo.get_document_unchecked(document.id)
     assert fetched == document
     assert fetched.created_via_delivery_id == delivery.id
 ```
@@ -1436,7 +1436,7 @@ class PostgresDocumentRepository:
         self._session.refresh(orm)
         return _document_to_domain(orm)
 
-    def get_document(self, document_id: uuid.UUID) -> Document | None:
+    def get_document_unchecked(self, document_id: uuid.UUID) -> Document | None:
         orm = self._session.get(DocumentORM, document_id)
         return _document_to_domain(orm) if orm else None
 ```
@@ -1530,7 +1530,7 @@ def test_three_national_adoptions_stay_one_node(db_session):
     designations = doc_repo.list_designations(document.id)
     assert len(designations) == 3
     assert {d.issuer for d in designations} == {"DIN", "BSI", "AFNOR"}
-    assert doc_repo.get_document(document.id).id == document.id
+    assert doc_repo.get_document_unchecked(document.id).id == document.id
 
 
 def test_document_titles_are_multilingual(db_session):
@@ -1702,7 +1702,7 @@ def _title_to_domain(orm: DocumentTitleORM) -> DocumentTitle:
     )
 ```
 
-Add these methods to `PostgresDocumentRepository` (alongside `create_document`/`get_document`):
+Add these methods to `PostgresDocumentRepository` (alongside `create_document`/`get_document_unchecked`):
 
 ```python
     def add_designation(
@@ -2788,7 +2788,7 @@ Keine Lücke gefunden.
 
 **Placeholder-Scan:** keine „TBD"/„TODO"/„similar to Task N" gefunden — jeder Schritt trägt vollständigen Code.
 
-**Typkonsistenz:** Repository-Methodennamen aus den Protocols (Task 2) stimmen mit den Implementierungen überein (`create_source`/`get_source`, `record_delivery`/`get_delivery`/`revoke_delivery`, `create_document`/`get_document`/`add_designation`/`add_title`/`list_designations`/`list_titles`/`get_document_for_jurisdiction`/`list_documents_for_jurisdiction`, `classify`/`get_classification`, `create_edge`/`list_edges_for_jurisdiction`) — geprüft gegen jede Task-Implementierung, keine Abweichung gefunden.
+**Typkonsistenz:** Repository-Methodennamen aus den Protocols (Task 2) stimmen mit den Implementierungen überein (`create_source`/`get_source`, `record_delivery`/`get_delivery`/`revoke_delivery`, `create_document`/`get_document_unchecked`/`add_designation`/`add_title`/`list_designations`/`list_titles`/`get_document_for_jurisdiction`/`list_documents_for_jurisdiction`, `classify`/`get_classification`, `create_edge`/`list_edges_for_jurisdiction`) — geprüft gegen jede Task-Implementierung, keine Abweichung gefunden. (`get_document` wurde während Task 8 in `get_document_unchecked` umbenannt.)
 
 ---
 
