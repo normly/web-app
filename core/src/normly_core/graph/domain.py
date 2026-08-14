@@ -307,3 +307,44 @@ class EmbeddingRepository(Protocol):
     def get_embedding(
         self, segment_id: uuid.UUID, model_name: str
     ) -> Embedding | None: ...
+
+
+class IdentityResolutionStatus(str, Enum):
+    PENDING = "pending"
+    RESOLVED = "resolved"
+    REJECTED = "rejected"
+
+
+@dataclass(frozen=True)
+class IdentityResolutionCase:
+    id: uuid.UUID
+    delivery_id: uuid.UUID
+    raw_designation: str
+    raw_issuer: str | None
+    reason: str
+    status: IdentityResolutionStatus
+    resolved_document_id: uuid.UUID | None
+    resolved_at: datetime | None
+    resolved_by: str | None
+    created_at: datetime
+
+
+class IdentityResolutionRepository(Protocol):
+    def enqueue_case(
+        self,
+        *,
+        delivery_id: uuid.UUID,
+        raw_designation: str,
+        raw_issuer: str | None,
+        reason: str,
+    ) -> IdentityResolutionCase: ...
+
+    def list_pending_cases(self) -> list[IdentityResolutionCase]: ...
+
+    def resolve_case(
+        self, case_id: uuid.UUID, *, resolved_document_id: uuid.UUID, resolved_by: str
+    ) -> IdentityResolutionCase: ...
+
+    def reject_case(
+        self, case_id: uuid.UUID, *, resolved_by: str
+    ) -> IdentityResolutionCase: ...

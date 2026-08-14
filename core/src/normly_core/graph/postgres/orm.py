@@ -10,7 +10,13 @@ from pgvector.sqlalchemy import Vector
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from normly_core.graph.domain import EdgeType, LegalBasisCategory, Layer, TdmOptOutResult
+from normly_core.graph.domain import (
+    EdgeType,
+    IdentityResolutionStatus,
+    LegalBasisCategory,
+    Layer,
+    TdmOptOutResult,
+)
 
 
 def _enum_values(enum_cls: type[Enum]) -> list[str]:
@@ -278,4 +284,36 @@ class EmbeddingORM(Base):
 
     __table_args__ = (
         sa.UniqueConstraint("segment_id", "model_name", name="uq_embedding_segment_model"),
+    )
+
+
+class IdentityResolutionCaseORM(Base):
+    __tablename__ = "identity_resolution_case"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    delivery_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("delivery.id"), nullable=False
+    )
+    raw_designation: Mapped[str]
+    raw_issuer: Mapped[str | None]
+    reason: Mapped[str]
+    status: Mapped[IdentityResolutionStatus] = mapped_column(
+        sa.Enum(
+            IdentityResolutionStatus,
+            name="identity_resolution_status",
+            native_enum=False,
+            values_callable=_enum_values,
+            create_constraint=True,
+        ),
+        default=IdentityResolutionStatus.PENDING,
+    )
+    resolved_document_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("document.id")
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    resolved_by: Mapped[str | None]
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
     )

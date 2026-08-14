@@ -17,6 +17,8 @@ from normly_core.graph.domain import (
     Edge,
     EdgeType,
     Embedding,
+    IdentityResolutionCase,
+    IdentityResolutionStatus,
     LegalBasisCategory,
     Layer,
     RightsClassification,
@@ -32,6 +34,7 @@ from normly_core.graph.postgres.orm import (
     DocumentTitleORM,
     EdgeORM,
     EmbeddingORM,
+    IdentityResolutionCaseORM,
     RightsClassificationORM,
     SegmentORM,
     SourceORM,
@@ -719,3 +722,71 @@ class PostgresEmbeddingRepository:
             )
         ).scalar_one_or_none()
         return _embedding_to_domain(orm) if orm else None
+
+
+def _identity_case_to_domain(orm: IdentityResolutionCaseORM) -> IdentityResolutionCase:
+    return IdentityResolutionCase(
+        id=orm.id,
+        delivery_id=orm.delivery_id,
+        raw_designation=orm.raw_designation,
+        raw_issuer=orm.raw_issuer,
+        reason=orm.reason,
+        status=orm.status,
+        resolved_document_id=orm.resolved_document_id,
+        resolved_at=orm.resolved_at,
+        resolved_by=orm.resolved_by,
+        created_at=orm.created_at,
+    )
+
+
+class PostgresIdentityResolutionRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def enqueue_case(
+        self,
+        *,
+        delivery_id: uuid.UUID,
+        raw_designation: str,
+        raw_issuer: str | None,
+        reason: str,
+    ) -> IdentityResolutionCase:
+        _require_active_delivery(self._session, delivery_id)
+        orm = IdentityResolutionCaseORM(
+            id=uuid.uuid4(),
+            delivery_id=delivery_id,
+            raw_designation=raw_designation,
+            raw_issuer=raw_issuer,
+            reason=reason,
+            status=IdentityResolutionStatus.PENDING,
+        )
+        self._session.add(orm)
+        self._session.flush()
+        return _identity_case_to_domain(orm)
+
+    def list_pending_cases(self) -> list[IdentityResolutionCase]:
+        rows = self._session.execute(
+            select(IdentityResolutionCaseORM)
+            .where(IdentityResolutionCaseORM.status == IdentityResolutionStatus.PENDING)
+            .order_by(IdentityResolutionCaseORM.created_at)
+        ).scalars()
+        return [_identity_case_to_domain(row) for row in rows]
+
+    def resolve_case(
+        self, case_id: uuid.UUID, *, resolved_document_id: uuid.UUID, resolved_by: str
+    ) -> IdentityResolutionCase:
+        orm = self._session.get(IdentityResolutionCaseORM, case_id)
+        orm.status = IdentityResolutionStatus.RESOLVED
+        orm.resolved_document_id = resolved_document_id
+        orm.resolved_by = resolved_by
+        orm.resolved_at = datetime.now(orm.created_at.tzinfo)
+        self._session.flush()
+        return _identity_case_to_domain(orm)
+
+    def reject_case(self, case_id: uuid.UUID, *, resolved_by: str) -> IdentityResolutionCase:
+        orm = self._session.get(IdentityResolutionCaseORM, case_id)
+        orm.status = IdentityResolutionStatus.REJECTED
+        orm.resolved_by = resolved_by
+        orm.resolved_at = datetime.now(orm.created_at.tzinfo)
+        self._session.flush()
+        return _identity_case_to_domain(orm)
