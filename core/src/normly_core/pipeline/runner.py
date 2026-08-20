@@ -169,19 +169,23 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
             summary.records_skipped += 1
             continue
 
-        delivery = delivery_repo.record_delivery(
-            source_id=record.source_id,
-            content_hash=record.content_hash,
-            ingested_at=datetime.now(timezone.utc),
-        )
         summary.records_processed += 1
 
         # One bad record must block only itself. The savepoint takes the
         # record's partial writes back without discarding the run, and the
         # delta is only absorbed once the record is through — so the summary
-        # never counts artifacts that were rolled back.
+        # never counts artifacts that were rolled back. The delivery row
+        # itself is recorded inside this same savepoint: if anything about
+        # this record fails, the delivery must roll back with it, or
+        # find_delivery() would find it on the next run and skip a record
+        # that was never actually processed — permanently losing it.
         try:
             with session.begin_nested():
+                delivery = delivery_repo.record_delivery(
+                    source_id=record.source_id,
+                    content_hash=record.content_hash,
+                    ingested_at=datetime.now(timezone.utc),
+                )
                 delta = process(record, delivery)
         except Exception as error:  # noqa: BLE001 — isolation is the point
             print(

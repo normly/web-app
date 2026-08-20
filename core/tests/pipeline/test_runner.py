@@ -326,6 +326,38 @@ def test_run_adapter_isolates_a_failing_record_from_the_rest_of_the_run(db_sessi
     ).scalar_one() is not None
 
 
+def test_run_adapter_retries_a_previously_failed_record_on_the_next_run(db_session):
+    """
+    A failed record's delivery must not survive its own rolled-back
+    savepoint. If it did, find_delivery() would find it next run and skip
+    the record forever, silently and permanently dropping content that was
+    never actually processed — violating idempotent, retryable processing.
+    """
+    source = _make_source(db_session)
+    failing = RawRecord(
+        source_id=source.id, content_hash="sha256:runner-failing-retry",
+        raw_designation="DGUV Vorschrift 13", raw_issuer="DGUV", raw_title="Titel",
+        full_text=None,
+    )
+    adapter = _AdapterFailingOnOneDesignation(
+        source.id, [failing], "DGUV Vorschrift 13"
+    )
+
+    first_summary = run_adapter(adapter, db_session)
+    assert first_summary.records_failed == 1
+
+    # No delivery must have survived the rolled-back savepoint.
+    assert PostgresDeliveryRepository(db_session).find_delivery(
+        failing.source_id, failing.content_hash
+    ) is None
+
+    second_summary = run_adapter(adapter, db_session)
+
+    # The record is retried, not silently skipped as "already processed".
+    assert second_summary.records_skipped == 0
+    assert second_summary.records_failed == 1
+
+
 def test_run_adapter_writes_consistent_delivery_id_lineage_across_all_artifacts(db_session):
     source = _make_source(db_session)
     record = RawRecord(
