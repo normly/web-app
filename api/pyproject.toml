@@ -5,7 +5,14 @@ description = "normly free core: read-only HTTP API over the reference graph"
 requires-python = ">=3.11"
 license = { text = "AGPL-3.0-or-later" }
 dependencies = [
-    "normly-core",
+    # normly-core is a same-repo sibling package. It MUST be installed from
+    # the local ../core checkout -- `pip install -e ../core -e .` -- and never
+    # resolved from a public package index: it is not published to one, so any
+    # PyPI name match would be a typosquat, not this package. The version
+    # constraint below is a defensive floor matching core/pyproject.toml, not
+    # a substitute for installing from the checkout. A workspace or private
+    # index that enforces this technically is still outstanding.
+    "normly-core>=0.1.0,<0.2.0",
     "fastapi>=0.115,<0.120",
     "uvicorn[standard]>=0.30,<1.0",
 ]
