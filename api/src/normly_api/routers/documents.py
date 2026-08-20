@@ -77,3 +77,16 @@ def search_documents(
         )
 
     return _document_to_response(gated, session)
+
+
+@documents_router.get("/{document_id}", response_model=DocumentResponse)
+def get_document(
+    document_id: uuid.UUID, jurisdiction: str,
+    session: Session = Depends(get_session),
+) -> DocumentResponse:
+    doc_repo = PostgresDocumentRepository(session)
+    gated = doc_repo.get_document_for_jurisdiction(document_id, jurisdiction)
+    if gated is None:
+        raise HTTPException(status_code=404, detail="document not found")
+
+    return _document_to_response(gated, session)
