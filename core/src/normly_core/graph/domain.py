@@ -283,7 +283,14 @@ class SegmentRepository(Protocol):
         heading: str | None,
         text: str,
         language: str,
-    ) -> Segment: ...
+    ) -> tuple[Segment, bool]:
+        """
+        Store one segment; return it together with whether this call created it.
+
+        The flag is what keeps a run summary honest: on the idempotent path the
+        segment comes back unchanged and nothing was created.
+        """
+        ...
 
     def list_segments_for_jurisdiction(
         self, document_id: uuid.UUID, jurisdiction: str
@@ -318,7 +325,9 @@ class EmbeddingRepository(Protocol):
         delivery_id: uuid.UUID,
         model_name: str,
         vector: list[float],
-    ) -> Embedding: ...
+    ) -> tuple[Embedding, bool]:
+        """Store one embedding; return it and whether this call created it."""
+        ...
 
 
 class IdentityResolutionStatus(str, Enum):

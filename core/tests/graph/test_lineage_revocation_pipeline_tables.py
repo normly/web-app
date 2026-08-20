@@ -37,7 +37,7 @@ def test_revoking_a_delivery_removes_its_segments_and_embeddings(db_session):
     segment_repo = PostgresSegmentRepository(db_session)
     embedding_repo = PostgresEmbeddingRepository(db_session)
 
-    segment = segment_repo.add_segment(
+    segment, _ = segment_repo.add_segment(
         document_id=document.id, delivery_id=delivery.id, sequence_number=1,
         heading="§ 3", text="Text A", language="de",
     )
@@ -63,11 +63,11 @@ def test_revoking_a_delivery_preserves_other_deliveries_segments_and_embeddings(
     segment_repo = PostgresSegmentRepository(db_session)
     embedding_repo = PostgresEmbeddingRepository(db_session)
 
-    segment_a = segment_repo.add_segment(
+    segment_a, _ = segment_repo.add_segment(
         document_id=document.id, delivery_id=delivery_a.id, sequence_number=1,
         heading="§ 1", text="From A", language="de",
     )
-    segment_b = segment_repo.add_segment(
+    segment_b, _ = segment_repo.add_segment(
         document_id=document.id, delivery_id=delivery_b.id, sequence_number=2,
         heading="§ 2", text="From B", language="de",
     )

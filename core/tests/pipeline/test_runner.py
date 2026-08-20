@@ -116,6 +116,32 @@ def test_run_adapter_segments_and_embeds_full_text_records(db_session):
     assert summary.embeddings_created == 2
 
 
+def test_run_adapter_counts_only_what_it_actually_created(db_session):
+    """
+    A deduped write is not a creation. Two sections sharing a sequence number
+    resolve to one segment row, and the summary must say one, not two.
+    """
+    source = _make_source(db_session)
+    record = RawRecord(
+        source_id=source.id, content_hash="sha256:runner-dedupe-count",
+        raw_designation="DGUV Vorschrift 12", raw_issuer="DGUV", raw_title="Titel",
+        full_text="§ 1 Text.",
+    )
+    sections = {
+        "DGUV Vorschrift 12": [
+            RawSection(sequence_number=1, heading="§ 1", text="Text."),
+            RawSection(sequence_number=1, heading="§ 1", text="Text."),
+        ]
+    }
+    adapter = _FakeAdapter(source.id, [record], sections)
+
+    summary = run_adapter(adapter, db_session)
+
+    assert summary.segments_created == 1
+    assert summary.embeddings_created == 1
+    assert len(db_session.execute(select(SegmentORM)).scalars().all()) == 1
+
+
 def test_run_adapter_enqueues_unparseable_designations(db_session):
     source = _make_source(db_session)
     record = RawRecord(

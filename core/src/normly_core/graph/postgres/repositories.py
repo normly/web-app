@@ -665,7 +665,7 @@ class PostgresSegmentRepository:
         heading: str | None,
         text: str,
         language: str,
-    ) -> Segment:
+    ) -> tuple[Segment, bool]:
         _require_active_delivery(self._session, delivery_id)
 
         # The dedupe key is delivery-scoped, matching
@@ -682,7 +682,7 @@ class PostgresSegmentRepository:
         )
         existing = self._session.execute(query).scalar_one_or_none()
         if existing is not None:
-            return _segment_to_domain(existing)
+            return _segment_to_domain(existing), False
 
         orm = SegmentORM(
             id=uuid.uuid4(),
@@ -701,8 +701,8 @@ class PostgresSegmentRepository:
             existing = self._session.execute(query).scalar_one_or_none()
             if existing is None:
                 raise
-            return _segment_to_domain(existing)
-        return _segment_to_domain(orm)
+            return _segment_to_domain(existing), False
+        return _segment_to_domain(orm), True
 
     def list_segments_for_jurisdiction(
         self, document_id: uuid.UUID, jurisdiction: str
@@ -752,7 +752,7 @@ class PostgresEmbeddingRepository:
         delivery_id: uuid.UUID,
         model_name: str,
         vector: list[float],
-    ) -> Embedding:
+    ) -> tuple[Embedding, bool]:
         _require_active_delivery(self._session, delivery_id)
 
         existing = self._session.execute(
@@ -762,7 +762,7 @@ class PostgresEmbeddingRepository:
             )
         ).scalar_one_or_none()
         if existing is not None:
-            return _embedding_to_domain(existing)
+            return _embedding_to_domain(existing), False
 
         orm = EmbeddingORM(
             id=uuid.uuid4(),
@@ -784,8 +784,8 @@ class PostgresEmbeddingRepository:
             ).scalar_one_or_none()
             if existing is None:
                 raise
-            return _embedding_to_domain(existing)
-        return _embedding_to_domain(orm)
+            return _embedding_to_domain(existing), False
+        return _embedding_to_domain(orm), True
 
     def get_embedding_unchecked(
         self, segment_id: uuid.UUID, model_name: str

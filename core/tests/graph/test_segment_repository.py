@@ -36,7 +36,7 @@ def test_add_segment_and_read_back(db_session):
     document, delivery = _make_document(db_session)
     repo = PostgresSegmentRepository(db_session)
 
-    segment = repo.add_segment(
+    segment, _ = repo.add_segment(
         document_id=document.id,
         delivery_id=delivery.id,
         sequence_number=1,
@@ -53,16 +53,19 @@ def test_add_segment_is_idempotent_by_document_and_sequence(db_session):
     document, delivery = _make_document(db_session)
     repo = PostgresSegmentRepository(db_session)
 
-    first = repo.add_segment(
+    first, first_created = repo.add_segment(
         document_id=document.id, delivery_id=delivery.id, sequence_number=1,
         heading="§ 3", text="Text A", language="de",
     )
-    second = repo.add_segment(
+    second, second_created = repo.add_segment(
         document_id=document.id, delivery_id=delivery.id, sequence_number=1,
         heading="§ 3", text="Text A", language="de",
     )
 
     assert first.id == second.id
+    # The second call created nothing, and says so.
+    assert first_created is True
+    assert second_created is False
 
 
 def test_a_second_delivery_gets_its_own_segment_row(db_session):
@@ -84,16 +87,18 @@ def test_a_second_delivery_gets_its_own_segment_row(db_session):
     )
     repo = PostgresSegmentRepository(db_session)
 
-    first = repo.add_segment(
+    first, first_created = repo.add_segment(
         document_id=document.id, delivery_id=first_delivery.id, sequence_number=1,
         heading="§ 3", text="Fassung 2024", language="de",
     )
-    second = repo.add_segment(
+    second, second_created = repo.add_segment(
         document_id=document.id, delivery_id=second_delivery.id, sequence_number=1,
         heading="§ 3", text="Fassung 2026", language="de",
     )
 
     assert first.id != second.id
+    assert first_created is True
+    assert second_created is True
     assert first.text == "Fassung 2024"
     assert second.text == "Fassung 2026"
     assert second.delivery_id == second_delivery.id

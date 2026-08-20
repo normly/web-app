@@ -139,7 +139,7 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
 
         if record.full_text is not None and rule.may_index_fulltext:
             for section in adapter.extract_structure(record):
-                segment = segment_repo.add_segment(
+                segment, segment_created = segment_repo.add_segment(
                     document_id=document.id,
                     delivery_id=delivery.id,
                     sequence_number=section.sequence_number,
@@ -147,18 +147,20 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
                     text=section.text,
                     language=language,
                 )
-                delta.segments_created += 1
+                if segment_created:
+                    delta.segments_created += 1
 
                 if embedding_model is None:
                     embedding_model = EmbeddingModel()
                 vector = embedding_model.embed(segment.text)
-                embedding_repo.add_embedding(
+                _, embedding_created = embedding_repo.add_embedding(
                     segment_id=segment.id,
                     delivery_id=delivery.id,
                     model_name=MODEL_NAME,
                     vector=vector,
                 )
-                delta.embeddings_created += 1
+                if embedding_created:
+                    delta.embeddings_created += 1
 
         return delta
 
