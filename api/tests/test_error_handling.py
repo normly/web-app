@@ -51,3 +51,26 @@ def test_a_broken_database_dependency_is_503(monkeypatch, db_url):
     assert response.status_code == 503
     assert "detail" in response.json()
     assert "outage" not in response.json()["detail"]
+
+
+def test_a_programming_error_is_not_disguised_as_a_503(monkeypatch, db_url):
+    """
+    Only infrastructure failures may claim "temporarily unavailable". A plain
+    bug must surface as a 500 -- retrying it will not help, and a 503 would
+    hide the defect from anyone watching status codes.
+    """
+    monkeypatch.setenv("NORMLY_DATABASE_URL", db_url)
+    app = create_app()
+
+    def _buggy_session():
+        raise ValueError("a genuine programming error, not an outage")
+        yield  # pragma: no cover -- unreachable, keeps this a generator
+
+    app.dependency_overrides[get_session] = _buggy_session
+
+    with TestClient(app, raise_server_exceptions=False) as buggy_client:
+        response = buggy_client.get(
+            "/v1/documents", params={"issuer": "x", "designation": "y", "jurisdiction": "DE"}
+        )
+
+    assert response.status_code == 500

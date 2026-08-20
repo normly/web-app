@@ -6,6 +6,7 @@ from __future__ import annotations
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
 
 
 def _describe_location(error: dict) -> str:
@@ -33,9 +34,21 @@ def register_exception_handlers(app: FastAPI) -> None:
         detail = "invalid or missing parameter: " + ", ".join(locations)
         return JSONResponse(status_code=400, content={"detail": detail})
 
-    @app.exception_handler(Exception)
-    async def _unhandled_exception_as_503(request: Request, exc: Exception) -> JSONResponse:
-        return JSONResponse(
-            status_code=503,
-            content={"detail": "service temporarily unavailable"},
-        )
+    # Only genuinely infrastructure-level failures become 503. A programming
+    # error (a KeyError, a None dereference, a RuntimeError raised on an
+    # inconsistent database state) must NOT be dressed up as "temporarily
+    # unavailable": that invites a pointless retry and hides the defect from
+    # anyone watching status codes. Everything not listed here propagates and
+    # surfaces as an honest 500.
+    #
+    # ConnectionError is a subclass of OSError and so is covered by it.
+    for infrastructure_error in (SQLAlchemyError, OSError):
+
+        @app.exception_handler(infrastructure_error)
+        async def _infrastructure_error_as_503(
+            request: Request, exc: Exception
+        ) -> JSONResponse:
+            return JSONResponse(
+                status_code=503,
+                content={"detail": "service temporarily unavailable"},
+            )
