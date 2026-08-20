@@ -5,8 +5,12 @@ import ast
 import inspect
 from pathlib import Path
 
-from normly_core.graph.domain import DocumentRepository
-from normly_core.graph.postgres.repositories import PostgresDocumentRepository
+from normly_core.graph import domain as graph_domain
+from normly_core.graph.domain import DocumentRepository, EmbeddingRepository
+from normly_core.graph.postgres.repositories import (
+    PostgresDocumentRepository,
+    PostgresEmbeddingRepository,
+)
 
 
 def test_domain_module_does_not_import_sqlalchemy():
@@ -43,14 +47,68 @@ def test_document_repository_protocol_exposes_no_ungated_read():
     )
 
 
-def test_every_protocol_read_takes_a_jurisdiction():
-    for name in vars(DocumentRepository):
-        if not name.startswith("list_") and not name.startswith("get_"):
+def _repository_protocols():
+    """
+    Every repository Protocol in `graph.domain`, discovered rather than listed.
+
+    A Protocol added later is caught by the guard below without anyone
+    remembering to register it here — which is exactly how the pipeline's three
+    new Protocols slipped past the earlier version of this test.
+    """
+    for name, obj in vars(graph_domain).items():
+        if not inspect.isclass(obj) or not name.endswith("Repository"):
             continue
-        parameters = inspect.signature(getattr(DocumentRepository, name)).parameters
-        assert "jurisdiction" in parameters, name
+        if getattr(obj, "_is_protocol", False):
+            yield name, obj
+
+
+# Reads that serve no document content and therefore need no jurisdiction.
+# Every entry carries its reason; nothing belongs here for convenience.
+JURISDICTION_EXEMPT_READS = {
+    # Registry metadata (publisher, legal basis, review date) — the entry that
+    # licenses the ingestion, not the content it produced.
+    "SourceRepository.get_source",
+    # Delivery bookkeeping: what lineage and revocation are anchored on.
+    "DeliveryRepository.get_delivery",
+    # Review-queue listing for staff, not rights-gated content.
+    "IdentityResolutionRepository.list_pending_cases",
+}
+
+
+def test_every_protocol_read_takes_a_jurisdiction():
+    discovered = {name for name, _ in _repository_protocols()}
+    assert {
+        "DocumentRepository",
+        "SegmentRepository",
+        "EmbeddingRepository",
+        "IdentityResolutionRepository",
+    } <= discovered
+
+    for protocol_name, protocol in _repository_protocols():
+        for name in vars(protocol):
+            if not name.startswith("list_") and not name.startswith("get_"):
+                continue
+            qualified = f"{protocol_name}.{name}"
+            if qualified in JURISDICTION_EXEMPT_READS:
+                continue
+            parameters = inspect.signature(getattr(protocol, name)).parameters
+            assert "jurisdiction" in parameters, qualified
+
+
+def test_embedding_repository_protocol_exposes_no_ungated_read():
+    """
+    `get_embedding_unchecked` is the same split as `get_document_unchecked`: it
+    joins no classification, so it stays off the Protocol an API layer programs
+    against and keeps a name that says so.
+    """
+    protocol_methods = {
+        name for name in vars(EmbeddingRepository) if not name.startswith("_")
+    }
+
+    assert protocol_methods == {"add_embedding"}
 
 
 def test_ungated_reads_stay_available_on_the_concrete_repository():
     for name in UNGATED_READS:
         assert callable(getattr(PostgresDocumentRepository, name))
+    assert callable(PostgresEmbeddingRepository.get_embedding_unchecked)
