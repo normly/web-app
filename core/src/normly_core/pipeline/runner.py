@@ -85,7 +85,7 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
                 document_id=document.id,
                 issuer=record.raw_issuer,
                 designation=record.raw_designation,
-                language="en",
+                language="de",
                 edition=None,
                 is_primary=True,
                 delivery_id=delivery.id,
@@ -93,7 +93,7 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
         if record.raw_title is not None:
             document_repo.add_title(
                 document_id=document.id,
-                language="en",
+                language="de",
                 title=record.raw_title,
                 delivery_id=delivery.id,
             )
@@ -116,7 +116,7 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
             record, document.id, delivery.id, document_repo, edge_repo, identity_repo
         )
 
-        if record.full_text is not None:
+        if record.full_text is not None and rule.may_index_fulltext:
             for section in adapter.extract_structure(record):
                 segment = segment_repo.add_segment(
                     document_id=document.id,
