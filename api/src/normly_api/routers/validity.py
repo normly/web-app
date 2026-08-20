@@ -25,8 +25,13 @@ def get_validity(
     document_id: uuid.UUID, jurisdiction: str,
     session: Session = Depends(get_session),
 ) -> ValidityResponse:
+    # This endpoint makes a statement ABOUT one specific document, so it needs
+    # the same gate as GET /v1/documents/{id}: an unclassified document must
+    # 404, not receive a confident (and unfounded) "valid". A single 404 covers
+    # both "no such document" and "exists but not classified for this
+    # jurisdiction" -- non-disclosure, same as the detail endpoint.
     doc_repo = PostgresDocumentRepository(session)
-    if doc_repo.get_document_unchecked(document_id) is None:
+    if doc_repo.get_document_for_jurisdiction(document_id, jurisdiction) is None:
         raise HTTPException(status_code=404, detail="document not found")
 
     # REPLACES/WITHDRAWN_BY edges point FROM the successor/withdrawal-notice
@@ -42,6 +47,17 @@ def get_validity(
         document_id, jurisdiction
     )
 
+    # Known limitation, deliberate and documented rather than overlooked:
+    # "valid" here means "no successor VISIBLE TO THIS CALLER", not "no
+    # successor exists". A REPLACES edge whose source document is not
+    # classified in this jurisdiction, or whose layer is COMMERCIAL, is
+    # correctly hidden by the gates above -- and the caller then reads
+    # "valid" for a document that has, in fact, been replaced. Distinguishing
+    # "genuinely no successor" from "a successor exists but you may not see
+    # it" would need an existence-only check on incoming edges (the
+    # get_document_unchecked pattern, one level up), plus a decision on what
+    # a third status value would disclose about gated content. That is its
+    # own design question and is not settled here.
     replaced_by = [e.from_document_id for e in incoming if e.edge_type == EdgeType.REPLACES]
     withdrawn_by = [e for e in incoming if e.edge_type == EdgeType.WITHDRAWN_BY]
 

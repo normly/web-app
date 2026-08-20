@@ -153,3 +153,20 @@ def test_validity_returns_404_for_an_unknown_document_id(client, db_session):
     )
 
     assert response.status_code == 404
+
+
+def test_validity_returns_404_for_a_document_not_classified_in_this_jurisdiction(
+    client, db_session
+):
+    """
+    Reporting a status for a document this jurisdiction is not authorized to
+    show would be both a disclosure and a false statement. The gate is the
+    same as GET /v1/documents/{id}: 404, indistinguishable from "unknown id".
+    """
+    document, _ = _seed_classified_document(db_session, jurisdiction="DE")
+
+    response = client.get(
+        f"/v1/documents/{document.id}/validity", params={"jurisdiction": "FR"}
+    )
+
+    assert response.status_code == 404
