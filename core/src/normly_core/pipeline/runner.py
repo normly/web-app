@@ -76,6 +76,8 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
             delta.records_enqueued_for_review += 1
             return delta
 
+        language = record.language or "de"
+
         result = identity.resolve(record, document_repo)
         if result.is_ambiguous:
             identity_repo.enqueue_case(
@@ -105,7 +107,7 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
                 document_id=document.id,
                 issuer=record.raw_issuer,
                 designation=record.raw_designation,
-                language="de",
+                language=language,
                 edition=None,
                 is_primary=True,
                 delivery_id=delivery.id,
@@ -113,7 +115,7 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
         if record.raw_title is not None:
             document_repo.add_title(
                 document_id=document.id,
-                language="de",
+                language=language,
                 title=record.raw_title,
                 delivery_id=delivery.id,
             )
@@ -143,7 +145,7 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
                     sequence_number=section.sequence_number,
                     heading=section.heading,
                     text=section.text,
-                    language="de",
+                    language=language,
                 )
                 delta.segments_created += 1
 

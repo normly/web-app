@@ -44,6 +44,7 @@ class DguvAdapter:
             raw_issuer="DGUV",
             raw_title=title,
             full_text=full_text,
+            language="de",
             fetched_at=datetime.now(timezone.utc),
         )
 

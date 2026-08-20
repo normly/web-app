@@ -20,6 +20,8 @@ def test_fetch_yields_the_legal_act_record_first():
     assert records[0].raw_designation == "2006/42/EC"
     assert records[0].raw_issuer == "EU"
     assert records[0].full_text is None
+    # The Commission's summary list is English, not German.
+    assert records[0].language == "en"
 
 
 def test_fetch_yields_standard_records_with_based_on_law_reference():

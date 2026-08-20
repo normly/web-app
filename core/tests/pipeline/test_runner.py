@@ -150,6 +150,55 @@ def test_run_adapter_does_not_segment_when_rights_forbid_fulltext_indexing(db_se
     assert summary.embeddings_created == 0
 
 
+def test_run_adapter_stores_the_records_own_language(db_session):
+    source = _make_source(db_session)
+    record = RawRecord(
+        source_id=source.id, content_hash="sha256:runner-language",
+        raw_designation="EN ISO 12100:2010", raw_issuer="CEN",
+        raw_title="Safety of machinery", full_text="Clause 1 Scope.", language="en",
+    )
+    sections = {
+        "EN ISO 12100:2010": [RawSection(sequence_number=1, heading="1", text="Scope.")]
+    }
+    adapter = _FakeAdapter(source.id, [record], sections)
+
+    run_adapter(adapter, db_session)
+
+    designation = db_session.execute(
+        select(DocumentDesignationORM).where(
+            DocumentDesignationORM.designation == "EN ISO 12100:2010"
+        )
+    ).scalar_one()
+    title = db_session.execute(
+        select(DocumentTitleORM).where(DocumentTitleORM.title == "Safety of machinery")
+    ).scalar_one()
+    segment = db_session.execute(
+        select(SegmentORM).where(SegmentORM.document_id == designation.document_id)
+    ).scalar_one()
+
+    assert designation.language == "en"
+    assert title.language == "en"
+    assert segment.language == "en"
+
+
+def test_run_adapter_falls_back_to_german_when_a_record_states_no_language(db_session):
+    source = _make_source(db_session)
+    record = RawRecord(
+        source_id=source.id, content_hash="sha256:runner-language-default",
+        raw_designation="DGUV Vorschrift 11", raw_issuer="DGUV", raw_title="Titel",
+        full_text=None,
+    )
+
+    run_adapter(_FakeAdapter(source.id, [record]), db_session)
+
+    designation = db_session.execute(
+        select(DocumentDesignationORM).where(
+            DocumentDesignationORM.designation == "DGUV Vorschrift 11"
+        )
+    ).scalar_one()
+    assert designation.language == "de"
+
+
 def _assert_nothing_was_written(db_session, designation: str) -> None:
     assert db_session.execute(
         select(DocumentDesignationORM).where(DocumentDesignationORM.designation == designation)

@@ -49,6 +49,8 @@ class EurLexAdapter:
             raw_issuer="EU",
             raw_title=None,
             full_text=None,
+            # The Commission publishes this summary list in English.
+            language="en",
             fetched_at=now,
         )
 
@@ -74,6 +76,7 @@ class EurLexAdapter:
                             raw_issuer=eso,
                             raw_title=title or None,
                             full_text=None,
+                            language="en",
                             raw_references=[
                                 RawReference(
                                     target_issuer="EU",

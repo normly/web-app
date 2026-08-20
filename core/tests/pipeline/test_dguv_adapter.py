@@ -21,6 +21,7 @@ def test_fetch_yields_one_record_per_pdf_with_full_text():
     assert record.raw_title == "Grundsätze der Prävention"
     assert record.full_text is not None
     assert "§ 1 Geltungsbereich" in record.full_text
+    assert record.language == "de"
 
 
 def test_extract_structure_splits_on_paragraph_headings():

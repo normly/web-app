@@ -33,6 +33,9 @@ class RawRecord:
     raw_issuer: str | None
     raw_title: str | None
     full_text: str | None
+    # The language of this record's designation, title and text. `None` leaves
+    # the choice to the runner, which falls back to German.
+    language: str | None = None
     raw_references: list[RawReference] = field(default_factory=list)
     fetched_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
