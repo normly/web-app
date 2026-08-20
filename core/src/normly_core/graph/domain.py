@@ -152,6 +152,8 @@ class SourceRepository(Protocol):
 
     def get_source(self, source_id: uuid.UUID) -> Source | None: ...
 
+    def find_by_publisher(self, publisher: str) -> Source | None: ...
+
 
 class DeliveryRepository(Protocol):
     def record_delivery(

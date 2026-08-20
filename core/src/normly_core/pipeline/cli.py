@@ -6,29 +6,36 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-import uuid
 from pathlib import Path
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
+from normly_core.graph.postgres.repositories import PostgresSourceRepository
 from normly_core.pipeline.adapters.dguv import DguvAdapter
 from normly_core.pipeline.adapters.eur_lex import EurLexAdapter
 from normly_core.pipeline.domain import SourceAdapter
 from normly_core.pipeline.runner import run_adapter
-
-_EUR_LEX_SOURCE_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
-_DGUV_SOURCE_ID = uuid.UUID("00000000-0000-0000-0000-000000000002")
+from normly_core.pipeline.sources import resolve_source
 
 
-def build_adapter(source: str, *, directory: Path) -> SourceAdapter:
+def build_adapter(source: str, *, directory: Path, session: Session) -> SourceAdapter:
+    """
+    Build the adapter for `source`, bound to its registry entry.
+
+    The registry entry is resolved (and registered on first use) before the
+    adapter exists at all: without it there is no `Source` row for a delivery to
+    descend from, and no legal-basis category behind the ingestion.
+    """
+    registered = resolve_source(PostgresSourceRepository(session), source)
+
     if source == "eur-lex":
         return EurLexAdapter(
-            directory=directory, source_id=_EUR_LEX_SOURCE_ID,
+            directory=directory, source_id=registered.id,
             legislation_reference="2006/42/EC",
         )
     if source == "dguv":
-        return DguvAdapter(directory=directory, source_id=_DGUV_SOURCE_ID)
+        return DguvAdapter(directory=directory, source_id=registered.id)
     raise ValueError(f"unknown source: {source!r}")
 
 
@@ -50,11 +57,14 @@ def main(argv: list[str] | None = None) -> int:
         print("NORMLY_DATABASE_URL environment variable is required", file=sys.stderr)
         return 1
 
-    adapter = build_adapter(args.source, directory=args.directory)
     engine = create_engine(database_url)
-    with Session(engine) as session:
-        summary = run_adapter(adapter, session)
-        session.commit()
+    try:
+        with Session(engine) as session:
+            adapter = build_adapter(args.source, directory=args.directory, session=session)
+            summary = run_adapter(adapter, session)
+            session.commit()
+    finally:
+        engine.dispose()
 
     print(
         f"processed={summary.records_processed} skipped={summary.records_skipped} "

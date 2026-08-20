@@ -109,6 +109,24 @@ class PostgresSourceRepository:
         orm = self._session.get(SourceORM, source_id)
         return _source_to_domain(orm) if orm else None
 
+    def find_by_publisher(self, publisher: str) -> Source | None:
+        """
+        Look a registry entry up by its natural key.
+
+        `publisher` is deliberately not unique in the schema — one publisher may
+        legitimately be registered more than once (different retrieval paths,
+        different legal bases). This returns the oldest matching row by id so
+        repeated pipeline runs resolve to the same registry entry instead of
+        picking a different one each time.
+        """
+        orm = self._session.execute(
+            select(SourceORM)
+            .where(SourceORM.publisher == publisher)
+            .order_by(SourceORM.id)
+            .limit(1)
+        ).scalar_one_or_none()
+        return _source_to_domain(orm) if orm else None
+
 
 def _delivery_to_domain(orm: DeliveryORM) -> Delivery:
     return Delivery(
