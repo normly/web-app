@@ -10,6 +10,7 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from sqlalchemy import create_engine
 
+from normly_api.errors import register_exception_handlers
 from normly_api.routers.documents import documents_router
 from normly_api.routers.edges import edges_router
 from normly_api.routers.export import export_router
@@ -45,6 +46,7 @@ def create_app() -> FastAPI:
     app.include_router(edges_router)
     app.include_router(export_router)
     app.include_router(validity_router)
+    register_exception_handlers(app)
     return app
 
 
