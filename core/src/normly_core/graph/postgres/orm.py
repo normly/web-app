@@ -258,8 +258,15 @@ class SegmentORM(Base):
     )
 
     __table_args__ = (
+        # Delivery-scoped on purpose: a segment belongs to the delivery that
+        # produced it. Without `delivery_id` in the key, a second delivery of
+        # the same document would collide with the first delivery's segments
+        # and be handed back their stale text.
         sa.UniqueConstraint(
-            "document_id", "sequence_number", name="uq_segment_document_sequence"
+            "document_id",
+            "delivery_id",
+            "sequence_number",
+            name="uq_segment_document_delivery_sequence",
         ),
     )
 

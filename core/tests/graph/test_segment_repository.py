@@ -65,6 +65,40 @@ def test_add_segment_is_idempotent_by_document_and_sequence(db_session):
     assert first.id == second.id
 
 
+def test_a_second_delivery_gets_its_own_segment_row(db_session):
+    """
+    Idempotency is per delivery, not per document.
+
+    An amended text re-ingested as a second delivery must store its own
+    segments. Sharing the first delivery's row would hand back stale text under
+    a new delivery's lineage — and revoking the first delivery would delete a
+    segment the second one believes it owns.
+    """
+    document, first_delivery = _make_document(db_session, "sha256:segment-delivery-one")
+    second_delivery = PostgresDeliveryRepository(db_session).record_delivery(
+        source_id=PostgresSourceRepository(db_session)
+        .find_by_publisher("DGUV")
+        .id,
+        content_hash="sha256:segment-delivery-two",
+        ingested_at=datetime.now(timezone.utc),
+    )
+    repo = PostgresSegmentRepository(db_session)
+
+    first = repo.add_segment(
+        document_id=document.id, delivery_id=first_delivery.id, sequence_number=1,
+        heading="§ 3", text="Fassung 2024", language="de",
+    )
+    second = repo.add_segment(
+        document_id=document.id, delivery_id=second_delivery.id, sequence_number=1,
+        heading="§ 3", text="Fassung 2026", language="de",
+    )
+
+    assert first.id != second.id
+    assert first.text == "Fassung 2024"
+    assert second.text == "Fassung 2026"
+    assert second.delivery_id == second_delivery.id
+
+
 def test_segments_are_gated_by_jurisdiction(db_session):
     document, delivery = _make_document(db_session)
     segment_repo = PostgresSegmentRepository(db_session)

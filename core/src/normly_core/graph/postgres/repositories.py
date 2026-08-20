@@ -668,12 +668,19 @@ class PostgresSegmentRepository:
     ) -> Segment:
         _require_active_delivery(self._session, delivery_id)
 
-        existing = self._session.execute(
-            select(SegmentORM).where(
-                SegmentORM.document_id == document_id,
-                SegmentORM.sequence_number == sequence_number,
-            )
-        ).scalar_one_or_none()
+        # The dedupe key is delivery-scoped, matching
+        # uq_segment_document_delivery_sequence: re-running one delivery must
+        # not duplicate its segments, but a *second* delivery of the same
+        # document — an amended text — owns its own segment rows. Keyed on
+        # (document_id, sequence_number) alone, the second delivery would be
+        # handed the first one's stale text, and revoking the first delivery
+        # would delete a segment the second one believes it owns.
+        query = select(SegmentORM).where(
+            SegmentORM.document_id == document_id,
+            SegmentORM.delivery_id == delivery_id,
+            SegmentORM.sequence_number == sequence_number,
+        )
+        existing = self._session.execute(query).scalar_one_or_none()
         if existing is not None:
             return _segment_to_domain(existing)
 
@@ -691,12 +698,7 @@ class PostgresSegmentRepository:
                 self._session.add(orm)
                 self._session.flush()
         except IntegrityError:
-            existing = self._session.execute(
-                select(SegmentORM).where(
-                    SegmentORM.document_id == document_id,
-                    SegmentORM.sequence_number == sequence_number,
-                )
-            ).scalar_one_or_none()
+            existing = self._session.execute(query).scalar_one_or_none()
             if existing is None:
                 raise
             return _segment_to_domain(existing)
