@@ -12,6 +12,7 @@ from sqlalchemy import create_engine
 
 from normly_api.routers.documents import documents_router
 from normly_api.routers.edges import edges_router
+from normly_api.routers.export import export_router
 from normly_api.routers.validity import validity_router
 
 
@@ -42,6 +43,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(documents_router)
     app.include_router(edges_router)
+    app.include_router(export_router)
     app.include_router(validity_router)
     return app
 
