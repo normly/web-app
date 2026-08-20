@@ -156,19 +156,45 @@ Rechteklassifikation ist rechtsraumabhängig (REQ-GRAPH-006), und die bestehende
 Repository-Methoden sind bereits jurisdiction-scoped gebaut; die API reicht diesen
 Parameter nur durch, keine eigene Klassifikationslogik.
 
-**Das eine Tor.** `DocumentRepository`s eigener Docstring markiert `list_designations`,
-`list_titles`, `find_by_designation` und `get_document_unchecked` explizit als *nicht*
-rechtsraumgefiltert und *nicht* für öffentliche Lesepfade bestimmt — nur
-`get_document_for_jurisdiction`/`list_documents_for_jurisdiction` filtern über die
-Rechteklassifikation. Jeder Endpunkt, der ein Dokument zurückgibt, muss deshalb zuerst
-`get_document_for_jurisdiction(document_id, jurisdiction)` aufrufen; liefert das `None`,
-antwortet der Endpunkt mit 404 — unabhängig davon, ob das Dokument existiert. Erst nach
-diesem einen Gate-Aufruf dürfen die ungated Methoden zur Anreicherung (Bezeichnungen, Titel)
-für dasselbe, bereits autorisierte Dokument aufgerufen werden. Für die Suche
-(`find_by_designation`) bedeutet das zweistufig: zuerst Identität auflösen
+**Das eine Tor — sechs Ausprägungen, ein Prinzip.** `DocumentRepository`s eigener Docstring
+markiert `list_designations`, `list_titles`, `find_by_designation` und
+`get_document_unchecked` explizit als *nicht* rechtsraumgefiltert und *nicht* für öffentliche
+Lesepfade bestimmt (Ausnahme: `get_document_unchecked` als reine Existenzprüfung, siehe
+unten) — nur die folgenden sechs Methoden filtern über die Rechteklassifikation und dürfen
+das jeweilige Sichtbarkeitsergebnis bestimmen:
+
+| Methode | Zusätzlich zu `may_process`/`revoked_at` | Verwendet von |
+|---|---|---|
+| `get_document_for_jurisdiction` | — | Suche, Detail, Validity (Existenz+Sichtbarkeit) |
+| `list_documents_for_jurisdiction` | — | (intern/Pipeline, kein HTTP-Endpunkt) |
+| `list_exportable_documents_for_jurisdiction` | `may_export_free=True` | `/v1/export` |
+| `list_edges_for_jurisdiction` / `list_incoming_edges_for_jurisdiction` | — | (intern/Pipeline, kein HTTP-Endpunkt) |
+| `list_free_layer_edges_for_jurisdiction` / `list_free_layer_incoming_edges_for_jurisdiction` | `layer=FREE` | `/v1/documents/{id}/edges`, `/v1/documents/{id}/validity` |
+| `list_exportable_edges_for_jurisdiction` | `layer=FREE` **und** `may_export_free=True` (beide Seiten) | `/v1/export` |
+
+Diese Tabelle ist in der Abschluss-Review nachträglich entstanden: der erste Umsetzungsstand
+hatte `edges`/`validity` versehentlich an die *ungefilterten* Varianten angeschlossen —
+`layer=COMMERCIAL`-Kanten wären über die anonyme, öffentliche API sichtbar gewesen, exakt der
+Fehler, den die Abschluss-Review für `/v1/export` bereits einmal gefunden und behoben hatte,
+nur in den beiden Geschwister-Endpunkten. `may_export_free` (Sichtbarkeit im Sammel-Export)
+und `layer` (Zugehörigkeit zur freien vs. kommerziellen Schicht des Graphen selbst,
+REQ-GRAPH-002) sind zwei getrennte Konzepte — die `free_layer_*`-Methoden prüfen nur `layer`,
+nicht `may_export_free`, damit ein `may_process=True, may_export_free=False`-Dokument seine
+freien Beziehungen weiterhin über die allgemeinen Lese-Endpunkte zeigen kann, ohne im
+Sammel-Export zu erscheinen.
+
+Jeder Endpunkt, der ein Dokument zurückgibt, muss zuerst durch eines der sechs Tore. Für
+Suche/Detail/Validity heißt das: `get_document_for_jurisdiction(document_id, jurisdiction)`;
+liefert das `None`, antwortet der Endpunkt mit 404 — unabhängig davon, ob das Dokument
+existiert. Erst nach diesem einen Gate-Aufruf dürfen die ungated Methoden zur Anreicherung
+(Bezeichnungen, Titel) für dasselbe, bereits autorisierte Dokument aufgerufen werden. Für die
+Suche (`find_by_designation`) bedeutet das zweistufig: zuerst Identität auflösen
 (`find_by_designation`, liefert nur eine `document_id`), dann das Gate prüfen
 (`get_document_for_jurisdiction`) — das Suchergebnis kommt ausschließlich aus dem zweiten
 Aufruf, `find_by_designation` dient nur der Identitätsauflösung, nie der Sichtbarkeitsprüfung.
+`/v1/documents/{id}/edges` bildet bewusst eine Ausnahme: es nutzt `get_document_unchecked`
+als reine Existenzprüfung (404 bei unbekannter `document_id`, ohne Rechte-Inhalte
+preiszugeben), gefolgt vom eigentlichen Inhalts-Tor — siehe Fehlerbehandlung.
 
 **Quellenauflösung.** `document.created_via_delivery_id` verweist auf die Lieferung, die das
 Dokument ursprünglich angelegt hat; darüber `DeliveryRepository.get_delivery(...).source_id`
@@ -184,9 +210,12 @@ für den aktuellen Bestand (EUR-Lex, DGUV) ist das gleichbedeutend, siehe Offene
 |---|---|---|
 | `GET /v1/documents?designation=&issuer=&jurisdiction=` | Suche/Lookup nach Bezeichnung | `find_by_designation` (Identität) + `get_document_for_jurisdiction` (Tor, siehe „Das eine Tor") |
 | `GET /v1/documents/{id}?jurisdiction=` | Dokument-Detail (Bezeichnungen, Titel mehrsprachig, Ursprungsquelle inkl. URL) | `get_document_for_jurisdiction` (Tor) zuerst, danach `list_designations`/`list_titles` (Anreicherung), `get_delivery`/`get_source` über `document.created_via_delivery_id` |
-| `GET /v1/documents/{id}/edges?jurisdiction=&edge_type=` | Verweise/Beziehungen (references, based_on_law, adopted_from) | `list_edges_for_jurisdiction` |
-| `GET /v1/documents/{id}/validity?jurisdiction=` | Abgeleiteter Gültigkeitsstatus | wertet `replaces`/`withdrawn_by`-Kanten aus `list_edges_for_jurisdiction` aus |
-| `GET /v1/export?jurisdiction=&format=json` | Vollständiger Dump des freien Graphanteils (REQ-GRAPH-001) | `list_documents_for_jurisdiction` + zugehörige Kanten |
+| `GET /v1/documents/{id}/edges?jurisdiction=&edge_type=` | Verweise/Beziehungen (references, based_on_law, adopted_from) | `get_document_unchecked` (Existenz) + `list_free_layer_edges_for_jurisdiction` (Tor) |
+| `GET /v1/documents/{id}/validity?jurisdiction=` | Abgeleiteter Gültigkeitsstatus | `get_document_for_jurisdiction` (Tor) zuerst, dann wertet `replaces`/`withdrawn_by`-Kanten aus `list_free_layer_incoming_edges_for_jurisdiction` aus |
+| `GET /v1/export?jurisdiction=&format=json` | Vollständiger Dump des freien Graphanteils (REQ-GRAPH-001) | `list_exportable_documents_for_jurisdiction` + `list_exportable_edges_for_jurisdiction` |
+
+`edge_type` ist als `EdgeType | None` typisiert (nicht als roher String) — ein ungültiger
+Wert liefert 400 statt eine stillschweigend leere Liste.
 
 Der `validity`-Endpunkt ist bewusst ein eigener, abgeleiteter Endpunkt statt „selbst aus den
 Kanten ableiten" — REQ-INT-001 verlangt, dass ein Drittsystem ohne Kenntnis der internen
@@ -208,22 +237,48 @@ Beispiel `GET /v1/documents/{id}/edges`:
 
 ```
 Router nimmt jurisdiction, edge_type (optional) entgegen
-    -> EdgeRepository(session).list_edges_for_jurisdiction(id, jurisdiction, edge_type)
+    -> get_document_unchecked(id) is None? -> 404
+    -> EdgeRepository(session).list_free_layer_edges_for_jurisdiction(id, jurisdiction)
+    -> Python-seitiger Filter auf edge_type, falls gesetzt (kein Repository-Parameter)
     -> Domain-Edges -> EdgeResponse-Liste gemappt
-    -> 200 mit Liste, oder 404 wenn document_id unbekannt
+    -> 200 mit (ggf. leerer) Liste
 ```
+
+`edge_type` wird NICHT an die Repository-Methode durchgereicht — `list_free_layer_edges_for_jurisdiction`
+kennt keinen solchen Parameter, das Filtern passiert im Router auf der bereits geladenen Liste.
 
 Kein Endpunkt schreibt.
 
 ## Fehlerbehandlung
 
+Zwei unterschiedliche Verhaltensmuster, je nach Antwortform — beide bewusst, nicht
+widersprüchlich:
+
+- **Einzelressourcen** (`/v1/documents/{id}`, `/v1/documents/{id}/validity`, sowie die Suche):
+  `get_document_for_jurisdiction` liefert `None` sowohl bei unbekannter `document_id` als auch
+  bei fehlender Klassifikation — beide Fälle ergeben einheitlich 404, absichtlich nicht
+  unterscheidbar (sonst ließe sich aus der Antwort ablesen, ob ein Dokument existiert, dem
+  Anfragenden aber verborgen bleibt).
+- **Listenressource** (`/v1/documents/{id}/edges`): eine unbekannte `document_id` ergibt 404
+  (eigene Existenzprüfung über `get_document_unchecked`, die keine Rechte-Inhalte preisgibt),
+  eine bekannte, aber im angefragten Rechtsraum nicht klassifizierte `document_id` ergibt 200
+  mit leerer Liste — für eine Liste ist „keine sichtbaren Einträge" ein normales, kein
+  fehlerhaftes Ergebnis.
+
 | Fall | Verhalten |
 |---|---|
-| Unbekannte `document_id` | 404 mit strukturiertem Fehlerkörper |
+| Unbekannte `document_id` (Einzelressource) | 404 mit strukturiertem Fehlerkörper (`ErrorResponse`), nicht von „existiert, aber nicht klassifiziert" unterscheidbar |
+| Unbekannte `document_id` (`/edges`) | 404, eigene Existenzprüfung, siehe oben |
+| `document_id` bekannt, aber `jurisdiction` ohne Klassifikation (`/edges`) | 200 mit leerem Ergebnis |
 | Fehlender/ungültiger `jurisdiction`-Parameter | 400 — Pflichtparameter, kein stiller Default (sonst rutscht versehentlich der falsche Rechtsraum durch) |
-| `jurisdiction` ohne Klassifikation für dieses Dokument | 200 mit leerem Ergebnis (deckt sich mit dem bestehenden „fehlende Klassifikation = nicht sichtbar"-Verhalten der Repository-Schicht) |
-| Datenbankverbindung down | 503, kein Detail-Leak |
+| Ungültiger `edge_type`-Wert | 400 (Enum-Validierung durch FastAPI, kein stiller Leerlistenrückgabe mehr) |
+| Datenbankverbindung down (SQLAlchemy/OS-Fehler) | 503, kein Detail-Leak |
+| Unerwarteter interner Fehler (z. B. nicht auflösbare Herkunft) | 500 — bewusst NICHT als 503 maskiert; nur echte Infrastrukturfehler (Datenbank, Verbindung) ergeben 503, ein Programmfehler soll sichtbar bleiben statt einen Retry nahezulegen |
 | `format`-Parameter bei `/v1/export` ungleich `json` | 400 — für den Start ist `json` der einzige gültige Wert, der Parameter existiert für spätere Formate (siehe Offene Punkte), ohne dass sich der Endpunkt-Pfad ändert |
+
+Alle 400/404/503-Antworten sind über `ErrorResponse` (`{"detail": str}`) in der
+OpenAPI-Spezifikation dokumentiert — sowohl global (400/503 über `include_router(...,
+responses=...)`) als auch je Endpunkt für die 404-Fälle.
 
 ## Testkonzept
 
@@ -245,7 +300,7 @@ Kein Endpunkt schreibt.
 |---|---|
 | REQ-INT-001 | Öffentliche, OpenAPI-dokumentierte, versionierte HTTP-API (`/v1/`) |
 | REQ-GRAPH-001 | `/v1/export` — vollständiger Dump, offenes JSON-Format, maschinenlesbarer Lizenzhinweis |
-| REQ-GRAPH-002 | Export enthält nur den freien Graphanteil — keine lizenzierten Bestände vorhanden, daher trivial erfüllt |
+| REQ-GRAPH-002 | Export UND die allgemeinen Lese-Endpunkte filtern auf `layer=FREE`; `/v1/export` zusätzlich auf `may_export_free`. In der Abschluss-Review korrigiert: die ursprüngliche Annahme „keine lizenzierten Bestände vorhanden, daher trivial erfüllt" war die Ursache eines echten Lecks (COMMERCIAL-Kanten waren über `/edges`/`/validity` öffentlich sichtbar) — die Erfüllung ist jetzt strukturell durch die layer-gefilterten Repository-Methoden erzwungen, nicht durch die zufällige Abwesenheit lizenzierter Testdaten |
 | REQ-GRAPH-003 | Alle Endpunkte deterministisch aus dem Graph beantwortet, kein Modellaufruf |
 | REQ-GRAPH-004 | Pydantic-Antwortmodelle statt direkter Domain-/ORM-Objekte — Speichertechnologie bleibt hinter der Repository-Schicht |
 | REQ-GRAPH-006 | `jurisdiction`-Pflichtparameter auf jedem Endpunkt, rechtsraumgefilterte Repository-Methoden |
@@ -273,3 +328,23 @@ Kein Endpunkt schreibt.
 - **Deployment/Reverse-Proxy-Konfiguration** — CLAUDE.md verlangt Betrieb hinter beliebigem
   Reverse Proxy im Container; konkrete STACKIT-Pipeline-Anbindung ist eine spätere
   Deployment-Entscheidung, analog zu den vorigen Teilprojekten.
+- **OpenAPI dokumentiert einen 422, den es nie gibt.** FastAPI ergänzt automatisch einen
+  422-Eintrag für jeden Endpunkt mit validierten Parametern; der `RequestValidationError`-Handler
+  wandelt aber jeden solchen Fall zur Laufzeit in 400 um, sodass 422 nie tatsächlich
+  zurückkommt — ein totes Schema-Element (eigenes `HTTPValidationError`-Komponentenschema,
+  strukturell verschieden von `ErrorResponse`) für generierte Clients. Aus der Abschluss-Review,
+  bewusst nicht behoben: bräuchte eine `app.openapi()`-Override zur Schema-Nachbearbeitung.
+- **`/v1/documents/{id}/edges` und Einzelressourcen haben unterschiedliche
+  404-vs-200-leer-Semantik**, siehe Fehlerbehandlung — bewusst, aber ein API-Konsument sollte
+  das aus der Dokumentation lernen können, nicht nur aus dem Verhalten.
+- **`/v1/documents` (Suche) liefert ein einzelnes Objekt, keine Liste**, obwohl der Pfad wie
+  eine Kollektion aussieht. Solange „Suche" nur exakte Bezeichnung+Herausgeber unterstützt, ist
+  das eindeutig; sobald unscharfe/mehrdeutige Suche hinzukommt, wäre `list[DocumentResponse]`
+  eine brechende Änderung — property jetzt schon so anlegen, solange nichts davon abhängt, wäre
+  eine Überlegung wert.
+- **N+1-Anfragen im Export** — für jedes Dokument einzeln `list_exportable_edges_for_jurisdiction`
+  aufgerufen. Mit den aktuell kleinen Beständen unproblematisch; bei wachsendem Bestand vor
+  Paginierung (siehe oben) zu adressieren.
+- **`SET TRANSACTION READ ONLY`** wäre eine strukturelle (statt nur durch Review erzwungene)
+  Absicherung von „die API ist rein lesend" — aktuell hält kein Code-Pfad diese Eigenschaft
+  technisch durch, nur die Abwesenheit schreibender Repository-Aufrufe im Quellcode.
