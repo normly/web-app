@@ -65,10 +65,11 @@ def test_build_adapter_registers_the_source_it_binds_the_adapter_to(db_session):
     assert registered.jurisdiction == "DE"
 
 
-def test_main_ingests_a_directory_end_to_end(committed_db):
+def test_main_ingests_a_directory_end_to_end(committed_db, capsys):
     exit_code = main(["ingest", "dguv", "--directory", str(FIXTURE_DIR)])
 
     assert exit_code == 0
+    assert "failed=0" in capsys.readouterr().out
     with committed_db.connect() as connection:
         designation = connection.execute(
             sa.select(DocumentDesignationORM.designation).where(

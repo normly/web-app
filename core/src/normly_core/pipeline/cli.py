@@ -68,6 +68,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print(
         f"processed={summary.records_processed} skipped={summary.records_skipped} "
+        f"failed={summary.records_failed} "
         f"documents_created={summary.documents_created} "
         f"segments_created={summary.segments_created} "
         f"embeddings_created={summary.embeddings_created} "
