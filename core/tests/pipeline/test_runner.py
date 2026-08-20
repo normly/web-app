@@ -8,6 +8,7 @@ from sqlalchemy import select
 
 from normly_core.graph.domain import EdgeType, LegalBasisCategory
 from normly_core.graph.postgres.orm import (
+    DocumentORM,
     DocumentDesignationORM,
     DocumentTitleORM,
     EdgeORM,
@@ -357,6 +358,12 @@ def test_run_adapter_writes_consistent_delivery_id_lineage_across_all_artifacts(
         select(EmbeddingORM).where(EmbeddingORM.segment_id == segment.id)
     ).scalar_one()
 
+    document = db_session.execute(
+        select(DocumentORM).where(DocumentORM.id == designation.document_id)
+    ).scalar_one()
+
+    # The document node carries the same lineage, under its own column name.
+    assert document.created_via_delivery_id == delivery.id
     assert designation.delivery_id == delivery.id
     assert title.delivery_id == delivery.id
     assert rights.delivery_id == delivery.id

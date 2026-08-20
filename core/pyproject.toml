@@ -11,7 +11,6 @@ dependencies = [
     "pgvector>=0.3,<0.4",
     "sentence-transformers>=3.0,<4.0",
     "pdfplumber>=0.11,<0.12",
-    "pypdf>=4.0,<5.0",
 ]
 
 [project.optional-dependencies]
