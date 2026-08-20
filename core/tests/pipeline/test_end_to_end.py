@@ -7,6 +7,7 @@ from pathlib import Path
 from normly_core.graph.domain import LegalBasisCategory
 from normly_core.graph.postgres.repositories import (
     PostgresDocumentRepository,
+    PostgresRightsRepository,
     PostgresSegmentRepository,
     PostgresSourceRepository,
 )
@@ -39,7 +40,7 @@ def test_eur_lex_and_dguv_runs_populate_a_queryable_graph_with_correct_rights_as
     eur_lex_summary = run_adapter(eur_lex_adapter, db_session)
     dguv_summary = run_adapter(dguv_adapter, db_session)
 
-    assert eur_lex_summary.documents_created >= 2  # legal act + at least one standard
+    assert eur_lex_summary.documents_created == 8  # legal act + 7 referenced standards
     assert dguv_summary.documents_created == 1
     assert dguv_summary.segments_created == 3
     assert dguv_summary.embeddings_created == 3
@@ -51,11 +52,21 @@ def test_eur_lex_and_dguv_runs_populate_a_queryable_graph_with_correct_rights_as
     assert eur_lex_standard is not None
     assert segment_repo.list_segments_for_jurisdiction(eur_lex_standard.id, "EU") == []
 
+    rights_repo = PostgresRightsRepository(db_session)
+    eur_lex_rights = rights_repo.get_classification(eur_lex_standard.id, "EU")
+    assert eur_lex_rights is not None
+    assert eur_lex_rights.may_index_fulltext is False
+    assert eur_lex_rights.may_cite_passages is False
+
     dguv_document = doc_repo.find_by_designation("DGUV", "DGUV Vorschrift 1")
     assert dguv_document is not None
     dguv_segments = segment_repo.list_segments_for_jurisdiction(dguv_document.id, "DE")
     assert len(dguv_segments) == 3
-    assert dguv_segments[0].heading == "§ 1 Geltungsbereich"
+    assert [s.heading for s in dguv_segments] == [
+        "§ 1 Geltungsbereich",
+        "§ 2 Pflichten des Unternehmers",
+        "§ 3 Pflichten der Versicherten",
+    ]
 
 
 def test_running_the_same_adapter_twice_skips_unchanged_records(db_session):
@@ -66,6 +77,8 @@ def test_running_the_same_adapter_twice_skips_unchanged_records(db_session):
     second_summary = run_adapter(dguv_adapter, db_session)
 
     assert first_summary.records_processed == 1
+    assert second_summary.records_processed == 0
     assert second_summary.records_skipped == 1
     assert second_summary.documents_created == 0
+    assert second_summary.segments_created == 0
     assert second_summary.embeddings_created == 0
