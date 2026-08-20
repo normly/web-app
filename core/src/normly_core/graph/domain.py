@@ -264,7 +264,18 @@ class EdgeRepository(Protocol):
 
     def list_edges_for_jurisdiction(
         self, document_id: uuid.UUID, jurisdiction: str
-    ) -> list[Edge]: ...
+    ) -> list[Edge]:
+        """Edges where document_id is the source (from_document_id)."""
+        ...
+
+    def list_incoming_edges_for_jurisdiction(
+        self, document_id: uuid.UUID, jurisdiction: str
+    ) -> list[Edge]:
+        """Edges where document_id is the target (to_document_id) -- e.g. the
+        REPLACES/WITHDRAWN_BY edges a successor or withdrawal-notice document
+        points at document_id. Same dual rights-gating as
+        list_edges_for_jurisdiction, direction reversed."""
+        ...
 
 
 @dataclass(frozen=True)

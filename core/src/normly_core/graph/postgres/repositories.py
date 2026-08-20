@@ -638,6 +638,35 @@ class PostgresEdgeRepository:
         ).scalars()
         return [_edge_to_domain(row) for row in rows]
 
+    def list_incoming_edges_for_jurisdiction(
+        self, document_id: uuid.UUID, jurisdiction: str
+    ) -> list[Edge]:
+        # Mirror of list_edges_for_jurisdiction with the direction reversed:
+        # returns edges where document_id is the *target* (to_document_id),
+        # e.g. REPLACES/WITHDRAWN_BY edges a successor or withdrawal-notice
+        # document points at document_id. Same dual rights-gating rationale
+        # applies -- both endpoints must be readable in this jurisdiction.
+        source_rights = aliased(RightsClassificationORM, name="source_rights")
+        target_rights = aliased(RightsClassificationORM, name="target_rights")
+        rows = self._session.execute(
+            select(EdgeORM)
+            .join(source_rights, source_rights.document_id == EdgeORM.from_document_id)
+            .join(target_rights, target_rights.document_id == EdgeORM.to_document_id)
+            .where(
+                EdgeORM.to_document_id == document_id,
+                EdgeORM.revoked_at.is_(None),
+                sa.or_(EdgeORM.jurisdiction.is_(None), EdgeORM.jurisdiction == jurisdiction),
+                source_rights.jurisdiction == jurisdiction,
+                source_rights.may_process.is_(True),
+                source_rights.revoked_at.is_(None),
+                target_rights.jurisdiction == jurisdiction,
+                target_rights.may_process.is_(True),
+                target_rights.revoked_at.is_(None),
+            )
+            .order_by(EdgeORM.id)
+        ).scalars()
+        return [_edge_to_domain(row) for row in rows]
+
 
 def _segment_to_domain(orm: SegmentORM) -> Segment:
     return Segment(

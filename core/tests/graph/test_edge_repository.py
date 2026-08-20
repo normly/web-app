@@ -148,6 +148,36 @@ def test_edges_only_listed_when_target_is_rights_classified(db_session):
     assert edges[0].to_document_id == old.id
 
 
+def test_list_incoming_edges_for_jurisdiction_returns_edges_pointing_at_the_document(
+    db_session,
+):
+    old, new, delivery = _make_two_documents(db_session)
+    edge_repo = PostgresEdgeRepository(db_session)
+
+    edge_repo.create_edge(
+        from_document_id=new.id,
+        to_document_id=old.id,
+        edge_type=EdgeType.REPLACES,
+        jurisdiction=None,
+        layer=Layer.FREE,
+        delivery_id=delivery.id,
+    )
+    _classify(db_session, new, delivery)
+    _classify(db_session, old, delivery)
+
+    # From old's perspective the REPLACES edge is incoming (new points at it).
+    incoming = edge_repo.list_incoming_edges_for_jurisdiction(old.id, "DE")
+    assert len(incoming) == 1
+    assert incoming[0].from_document_id == new.id
+    assert incoming[0].to_document_id == old.id
+
+    # From new's perspective it is outgoing, not incoming.
+    assert edge_repo.list_incoming_edges_for_jurisdiction(new.id, "DE") == []
+    # And list_edges_for_jurisdiction stays the mirror image (outgoing-only).
+    assert edge_repo.list_edges_for_jurisdiction(old.id, "DE") == []
+    assert len(edge_repo.list_edges_for_jurisdiction(new.id, "DE")) == 1
+
+
 def test_edges_are_hidden_when_the_source_document_is_not_readable(db_session):
     """
     Listing a document's edges reveals that the document exists and what it
