@@ -1,3 +1,4 @@
+# api/tests/conftest.py
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 normly contributors
 
@@ -6,11 +7,13 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from testcontainers.community.postgres import PostgresContainer
 
-CORE_DIR = Path(__file__).parents[1]
+API_DIR = Path(__file__).parents[1]
+CORE_DIR = API_DIR.parent / "core"
 
 
 @pytest.fixture(scope="session")
@@ -51,3 +54,25 @@ def db_session(migrated_engine):
         nested.rollback()
     transaction.rollback()
     connection.close()
+
+
+@pytest.fixture()
+def client(db_url, monkeypatch, db_session):
+    """
+    A TestClient whose requests are served from this test's own db_session
+    connection (via a dependency override), so data set up through db_session
+    is visible to HTTP calls and everything rolls back together at teardown.
+
+    The app's own lifespan still needs NORMLY_DATABASE_URL set (it creates its
+    own, separate engine on startup) even though requests never use that
+    engine directly -- the override intercepts get_session before it would.
+    """
+    monkeypatch.setenv("NORMLY_DATABASE_URL", db_url)
+    from normly_api.dependencies import get_session
+    from normly_api.main import create_app
+
+    app = create_app()
+    app.dependency_overrides[get_session] = lambda: db_session
+
+    with TestClient(app) as test_client:
+        yield test_client

@@ -122,6 +122,12 @@ def test_revoke_delivery_covers_every_delivery_scoped_table():
     # an identity node, not a revocable artifact. It becomes unreadable once
     # its rights_classification is locked, but the row itself is not deleted
     # or locked by revoke_delivery.
-    expected_cascaded = {"edge", "rights_classification", "document_designation", "document_title"}
+    expected_cascaded = {
+        "edge", "rights_classification", "document_designation", "document_title",
+        "segment", "embedding",
+    }
+    expected_rejected_in_place = {"identity_resolution_case"}
     expected_exempt = {"document"}
-    assert delivery_scoped_tables == expected_cascaded | expected_exempt
+    assert delivery_scoped_tables == (
+        expected_cascaded | expected_rejected_in_place | expected_exempt
+    )

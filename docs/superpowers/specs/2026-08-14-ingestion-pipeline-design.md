@@ -97,14 +97,26 @@ class RawRecord:
     raw_issuer: str | None
     raw_title: str | None
     full_text: str | None          # None bei EUR-Lex
+    language: str | None           # "en" (EUR-Lex) / "de" (DGUV); Fallback "de" im Runner
     raw_references: list[RawReference]
     fetched_at: datetime
 
 class SourceAdapter(Protocol):
     def fetch(self) -> Iterable[RawRecord]: ...
     def extract_structure(self, record: RawRecord) -> list[RawSection]: ...
-    def classify_rights(self, record: RawRecord) -> RightsRule: ...
+    def classify_rights(self, record: RawRecord) -> RightsRule | None: ...
 ```
+
+`classify_rights` gibt `None` zurück, wenn die Quelle den Fall nicht zuordnen kann — der
+Runner legt dann keine Klassifikationszeile und keine abgeleiteten Artefakte an, sondern
+reiht den Datensatz in `identity_resolution_case` ein (`reason="cannot_classify_rights"`).
+Das ist der in der Fehlerbehandlung geforderte sichere Default; ursprünglich zwang die
+Protocol-Signatur jeden Adapter zu einer Antwort, das wurde in der Abschluss-Review
+korrigiert. Ebenso prüft der Runner `regel.may_process` vor jedem Schreibzugriff
+(`reason="processing_not_permitted"` bei `False`) — beide Adapter liefern heute immer eine
+erlaubende, vollständige Regel, die Fähigkeit ist aber jetzt im Typsystem vorhanden.
+`SourceAdapter` lebt tatsächlich in `pipeline/domain.py` (nicht in einer eigenen
+`adapters/base.py`, siehe korrigiertes Modullayout unten).
 
 `fetch()` nimmt kein `since` entgegen: Ein Verzeichnis-Adapter listet bei jedem Lauf alle
 konfigurierten Dateien auf (der Ordnerpfad kommt über den Adapter-Konstruktor, nicht über
@@ -176,17 +188,37 @@ Teil desselben `core`-Pakets, keine neue Top-Level-Komponente:
 
 ```
 core/src/normly_core/pipeline/
-  domain.py          # RawRecord, RawSection, RawReference, RightsRule, IdentityResolution
+  domain.py          # RawRecord, RawSection, RawReference, RightsRule,
+                       # IdentityResolution, SourceAdapter Protocol
+  sources.py           # Quellregister (Publisher -> Kategorie/Rechtsraum/Meta),
+                       # resolve_source() legt fehlende Registereinträge idempotent an
   adapters/
-    base.py          # SourceAdapter Protocol
+    __init__.py
     eur_lex.py
     dguv.py
   identity.py         # Bezeichnung parsen + gegen document_designation abgleichen
-  references.py       # RawReference -> edge
-  embeddings.py        # EmbeddingModel-Wrapper um sentence-transformers
+  references.py       # RawReference -> edge (Layer aus RightsRule.may_export_free)
+  embeddings.py        # EmbeddingModel-Wrapper um sentence-transformers,
+                       # optionaler lokaler model_path (siehe unten)
   runner.py           # Orchestrierung (siehe Datenfluss)
-  cli.py              # `python -m normly_core.pipeline ingest <quelle>`
+  cli.py              # build_adapter(), main()
+  __main__.py          # `python -m normly_core.pipeline ingest <quelle>`
 ```
+
+Abweichung vom ursprünglichen Entwurf: `SourceAdapter` liegt in `domain.py` statt in einer
+eigenen `adapters/base.py` (konsistent mit `graph.domain`, das ebenfalls seine Protocols
+neben den Dataclasses führt). `cli.py` allein reicht für `python -m` nicht aus — `-m`
+benötigt ein `__main__.py`, das war im ursprünglichen Modullayout nicht vorgesehen und wurde
+bei der Umsetzung ergänzt.
+
+**Quellregister (`sources.py`).** CLAUDE.md verlangt für jede Quelle einen Registereintrag
+mit Kategorie. `resolve_source(publisher, session)` sucht per `SourceRepository.find_by_publisher`
+nach einer bestehenden `source`-Zeile und legt sie sonst mit fest hinterlegten Metadaten an
+(EUR-Lex: Kategorie A, Rechtsraum EU; DGUV: Kategorie A, Rechtsraum DE). Die Suche geht über
+den bloßen `publisher`-Namen, nicht über den vollständigen Registereintrag (Kategorie/
+Rechtsraum/Bezugspfad) — für die zwei aktuellen, fest verdrahteten Quellen unproblematisch,
+aber eine spätere Härtung (eindeutiger Index über die volle Kombination) ist offen, siehe
+Offene Punkte.
 
 `pipeline.domain` bleibt frei von SQLAlchemy, wie `graph.domain` — dieselbe Grenze.
 Adapter-spezifische Abhängigkeiten (HTTP-Client, `lxml`, PDF-Extraktion) sind auf die
@@ -217,6 +249,16 @@ Beispieldateien (die echte EUR-Lex-"Summary list"-PDF, ein DGUV-PDF), keine Live
 Segmentgrenzen folgen den natürlichen Gliederungseinheiten der Quelle (§-Absätze bei
 DGUV-Vorschriften) — keine separate Chunking-Stufe für den Start (YAGNI, siehe
 Pipeline-Stufen).
+
+Eindeutigkeit über `(document_id, delivery_id, sequence_number)`, nicht nur
+`(document_id, sequence_number)` — Letzteres hätte bei einer erneuten Lieferung desselben
+Dokuments (z. B. einer geänderten DGUV-PDF) die neuen Abschnittstexte stillschweigend
+verworfen und die Zeile der ersten Lieferung zurückgegeben, mit denselben Folgen für die
+kaskadierende Rücknahme wie bei `document_designation`/`document_title` im vorigen
+Teilprojekt. In der Abschluss-Review korrigiert (Migration `0012`). Lesezugriffe filtern
+noch nicht nach der jeweils aktiven Lieferung — bei einer zweiten, noch nicht
+zurückgezogenen Lieferung desselben Dokuments würden beide Zeilenmengen zusammen
+zurückgegeben. Offener Punkt, siehe unten.
 
 ### `embedding` — Vektorrepräsentation eines Segments
 
@@ -296,41 +338,58 @@ erhält `based_on_law`-Kanten zu gelisteten Normknoten. DGUV: zitierte Normen/Ge
 ```
 für jeden RawRecord aus adapter.fetch():
     wenn delivery_repo.find_delivery(source_id, content_hash) vorhanden: weiter  # REQ-PIPE-006
-    delivery = delivery_repo.record_delivery(source_id, content_hash, ingested_at)
+    versuche (in einem Savepoint, siehe Fehlerbehandlung):
+        delivery = delivery_repo.record_delivery(source_id, content_hash, ingested_at)
 
-    ergebnis = identity.resolve(raw_record)
-    wenn ergebnis uneindeutig:
-        identity_resolution_repo.enqueue_case(delivery_id, raw_designation, raw_issuer, reason)
-        weiter
+        regel = adapter.classify_rights(raw_record)
+        wenn regel ist None ODER regel.may_process ist False:
+            identity_resolution_repo.enqueue_case(delivery_id, raw_designation, raw_issuer, reason)
+            Savepoint erfolgreich beenden, nächster Datensatz  # keine Artefakte angelegt
 
-    document = ergebnis.document ODER document_repo.create_document(..., delivery_id)
-    document_repo.add_designation(document.id, ..., delivery_id)
+        ergebnis = identity.resolve(raw_record)
+        wenn ergebnis uneindeutig:
+            identity_resolution_repo.enqueue_case(delivery_id, raw_designation, raw_issuer, reason)
+            Savepoint erfolgreich beenden, nächster Datensatz
 
-    regel = adapter.classify_rights(raw_record)
-    rights_repo.classify(document.id, regel.jurisdiction, regel.may_process, ..., delivery_id)
+        document = ergebnis.document ODER document_repo.create_document(..., delivery_id)
+        document_repo.add_designation(document.id, ..., sprache=raw_record.language, delivery_id)
 
-    für jede RawReference in raw_record.raw_references:
-        references.extract(raw_record, document, delivery_id)  # -> edge_repo.create_edge
+        rights_repo.classify(document.id, regel.jurisdiction, regel.may_process, ..., delivery_id)
 
-    wenn raw_record.full_text ist nicht None:
-        für jeden RawSection in adapter.extract_structure(raw_record):
-            segment = segment_repo.add_segment(document.id, delivery_id, ..., abschnitt)
-            vektor = embeddings.embed(segment.text)
-            embedding_repo.add_embedding(segment.id, delivery_id, modell_name, vektor)
+        für jede RawReference in raw_record.raw_references:
+            references.extract(raw_record, document, regel, delivery_id)  # Layer aus regel.may_export_free
+
+        wenn raw_record.full_text ist nicht None:
+            für jeden RawSection in adapter.extract_structure(raw_record):
+                segment = segment_repo.add_segment(document.id, delivery_id, ..., abschnitt)
+                vektor = embeddings.embed(segment.text)
+                embedding_repo.add_embedding(segment.id, delivery_id, modell_name, vektor)
+    außer Exception:
+        Savepoint zurückrollen (inkl. der `delivery`-Zeile — sonst gilt der Datensatz beim
+        nächsten Lauf fälschlich als bereits verarbeitet), records_failed zählen, weiter
 ```
 
 Jeder Schreibaufruf mit `delivery_id` läuft durch den bereits bestehenden
 `_require_active_delivery`-Schutz — keine Änderung an dessen Semantik nötig, die neuen
 Repository-Methoden reihen sich nur ein.
 
+Der ursprüngliche Entwurf sah keine Fehlerisolation je Datensatz vor (`record_delivery` lag
+außerhalb jeder Transaktionsgrenze). In der Abschluss-Review korrigiert: die gesamte
+Verarbeitung eines Datensatzes — inklusive `record_delivery` selbst — läuft in einem
+`session.begin_nested()`-Savepoint, damit ein Fehler nirgendwo im Datensatz eine
+halb-angelegte `delivery`-Zeile hinterlässt, die den Datensatz beim nächsten Lauf
+fälschlich als „bereits verarbeitet" erscheinen ließe.
+
 ## Fehlerbehandlung
 
 | Fall | Verhalten |
 |---|---|
 | `adapter.fetch()` schlägt fehl (Netzwerk/API) | Lauf bricht für diese Quelle ab, keine Teil-Ergebnisse; nächster Lauf versucht erneut |
+| Ein einzelner Datensatz löst eine Ausnahme aus (beliebige Ursache) | Savepoint für diesen Datensatz rollt vollständig zurück (inkl. `delivery`), `records_failed` gezählt, Lauf setzt mit dem nächsten Datensatz fort — echte Wiederholbarkeit beim nächsten Lauf |
 | Bezeichnung nicht parsbar / Identität uneindeutig | `identity_resolution_case`, blockiert nur dieses Dokument |
 | Struktur-/Verweisextraktion schlägt für einen Datensatz fehl | Gleiche Warteschlange, gleiche Isolation |
-| Automatische Rechteklassifikation kann Fall nicht zuordnen | Keine Klassifikationszeile — Dokument bleibt gesperrt (sicherer Default) |
+| Automatische Rechteklassifikation kann Fall nicht zuordnen (`classify_rights` liefert `None`) | Keine Klassifikationszeile, keine abgeleiteten Artefakte — `identity_resolution_case` mit `reason="cannot_classify_rights"`, Dokument bleibt gesperrt (sicherer Default) |
+| `regel.may_process` ist `False` | Gleiche Warteschlange, `reason="processing_not_permitted"` |
 | Embedding schlägt für ein Segment fehl | Segment ohne Embedding, Fehler geloggt, nächster Lauf holt es nach (`add_embedding` idempotent über `(segment_id, model_name)`) |
 | Schreiboperation auf zurückgezogene Lieferung | `WithdrawnDeliveryError` (bestehender Mechanismus) |
 
@@ -388,3 +447,29 @@ Repository-Methoden reihen sich nur ein.
 - **Echter HTTP-Fetch für EUR-Lex/DGUV** — die Parsing-Formate sind jetzt verifiziert (siehe
   Architektur), das automatisierte Abrufen selbst (Login/Pagination/Ratenbegrenzung) bleibt
   Folgearbeit.
+- **Embedding-Modell-Beschaffung berührt eine US-Dienst-Frage.** `EmbeddingModel` lädt das
+  Modell standardmäßig von `huggingface.co` (Inferenz selbst läuft lokal, wie von
+  CLAUDE.md gefordert — nur die einmalige Gewichte-Beschaffung nicht). In der
+  Abschluss-Review um einen optionalen `model_path`/`NORMLY_EMBEDDING_MODEL_PATH` ergänzt:
+  ein STACKIT-Betrieb muss die Gewichte vorab bereitstellen (z. B. im Container-Image oder
+  über STACKIT Object Storage) und niemals zur Laufzeit von Hugging Face laden. Die
+  eigentliche Bereitstellungs-Pipeline dafür ist nicht Teil dieses Teilprojekts.
+- **`resolve_source` matcht nur auf `publisher`**, nicht auf den vollständigen
+  Registereintrag (Kategorie/Rechtsraum/Bezugspfad). Für die zwei aktuellen, im Code fest
+  hinterlegten Quellen unproblematisch; sobald ein Herausgeber mehrere, unterschiedlich
+  klassifizierte Registereinträge haben kann, braucht es einen eindeutigen Index über die
+  volle Kombination statt der bloßen Publisher-Zeichenkette.
+- **`list_segments_for_jurisdiction` filtert nicht nach der jeweils aktiven Lieferung.**
+  Seit Migration `0012` kann ein Dokument bei zwei aktiven, nicht zurückgezogenen
+  Lieferungen (z. B. einer korrigierten Neulieferung) Segmente aus beiden Lieferungen
+  gleichzeitig zurückgeben. Vor einer produktiven API auf dieser Lesemethode braucht es
+  entweder einen „letzte aktive Lieferung"-Filter oder einen expliziten
+  Rücknahme-Schritt für die vorige Lieferung bei einer Neulieferung desselben Dokuments.
+- **Der Architektur-Drifttest für den Rechtsraum-Zwang** (`test_architecture.py`) prüft nur
+  `get_*`/`list_*`-Methoden auf den Repository-Protocols, nicht `find_*` — sowohl das
+  bestehende `DocumentRepository.find_by_designation` als auch das neue
+  `SourceRepository.find_by_publisher` sind ungated und entgehen dem Test dadurch. Sollte
+  bei nächster Gelegenheit im Testcode selbst nachgezogen werden.
+- **`RunSummary.records_processed` zählt auch später fehlgeschlagene Datensätze** (der
+  Zähler wird vor dem eigentlichen Verarbeitungsversuch erhöht) — `processed` und `failed`
+  aus der CLI-Ausgabe addieren sich dadurch nicht sauber zur Gesamtzahl auf.

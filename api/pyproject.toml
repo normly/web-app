@@ -1,0 +1,35 @@
+[project]
+name = "normly-api"
+version = "0.1.0"
+description = "normly free core: read-only HTTP API over the reference graph"
+requires-python = ">=3.11"
+license = { text = "AGPL-3.0-or-later" }
+dependencies = [
+    # normly-core is a same-repo sibling package. It MUST be installed from
+    # the local ../core checkout -- `pip install -e ../core -e .` -- and never
+    # resolved from a public package index: it is not published to one, so any
+    # PyPI name match would be a typosquat, not this package. The version
+    # constraint below is a defensive floor matching core/pyproject.toml, not
+    # a substitute for installing from the checkout. A workspace or private
+    # index that enforces this technically is still outstanding.
+    "normly-core>=0.1.0,<0.2.0",
+    "fastapi>=0.115,<0.120",
+    "uvicorn[standard]>=0.30,<1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0,<9.0",
+    "httpx>=0.27,<1.0",
+    "testcontainers[postgres]>=4.15,<5.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/normly_api"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -145,6 +145,59 @@ def test_revoked_classification_blocks_read(db_session):
     assert doc_repo.list_documents_for_jurisdiction("DE") == []
 
 
+def test_may_export_free_false_excludes_document_from_exportable_list_but_not_from_processable_list(
+    db_session,
+):
+    """
+    `list_exportable_documents_for_jurisdiction` and
+    `list_documents_for_jurisdiction` must have genuinely different semantics:
+    a document that may be processed/served internally but is not licensed
+    for the public free-tier export (e.g. contractually received, no
+    redistribution right) must appear in the latter but not the former.
+    """
+    document, delivery = _make_document(db_session)
+    rights_repo = PostgresRightsRepository(db_session)
+    doc_repo = PostgresDocumentRepository(db_session)
+
+    rights_repo.classify(
+        document_id=document.id,
+        jurisdiction="DE",
+        may_process=True,
+        may_index_fulltext=True,
+        may_cite_passages=True,
+        may_export_free=False,
+        legal_basis_reference="Vertrag Nr. 2026-014",
+        classified_at=datetime.now(timezone.utc),
+        classified_by="J. Weber",
+        delivery_id=delivery.id,
+    )
+
+    assert [d.id for d in doc_repo.list_documents_for_jurisdiction("DE")] == [document.id]
+    assert doc_repo.list_exportable_documents_for_jurisdiction("DE") == []
+
+
+def test_may_export_free_true_includes_document_in_exportable_list(db_session):
+    document, delivery = _make_document(db_session)
+    rights_repo = PostgresRightsRepository(db_session)
+    doc_repo = PostgresDocumentRepository(db_session)
+
+    rights_repo.classify(
+        document_id=document.id,
+        jurisdiction="DE",
+        may_process=True,
+        may_index_fulltext=True,
+        may_cite_passages=True,
+        may_export_free=True,
+        legal_basis_reference="§ 5 UrhG",
+        classified_at=datetime.now(timezone.utc),
+        classified_by="J. Weber",
+        delivery_id=delivery.id,
+    )
+
+    exported = doc_repo.list_exportable_documents_for_jurisdiction("DE")
+    assert [d.id for d in exported] == [document.id]
+
+
 def test_classify_is_idempotent_and_updates_existing_classification(db_session):
     document, delivery = _make_document(db_session)
     rights_repo = PostgresRightsRepository(db_session)
