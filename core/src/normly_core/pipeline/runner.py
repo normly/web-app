@@ -134,7 +134,7 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
         )
 
         references.extract_references(
-            record, document.id, delivery.id, document_repo, edge_repo, identity_repo
+            record, document.id, delivery.id, document_repo, edge_repo, identity_repo, rule
         )
 
         if record.full_text is not None and rule.may_index_fulltext:

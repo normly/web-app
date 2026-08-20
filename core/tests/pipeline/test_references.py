@@ -4,7 +4,7 @@
 import uuid
 from datetime import date, datetime, timezone
 
-from normly_core.graph.domain import EdgeType, LegalBasisCategory
+from normly_core.graph.domain import EdgeType, Layer, LegalBasisCategory
 from normly_core.graph.postgres.repositories import (
     PostgresDeliveryRepository,
     PostgresDocumentRepository,
@@ -12,8 +12,16 @@ from normly_core.graph.postgres.repositories import (
     PostgresIdentityResolutionRepository,
     PostgresSourceRepository,
 )
-from normly_core.pipeline.domain import RawRecord, RawReference
+from normly_core.pipeline.domain import RawRecord, RawReference, RightsRule
 from normly_core.pipeline.references import extract_references
+
+
+def _rule(*, may_export_free: bool = True) -> RightsRule:
+    return RightsRule(
+        jurisdiction="EU", may_process=True, may_index_fulltext=False,
+        may_cite_passages=False, may_export_free=may_export_free,
+        legal_basis_reference="§ 5 UrhG",
+    )
 
 
 def _setup(db_session):
@@ -55,7 +63,9 @@ def test_extract_references_creates_edge_when_target_exists(db_session):
         ],
     )
 
-    extract_references(record, standard.id, delivery.id, doc_repo, edge_repo, identity_repo)
+    extract_references(
+        record, standard.id, delivery.id, doc_repo, edge_repo, identity_repo, _rule()
+    )
 
     edges = edge_repo.list_edges_for_jurisdiction(standard.id, "EU")
     # No rights classification exists yet in this test, so the gated list is empty by
@@ -71,6 +81,45 @@ def test_extract_references_creates_edge_when_target_exists(db_session):
     ).scalar_one_or_none()
     assert created is not None
     assert created.edge_type == EdgeType.BASED_ON_LAW
+    assert created.layer == Layer.FREE
+
+
+def test_extract_references_puts_edges_of_non_exportable_records_in_the_commercial_layer(
+    db_session,
+):
+    from sqlalchemy import select
+
+    from normly_core.graph.postgres.orm import EdgeORM
+
+    doc_repo, delivery, standard = _setup(db_session)
+    legal_act = doc_repo.create_document(
+        origin_issuer="EU", origin_number="2006/42/EC", edition="2006", part=None,
+        delivery_id=delivery.id,
+    )
+    doc_repo.add_designation(
+        document_id=legal_act.id, issuer="EU", designation="2006/42/EC", language="en",
+        edition=None, is_primary=True, delivery_id=delivery.id,
+    )
+    record = RawRecord(
+        source_id=uuid.uuid4(), content_hash="sha256:ref-commercial",
+        raw_designation="EN ISO 12100:2010", raw_issuer="CEN", raw_title=None, full_text=None,
+        raw_references=[
+            RawReference(target_issuer="EU", target_designation="2006/42/EC", edge_type=EdgeType.BASED_ON_LAW)
+        ],
+    )
+
+    extract_references(
+        record, standard.id, delivery.id, doc_repo,
+        PostgresEdgeRepository(db_session), PostgresIdentityResolutionRepository(db_session),
+        _rule(may_export_free=False),
+    )
+
+    created = db_session.execute(
+        select(EdgeORM).where(
+            EdgeORM.from_document_id == standard.id, EdgeORM.to_document_id == legal_act.id
+        )
+    ).scalar_one()
+    assert created.layer == Layer.COMMERCIAL
 
 
 def test_extract_references_enqueues_case_when_target_missing(db_session):
@@ -85,7 +134,9 @@ def test_extract_references_enqueues_case_when_target_missing(db_session):
         ],
     )
 
-    extract_references(record, standard.id, delivery.id, doc_repo, edge_repo, identity_repo)
+    extract_references(
+        record, standard.id, delivery.id, doc_repo, edge_repo, identity_repo, _rule()
+    )
 
     pending = identity_repo.list_pending_cases()
     assert any(c.reason == "reference_target_not_found" for c in pending)
