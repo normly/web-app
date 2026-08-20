@@ -81,6 +81,9 @@ class DguvAdapter:
         return sections
 
     def classify_rights(self, record: RawRecord) -> RightsRule:
+        # Narrower than the Protocol's `RightsRule | None` on purpose: every
+        # DGUV-Vorschrift is an amtliches Werk, so this source is always
+        # classifiable and never hands the runner a "cannot classify".
         return RightsRule(
             jurisdiction="DE", may_process=True, may_index_fulltext=True,
             may_cite_passages=True, may_export_free=True,

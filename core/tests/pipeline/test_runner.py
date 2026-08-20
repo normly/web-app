@@ -18,6 +18,7 @@ from normly_core.graph.postgres.orm import (
 from normly_core.graph.postgres.repositories import (
     PostgresDeliveryRepository,
     PostgresDocumentRepository,
+    PostgresIdentityResolutionRepository,
     PostgresSourceRepository,
 )
 from normly_core.pipeline.domain import RawRecord, RawReference, RawSection, RightsRule
@@ -44,6 +45,17 @@ class _FakeAdapter:
             may_cite_passages=may_index_fulltext, may_export_free=True,
             legal_basis_reference="§ 5 UrhG",
         )
+
+
+class _FixedRuleAdapter(_FakeAdapter):
+    """An adapter whose rights answer is dictated by the test, `None` included."""
+
+    def __init__(self, source_id, records, rule):
+        super().__init__(source_id, records)
+        self._rule = rule
+
+    def classify_rights(self, record):
+        return self._rule
 
 
 def _make_source(db_session):
@@ -136,6 +148,61 @@ def test_run_adapter_does_not_segment_when_rights_forbid_fulltext_indexing(db_se
 
     assert summary.segments_created == 0
     assert summary.embeddings_created == 0
+
+
+def _assert_nothing_was_written(db_session, designation: str) -> None:
+    assert db_session.execute(
+        select(DocumentDesignationORM).where(DocumentDesignationORM.designation == designation)
+    ).scalar_one_or_none() is None
+    assert db_session.execute(select(RightsClassificationORM)).scalars().all() == []
+
+
+def test_run_adapter_enqueues_records_it_cannot_classify(db_session):
+    """
+    A missing classification means "do not process", never "provisionally
+    permitted": nothing at all is written for the record.
+    """
+    source = _make_source(db_session)
+    record = RawRecord(
+        source_id=source.id, content_hash="sha256:runner-unclassifiable",
+        raw_designation="DGUV Vorschrift 7", raw_issuer="DGUV", raw_title="Titel",
+        full_text="§ 1 Text.",
+    )
+    adapter = _FixedRuleAdapter(source.id, [record], None)
+
+    summary = run_adapter(adapter, db_session)
+
+    assert summary.records_enqueued_for_review == 1
+    assert summary.documents_created == 0
+    assert summary.segments_created == 0
+    _assert_nothing_was_written(db_session, "DGUV Vorschrift 7")
+
+    pending = PostgresIdentityResolutionRepository(db_session).list_pending_cases()
+    assert [case.reason for case in pending] == ["cannot_classify_rights"]
+
+
+def test_run_adapter_enqueues_records_it_may_not_process(db_session):
+    source = _make_source(db_session)
+    record = RawRecord(
+        source_id=source.id, content_hash="sha256:runner-not-permitted",
+        raw_designation="DGUV Vorschrift 8", raw_issuer="DGUV", raw_title="Titel",
+        full_text="§ 1 Text.",
+    )
+    rule = RightsRule(
+        jurisdiction="DE", may_process=False, may_index_fulltext=False,
+        may_cite_passages=False, may_export_free=False,
+        legal_basis_reference="keine Grundlage",
+    )
+    adapter = _FixedRuleAdapter(source.id, [record], rule)
+
+    summary = run_adapter(adapter, db_session)
+
+    assert summary.records_enqueued_for_review == 1
+    assert summary.documents_created == 0
+    _assert_nothing_was_written(db_session, "DGUV Vorschrift 8")
+
+    pending = PostgresIdentityResolutionRepository(db_session).list_pending_cases()
+    assert [case.reason for case in pending] == ["processing_not_permitted"]
 
 
 def test_run_adapter_writes_consistent_delivery_id_lineage_across_all_artifacts(db_session):

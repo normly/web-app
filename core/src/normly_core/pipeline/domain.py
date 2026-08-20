@@ -60,4 +60,15 @@ class SourceAdapter(Protocol):
 
     def fetch(self) -> Iterable[RawRecord]: ...
     def extract_structure(self, record: RawRecord) -> list[RawSection]: ...
-    def classify_rights(self, record: RawRecord) -> RightsRule: ...
+
+    def classify_rights(self, record: RawRecord) -> RightsRule | None:
+        """
+        Classify what may be done with this record, or return `None`.
+
+        `None` means "cannot classify", not "nothing is allowed by default" —
+        the runner then writes no artifact at all and hands the record to
+        review. A missing classification means "do not process", never
+        "provisionally permitted", so an adapter must never invent a permissive
+        rule to satisfy the signature.
+        """
+        ...

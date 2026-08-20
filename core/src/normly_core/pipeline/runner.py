@@ -56,6 +56,22 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
         )
         summary.records_processed += 1
 
+        # The rights gate comes first, before any artifact exists. An
+        # unclassifiable record and one that must not be processed are treated
+        # alike: nothing is written, the record goes to review.
+        rule = adapter.classify_rights(record)
+        if rule is None or not rule.may_process:
+            identity_repo.enqueue_case(
+                delivery_id=delivery.id,
+                raw_designation=record.raw_designation,
+                raw_issuer=record.raw_issuer,
+                reason=(
+                    "cannot_classify_rights" if rule is None else "processing_not_permitted"
+                ),
+            )
+            summary.records_enqueued_for_review += 1
+            continue
+
         result = identity.resolve(record, document_repo)
         if result.is_ambiguous:
             identity_repo.enqueue_case(
@@ -98,7 +114,6 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
                 delivery_id=delivery.id,
             )
 
-        rule = adapter.classify_rights(record)
         rights_repo.classify(
             document_id=document.id,
             jurisdiction=rule.jurisdiction,

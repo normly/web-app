@@ -88,6 +88,9 @@ class EurLexAdapter:
         return []
 
     def classify_rights(self, record: RawRecord) -> RightsRule:
+        # Narrower than the Protocol's `RightsRule | None` on purpose: the
+        # Commission's summary list carries no standard full text, so every
+        # record it yields is classifiable and never returns "cannot classify".
         if record.raw_designation == self.legislation_reference:
             return RightsRule(
                 jurisdiction="EU", may_process=True, may_index_fulltext=False,
