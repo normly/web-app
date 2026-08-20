@@ -88,17 +88,52 @@ def test_full_read_path_across_all_endpoints_for_a_realistic_graph(client, db_se
         origin_issuer="EU", origin_number="2006/42/EC", edition="2006", part=None,
         delivery_id=delivery.id,
     )
+    # The two documents below carry the capstone's danger zone. Both are fully
+    # rights-classified for EU -- they are hidden by the layer and export gates,
+    # not by a missing classification, which is the distinction worth proving in
+    # a chained flow rather than only in isolated per-endpoint tests.
+    paid_annex = doc_repo.create_document(
+        origin_issuer="CEN", origin_number="EN ISO 12100 Annex", edition="2010", part="1",
+        delivery_id=delivery.id,
+    )
+    commercial_successor = doc_repo.create_document(
+        origin_issuer="CEN", origin_number="EN ISO 12100", edition="2024", part=None,
+        delivery_id=delivery.id,
+    )
     rights_repo = PostgresRightsRepository(db_session)
-    for doc in (standard, legal_act):
+    for doc in (standard, legal_act, commercial_successor):
         rights_repo.classify(
             document_id=doc.id, jurisdiction="EU", may_process=True,
             may_index_fulltext=False, may_cite_passages=False, may_export_free=True,
             legal_basis_reference="§ 5 UrhG", classified_at=datetime.now(timezone.utc),
             classified_by="test", delivery_id=delivery.id,
         )
-    PostgresEdgeRepository(db_session).create_edge(
+    # Classified and readable, but not free to redistribute: the export gate and
+    # the read gate answer different questions and must not be conflated.
+    rights_repo.classify(
+        document_id=paid_annex.id, jurisdiction="EU", may_process=True,
+        may_index_fulltext=True, may_cite_passages=True, may_export_free=False,
+        legal_basis_reference="Lizenzvertrag 2026-004",
+        classified_at=datetime.now(timezone.utc), classified_by="test",
+        delivery_id=delivery.id,
+    )
+    edge_repo = PostgresEdgeRepository(db_session)
+    edge_repo.create_edge(
         from_document_id=standard.id, to_document_id=legal_act.id,
         edge_type=EdgeType.BASED_ON_LAW, jurisdiction=None, layer=Layer.FREE,
+        delivery_id=delivery.id,
+    )
+    # Outgoing and COMMERCIAL: must not surface on the public edges endpoint.
+    edge_repo.create_edge(
+        from_document_id=standard.id, to_document_id=paid_annex.id,
+        edge_type=EdgeType.REFERENCES, jurisdiction=None, layer=Layer.COMMERCIAL,
+        delivery_id=delivery.id,
+    )
+    # Incoming, COMMERCIAL and a REPLACES: if the layer gate leaked here, the
+    # validity endpoint would report "replaced" further down.
+    edge_repo.create_edge(
+        from_document_id=commercial_successor.id, to_document_id=standard.id,
+        edge_type=EdgeType.REPLACES, jurisdiction=None, layer=Layer.COMMERCIAL,
         delivery_id=delivery.id,
     )
 
@@ -118,17 +153,44 @@ def test_full_read_path_across_all_endpoints_for_a_realistic_graph(client, db_se
 
     edges = client.get(f"/v1/documents/{document_id}/edges", params={"jurisdiction": "EU"})
     assert edges.status_code == 200
-    assert edges.json()[0]["edge_type"] == "based_on_law"
+    # Exactly one edge: the FREE one. The COMMERCIAL REFERENCES edge seeded from
+    # this same document is absent, so this is not merely "the free edge is
+    # present" -- nothing else leaked alongside it.
+    assert [e["edge_type"] for e in edges.json()] == ["based_on_law"]
+    assert edges.json()[0]["layer"] == "free"
+    assert str(paid_annex.id) not in {e["to_document_id"] for e in edges.json()}
 
     validity = client.get(
         f"/v1/documents/{document_id}/validity", params={"jurisdiction": "EU"}
     )
     assert validity.status_code == 200
+    # A COMMERCIAL REPLACES edge points at this document. It must not influence
+    # the reported status, and the successor must not be named.
     assert validity.json()["status"] == "valid"
+    assert validity.json()["replaced_by"] == []
+
+    # The commercial successor is itself a perfectly readable free-tier
+    # document -- only the EDGE was gated, which is what keeps the two gates
+    # distinguishable in this assertion.
+    successor_detail = client.get(
+        f"/v1/documents/{commercial_successor.id}", params={"jurisdiction": "EU"}
+    )
+    assert successor_detail.status_code == 200
 
     export = client.get("/v1/export", params={"jurisdiction": "EU"})
     assert export.status_code == 200
-    assert document_id in {d["id"] for d in export.json()["documents"]}
+    exported_ids = {d["id"] for d in export.json()["documents"]}
+    assert document_id in exported_ids
+    # Classified, readable through the detail endpoint, still not exportable.
+    assert str(paid_annex.id) not in exported_ids
+    annex_detail = client.get(
+        f"/v1/documents/{paid_annex.id}", params={"jurisdiction": "EU"}
+    )
+    assert annex_detail.status_code == 200
+
+    exported_edges = export.json()["edges"]
+    assert {e["layer"] for e in exported_edges} == {"free"}
+    assert str(paid_annex.id) not in {e["to_document_id"] for e in exported_edges}
 
     forbidden = client.get(f"/v1/documents/{document_id}", params={"jurisdiction": "FR"})
     assert forbidden.status_code == 404
