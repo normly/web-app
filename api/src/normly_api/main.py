@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from sqlalchemy import create_engine
 
 from normly_api.routers.documents import documents_router
+from normly_api.routers.edges import edges_router
 
 
 @asynccontextmanager
@@ -39,6 +40,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     app.include_router(documents_router)
+    app.include_router(edges_router)
     return app
 
 
