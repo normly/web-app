@@ -3,10 +3,42 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
+
+from normly_api.schemas import ErrorResponse
+
+# The two handlers below are registered application-wide, so every route can
+# answer with a 400 or a 503 regardless of what it declares itself. Passing this
+# to include_router() is how that gets into the schema: FastAPI merges the
+# router-level `responses` with whatever a single route declares on top of them,
+# and the route wins on a shared status code -- which is what lets /v1/export
+# refine the 400 description below without losing the 503.
+COMMON_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    400: {
+        "model": ErrorResponse,
+        "description": "Malformed request -- an invalid or missing path or query parameter.",
+    },
+    503: {
+        "model": ErrorResponse,
+        "description": "The service cannot reach its database. Retrying may succeed.",
+    },
+}
+
+NOT_FOUND_RESPONSE: dict[int | str, dict[str, Any]] = {
+    404: {
+        "model": ErrorResponse,
+        "description": (
+            "No such document, or the document is not rights-classified for the "
+            "requested jurisdiction. The two are deliberately indistinguishable: "
+            "telling them apart would disclose the existence of gated content."
+        ),
+    },
+}
 
 
 def _describe_location(error: dict) -> str:

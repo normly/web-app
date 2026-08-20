@@ -16,6 +16,7 @@ from normly_core.graph.postgres.repositories import (
 )
 
 from normly_api.dependencies import get_session
+from normly_api.errors import NOT_FOUND_RESPONSE
 from normly_api.schemas import (
     DesignationResponse,
     DocumentResponse,
@@ -85,7 +86,7 @@ def _document_to_response(document: Document, session: Session) -> DocumentRespo
     )
 
 
-@documents_router.get("", response_model=DocumentResponse)
+@documents_router.get("", response_model=DocumentResponse, responses=NOT_FOUND_RESPONSE)
 def search_documents(
     issuer: str, designation: str, jurisdiction: str,
     session: Session = Depends(get_session),
@@ -104,7 +105,9 @@ def search_documents(
     return _document_to_response(gated, session)
 
 
-@documents_router.get("/{document_id}", response_model=DocumentResponse)
+@documents_router.get(
+    "/{document_id}", response_model=DocumentResponse, responses=NOT_FOUND_RESPONSE
+)
 def get_document(
     document_id: uuid.UUID, jurisdiction: str,
     session: Session = Depends(get_session),

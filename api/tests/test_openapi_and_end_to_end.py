@@ -28,6 +28,43 @@ def test_openapi_schema_documents_every_v1_endpoint(client):
     assert schema["info"]["license"]["name"] == "Apache-2.0"
 
 
+def test_openapi_schema_documents_the_error_responses_with_their_model(client):
+    """
+    The error bodies are only useful to a client generator if the schema names
+    them. Asserting the $ref, not just the status code, is what catches a
+    `responses={404: {"description": ...}}` that documents no model at all.
+    """
+    schema = client.get("/openapi.json").json()
+    error_ref = "#/components/schemas/ErrorResponse"
+
+    def responses_for(path):
+        return schema["paths"][path]["get"]["responses"]
+
+    def model_ref(path, status):
+        return responses_for(path)[status]["content"]["application/json"]["schema"]["$ref"]
+
+    # The 400/503 pair comes from the app-wide handlers, so every path declares
+    # it -- including /v1/export, which reaches it through its own 400 override.
+    for path in schema["paths"]:
+        assert model_ref(path, "400") == error_ref, path
+        assert model_ref(path, "503") == error_ref, path
+
+    # 404 only where a route can actually raise one.
+    for path in (
+        "/v1/documents",
+        "/v1/documents/{document_id}",
+        "/v1/documents/{document_id}/edges",
+        "/v1/documents/{document_id}/validity",
+    ):
+        assert model_ref(path, "404") == error_ref, path
+
+    # /v1/export addresses no single document and so must claim no 404.
+    assert "404" not in responses_for("/v1/export")
+
+    # The route-level override wins over the router-level 400 it merges with.
+    assert "format" in responses_for("/v1/export")["400"]["description"]
+
+
 def test_full_read_path_across_all_endpoints_for_a_realistic_graph(client, db_session):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="EUR-Lex", retrieval_path="https://single-market-economy.ec.europa.eu",

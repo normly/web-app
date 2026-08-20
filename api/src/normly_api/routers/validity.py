@@ -15,12 +15,17 @@ from normly_core.graph.postgres.repositories import (
 )
 
 from normly_api.dependencies import get_session
+from normly_api.errors import NOT_FOUND_RESPONSE
 from normly_api.schemas import ValidityResponse
 
 validity_router = APIRouter(prefix="/v1/documents", tags=["validity"])
 
 
-@validity_router.get("/{document_id}/validity", response_model=ValidityResponse)
+@validity_router.get(
+    "/{document_id}/validity",
+    response_model=ValidityResponse,
+    responses=NOT_FOUND_RESPONSE,
+)
 def get_validity(
     document_id: uuid.UUID, jurisdiction: str,
     session: Session = Depends(get_session),

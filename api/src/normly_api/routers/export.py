@@ -15,14 +15,31 @@ from normly_core.graph.postgres.repositories import (
 
 from normly_api.dependencies import get_session
 from normly_api.routers.documents import _document_to_response
-from normly_api.schemas import EdgeResponse, ExportResponse, LicenseNotice
+from normly_api.schemas import EdgeResponse, ErrorResponse, ExportResponse, LicenseNotice
 
 export_router = APIRouter(prefix="/v1", tags=["export"])
 
 _SCHEMA_VERSION = "1.0"
 
+# Overrides the router-level 400 for this route only. `format` is validated in
+# the handler rather than by a type annotation, so the generic "invalid or
+# missing parameter" wording would leave a caller guessing which values exist.
+# No 404 is declared: this endpoint addresses no single document and so has
+# nothing to report as missing -- an empty jurisdiction yields an empty export.
+_UNSUPPORTED_FORMAT_RESPONSE = {
+    400: {
+        "model": ErrorResponse,
+        "description": (
+            "Unsupported export format. The only value accepted by `format` is "
+            "`json`."
+        ),
+    },
+}
 
-@export_router.get("/export", response_model=ExportResponse)
+
+@export_router.get(
+    "/export", response_model=ExportResponse, responses=_UNSUPPORTED_FORMAT_RESPONSE
+)
 def export_free_graph(
     jurisdiction: str, format: str = "json",
     session: Session = Depends(get_session),

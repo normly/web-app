@@ -15,12 +15,17 @@ from normly_core.graph.postgres.repositories import (
 )
 
 from normly_api.dependencies import get_session
+from normly_api.errors import NOT_FOUND_RESPONSE
 from normly_api.schemas import EdgeResponse
 
 edges_router = APIRouter(prefix="/v1/documents", tags=["edges"])
 
 
-@edges_router.get("/{document_id}/edges", response_model=list[EdgeResponse])
+@edges_router.get(
+    "/{document_id}/edges",
+    response_model=list[EdgeResponse],
+    responses=NOT_FOUND_RESPONSE,
+)
 def list_edges(
     # EdgeType, not str: an unknown value is a client mistake and now yields a
     # 400 through the validation handler, instead of silently returning an

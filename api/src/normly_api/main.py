@@ -10,7 +10,7 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from sqlalchemy import create_engine
 
-from normly_api.errors import register_exception_handlers
+from normly_api.errors import COMMON_ERROR_RESPONSES, register_exception_handlers
 from normly_api.routers.documents import documents_router
 from normly_api.routers.edges import edges_router
 from normly_api.routers.export import export_router
@@ -42,10 +42,14 @@ def create_app() -> FastAPI:
         },
         lifespan=lifespan,
     )
-    app.include_router(documents_router)
-    app.include_router(edges_router)
-    app.include_router(export_router)
-    app.include_router(validity_router)
+    # Every router gets the 400/503 pair, because the handlers registered just
+    # below can fire on any route regardless of what that route declares. The
+    # 404s are NOT here: only some routes can raise one, and claiming the rest
+    # can is worse documentation than claiming nothing.
+    app.include_router(documents_router, responses=COMMON_ERROR_RESPONSES)
+    app.include_router(edges_router, responses=COMMON_ERROR_RESPONSES)
+    app.include_router(export_router, responses=COMMON_ERROR_RESPONSES)
+    app.include_router(validity_router, responses=COMMON_ERROR_RESPONSES)
     register_exception_handlers(app)
     return app
 
