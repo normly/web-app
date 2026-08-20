@@ -3,11 +3,13 @@
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
+from normly_core.graph.domain import Delivery
 from normly_core.graph.postgres.repositories import (
     PostgresDeliveryRepository,
     PostgresDocumentRepository,
@@ -18,7 +20,7 @@ from normly_core.graph.postgres.repositories import (
     PostgresSegmentRepository,
 )
 from normly_core.pipeline import identity, references
-from normly_core.pipeline.domain import SourceAdapter
+from normly_core.pipeline.domain import RawRecord, SourceAdapter
 from normly_core.pipeline.embeddings import MODEL_NAME, EmbeddingModel
 
 
@@ -27,9 +29,18 @@ class RunSummary:
     records_processed: int = 0
     records_skipped: int = 0
     records_enqueued_for_review: int = 0
+    records_failed: int = 0
     documents_created: int = 0
     segments_created: int = 0
     embeddings_created: int = 0
+
+
+def _absorb(summary: RunSummary, delta: RunSummary) -> None:
+    """Fold a finished record's counts into the run's."""
+    summary.records_enqueued_for_review += delta.records_enqueued_for_review
+    summary.documents_created += delta.documents_created
+    summary.segments_created += delta.segments_created
+    summary.embeddings_created += delta.embeddings_created
 
 
 def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
@@ -44,17 +55,10 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
 
     summary = RunSummary()
 
-    for record in adapter.fetch():
-        if delivery_repo.find_delivery(record.source_id, record.content_hash) is not None:
-            summary.records_skipped += 1
-            continue
-
-        delivery = delivery_repo.record_delivery(
-            source_id=record.source_id,
-            content_hash=record.content_hash,
-            ingested_at=datetime.now(timezone.utc),
-        )
-        summary.records_processed += 1
+    def process(record: RawRecord, delivery: Delivery) -> RunSummary:
+        """Process one record. Counts what it wrote; writes what it counts."""
+        nonlocal embedding_model
+        delta = RunSummary()
 
         # The rights gate comes first, before any artifact exists. An
         # unclassifiable record and one that must not be processed are treated
@@ -69,8 +73,8 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
                     "cannot_classify_rights" if rule is None else "processing_not_permitted"
                 ),
             )
-            summary.records_enqueued_for_review += 1
-            continue
+            delta.records_enqueued_for_review += 1
+            return delta
 
         result = identity.resolve(record, document_repo)
         if result.is_ambiguous:
@@ -80,8 +84,8 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
                 raw_issuer=record.raw_issuer,
                 reason=result.reason or "unknown",
             )
-            summary.records_enqueued_for_review += 1
-            continue
+            delta.records_enqueued_for_review += 1
+            return delta
 
         if result.is_new:
             parsed = identity.parse_designation(record.raw_designation)
@@ -92,7 +96,7 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
                 part=None,
                 delivery_id=delivery.id,
             )
-            summary.documents_created += 1
+            delta.documents_created += 1
         else:
             document = document_repo.get_document_unchecked(result.document_id)
 
@@ -141,7 +145,7 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
                     text=section.text,
                     language="de",
                 )
-                summary.segments_created += 1
+                delta.segments_created += 1
 
                 if embedding_model is None:
                     embedding_model = EmbeddingModel()
@@ -152,6 +156,37 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
                     model_name=MODEL_NAME,
                     vector=vector,
                 )
-                summary.embeddings_created += 1
+                delta.embeddings_created += 1
+
+        return delta
+
+    for record in adapter.fetch():
+        if delivery_repo.find_delivery(record.source_id, record.content_hash) is not None:
+            summary.records_skipped += 1
+            continue
+
+        delivery = delivery_repo.record_delivery(
+            source_id=record.source_id,
+            content_hash=record.content_hash,
+            ingested_at=datetime.now(timezone.utc),
+        )
+        summary.records_processed += 1
+
+        # One bad record must block only itself. The savepoint takes the
+        # record's partial writes back without discarding the run, and the
+        # delta is only absorbed once the record is through — so the summary
+        # never counts artifacts that were rolled back.
+        try:
+            with session.begin_nested():
+                delta = process(record, delivery)
+        except Exception as error:  # noqa: BLE001 — isolation is the point
+            print(
+                f"record {record.raw_designation!r} failed: {error!r}",
+                file=sys.stderr,
+            )
+            summary.records_failed += 1
+            continue
+
+        _absorb(summary, delta)
 
     return summary

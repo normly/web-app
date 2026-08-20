@@ -205,6 +205,51 @@ def test_run_adapter_enqueues_records_it_may_not_process(db_session):
     assert [case.reason for case in pending] == ["processing_not_permitted"]
 
 
+class _AdapterFailingOnOneDesignation(_FakeAdapter):
+    """Fails exactly one record, the way a malformed source file would."""
+
+    def __init__(self, source_id, records, failing_designation, sections_by_designation=None):
+        super().__init__(source_id, records, sections_by_designation)
+        self._failing_designation = failing_designation
+
+    def classify_rights(self, record):
+        if record.raw_designation == self._failing_designation:
+            raise RuntimeError("classification blew up on this record")
+        return super().classify_rights(record)
+
+
+def test_run_adapter_isolates_a_failing_record_from_the_rest_of_the_run(db_session):
+    source = _make_source(db_session)
+    failing = RawRecord(
+        source_id=source.id, content_hash="sha256:runner-failing",
+        raw_designation="DGUV Vorschrift 9", raw_issuer="DGUV", raw_title="Titel",
+        full_text=None,
+    )
+    healthy = RawRecord(
+        source_id=source.id, content_hash="sha256:runner-healthy",
+        raw_designation="DGUV Vorschrift 10", raw_issuer="DGUV", raw_title="Anderer Titel",
+        full_text=None,
+    )
+    adapter = _AdapterFailingOnOneDesignation(
+        source.id, [failing, healthy], "DGUV Vorschrift 9"
+    )
+
+    summary = run_adapter(adapter, db_session)
+
+    assert summary.records_failed == 1
+    assert summary.documents_created == 1
+    assert db_session.execute(
+        select(DocumentDesignationORM).where(
+            DocumentDesignationORM.designation == "DGUV Vorschrift 9"
+        )
+    ).scalar_one_or_none() is None
+    assert db_session.execute(
+        select(DocumentDesignationORM).where(
+            DocumentDesignationORM.designation == "DGUV Vorschrift 10"
+        )
+    ).scalar_one() is not None
+
+
 def test_run_adapter_writes_consistent_delivery_id_lineage_across_all_artifacts(db_session):
     source = _make_source(db_session)
     record = RawRecord(
