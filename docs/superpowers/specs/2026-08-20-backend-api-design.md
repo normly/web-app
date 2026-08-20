@@ -37,9 +37,9 @@ Chat-Antworten (REQ-INT-004, REQ-FUNC-001/002/003). Das ist zu groß für ein Te
 
 Eine öffentliche, versionierte, vollständig als OpenAPI dokumentierte HTTP-API, über die ein
 Drittsystem ohne Kenntnis der internen Implementierung Normen nachschlagen, ihre Verweise
-und Beziehungen abfragen, ihren Gültigkeitsstatus prüfen und den freien Graphanteil
-vollständig exportieren kann — alles deterministisch aus dem Graph beantwortet, ohne
-Modellaufruf (REQ-GRAPH-003).
+und Beziehungen abfragen, ihren Gültigkeitsstatus prüfen, ihre Ursprungsquelle (Herausgeber
+und Bezugs-URL) einsehen und den freien Graphanteil vollständig exportieren kann — alles
+deterministisch aus dem Graph beantwortet, ohne Modellaufruf (REQ-GRAPH-003).
 
 ## Nicht-Ziele
 
@@ -108,6 +108,12 @@ class TitleResponse(BaseModel):
     language: str
     title: str
 
+class SourceResponse(BaseModel):
+    publisher: str
+    retrieval_path: str        # Ursprungs-URL der Quelle
+    legal_basis_category: str  # A/B/C/D, siehe Quellenregister
+    jurisdiction: str
+
 class DocumentResponse(BaseModel):
     id: uuid.UUID
     origin_issuer: str
@@ -116,6 +122,7 @@ class DocumentResponse(BaseModel):
     part: str | None
     designations: list[DesignationResponse]
     titles: list[TitleResponse]
+    source: SourceResponse
 
 class EdgeResponse(BaseModel):
     edge_type: str
@@ -149,12 +156,20 @@ Rechteklassifikation ist rechtsraumabhängig (REQ-GRAPH-006), und die bestehende
 Repository-Methoden sind bereits jurisdiction-scoped gebaut; die API reicht diesen
 Parameter nur durch, keine eigene Klassifikationslogik.
 
+**Quellenauflösung.** `document.created_via_delivery_id` verweist auf die Lieferung, die das
+Dokument ursprünglich angelegt hat; darüber `DeliveryRepository.get_delivery(...).source_id`
+und `SourceRepository.get_source(...)` — beide Methoden existieren bereits, keine neue
+Repository-Methode nötig. Das liefert die Quelle, die den Dokumentknoten erzeugt hat, nicht
+notwendigerweise jede Quelle, die je Daten zu diesem Dokument beigetragen hat (ein Dokument
+könnte im Prinzip über mehrere Lieferungen unterschiedlicher Quellen angereichert werden) —
+für den aktuellen Bestand (EUR-Lex, DGUV) ist das gleichbedeutend, siehe Offene Punkte.
+
 ## Endpunkte (v1)
 
 | Endpunkt | Zweck | Repository-Methode(n) |
 |---|---|---|
 | `GET /v1/documents?designation=&issuer=&jurisdiction=` | Suche/Lookup nach Bezeichnung | `find_by_designation` |
-| `GET /v1/documents/{id}?jurisdiction=` | Dokument-Detail (Bezeichnungen, Titel mehrsprachig) | `list_designations`, `list_titles` (rechtsraumgefiltert) |
+| `GET /v1/documents/{id}?jurisdiction=` | Dokument-Detail (Bezeichnungen, Titel mehrsprachig, Ursprungsquelle inkl. URL) | `list_designations`, `list_titles` (rechtsraumgefiltert), `get_delivery`/`get_source` über `document.created_via_delivery_id` |
 | `GET /v1/documents/{id}/edges?jurisdiction=&edge_type=` | Verweise/Beziehungen (references, based_on_law, adopted_from) | `list_edges_for_jurisdiction` |
 | `GET /v1/documents/{id}/validity?jurisdiction=` | Abgeleiteter Gültigkeitsstatus | wertet `replaces`/`withdrawn_by`-Kanten aus `list_edges_for_jurisdiction` aus |
 | `GET /v1/export?jurisdiction=&format=json` | Vollständiger Dump des freien Graphanteils (REQ-GRAPH-001) | `list_documents_for_jurisdiction` + zugehörige Kanten |
@@ -232,6 +247,11 @@ Kein Endpunkt schreibt.
 - **Paginierung/Streaming für `/v1/export`** — mit den aktuell kleinen Beständen (EUR-Lex,
   DGUV) nicht nötig; sobald weitere Adapter/Quellen hinzukommen, muss das nachgezogen
   werden.
+- **Mehrere Quellen je Dokument.** `source` auf `DocumentResponse` zeigt aktuell nur die
+  erzeugende Quelle (`created_via_delivery_id`). Sobald ein Dokument real über mehrere
+  Quellen anreichert wird, braucht es entweder ein `sources: list[SourceResponse]`-Feld
+  oder einen eigenen `/v1/documents/{id}/sources`-Endpunkt — mit dem aktuellen Bestand nicht
+  beobachtbar, daher hier nicht spezifiziert.
 - **Kommerzielle Schicht** (SLA, Abschnittsebene-Verweise, Konfidenzangaben,
   branchenspezifische Anreicherungen aus REQ-GRAPH-002) — es gibt aktuell keine lizenzierten
   Bestände; sobald welche über REQ-INT-002/REQ-PART-001 hinzukommen, braucht die API eigene,
