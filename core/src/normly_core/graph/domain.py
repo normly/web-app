@@ -184,6 +184,12 @@ class DocumentRepository(Protocol):
     across national adoptions, independent of any rights question). They are
     internal implementation methods.
 
+    Exception: `get_document_unchecked` may be invoked by a public-facing read
+    path only as a pure existence check—to decide 404 vs. content, e.g.
+    distinguishing "no such document" from "document exists but has no visible
+    content in this jurisdiction"—provided its result is never exposed in a
+    response body or used to reveal anything about rights-gated content.
+
     Any public-facing read path — the API sub-project above all — MUST use
     `get_document_for_jurisdiction` / `list_documents_for_jurisdiction`.
     """
