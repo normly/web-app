@@ -279,30 +279,87 @@ class EdgeRepository(Protocol):
     def list_edges_for_jurisdiction(
         self, document_id: uuid.UUID, jurisdiction: str
     ) -> list[Edge]:
-        """Edges where document_id is the source (from_document_id)."""
+        """
+        Outgoing edges (document_id == from_document_id), rights-gated on BOTH
+        endpoints (may_process, unrevoked, matching jurisdiction) and nothing
+        else. In particular this applies NO layer filter: COMMERCIAL-layer
+        edges are returned.
+
+        Callers in this repository: pipeline and processing code only. No HTTP
+        endpoint may call this -- a public, anonymous caller would receive
+        commercial-tier relationships. Public read paths use
+        `list_free_layer_edges_for_jurisdiction`; the bulk export uses
+        `list_exportable_edges_for_jurisdiction`.
+        """
         ...
 
     def list_incoming_edges_for_jurisdiction(
         self, document_id: uuid.UUID, jurisdiction: str
     ) -> list[Edge]:
-        """Edges where document_id is the target (to_document_id) -- e.g. the
+        """
+        Incoming edges (document_id == to_document_id) -- e.g. the
         REPLACES/WITHDRAWN_BY edges a successor or withdrawal-notice document
         points at document_id. Same dual rights-gating as
-        list_edges_for_jurisdiction, direction reversed."""
+        `list_edges_for_jurisdiction`, direction reversed, and likewise NO
+        layer filter: COMMERCIAL-layer edges are returned.
+
+        Callers in this repository: pipeline and processing code only. No HTTP
+        endpoint may call this; the public validity endpoint uses
+        `list_free_layer_incoming_edges_for_jurisdiction`.
+        """
+        ...
+
+    def list_free_layer_edges_for_jurisdiction(
+        self, document_id: uuid.UUID, jurisdiction: str
+    ) -> list[Edge]:
+        """
+        `list_edges_for_jurisdiction` plus `layer == Layer.FREE`. Nothing else
+        differs: same outgoing direction, same dual may_process gating, same
+        ordering.
+
+        This is the method for public, anonymous read paths that must not
+        disclose commercial-tier relationships (REQ-GRAPH-002 reserves
+        section-level references within licensed norms for the paid tier). It
+        is deliberately NOT the bulk-export case: it does not require
+        `may_export_free`, because "may this specific relationship be shown to
+        a free-tier caller" is a narrower question than "is this document
+        flagged for inclusion in the bulk dump". A document that is
+        may_process=True but may_export_free=False still answers questions
+        about itself over the API; it just does not appear in `/v1/export`.
+
+        Caller in this repository: GET /v1/documents/{id}/edges.
+        """
+        ...
+
+    def list_free_layer_incoming_edges_for_jurisdiction(
+        self, document_id: uuid.UUID, jurisdiction: str
+    ) -> list[Edge]:
+        """
+        `list_incoming_edges_for_jurisdiction` plus `layer == Layer.FREE`.
+        Incoming direction (document_id == to_document_id), otherwise the same
+        relationship to its sibling as
+        `list_free_layer_edges_for_jurisdiction` has to
+        `list_edges_for_jurisdiction` -- see there for why this is distinct
+        from the `may_export_free`-gated export methods.
+
+        Caller in this repository: GET /v1/documents/{id}/validity.
+        """
         ...
 
     def list_exportable_edges_for_jurisdiction(
         self, document_id: uuid.UUID, jurisdiction: str
     ) -> list[Edge]:
         """
-        Stricter than `list_edges_for_jurisdiction`: additionally requires
-        `layer == Layer.FREE`. A COMMERCIAL-layer edge (e.g. a section-level
-        reference within licensed norms, reserved for the commercial layer)
-        may be processable between two otherwise-readable documents without
-        being permitted in the public free-tier export. Outgoing-only, same
-        direction convention as `list_edges_for_jurisdiction`. This is the
-        correct method for public/free-tier export use; never for
-        internal/authenticated content-serving reads.
+        `list_edges_for_jurisdiction` plus `layer == Layer.FREE` plus
+        `may_export_free` on BOTH endpoints. The strictest of the four
+        listings, and the only one that consults `may_export_free`.
+
+        This is the bulk free-tier dump gate, not general public visibility:
+        an endpoint answering about one document should use
+        `list_free_layer_edges_for_jurisdiction` instead, which does not
+        require the export flag.
+
+        Caller in this repository: GET /v1/export.
         """
         ...
 

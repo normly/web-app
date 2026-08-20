@@ -33,7 +33,11 @@ def list_edges(
     if doc_repo.get_document_unchecked(document_id) is None:
         raise HTTPException(status_code=404, detail="document not found")
 
-    edges = PostgresEdgeRepository(session).list_edges_for_jurisdiction(
+    # list_free_layer_edges_for_jurisdiction, not list_edges_for_jurisdiction:
+    # this endpoint is anonymous and public, so COMMERCIAL-layer edges (the
+    # paid tier's section-level references, REQ-GRAPH-002) must not appear.
+    # Not the export gate either -- may_export_free asks a different question.
+    edges = PostgresEdgeRepository(session).list_free_layer_edges_for_jurisdiction(
         document_id, jurisdiction
     )
     if edge_type is not None:

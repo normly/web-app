@@ -31,9 +31,14 @@ def get_validity(
 
     # REPLACES/WITHDRAWN_BY edges point FROM the successor/withdrawal-notice
     # document TO this one, so the incoming-edges query (to_document_id ==
-    # document_id) is what surfaces them -- list_edges_for_jurisdiction only
-    # returns outgoing edges (from_document_id == document_id).
-    incoming = PostgresEdgeRepository(session).list_incoming_edges_for_jurisdiction(
+    # document_id) is what surfaces them -- the outgoing listings only return
+    # edges where from_document_id == document_id.
+    #
+    # The free-layer variant, not list_incoming_edges_for_jurisdiction: this
+    # endpoint is anonymous and public, so a COMMERCIAL-layer edge must
+    # neither be returned nor influence the reported status.
+    edge_repo = PostgresEdgeRepository(session)
+    incoming = edge_repo.list_free_layer_incoming_edges_for_jurisdiction(
         document_id, jurisdiction
     )
 

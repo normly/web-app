@@ -210,6 +210,147 @@ def test_commercial_layer_edge_excluded_from_exportable_list_but_not_from_proces
     assert edge_repo.list_exportable_edges_for_jurisdiction(new.id, "DE") == []
 
 
+def test_commercial_layer_edge_excluded_from_free_layer_list_but_not_from_processable_list(
+    db_session,
+):
+    """
+    `list_free_layer_edges_for_jurisdiction` gates the public, anonymous
+    /v1/documents/{id}/edges endpoint. A COMMERCIAL-layer edge must not appear
+    there, while the unfiltered `list_edges_for_jurisdiction` -- for pipeline
+    and processing use -- still returns it. Genuinely different semantics.
+    """
+    old, new, delivery = _make_two_documents(db_session)
+    edge_repo = PostgresEdgeRepository(db_session)
+
+    edge_repo.create_edge(
+        from_document_id=new.id,
+        to_document_id=old.id,
+        edge_type=EdgeType.REFERENCES,
+        jurisdiction=None,
+        layer=Layer.COMMERCIAL,
+        delivery_id=delivery.id,
+    )
+    _classify(db_session, new, delivery)
+    _classify(db_session, old, delivery)
+
+    assert len(edge_repo.list_edges_for_jurisdiction(new.id, "DE")) == 1
+    assert edge_repo.list_free_layer_edges_for_jurisdiction(new.id, "DE") == []
+
+
+def test_commercial_layer_edge_excluded_from_free_layer_incoming_list(db_session):
+    """
+    Incoming-direction counterpart: a COMMERCIAL-layer REPLACES edge must not
+    reach /v1/documents/{id}/validity, while the unfiltered incoming listing
+    still returns it for processing use.
+    """
+    old, new, delivery = _make_two_documents(db_session)
+    edge_repo = PostgresEdgeRepository(db_session)
+
+    edge_repo.create_edge(
+        from_document_id=new.id,
+        to_document_id=old.id,
+        edge_type=EdgeType.REPLACES,
+        jurisdiction=None,
+        layer=Layer.COMMERCIAL,
+        delivery_id=delivery.id,
+    )
+    _classify(db_session, new, delivery)
+    _classify(db_session, old, delivery)
+
+    assert len(edge_repo.list_incoming_edges_for_jurisdiction(old.id, "DE")) == 1
+    assert edge_repo.list_free_layer_incoming_edges_for_jurisdiction(old.id, "DE") == []
+
+
+def test_free_layer_listings_return_free_edges_in_both_directions(db_session):
+    old, new, delivery = _make_two_documents(db_session)
+    edge_repo = PostgresEdgeRepository(db_session)
+
+    edge_repo.create_edge(
+        from_document_id=new.id,
+        to_document_id=old.id,
+        edge_type=EdgeType.REPLACES,
+        jurisdiction=None,
+        layer=Layer.FREE,
+        delivery_id=delivery.id,
+    )
+    _classify(db_session, new, delivery)
+    _classify(db_session, old, delivery)
+
+    outgoing = edge_repo.list_free_layer_edges_for_jurisdiction(new.id, "DE")
+    assert len(outgoing) == 1
+    assert outgoing[0].to_document_id == old.id
+    assert outgoing[0].layer == Layer.FREE
+    # Outgoing-only: from old's perspective this edge is not outgoing.
+    assert edge_repo.list_free_layer_edges_for_jurisdiction(old.id, "DE") == []
+
+    incoming = edge_repo.list_free_layer_incoming_edges_for_jurisdiction(old.id, "DE")
+    assert len(incoming) == 1
+    assert incoming[0].from_document_id == new.id
+    # Incoming-only: from new's perspective this edge is not incoming.
+    assert edge_repo.list_free_layer_incoming_edges_for_jurisdiction(new.id, "DE") == []
+
+
+def test_free_layer_listing_ignores_may_export_free(db_session):
+    """
+    The free-layer listings must NOT be the export gate: a FREE-layer edge
+    between two processable-but-not-exportable documents is still legitimate
+    free-tier content for a single-document endpoint, even though the bulk
+    dump excludes it.
+    """
+    old, new, delivery = _make_two_documents(db_session)
+    edge_repo = PostgresEdgeRepository(db_session)
+
+    edge_repo.create_edge(
+        from_document_id=new.id,
+        to_document_id=old.id,
+        edge_type=EdgeType.REPLACES,
+        jurisdiction=None,
+        layer=Layer.FREE,
+        delivery_id=delivery.id,
+    )
+    _classify(db_session, new, delivery, may_process=True, may_export_free=False)
+    _classify(db_session, old, delivery, may_process=True, may_export_free=False)
+
+    assert len(edge_repo.list_free_layer_edges_for_jurisdiction(new.id, "DE")) == 1
+    assert len(edge_repo.list_free_layer_incoming_edges_for_jurisdiction(old.id, "DE")) == 1
+    assert edge_repo.list_exportable_edges_for_jurisdiction(new.id, "DE") == []
+
+
+def test_incoming_edges_hidden_when_only_one_side_is_rights_classified(db_session):
+    """
+    Incoming-direction counterpart of
+    `test_edges_are_hidden_when_the_source_document_is_not_readable`: both
+    endpoints must be readable, whichever side the caller asks from.
+    """
+    old, new, delivery = _make_two_documents(db_session)
+    edge_repo = PostgresEdgeRepository(db_session)
+
+    edge_repo.create_edge(
+        from_document_id=new.id, to_document_id=old.id, edge_type=EdgeType.REPLACES,
+        jurisdiction=None, layer=Layer.FREE, delivery_id=delivery.id,
+    )
+
+    # Only the target (old, the document being asked about) is classified.
+    _classify(db_session, old, delivery)
+    assert edge_repo.list_incoming_edges_for_jurisdiction(old.id, "DE") == []
+    assert edge_repo.list_free_layer_incoming_edges_for_jurisdiction(old.id, "DE") == []
+
+    # Source classified but not processable: still hidden.
+    _classify(db_session, new, delivery, may_process=False)
+    assert edge_repo.list_incoming_edges_for_jurisdiction(old.id, "DE") == []
+
+    # Both processable: now visible.
+    _classify(db_session, new, delivery, may_process=True)
+    assert len(edge_repo.list_incoming_edges_for_jurisdiction(old.id, "DE")) == 1
+
+    # A revoked target classification hides it again.
+    target_rights = db_session.get(RightsClassificationORM, (old.id, "DE"))
+    target_rights.revoked_at = datetime.now(timezone.utc)
+    db_session.flush()
+    assert edge_repo.list_incoming_edges_for_jurisdiction(old.id, "DE") == []
+    assert edge_repo.list_free_layer_incoming_edges_for_jurisdiction(old.id, "DE") == []
+
+
 def test_free_layer_edge_included_in_exportable_list(db_session):
     old, new, delivery = _make_two_documents(db_session)
     edge_repo = PostgresEdgeRepository(db_session)

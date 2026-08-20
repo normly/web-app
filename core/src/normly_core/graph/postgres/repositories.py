@@ -630,10 +630,15 @@ class PostgresEdgeRepository:
     def list_edges_for_jurisdiction(
         self, document_id: uuid.UUID, jurisdiction: str
     ) -> list[Edge]:
-        # Both endpoints must be readable in this jurisdiction. Gating the
-        # target alone would still reveal the source's existence and its
-        # reference structure through a jurisdiction the source is not
-        # readable in at all.
+        # Outgoing edges, dual rights-gated, NO layer filter -- COMMERCIAL
+        # edges are returned. Both endpoints must be readable in this
+        # jurisdiction: gating the target alone would still reveal the
+        # source's existence and its reference structure through a
+        # jurisdiction the source is not readable in at all.
+        #
+        # Callers: pipeline/processing code only. Public HTTP endpoints must
+        # use list_free_layer_edges_for_jurisdiction (adds layer == FREE) or,
+        # for the bulk dump, list_exportable_edges_for_jurisdiction.
         source_rights = aliased(RightsClassificationORM, name="source_rights")
         target_rights = aliased(RightsClassificationORM, name="target_rights")
         rows = self._session.execute(
@@ -662,7 +667,12 @@ class PostgresEdgeRepository:
         # returns edges where document_id is the *target* (to_document_id),
         # e.g. REPLACES/WITHDRAWN_BY edges a successor or withdrawal-notice
         # document points at document_id. Same dual rights-gating rationale
-        # applies -- both endpoints must be readable in this jurisdiction.
+        # applies -- both endpoints must be readable in this jurisdiction --
+        # and, like its outgoing sibling, NO layer filter: COMMERCIAL edges
+        # are returned.
+        #
+        # Callers: pipeline/processing code only. The public validity endpoint
+        # uses list_free_layer_incoming_edges_for_jurisdiction.
         source_rights = aliased(RightsClassificationORM, name="source_rights")
         target_rights = aliased(RightsClassificationORM, name="target_rights")
         rows = self._session.execute(
@@ -684,21 +694,91 @@ class PostgresEdgeRepository:
         ).scalars()
         return [_edge_to_domain(row) for row in rows]
 
+    def list_free_layer_edges_for_jurisdiction(
+        self, document_id: uuid.UUID, jurisdiction: str
+    ) -> list[Edge]:
+        # Exactly list_edges_for_jurisdiction plus `layer == Layer.FREE`.
+        # Same outgoing direction, same dual may_process gating, same
+        # ordering; no may_export_free condition.
+        #
+        # Caller: GET /v1/documents/{id}/edges. That endpoint is anonymous and
+        # public, so a COMMERCIAL-layer edge (REQ-GRAPH-002 reserves
+        # section-level references within licensed norms for the paid tier)
+        # must not appear in it. It is deliberately not gated on
+        # may_export_free: whether a document belongs in the bulk dump is a
+        # different, narrower question than whether one of its relationships
+        # is free-tier content.
+        source_rights = aliased(RightsClassificationORM, name="source_rights")
+        target_rights = aliased(RightsClassificationORM, name="target_rights")
+        rows = self._session.execute(
+            select(EdgeORM)
+            .join(source_rights, source_rights.document_id == EdgeORM.from_document_id)
+            .join(target_rights, target_rights.document_id == EdgeORM.to_document_id)
+            .where(
+                EdgeORM.from_document_id == document_id,
+                EdgeORM.layer == Layer.FREE,
+                EdgeORM.revoked_at.is_(None),
+                sa.or_(EdgeORM.jurisdiction.is_(None), EdgeORM.jurisdiction == jurisdiction),
+                source_rights.jurisdiction == jurisdiction,
+                source_rights.may_process.is_(True),
+                source_rights.revoked_at.is_(None),
+                target_rights.jurisdiction == jurisdiction,
+                target_rights.may_process.is_(True),
+                target_rights.revoked_at.is_(None),
+            )
+            .order_by(EdgeORM.id)
+        ).scalars()
+        return [_edge_to_domain(row) for row in rows]
+
+    def list_free_layer_incoming_edges_for_jurisdiction(
+        self, document_id: uuid.UUID, jurisdiction: str
+    ) -> list[Edge]:
+        # Exactly list_incoming_edges_for_jurisdiction plus
+        # `layer == Layer.FREE`; the incoming-direction counterpart of
+        # list_free_layer_edges_for_jurisdiction (see there for the rationale).
+        #
+        # Caller: GET /v1/documents/{id}/validity.
+        source_rights = aliased(RightsClassificationORM, name="source_rights")
+        target_rights = aliased(RightsClassificationORM, name="target_rights")
+        rows = self._session.execute(
+            select(EdgeORM)
+            .join(source_rights, source_rights.document_id == EdgeORM.from_document_id)
+            .join(target_rights, target_rights.document_id == EdgeORM.to_document_id)
+            .where(
+                EdgeORM.to_document_id == document_id,
+                EdgeORM.layer == Layer.FREE,
+                EdgeORM.revoked_at.is_(None),
+                sa.or_(EdgeORM.jurisdiction.is_(None), EdgeORM.jurisdiction == jurisdiction),
+                source_rights.jurisdiction == jurisdiction,
+                source_rights.may_process.is_(True),
+                source_rights.revoked_at.is_(None),
+                target_rights.jurisdiction == jurisdiction,
+                target_rights.may_process.is_(True),
+                target_rights.revoked_at.is_(None),
+            )
+            .order_by(EdgeORM.id)
+        ).scalars()
+        return [_edge_to_domain(row) for row in rows]
+
     def list_exportable_edges_for_jurisdiction(
         self, document_id: uuid.UUID, jurisdiction: str
     ) -> list[Edge]:
-        # Mirror of list_edges_for_jurisdiction, with the same dual
-        # rights-gating, plus two more conditions: only Layer.FREE edges may
-        # appear in the public free-tier export, and both endpoints must be
-        # individually exportable (may_export_free), not just processable
-        # (may_process). Layer.COMMERCIAL edges (e.g. section-level
-        # references reserved for the commercial layer) must stay excluded
-        # here even though list_edges_for_jurisdiction -- the internal/
-        # authenticated read path -- still returns them. Requiring
-        # may_export_free on BOTH aliases (not just the source) keeps this
-        # method self-contained: any edge it returns has both endpoints
-        # exportable, so a caller iterating only exportable documents never
-        # ends up with a dangling to_document_id reference in the export.
+        # The strictest of the four listings: list_edges_for_jurisdiction plus
+        # `layer == Layer.FREE` plus may_export_free on BOTH endpoints. It is
+        # the only one that consults may_export_free.
+        #
+        # Layer.COMMERCIAL edges (e.g. section-level references reserved for
+        # the commercial layer) stay excluded here, as they do in
+        # list_free_layer_edges_for_jurisdiction; the unfiltered
+        # list_edges_for_jurisdiction still returns them for processing use.
+        # Requiring may_export_free on BOTH aliases (not just the source)
+        # keeps this method self-contained: any edge it returns has both
+        # endpoints exportable, so a caller iterating only exportable
+        # documents never ends up with a dangling to_document_id reference in
+        # the export.
+        #
+        # Caller: GET /v1/export. Single-document endpoints must NOT use this
+        # -- may_export_free would over-restrict them.
         source_rights = aliased(RightsClassificationORM, name="source_rights")
         target_rights = aliased(RightsClassificationORM, name="target_rights")
         rows = self._session.execute(

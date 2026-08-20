@@ -58,8 +58,11 @@ def test_edges_lists_relationships_for_a_classified_document(client, db_session)
     assert response.status_code == 200
     edges = response.json()
     assert len(edges) == 1
+    assert edges[0]["from_document_id"] == str(standard.id)
     assert edges[0]["to_document_id"] == str(legal_act.id)
     assert edges[0]["edge_type"] == "based_on_law"
+    assert edges[0]["jurisdiction"] is None
+    assert edges[0]["layer"] == "free"
 
 
 def test_edges_filters_by_edge_type(client, db_session):
@@ -84,6 +87,20 @@ def test_edges_returns_empty_list_for_a_document_not_classified_in_this_jurisdic
     standard, _ = _seed_two_documents_with_an_edge(db_session)
 
     response = client.get(f"/v1/documents/{standard.id}/edges", params={"jurisdiction": "FR"})
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_edges_omits_a_commercial_layer_edge(client, db_session):
+    """
+    /v1/documents/{id}/edges is anonymous and public. A COMMERCIAL-layer edge
+    -- the paid tier's section-level references (REQ-GRAPH-002) -- must never
+    appear there, even between two documents the caller may otherwise read.
+    """
+    standard, _ = _seed_two_documents_with_an_edge(db_session, layer=Layer.COMMERCIAL)
+
+    response = client.get(f"/v1/documents/{standard.id}/edges", params={"jurisdiction": "EU"})
 
     assert response.status_code == 200
     assert response.json() == []
