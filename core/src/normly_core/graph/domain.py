@@ -226,6 +226,20 @@ class DocumentRepository(Protocol):
 
     def list_documents_for_jurisdiction(self, jurisdiction: str) -> list[Document]: ...
 
+    def list_exportable_documents_for_jurisdiction(self, jurisdiction: str) -> list[Document]:
+        """
+        Stricter than `list_documents_for_jurisdiction`: additionally requires
+        `may_export_free=True`. A document may be processable/servable in a
+        jurisdiction (`may_process=True`) without being licensed for
+        redistribution in the public free-tier export — e.g. content received
+        under a contract that permits internal processing but not
+        republication. This is the correct method for any public/free-tier
+        export or dump; never for internal/authenticated content-serving
+        reads, which should keep using `get_document_for_jurisdiction` /
+        `list_documents_for_jurisdiction`.
+        """
+        ...
+
     def find_by_designation(self, issuer: str, designation: str) -> Document | None: ...
 
 
@@ -275,6 +289,21 @@ class EdgeRepository(Protocol):
         REPLACES/WITHDRAWN_BY edges a successor or withdrawal-notice document
         points at document_id. Same dual rights-gating as
         list_edges_for_jurisdiction, direction reversed."""
+        ...
+
+    def list_exportable_edges_for_jurisdiction(
+        self, document_id: uuid.UUID, jurisdiction: str
+    ) -> list[Edge]:
+        """
+        Stricter than `list_edges_for_jurisdiction`: additionally requires
+        `layer == Layer.FREE`. A COMMERCIAL-layer edge (e.g. a section-level
+        reference within licensed norms, reserved for the commercial layer)
+        may be processable between two otherwise-readable documents without
+        being permitted in the public free-tier export. Outgoing-only, same
+        direction convention as `list_edges_for_jurisdiction`. This is the
+        correct method for public/free-tier export use; never for
+        internal/authenticated content-serving reads.
+        """
         ...
 
 

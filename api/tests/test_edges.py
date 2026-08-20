@@ -14,7 +14,9 @@ from normly_core.graph.postgres.repositories import (
 )
 
 
-def _seed_two_documents_with_an_edge(db_session, *, edge_type=EdgeType.BASED_ON_LAW):
+def _seed_two_documents_with_an_edge(
+    db_session, *, edge_type=EdgeType.BASED_ON_LAW, layer=Layer.FREE
+):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="EUR-Lex", retrieval_path="https://single-market-economy.ec.europa.eu",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="EU",
@@ -43,7 +45,7 @@ def _seed_two_documents_with_an_edge(db_session, *, edge_type=EdgeType.BASED_ON_
         )
     PostgresEdgeRepository(db_session).create_edge(
         from_document_id=standard.id, to_document_id=legal_act.id, edge_type=edge_type,
-        jurisdiction=None, layer=Layer.FREE, delivery_id=delivery.id,
+        jurisdiction=None, layer=layer, delivery_id=delivery.id,
     )
     return standard, legal_act
 

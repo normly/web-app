@@ -457,6 +457,23 @@ class PostgresDocumentRepository:
         ).scalars()
         return [_document_to_domain(row) for row in rows]
 
+    def list_exportable_documents_for_jurisdiction(self, jurisdiction: str) -> list[Document]:
+        rows = self._session.execute(
+            select(DocumentORM)
+            .join(
+                RightsClassificationORM,
+                RightsClassificationORM.document_id == DocumentORM.id,
+            )
+            .where(
+                RightsClassificationORM.jurisdiction == jurisdiction,
+                RightsClassificationORM.may_process.is_(True),
+                RightsClassificationORM.may_export_free.is_(True),
+                RightsClassificationORM.revoked_at.is_(None),
+            )
+            .order_by(DocumentORM.id)
+        ).scalars()
+        return [_document_to_domain(row) for row in rows]
+
     def find_by_designation(self, issuer: str, designation: str) -> Document | None:
         orm = self._session.execute(
             select(DocumentORM)
@@ -654,6 +671,37 @@ class PostgresEdgeRepository:
             .join(target_rights, target_rights.document_id == EdgeORM.to_document_id)
             .where(
                 EdgeORM.to_document_id == document_id,
+                EdgeORM.revoked_at.is_(None),
+                sa.or_(EdgeORM.jurisdiction.is_(None), EdgeORM.jurisdiction == jurisdiction),
+                source_rights.jurisdiction == jurisdiction,
+                source_rights.may_process.is_(True),
+                source_rights.revoked_at.is_(None),
+                target_rights.jurisdiction == jurisdiction,
+                target_rights.may_process.is_(True),
+                target_rights.revoked_at.is_(None),
+            )
+            .order_by(EdgeORM.id)
+        ).scalars()
+        return [_edge_to_domain(row) for row in rows]
+
+    def list_exportable_edges_for_jurisdiction(
+        self, document_id: uuid.UUID, jurisdiction: str
+    ) -> list[Edge]:
+        # Mirror of list_edges_for_jurisdiction, with the same dual
+        # rights-gating, plus one more condition: only Layer.FREE edges may
+        # appear in the public free-tier export. Layer.COMMERCIAL edges
+        # (e.g. section-level references reserved for the commercial layer)
+        # must stay excluded here even though list_edges_for_jurisdiction
+        # -- the internal/authenticated read path -- still returns them.
+        source_rights = aliased(RightsClassificationORM, name="source_rights")
+        target_rights = aliased(RightsClassificationORM, name="target_rights")
+        rows = self._session.execute(
+            select(EdgeORM)
+            .join(source_rights, source_rights.document_id == EdgeORM.from_document_id)
+            .join(target_rights, target_rights.document_id == EdgeORM.to_document_id)
+            .where(
+                EdgeORM.from_document_id == document_id,
+                EdgeORM.layer == Layer.FREE,
                 EdgeORM.revoked_at.is_(None),
                 sa.or_(EdgeORM.jurisdiction.is_(None), EdgeORM.jurisdiction == jurisdiction),
                 source_rights.jurisdiction == jurisdiction,

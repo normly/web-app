@@ -178,6 +178,54 @@ def test_list_incoming_edges_for_jurisdiction_returns_edges_pointing_at_the_docu
     assert len(edge_repo.list_edges_for_jurisdiction(new.id, "DE")) == 1
 
 
+def test_commercial_layer_edge_excluded_from_exportable_list_but_not_from_processable_list(
+    db_session,
+):
+    """
+    `list_exportable_edges_for_jurisdiction` and `list_edges_for_jurisdiction`
+    must have genuinely different semantics: a COMMERCIAL-layer edge (e.g. a
+    section-level reference reserved for the commercial layer) must be
+    processable/servable internally but must not appear in the public
+    free-tier export.
+    """
+    old, new, delivery = _make_two_documents(db_session)
+    edge_repo = PostgresEdgeRepository(db_session)
+
+    edge_repo.create_edge(
+        from_document_id=new.id,
+        to_document_id=old.id,
+        edge_type=EdgeType.REFERENCES,
+        jurisdiction=None,
+        layer=Layer.COMMERCIAL,
+        delivery_id=delivery.id,
+    )
+    _classify(db_session, new, delivery)
+    _classify(db_session, old, delivery)
+
+    assert len(edge_repo.list_edges_for_jurisdiction(new.id, "DE")) == 1
+    assert edge_repo.list_exportable_edges_for_jurisdiction(new.id, "DE") == []
+
+
+def test_free_layer_edge_included_in_exportable_list(db_session):
+    old, new, delivery = _make_two_documents(db_session)
+    edge_repo = PostgresEdgeRepository(db_session)
+
+    edge_repo.create_edge(
+        from_document_id=new.id,
+        to_document_id=old.id,
+        edge_type=EdgeType.REPLACES,
+        jurisdiction=None,
+        layer=Layer.FREE,
+        delivery_id=delivery.id,
+    )
+    _classify(db_session, new, delivery)
+    _classify(db_session, old, delivery)
+
+    exportable = edge_repo.list_exportable_edges_for_jurisdiction(new.id, "DE")
+    assert len(exportable) == 1
+    assert exportable[0].to_document_id == old.id
+
+
 def test_edges_are_hidden_when_the_source_document_is_not_readable(db_session):
     """
     Listing a document's edges reveals that the document exists and what it

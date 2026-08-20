@@ -35,13 +35,13 @@ def export_free_graph(
     doc_repo = PostgresDocumentRepository(session)
     edge_repo = PostgresEdgeRepository(session)
 
-    documents = doc_repo.list_documents_for_jurisdiction(jurisdiction)
+    documents = doc_repo.list_exportable_documents_for_jurisdiction(jurisdiction)
     document_responses = [_document_to_response(d, session) for d in documents]
 
     seen_edge_ids: set = set()
     edge_responses: list[EdgeResponse] = []
     for document in documents:
-        for edge in edge_repo.list_edges_for_jurisdiction(document.id, jurisdiction):
+        for edge in edge_repo.list_exportable_edges_for_jurisdiction(document.id, jurisdiction):
             if edge.id in seen_edge_ids:
                 continue
             seen_edge_ids.add(edge.id)
