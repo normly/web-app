@@ -705,6 +705,11 @@ class PostgresSegmentRepository:
     def list_segments_for_jurisdiction(
         self, document_id: uuid.UUID, jurisdiction: str
     ) -> list[Segment]:
+        # The read gate must ask the same question the write gate asked: the
+        # pipeline only creates segments when `may_index_fulltext` is true.
+        # Classification is updated in place, so a document whose rights are
+        # later tightened would otherwise keep serving full-text segments
+        # written while they were still permitted.
         rows = self._session.execute(
             select(SegmentORM)
             .join(
@@ -715,6 +720,7 @@ class PostgresSegmentRepository:
                 SegmentORM.document_id == document_id,
                 RightsClassificationORM.jurisdiction == jurisdiction,
                 RightsClassificationORM.may_process.is_(True),
+                RightsClassificationORM.may_index_fulltext.is_(True),
                 RightsClassificationORM.revoked_at.is_(None),
             )
             .order_by(SegmentORM.sequence_number)
@@ -779,7 +785,17 @@ class PostgresEmbeddingRepository:
             return _embedding_to_domain(existing)
         return _embedding_to_domain(orm)
 
-    def get_embedding(self, segment_id: uuid.UUID, model_name: str) -> Embedding | None:
+    def get_embedding_unchecked(
+        self, segment_id: uuid.UUID, model_name: str
+    ) -> Embedding | None:
+        """
+        Fetch one embedding without any rights gate.
+
+        Deliberately not part of the `EmbeddingRepository` Protocol: it takes no
+        jurisdiction and joins no classification, so it is a pipeline and
+        administrative method (proving an embedding was removed with its
+        delivery, say), never a content-serving read.
+        """
         orm = self._session.execute(
             select(EmbeddingORM).where(
                 EmbeddingORM.segment_id == segment_id,

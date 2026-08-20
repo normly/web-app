@@ -87,3 +87,37 @@ def test_segments_are_gated_by_jurisdiction(db_session):
     segments = segment_repo.list_segments_for_jurisdiction(document.id, "DE")
     assert len(segments) == 1
     assert segments[0].text == "Text A"
+
+
+def test_segments_stop_being_readable_when_fulltext_indexing_is_withdrawn(db_session):
+    """
+    The read gate asks the question the write gate asked.
+
+    Segments are only ever written when `may_index_fulltext` is true. Because
+    classification is updated in place, a later tightening has to take the
+    already-written segments out of reach as well.
+    """
+    document, delivery = _make_document(db_session)
+    segment_repo = PostgresSegmentRepository(db_session)
+    rights_repo = PostgresRightsRepository(db_session)
+
+    segment_repo.add_segment(
+        document_id=document.id, delivery_id=delivery.id, sequence_number=1,
+        heading="§ 3", text="Text A", language="de",
+    )
+    rights_repo.classify(
+        document_id=document.id, jurisdiction="DE", may_process=True, may_index_fulltext=True,
+        may_cite_passages=True, may_export_free=True, legal_basis_reference="§ 5 UrhG",
+        classified_at=datetime.now(timezone.utc),
+        classified_by="J. Weber", delivery_id=delivery.id,
+    )
+    assert len(segment_repo.list_segments_for_jurisdiction(document.id, "DE")) == 1
+
+    rights_repo.classify(
+        document_id=document.id, jurisdiction="DE", may_process=True, may_index_fulltext=False,
+        may_cite_passages=False, may_export_free=True, legal_basis_reference="Lizenz widerrufen",
+        classified_at=datetime.now(timezone.utc),
+        classified_by="J. Weber", delivery_id=delivery.id,
+    )
+
+    assert segment_repo.list_segments_for_jurisdiction(document.id, "DE") == []

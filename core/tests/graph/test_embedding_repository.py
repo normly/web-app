@@ -45,7 +45,7 @@ def test_add_embedding_and_read_back(db_session):
         model_name="intfloat/multilingual-e5-large", vector=vector,
     )
 
-    fetched = repo.get_embedding(segment.id, "intfloat/multilingual-e5-large")
+    fetched = repo.get_embedding_unchecked(segment.id, "intfloat/multilingual-e5-large")
     assert fetched is not None
     assert fetched.id == embedding.id
     assert len(fetched.vector) == 1024
@@ -79,4 +79,4 @@ def test_embedding_is_removed_when_its_segment_is_deleted(db_session):
     )
     db_session.flush()
 
-    assert repo.get_embedding(segment.id, "model-a") is None
+    assert repo.get_embedding_unchecked(segment.id, "model-a") is None

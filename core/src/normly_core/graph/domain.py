@@ -301,6 +301,16 @@ class Embedding:
 
 
 class EmbeddingRepository(Protocol):
+    """
+    The write surface for segment embeddings.
+
+    `PostgresEmbeddingRepository` additionally carries `get_embedding_unchecked`,
+    which is **not** part of this Protocol: it takes no jurisdiction and joins no
+    rights classification, so it is a pipeline and administrative method, never a
+    content-serving read — the same split `DocumentRepository` documents for
+    `get_document_unchecked`.
+    """
+
     def add_embedding(
         self,
         *,
@@ -309,10 +319,6 @@ class EmbeddingRepository(Protocol):
         model_name: str,
         vector: list[float],
     ) -> Embedding: ...
-
-    def get_embedding(
-        self, segment_id: uuid.UUID, model_name: str
-    ) -> Embedding | None: ...
 
 
 class IdentityResolutionStatus(str, Enum):

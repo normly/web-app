@@ -50,7 +50,7 @@ def test_revoking_a_delivery_removes_its_segments_and_embeddings(db_session):
 
     remaining_segment = db_session.get(SegmentORM, segment.id)
     assert remaining_segment is None
-    assert embedding_repo.get_embedding(segment.id, "model-a") is None
+    assert embedding_repo.get_embedding_unchecked(segment.id, "model-a") is None
 
 
 def test_revoking_a_delivery_preserves_other_deliveries_segments_and_embeddings(db_session):
@@ -87,8 +87,8 @@ def test_revoking_a_delivery_preserves_other_deliveries_segments_and_embeddings(
 
     assert db_session.get(SegmentORM, segment_a.id) is None
     assert db_session.get(SegmentORM, segment_b.id) is not None
-    assert embedding_repo.get_embedding(segment_a.id, "model-a") is None
-    assert embedding_repo.get_embedding(segment_b.id, "model-a") is not None
+    assert embedding_repo.get_embedding_unchecked(segment_a.id, "model-a") is None
+    assert embedding_repo.get_embedding_unchecked(segment_b.id, "model-a") is not None
 
 
 def test_revoking_a_delivery_rejects_its_pending_identity_case(db_session):
