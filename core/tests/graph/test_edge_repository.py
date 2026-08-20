@@ -62,14 +62,18 @@ def test_create_edge(db_session):
     assert edge.revoked_at is None
 
 
-def _classify(db_session, document, delivery, jurisdiction="DE", may_process=True):
+def _classify(
+    db_session, document, delivery, jurisdiction="DE", may_process=True, may_export_free=None
+):
+    if may_export_free is None:
+        may_export_free = may_process
     PostgresRightsRepository(db_session).classify(
         document_id=document.id,
         jurisdiction=jurisdiction,
         may_process=may_process,
         may_index_fulltext=may_process,
         may_cite_passages=may_process,
-        may_export_free=may_process,
+        may_export_free=may_export_free,
         legal_basis_reference="§ 5 UrhG",
         classified_at=datetime.now(timezone.utc),
         classified_by="J. Weber",
@@ -224,6 +228,37 @@ def test_free_layer_edge_included_in_exportable_list(db_session):
     exportable = edge_repo.list_exportable_edges_for_jurisdiction(new.id, "DE")
     assert len(exportable) == 1
     assert exportable[0].to_document_id == old.id
+
+
+def test_edge_excluded_from_exportable_list_when_only_target_is_not_exportable(db_session):
+    """
+    `list_exportable_edges_for_jurisdiction` must gate may_export_free on
+    BOTH endpoints, not just the source. Otherwise a caller that iterates
+    only exportable documents (as the /v1/export router does) could still
+    receive an edge whose to_document_id points at a document absent from
+    the export -- a dangling reference. Here the source is fully
+    exportable and the edge is FREE-layer (so it would have passed the
+    round-1 fix), but the target is only processable, not exportable.
+    """
+    old, new, delivery = _make_two_documents(db_session)
+    edge_repo = PostgresEdgeRepository(db_session)
+
+    edge_repo.create_edge(
+        from_document_id=new.id,
+        to_document_id=old.id,
+        edge_type=EdgeType.REPLACES,
+        jurisdiction=None,
+        layer=Layer.FREE,
+        delivery_id=delivery.id,
+    )
+    _classify(db_session, new, delivery, may_process=True, may_export_free=True)
+    _classify(db_session, old, delivery, may_process=True, may_export_free=False)
+
+    assert edge_repo.list_exportable_edges_for_jurisdiction(new.id, "DE") == []
+    # The plain, non-exportable listing has genuinely different semantics
+    # and still returns the edge: both endpoints are may_process, which is
+    # all list_edges_for_jurisdiction requires.
+    assert len(edge_repo.list_edges_for_jurisdiction(new.id, "DE")) == 1
 
 
 def test_edges_are_hidden_when_the_source_document_is_not_readable(db_session):

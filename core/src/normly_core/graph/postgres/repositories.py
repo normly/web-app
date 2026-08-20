@@ -688,11 +688,17 @@ class PostgresEdgeRepository:
         self, document_id: uuid.UUID, jurisdiction: str
     ) -> list[Edge]:
         # Mirror of list_edges_for_jurisdiction, with the same dual
-        # rights-gating, plus one more condition: only Layer.FREE edges may
-        # appear in the public free-tier export. Layer.COMMERCIAL edges
-        # (e.g. section-level references reserved for the commercial layer)
-        # must stay excluded here even though list_edges_for_jurisdiction
-        # -- the internal/authenticated read path -- still returns them.
+        # rights-gating, plus two more conditions: only Layer.FREE edges may
+        # appear in the public free-tier export, and both endpoints must be
+        # individually exportable (may_export_free), not just processable
+        # (may_process). Layer.COMMERCIAL edges (e.g. section-level
+        # references reserved for the commercial layer) must stay excluded
+        # here even though list_edges_for_jurisdiction -- the internal/
+        # authenticated read path -- still returns them. Requiring
+        # may_export_free on BOTH aliases (not just the source) keeps this
+        # method self-contained: any edge it returns has both endpoints
+        # exportable, so a caller iterating only exportable documents never
+        # ends up with a dangling to_document_id reference in the export.
         source_rights = aliased(RightsClassificationORM, name="source_rights")
         target_rights = aliased(RightsClassificationORM, name="target_rights")
         rows = self._session.execute(
@@ -706,9 +712,11 @@ class PostgresEdgeRepository:
                 sa.or_(EdgeORM.jurisdiction.is_(None), EdgeORM.jurisdiction == jurisdiction),
                 source_rights.jurisdiction == jurisdiction,
                 source_rights.may_process.is_(True),
+                source_rights.may_export_free.is_(True),
                 source_rights.revoked_at.is_(None),
                 target_rights.jurisdiction == jurisdiction,
                 target_rights.may_process.is_(True),
+                target_rights.may_export_free.is_(True),
                 target_rights.revoked_at.is_(None),
             )
             .order_by(EdgeORM.id)
