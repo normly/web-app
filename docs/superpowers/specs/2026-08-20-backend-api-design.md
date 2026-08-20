@@ -156,6 +156,20 @@ Rechteklassifikation ist rechtsraumabhängig (REQ-GRAPH-006), und die bestehende
 Repository-Methoden sind bereits jurisdiction-scoped gebaut; die API reicht diesen
 Parameter nur durch, keine eigene Klassifikationslogik.
 
+**Das eine Tor.** `DocumentRepository`s eigener Docstring markiert `list_designations`,
+`list_titles`, `find_by_designation` und `get_document_unchecked` explizit als *nicht*
+rechtsraumgefiltert und *nicht* für öffentliche Lesepfade bestimmt — nur
+`get_document_for_jurisdiction`/`list_documents_for_jurisdiction` filtern über die
+Rechteklassifikation. Jeder Endpunkt, der ein Dokument zurückgibt, muss deshalb zuerst
+`get_document_for_jurisdiction(document_id, jurisdiction)` aufrufen; liefert das `None`,
+antwortet der Endpunkt mit 404 — unabhängig davon, ob das Dokument existiert. Erst nach
+diesem einen Gate-Aufruf dürfen die ungated Methoden zur Anreicherung (Bezeichnungen, Titel)
+für dasselbe, bereits autorisierte Dokument aufgerufen werden. Für die Suche
+(`find_by_designation`) bedeutet das zweistufig: zuerst Identität auflösen
+(`find_by_designation`, liefert nur eine `document_id`), dann das Gate prüfen
+(`get_document_for_jurisdiction`) — das Suchergebnis kommt ausschließlich aus dem zweiten
+Aufruf, `find_by_designation` dient nur der Identitätsauflösung, nie der Sichtbarkeitsprüfung.
+
 **Quellenauflösung.** `document.created_via_delivery_id` verweist auf die Lieferung, die das
 Dokument ursprünglich angelegt hat; darüber `DeliveryRepository.get_delivery(...).source_id`
 und `SourceRepository.get_source(...)` — beide Methoden existieren bereits, keine neue
@@ -168,8 +182,8 @@ für den aktuellen Bestand (EUR-Lex, DGUV) ist das gleichbedeutend, siehe Offene
 
 | Endpunkt | Zweck | Repository-Methode(n) |
 |---|---|---|
-| `GET /v1/documents?designation=&issuer=&jurisdiction=` | Suche/Lookup nach Bezeichnung | `find_by_designation` |
-| `GET /v1/documents/{id}?jurisdiction=` | Dokument-Detail (Bezeichnungen, Titel mehrsprachig, Ursprungsquelle inkl. URL) | `list_designations`, `list_titles` (rechtsraumgefiltert), `get_delivery`/`get_source` über `document.created_via_delivery_id` |
+| `GET /v1/documents?designation=&issuer=&jurisdiction=` | Suche/Lookup nach Bezeichnung | `find_by_designation` (Identität) + `get_document_for_jurisdiction` (Tor, siehe „Das eine Tor") |
+| `GET /v1/documents/{id}?jurisdiction=` | Dokument-Detail (Bezeichnungen, Titel mehrsprachig, Ursprungsquelle inkl. URL) | `get_document_for_jurisdiction` (Tor) zuerst, danach `list_designations`/`list_titles` (Anreicherung), `get_delivery`/`get_source` über `document.created_via_delivery_id` |
 | `GET /v1/documents/{id}/edges?jurisdiction=&edge_type=` | Verweise/Beziehungen (references, based_on_law, adopted_from) | `list_edges_for_jurisdiction` |
 | `GET /v1/documents/{id}/validity?jurisdiction=` | Abgeleiteter Gültigkeitsstatus | wertet `replaces`/`withdrawn_by`-Kanten aus `list_edges_for_jurisdiction` aus |
 | `GET /v1/export?jurisdiction=&format=json` | Vollständiger Dump des freien Graphanteils (REQ-GRAPH-001) | `list_documents_for_jurisdiction` + zugehörige Kanten |
