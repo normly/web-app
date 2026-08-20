@@ -10,6 +10,8 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from sqlalchemy import create_engine
 
+from normly_api.routers.documents import documents_router
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -23,7 +25,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
-    return FastAPI(
+    app = FastAPI(
         title="normly API",
         version="1.0.0",
         description=(
@@ -36,6 +38,8 @@ def create_app() -> FastAPI:
         },
         lifespan=lifespan,
     )
+    app.include_router(documents_router)
+    return app
 
 
 app = create_app()
