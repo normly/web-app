@@ -16,6 +16,12 @@ from normly_core.pipeline.domain import RawRecord, RawSection, RightsRule
 
 _HEADING_PATTERN = re.compile(r"^§\s*\d+\s+.+")
 
+# The adapter reads every file in the directory that carries its own prefix.
+# A bare "*.pdf" would be wrong: the directory may hold other sources' files —
+# the test fixtures for both adapters already share one — and this adapter can
+# only make sense of DGUV publications.
+_FILE_PATTERN = "dguv_*.pdf"
+
 
 class DguvAdapter:
     def __init__(self, *, directory: Path, source_id: uuid.UUID):
@@ -23,30 +29,30 @@ class DguvAdapter:
         self.source_id = source_id
 
     def fetch(self) -> Iterable[RawRecord]:
-        pdf_path = self.directory / "dguv_sample_vorschrift.pdf"
-        content = pdf_path.read_bytes()
-        content_hash = f"sha256:{hashlib.sha256(content).hexdigest()}"
+        for pdf_path in sorted(self.directory.glob(_FILE_PATTERN)):
+            content = pdf_path.read_bytes()
+            content_hash = f"sha256:{hashlib.sha256(content).hexdigest()}"
 
-        with pdfplumber.open(pdf_path) as pdf:
-            lines: list[str] = []
-            for page in pdf.pages:
-                text = page.extract_text() or ""
-                lines.extend(text.splitlines())
+            with pdfplumber.open(pdf_path) as pdf:
+                lines: list[str] = []
+                for page in pdf.pages:
+                    text = page.extract_text() or ""
+                    lines.extend(text.splitlines())
 
-        designation = lines[0].strip()
-        title = lines[1].strip() if len(lines) > 1 else None
-        full_text = "\n".join(lines)
+            designation = lines[0].strip()
+            title = lines[1].strip() if len(lines) > 1 else None
+            full_text = "\n".join(lines)
 
-        yield RawRecord(
-            source_id=self.source_id,
-            content_hash=content_hash,
-            raw_designation=designation,
-            raw_issuer="DGUV",
-            raw_title=title,
-            full_text=full_text,
-            language="de",
-            fetched_at=datetime.now(timezone.utc),
-        )
+            yield RawRecord(
+                source_id=self.source_id,
+                content_hash=content_hash,
+                raw_designation=designation,
+                raw_issuer="DGUV",
+                raw_title=title,
+                full_text=full_text,
+                language="de",
+                fetched_at=datetime.now(timezone.utc),
+            )
 
     def extract_structure(self, record: RawRecord) -> list[RawSection]:
         assert record.full_text is not None

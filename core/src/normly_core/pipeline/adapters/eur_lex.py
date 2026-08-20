@@ -29,6 +29,12 @@ _COLUMN_ESO = 1
 _COLUMN_STANDARD_REFERENCE = 2
 _COLUMN_TITLE = 3
 
+# The adapter reads every file in the directory that carries its own prefix.
+# A bare "*.pdf" would be wrong: the directory may hold other sources' files —
+# the test fixtures for both adapters already share one — and this adapter can
+# only make sense of Commission summary lists.
+_FILE_PATTERN = "eur_lex_*.pdf"
+
 
 class EurLexAdapter:
     def __init__(self, *, directory: Path, source_id: uuid.UUID, legislation_reference: str):
@@ -37,7 +43,10 @@ class EurLexAdapter:
         self.legislation_reference = legislation_reference
 
     def fetch(self) -> Iterable[RawRecord]:
-        pdf_path = self.directory / "eur_lex_machinery_summary.pdf"
+        for pdf_path in sorted(self.directory.glob(_FILE_PATTERN)):
+            yield from self._fetch_file(pdf_path)
+
+    def _fetch_file(self, pdf_path: Path) -> Iterable[RawRecord]:
         content = pdf_path.read_bytes()
         content_hash = f"sha256:{hashlib.sha256(content).hexdigest()}"
         now = datetime.now(timezone.utc)

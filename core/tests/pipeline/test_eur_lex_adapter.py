@@ -44,6 +44,29 @@ def test_fetch_yields_standard_records_with_based_on_law_reference():
     assert reference.edge_type == EdgeType.BASED_ON_LAW
 
 
+def test_fetch_reads_every_matching_file_and_ignores_other_sources_files(tmp_path):
+    """`--directory` means the directory, not one hardcoded filename in it."""
+    import shutil
+
+    shutil.copy(
+        FIXTURE_DIR / "eur_lex_machinery_summary.pdf",
+        tmp_path / "eur_lex_machinery_summary_2026.pdf",
+    )
+    shutil.copy(
+        FIXTURE_DIR / "dguv_sample_vorschrift.pdf", tmp_path / "dguv_sample_vorschrift.pdf"
+    )
+    adapter = EurLexAdapter(
+        directory=tmp_path, source_id=uuid.uuid4(), legislation_reference="2006/42/EC",
+    )
+
+    records = list(adapter.fetch())
+
+    assert records[0].raw_designation == "2006/42/EC"
+    assert any("EN ISO 12100" in record.raw_designation for record in records)
+    # Nothing from the DGUV file: that file is another adapter's business.
+    assert all(not record.raw_designation.startswith("DGUV") for record in records)
+
+
 def test_extract_structure_is_always_empty():
     adapter = EurLexAdapter(
         directory=FIXTURE_DIR, source_id=uuid.uuid4(), legislation_reference="2006/42/EC",

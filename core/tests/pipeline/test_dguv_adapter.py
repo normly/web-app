@@ -24,6 +24,44 @@ def test_fetch_yields_one_record_per_pdf_with_full_text():
     assert record.language == "de"
 
 
+def _write_vorschrift_pdf(path, designation: str, title: str) -> None:
+    from reportlab.pdfgen import canvas
+
+    pdf = canvas.Canvas(str(path))
+    lines = [
+        designation,
+        title,
+        "",
+        "§ 1 Geltungsbereich",
+        "Diese Vorschrift gilt für alle Unternehmen und Versicherte.",
+    ]
+    y = 800
+    for line in lines:
+        pdf.drawString(72, y, line)
+        y -= 20
+    pdf.save()
+
+
+def test_fetch_processes_every_matching_file_in_the_directory(tmp_path):
+    """`--directory` means the directory, not one hardcoded filename in it."""
+    _write_vorschrift_pdf(
+        tmp_path / "dguv_vorschrift_1.pdf", "DGUV Vorschrift 1", "Grundsätze der Prävention"
+    )
+    _write_vorschrift_pdf(
+        tmp_path / "dguv_vorschrift_2.pdf", "DGUV Vorschrift 2", "Betriebsärzte"
+    )
+    # A neighbouring source's file in the same directory stays untouched.
+    _write_vorschrift_pdf(tmp_path / "eur_lex_something.pdf", "2006/42/EC", "Machinery")
+
+    records = list(DguvAdapter(directory=tmp_path, source_id=uuid.uuid4()).fetch())
+
+    assert [record.raw_designation for record in records] == [
+        "DGUV Vorschrift 1",
+        "DGUV Vorschrift 2",
+    ]
+    assert len({record.content_hash for record in records}) == 2
+
+
 def test_extract_structure_splits_on_paragraph_headings():
     adapter = DguvAdapter(directory=FIXTURE_DIR, source_id=uuid.uuid4())
     record = list(adapter.fetch())[0]
