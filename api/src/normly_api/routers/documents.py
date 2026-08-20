@@ -45,8 +45,33 @@ def _document_to_response(document: Document, session: Session) -> DocumentRespo
         for t in doc_repo.list_titles(document.id)
     ]
 
+    # Known limitation, deliberate and documented: provenance is resolved from
+    # created_via_delivery_id -- the delivery that FIRST produced this document
+    # -- without asking whether that delivery has since been withdrawn. A
+    # document may remain readable through a later delivery's rights
+    # classification while the source block still describes the withdrawn one.
+    # Resolving "the currently active delivery for this document" is a
+    # separate design question (there is no such concept in the repository
+    # layer yet, and answering it touches the lineage model that revocation
+    # depends on). It is not settled here.
     delivery = PostgresDeliveryRepository(session).get_delivery(document.created_via_delivery_id)
+    if delivery is None:
+        # Lineage is mandatory ("Abstammung mitführen"), so this is a broken
+        # invariant, not a client error. Raise something explicit: an
+        # AttributeError on None would surface as an anonymous 500 with no
+        # indication of which link in the chain is missing. Neither is caught
+        # by the 503 handler -- a defect must not read as a retryable outage.
+        raise RuntimeError(
+            f"document {document.id} references unknown delivery "
+            f"{document.created_via_delivery_id}"
+        )
+
     source = PostgresSourceRepository(session).get_source(delivery.source_id)
+    if source is None:
+        raise RuntimeError(
+            f"delivery {delivery.id} references unknown source {delivery.source_id}"
+        )
+
     source_response = SourceResponse(
         publisher=source.publisher, retrieval_path=source.retrieval_path,
         legal_basis_category=source.legal_basis_category.value,
