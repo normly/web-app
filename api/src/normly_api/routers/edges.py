@@ -8,6 +8,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from normly_core.graph.domain import EdgeType
 from normly_core.graph.postgres.repositories import (
     PostgresDocumentRepository,
     PostgresEdgeRepository,
@@ -21,7 +22,11 @@ edges_router = APIRouter(prefix="/v1/documents", tags=["edges"])
 
 @edges_router.get("/{document_id}/edges", response_model=list[EdgeResponse])
 def list_edges(
-    document_id: uuid.UUID, jurisdiction: str, edge_type: str | None = None,
+    # EdgeType, not str: an unknown value is a client mistake and now yields a
+    # 400 through the validation handler, instead of silently returning an
+    # empty list that reads like "this document has no such edges". EdgeType
+    # is a str-Enum, so the comparison against e.edge_type.value still holds.
+    document_id: uuid.UUID, jurisdiction: str, edge_type: EdgeType | None = None,
     session: Session = Depends(get_session),
 ) -> list[EdgeResponse]:
     # list_edges_for_jurisdiction alone cannot distinguish "no such document" from

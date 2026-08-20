@@ -81,6 +81,22 @@ def test_edges_filters_by_edge_type(client, db_session):
     assert len(non_matching.json()) == 0
 
 
+def test_edges_rejects_an_unknown_edge_type_with_400(client, db_session):
+    """
+    An unknown edge_type is a client mistake. Typed as a bare str it produced
+    an empty 200, indistinguishable from "this document has no such edges".
+    """
+    standard, _ = _seed_two_documents_with_an_edge(db_session)
+
+    response = client.get(
+        f"/v1/documents/{standard.id}/edges",
+        params={"jurisdiction": "EU", "edge_type": "supersedes"},
+    )
+
+    assert response.status_code == 400
+    assert "edge_type" in response.json()["detail"]
+
+
 def test_edges_returns_empty_list_for_a_document_not_classified_in_this_jurisdiction(
     client, db_session
 ):
