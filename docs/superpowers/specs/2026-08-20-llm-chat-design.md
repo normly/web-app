@@ -1,8 +1,18 @@
 # Design: LLM-Chat mit anonymer Sitzungshistorie (v1)
 
 **Datum:** 2026-08-20
-**Status:** zur Durchsicht
-**Teilprojekt:** viertes von mehreren zur Umsetzung des normly-MVP (freier Kern)
+**Status:** genehmigt, aber zurückgestellt — siehe Hinweis unten
+**Teilprojekt:** fünftes von mehreren zur Umsetzung des normly-MVP (freier Kern)
+
+> **Reihenfolge geändert nach Genehmigung dieser Spec:** Der Auftraggeber möchte Konten von
+> Anfang an mit echter Anmeldung nutzen, nicht erst später nachrüsten. SSO/Konten
+> (REQ-INT-003) sind dafür Voraussetzung und werden als eigenes, **viertes** Teilprojekt vor
+> diesem hier umgesetzt. Diese Spec bleibt inhaltlich gültig (Architektur, Datenfluss,
+> LLM-Betrieb, Rechte-Gate-Fragen ändern sich nicht), aber Abschnitt „Entschieden mit dem
+> Auftraggeber" Punkt 1 sowie Nicht-Ziele/Offene Punkte zur Sitzungsidentität werden
+> überarbeitet, sobald das Konto-Teilprojekt steht — `chat_session` wird dann echte Konten
+> verknüpfen können (anonyme Nutzung ohne Konto bleibt laut ADR-017/REQ-ACC-001 weiterhin
+> möglich, nur zusätzlich zur Konto-Option).
 
 ## Kontext
 
@@ -63,8 +73,9 @@ Token fortsetzbar.
 - **Produktions-Deployment/Skalierung des Inferenz-Servers** (SKE, GPU-Provisionierung,
   Lastverteilung) — analog zu den vorigen Teilprojekten eine spätere
   Deployment-Entscheidung.
-- **Mehrsprachige Chat-Antworten.** Der Kern-Bestand (DGUV) ist deutsch; die Prompt-Sprache
-  ist für den Start Deutsch, keine Übersetzungslogik.
+- **Sprachen über Deutsch/Englisch hinaus.** `language` ist von Anfang an `"de"`/`"en"`
+  (siehe Architektur) — weitere Sprachen sind Folgearbeit, kein Übersetzungsdienst für
+  beliebige Zielsprachen in diesem Teilprojekt.
 
 ## Architektur
 
@@ -104,7 +115,7 @@ Dogfooding der eigenen öffentlichen API.
 
 | Tabelle | Spalten | Zweck |
 |---|---|---|
-| `chat_session` | `id` (PK), `session_token` (eindeutig, opak), `jurisdiction`, `created_at` | Anonyme Sitzungsidentität |
+| `chat_session` | `id` (PK), `session_token` (eindeutig, opak), `jurisdiction`, `language` (`de`/`en`), `created_at` | Anonyme Sitzungsidentität |
 | `chat_message` | `id` (PK), `session_id` (FK), `role` (`user`/`assistant`), `content`, `answer_type` (`structural`/`synthesis`/`fallback`), `created_at` | Chat-Verlauf |
 | `chat_message_citation` | `message_id` (FK), `document_id` (FK), `segment_id` (FK, nullable) | Abstammung der Antwort — welches Dokument/Segment die Antwort stützt |
 
@@ -112,6 +123,15 @@ Dogfooding der eigenen öffentlichen API.
 eingebetteten Ansprüche, nur ein Nachschlage-Schlüssel). Der Client erhält ihn bei der ersten
 Anfrage und schickt ihn bei Folgeanfragen mit; ein fehlender oder unbekannter Token startet
 eine neue Sitzung, kein Fehler.
+
+`language` ist ein expliziter Client-Parameter (`"de"` oder `"en"`), kein automatisch
+erkannter — dasselbe Muster wie `jurisdiction`: deterministisch, kein zusätzlicher
+Erkennungs-Dienst/-Modell nötig. Er steuert (a) welche Textbausteine `structural.py` für
+Strukturantworten verwendet (b) die Sprachanweisung im Synthese-Prompt an das LLM. Die
+Ähnlichkeitssuche selbst ist davon unabhängig: `multilingual-e5-large` ist sprachübergreifend
+— eine englische Frage findet auch deutsche DGUV-Segmente, das LLM formuliert die Antwort
+dann trotzdem auf Englisch. `chat/`s Antwort (paraphrasiert) ist damit sprachlich unabhängig
+von der Quellsprache der zitierten Segmente.
 
 Repository-Zugriff nach demselben Muster wie überall im Projekt: `ChatRepository` (o. ä.) in
 `core/src/normly_core/graph/postgres/repositories.py`, Protocol in `domain.py`,
@@ -134,7 +154,7 @@ bleibt unverändert, keine Breaking Change für die Ingestion-Pipeline.
 
 ## Datenfluss
 
-`POST /v1/chat` — `{session_token: str | None, jurisdiction: str, message: str}`
+`POST /v1/chat` — `{session_token: str | None, jurisdiction: str, language: Literal["de", "en"], message: str}`
 
 ```
 Kein/unbekannter session_token? -> neue chat_session anlegen, neuen Token zurückgeben
@@ -159,7 +179,8 @@ SYNTHESEFRAGE:
     kein Treffer? -> Fallback-Antwort (Textbaustein, kein Modellaufruf)
     Treffer vorhanden?
         -> Prompt: System-Anweisung "nur paraphrasieren, nur aus dem Kontext antworten,
-           keine Volltextwiedergabe" (REQ-FUNC-001/002) + Segmenttexte + Frage
+           keine Volltextwiedergabe, antworte auf {language}" (REQ-FUNC-001/002) +
+           Segmenttexte + Frage
         -> Ollama-Aufruf (Llama 3.1 8B Instruct)
         -> Verbatim-Überlapp-Check der Antwort gegen die zitierten Segmenttexte
            (15+ aufeinanderfolgende Wörter überlappend? -> Antwort verwerfen, Fallback
@@ -203,6 +224,11 @@ genau dort, wo Fehler am teuersten wären).
 - Rechteklassifikations-Asymmetrie: dieselbe Frage liefert für einen Rechtsraum ohne
   Klassifikation ausschließlich den Fallback (keine Segmente sichtbar) — analog zum
   bestehenden Muster aus den vorigen Teilprojekten.
+- Zweisprachigkeit: dieselbe Synthesefrage einmal mit `language="de"`, einmal mit
+  `language="en"` gegen dieselben (deutschen) DGUV-Segmente — prüft, dass die
+  Ähnlichkeitssuche in beiden Fällen dieselben Segmente findet (sprachübergreifendes
+  Embedding-Modell) und die Antwort jeweils tatsächlich in der angeforderten Sprache
+  formuliert ist.
 - Sitzungs-Fortsetzung: zwei Anfragen mit demselben `session_token` landen in derselben
   `chat_session`, mit vollständiger `chat_message`-Historie in der richtigen Reihenfolge.
 
