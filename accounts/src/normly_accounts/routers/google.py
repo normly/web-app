@@ -6,7 +6,8 @@ from __future__ import annotations
 
 import os
 
-from fastapi import APIRouter, Depends
+import httpx
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -41,10 +42,27 @@ def google_login(
 
 @google_router.get("/callback", response_model=SessionResponse)
 def google_callback(
-    code: str, state: str, session: Session = Depends(get_session),
+    state: str, code: str | None = None, error: str | None = None,
+    session: Session = Depends(get_session),
     google_client: GoogleOAuthClient = Depends(get_google_oauth_client),
 ) -> SessionResponse:
-    profile = google_client.exchange_code(code, _redirect_uri())
+    # Google redirects back here with EITHER `code` or `error` -- clicking
+    # "Cancel" on the consent screen yields `?error=access_denied` and no
+    # code. Declaring `code` as required would turn that ordinary outcome
+    # into a 422 from FastAPI's own validation instead of the 400 the design
+    # spec mandates. Google's raw `error` value is never echoed back: it is
+    # third-party input and tells the caller nothing they can act on.
+    if error is not None or code is None:
+        raise HTTPException(status_code=400, detail="Google OAuth was cancelled or failed")
+
+    try:
+        profile = google_client.exchange_code(code, _redirect_uri())
+    except httpx.HTTPError:
+        # An expired/replayed code or a misconfigured client secret makes
+        # Google answer non-2xx, which raise_for_status() turns into an
+        # HTTPStatusError; transport failures raise other HTTPError
+        # subclasses. Neither is a bug in this service, so neither is a 500.
+        raise HTTPException(status_code=400, detail="Google OAuth token exchange failed")
 
     google_repo = PostgresAccountGoogleIdentityRepository(session)
     account_repo = PostgresAccountRepository(session)
@@ -54,8 +72,21 @@ def google_callback(
         # Not yet linked -- either a brand-new account, or an existing
         # email/password account with the same address to link to instead
         # of creating a duplicate.
-        account = account_repo.get_account_by_email(profile.email)
-        if account is None:
+        existing = account_repo.get_account_by_email(profile.email)
+        if existing is not None:
+            # Linking hands whoever completed this flow full control of an
+            # account that already belongs to someone. A Google identity may
+            # *assert* any address, so an unverified one is no evidence at
+            # all -- refuse rather than take over the existing account.
+            if not profile.email_verified:
+                raise HTTPException(
+                    status_code=400, detail="Google account email is not verified"
+                )
+            account = existing
+        else:
+            # No account to take over, so an unverified address is harmless
+            # here: it can only create a new Google-only account reachable
+            # by this very Google subject.
             account = account_repo.create_account(email=profile.email, password_hash=None)
         google_repo.link_google_identity(
             account_id=account.id, google_subject_id=profile.subject_id

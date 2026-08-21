@@ -20,6 +20,11 @@ _USERINFO_ENDPOINT = "https://openidconnect.googleapis.com/v1/userinfo"
 class GoogleProfile:
     subject_id: str
     email: str
+    # Whether Google itself vouches for this address. A Google identity can
+    # *assert* any email; only `email_verified` says Google checked it. The
+    # callback needs the distinction before it links a Google subject to an
+    # account that already exists.
+    email_verified: bool
 
 
 class GoogleOAuthClient(Protocol):
@@ -72,7 +77,13 @@ class HttpxGoogleOAuthClient:
             userinfo_response.raise_for_status()
             profile = userinfo_response.json()
 
-        return GoogleProfile(subject_id=profile["sub"], email=profile["email"])
+        return GoogleProfile(
+            subject_id=profile["sub"],
+            email=profile["email"],
+            # Fail closed: a userinfo response without the claim counts as
+            # unverified, never as verified.
+            email_verified=bool(profile.get("email_verified", False)),
+        )
 
 
 def build_google_oauth_client_from_env() -> HttpxGoogleOAuthClient:

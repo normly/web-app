@@ -31,7 +31,9 @@ def test_google_login_redirects_to_googles_consent_screen(client):
 
 def test_google_callback_creates_a_new_account_for_an_unseen_subject(client):
     _override_google_client(
-        client.app, GoogleProfile(subject_id="google-sub-1", email="newgoogle@example.de")
+        client.app, GoogleProfile(
+            subject_id="google-sub-1", email="newgoogle@example.de", email_verified=True
+        )
     )
 
     response = client.get(
@@ -48,7 +50,9 @@ def test_google_callback_links_to_an_existing_email_password_account(client):
         json={"email": "linkme@example.de", "password": "correct horse battery staple"},
     )
     _override_google_client(
-        client.app, GoogleProfile(subject_id="google-sub-2", email="linkme@example.de")
+        client.app, GoogleProfile(
+            subject_id="google-sub-2", email="linkme@example.de", email_verified=True
+        )
     )
 
     response = client.get(
@@ -68,7 +72,9 @@ def test_google_callback_links_to_an_existing_email_password_account(client):
 
 
 def test_google_callback_reuses_the_account_for_a_returning_google_subject(client):
-    profile = GoogleProfile(subject_id="google-sub-3", email="returning@example.de")
+    profile = GoogleProfile(
+        subject_id="google-sub-3", email="returning@example.de", email_verified=True
+    )
     _override_google_client(client.app, profile)
 
     first = client.get(
@@ -79,3 +85,94 @@ def test_google_callback_reuses_the_account_for_a_returning_google_subject(clien
     )
 
     assert first.json()["account"]["id"] == second.json()["account"]["id"]
+
+
+def test_google_callback_refuses_to_link_an_unverified_email_to_an_existing_account(client):
+    """
+    A Google identity may *assert* any email address; only `email_verified`
+    means Google checked it. Linking on an unverified assertion would hand
+    whoever controls that Google identity a full session on the victim's
+    existing password account.
+    """
+    client.post(
+        "/v1/accounts/register",
+        json={"email": "victim@example.de", "password": "correct horse battery staple"},
+    )
+    _override_google_client(
+        client.app, GoogleProfile(
+            subject_id="attacker-sub", email="victim@example.de", email_verified=False
+        )
+    )
+
+    response = client.get(
+        "/v1/accounts/google/callback", params={"code": "fake-code", "state": "fake-state"}
+    )
+
+    assert response.status_code == 400
+    assert "not verified" in response.json()["detail"]
+
+
+def test_google_callback_still_creates_an_account_for_an_unverified_unknown_email(client):
+    """
+    The risk is takeover of something that already exists. With no account on
+    that address, an unverified email can only produce a new Google-only
+    account reachable by this very Google subject -- no one else is harmed.
+    """
+    _override_google_client(
+        client.app, GoogleProfile(
+            subject_id="unverified-sub", email="nobodyelse@example.de", email_verified=False
+        )
+    )
+
+    response = client.get(
+        "/v1/accounts/google/callback", params={"code": "fake-code", "state": "fake-state"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["account"]["email"] == "nobodyelse@example.de"
+
+
+def test_google_callback_returns_400_when_the_user_cancels_consent(client):
+    """
+    Cancelling on Google's consent screen redirects back with `?error=...`
+    and no `code`. That is an ordinary outcome, not a malformed request --
+    it must be the spec's 400, not FastAPI's own 422.
+    """
+    response = client.get(
+        "/v1/accounts/google/callback",
+        params={"state": "fake-state", "error": "access_denied"},
+    )
+
+    assert response.status_code == 400
+    # Google's raw error value is third-party input and is never echoed back.
+    assert "access_denied" not in response.json()["detail"]
+
+
+def test_google_callback_returns_400_when_the_token_exchange_fails(client):
+    """
+    An expired code or a wrong client secret makes Google answer non-2xx.
+    That is the caller's problem, not a defect in this service, so it must
+    not surface as a 500.
+    """
+    import httpx
+
+    from normly_accounts.dependencies import get_google_oauth_client
+
+    class _FailingGoogleOAuthClient:
+        def build_authorization_url(self, redirect_uri: str, state: str) -> str:
+            return "https://accounts.google.com/o/oauth2/v2/auth"
+
+        def exchange_code(self, code: str, redirect_uri: str) -> GoogleProfile:
+            raise httpx.HTTPStatusError(
+                "400 Bad Request",
+                request=httpx.Request("POST", "https://oauth2.googleapis.com/token"),
+                response=httpx.Response(400),
+            )
+
+    client.app.dependency_overrides[get_google_oauth_client] = _FailingGoogleOAuthClient
+
+    response = client.get(
+        "/v1/accounts/google/callback", params={"code": "expired", "state": "fake-state"}
+    )
+
+    assert response.status_code == 400

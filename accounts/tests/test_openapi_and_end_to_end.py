@@ -85,7 +85,9 @@ def test_google_and_magic_link_can_resolve_to_the_same_account(client, db_sessio
             return f"https://accounts.google.com/o/oauth2/v2/auth?state={state}"
 
         def exchange_code(self, code, redirect_uri):
-            return GoogleProfile(subject_id="capstone-sub", email="both@example.de")
+            return GoogleProfile(
+                subject_id="capstone-sub", email="both@example.de", email_verified=True
+            )
 
     client.app.dependency_overrides[get_google_oauth_client] = _FakeGoogleOAuthClient
 
