@@ -11,6 +11,12 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./tests/unit/setup.ts"],
+    // Scope discovery to the unit suite only. Without this, Vitest's
+    // default glob also picks up tests/e2e/*.spec.ts (added in Task 12),
+    // which use the Playwright Test runner's own test()/describe() API
+    // and fail immediately under Vitest ("did not expect test() to be
+    // called here").
+    include: ["tests/unit/**/*.{test,spec}.{ts,tsx}"],
   },
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
