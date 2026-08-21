@@ -3,18 +3,23 @@
 // Copyright (C) 2026 normly contributors
 
 import type { Metadata } from "next";
-import "./globals.css";
+import { getInstanceConfig } from "@/lib/config";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
+import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "normly",
-  description: "Normen- und Regelwerkswissen im Dialog",
-  manifest: "/manifest.webmanifest",
-};
+export function generateMetadata(): Metadata {
+  const config = getInstanceConfig();
+  return {
+    title: config.instanceName,
+    description: "Normen- und Regelwerkswissen im Dialog",
+    manifest: "/manifest.webmanifest",
+  };
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const config = getInstanceConfig();
   return (
-    <html lang="de">
+    <html lang="de" style={{ "--brand": config.brandColorHsl } as React.CSSProperties}>
       <body>
         <ServiceWorkerRegistration />
         {children}
