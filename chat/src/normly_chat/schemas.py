@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel
@@ -26,6 +27,14 @@ class ChatResponse(BaseModel):
     answer: str
     answer_type: Literal["structural", "synthesis", "fallback"]
     citations: list[CitationResponse]
+
+
+class ChatSessionSummary(BaseModel):
+    id: uuid.UUID
+    session_token: str
+    jurisdiction: str
+    language: str
+    created_at: datetime
 
 
 class ErrorResponse(BaseModel):
