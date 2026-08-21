@@ -7,6 +7,8 @@ import { getInstanceConfig } from "@/lib/config";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import "./globals.css";
 
+export const dynamic = "force-dynamic";
+
 export function generateMetadata(): Metadata {
   const config = getInstanceConfig();
   return {
