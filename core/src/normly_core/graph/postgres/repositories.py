@@ -2,7 +2,7 @@
 # Copyright (C) 2026 normly contributors
 
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 import sqlalchemy as sa
 from sqlalchemy import select
@@ -10,6 +10,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
 from normly_core.graph.domain import (
+    Account,
+    AccountGoogleIdentity,
+    AccountSession,
+    AccountToken,
+    AccountTokenPurpose,
     Delivery,
     Document,
     DocumentDesignation,
@@ -17,6 +22,8 @@ from normly_core.graph.domain import (
     Edge,
     EdgeType,
     Embedding,
+    EmailAlreadyRegisteredError,
+    GoogleIdentityAlreadyLinkedError,
     IdentityResolutionCase,
     IdentityResolutionStatus,
     LegalBasisCategory,
@@ -28,6 +35,10 @@ from normly_core.graph.domain import (
     WithdrawnDeliveryError,
 )
 from normly_core.graph.postgres.orm import (
+    AccountGoogleIdentityORM,
+    AccountORM,
+    AccountSessionORM,
+    AccountTokenORM,
     DeliveryORM,
     DocumentORM,
     DocumentDesignationORM,
@@ -1038,3 +1049,207 @@ class PostgresIdentityResolutionRepository:
         orm.resolved_at = datetime.now(orm.created_at.tzinfo)
         self._session.flush()
         return _identity_case_to_domain(orm)
+
+
+def _account_to_domain(orm: AccountORM) -> Account:
+    return Account(
+        id=orm.id, email=orm.email, password_hash=orm.password_hash,
+        email_verified_at=orm.email_verified_at, created_at=orm.created_at,
+    )
+
+
+class PostgresAccountRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def create_account(self, *, email: str, password_hash: str | None) -> Account:
+        orm = AccountORM(id=uuid.uuid4(), email=email, password_hash=password_hash)
+        try:
+            with self._session.begin_nested():
+                self._session.add(orm)
+                self._session.flush()
+        except IntegrityError as exc:
+            raise EmailAlreadyRegisteredError(email) from exc
+        return _account_to_domain(orm)
+
+    def get_account_by_id(self, account_id: uuid.UUID) -> Account | None:
+        orm = self._session.get(AccountORM, account_id)
+        return _account_to_domain(orm) if orm else None
+
+    def get_account_by_email(self, email: str) -> Account | None:
+        orm = self._session.execute(
+            select(AccountORM).where(AccountORM.email == email)
+        ).scalar_one_or_none()
+        return _account_to_domain(orm) if orm else None
+
+    def mark_email_verified(self, account_id: uuid.UUID, verified_at: datetime) -> None:
+        self._session.execute(
+            sa.update(AccountORM)
+            .where(AccountORM.id == account_id)
+            .values(email_verified_at=verified_at)
+        )
+
+    def set_password_hash(self, account_id: uuid.UUID, password_hash: str) -> None:
+        self._session.execute(
+            sa.update(AccountORM)
+            .where(AccountORM.id == account_id)
+            .values(password_hash=password_hash)
+        )
+
+
+class PostgresAccountGoogleIdentityRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def link_google_identity(
+        self, *, account_id: uuid.UUID, google_subject_id: str
+    ) -> AccountGoogleIdentity:
+        # Two constraints can collide here: account_id is the primary key
+        # (one Google identity per account), and google_subject_id is unique
+        # (one account per Google identity). The insert therefore runs inside
+        # a savepoint, the same as create_account -- an unguarded
+        # IntegrityError would not merely raise, it would leave the whole
+        # session unusable for the rest of the request.
+        existing = self._session.get(AccountGoogleIdentityORM, account_id)
+        if existing is not None:
+            if existing.google_subject_id == google_subject_id:
+                # Exactly the requested link already exists: idempotent, same
+                # convention as record_delivery and add_designation.
+                return AccountGoogleIdentity(
+                    account_id=existing.account_id,
+                    google_subject_id=existing.google_subject_id,
+                )
+            # A different subject for this account. Checked here rather than
+            # left to the constraint: adding a second instance under a primary
+            # key the identity map already holds makes SQLAlchemy warn and
+            # discard the pending row, so the database never sees the insert
+            # and no IntegrityError is raised to catch.
+            raise GoogleIdentityAlreadyLinkedError(account_id, google_subject_id)
+
+        orm = AccountGoogleIdentityORM(
+            account_id=account_id, google_subject_id=google_subject_id
+        )
+        try:
+            with self._session.begin_nested():
+                self._session.add(orm)
+                self._session.flush()
+        except IntegrityError as exc:
+            # The subject is already linked to a DIFFERENT account, or a
+            # concurrent request won the race. Silently returning the existing
+            # row would attach the caller to an identity they did not present,
+            # so it surfaces as a named error instead.
+            raise GoogleIdentityAlreadyLinkedError(account_id, google_subject_id) from exc
+        return AccountGoogleIdentity(
+            account_id=orm.account_id, google_subject_id=orm.google_subject_id
+        )
+
+    def get_account_by_google_subject(self, google_subject_id: str) -> Account | None:
+        orm = self._session.execute(
+            select(AccountORM)
+            .join(
+                AccountGoogleIdentityORM,
+                AccountGoogleIdentityORM.account_id == AccountORM.id,
+            )
+            .where(AccountGoogleIdentityORM.google_subject_id == google_subject_id)
+        ).scalar_one_or_none()
+        return _account_to_domain(orm) if orm else None
+
+
+def _account_session_to_domain(orm: AccountSessionORM) -> AccountSession:
+    return AccountSession(
+        id=orm.id, account_id=orm.account_id, session_token=orm.session_token,
+        created_at=orm.created_at, expires_at=orm.expires_at,
+    )
+
+
+class PostgresAccountSessionRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def create_session(
+        self, *, account_id: uuid.UUID, session_token: str, created_at: datetime,
+        expires_at: datetime,
+    ) -> AccountSession:
+        orm = AccountSessionORM(
+            id=uuid.uuid4(), account_id=account_id, session_token=session_token,
+            created_at=created_at, expires_at=expires_at,
+        )
+        self._session.add(orm)
+        self._session.flush()
+        return _account_session_to_domain(orm)
+
+    def get_session_by_token(self, session_token: str) -> AccountSession | None:
+        orm = self._session.execute(
+            select(AccountSessionORM).where(
+                AccountSessionORM.session_token == session_token,
+                AccountSessionORM.expires_at > datetime.now(timezone.utc),
+            )
+        ).scalar_one_or_none()
+        return _account_session_to_domain(orm) if orm else None
+
+    def extend_session(self, session_id: uuid.UUID, new_expires_at: datetime) -> None:
+        self._session.execute(
+            sa.update(AccountSessionORM)
+            .where(AccountSessionORM.id == session_id)
+            .values(expires_at=new_expires_at)
+        )
+
+    def revoke_session(self, session_token: str) -> None:
+        self._session.execute(
+            sa.delete(AccountSessionORM).where(
+                AccountSessionORM.session_token == session_token
+            )
+        )
+
+
+def _account_token_to_domain(orm: AccountTokenORM) -> AccountToken:
+    return AccountToken(
+        id=orm.id, account_id=orm.account_id, purpose=orm.purpose, token=orm.token,
+        created_at=orm.created_at, expires_at=orm.expires_at, used_at=orm.used_at,
+        email=orm.email,
+    )
+
+
+class PostgresAccountTokenRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def create_token(
+        self, *, account_id: uuid.UUID | None = None, email: str | None = None,
+        purpose: AccountTokenPurpose, token: str, created_at: datetime,
+        expires_at: datetime,
+    ) -> AccountToken:
+        if (account_id is None) == (email is None):
+            # Mirrors ck_account_token_account_or_email. Catching it here keeps
+            # the caller's session usable: an IntegrityError from the check
+            # constraint would abort the surrounding transaction, and this is a
+            # programming error at the call site, never user input.
+            raise ValueError(
+                "create_token needs exactly one of account_id and email, "
+                f"got account_id={account_id!r} and email={email!r}"
+            )
+        orm = AccountTokenORM(
+            id=uuid.uuid4(), account_id=account_id, email=email, purpose=purpose,
+            token=token, created_at=created_at, expires_at=expires_at, used_at=None,
+        )
+        self._session.add(orm)
+        self._session.flush()
+        return _account_token_to_domain(orm)
+
+    def consume_token(
+        self, token: str, purpose: AccountTokenPurpose
+    ) -> AccountToken | None:
+        now = datetime.now(timezone.utc)
+        result = self._session.execute(
+            sa.update(AccountTokenORM)
+            .where(
+                AccountTokenORM.token == token,
+                AccountTokenORM.purpose == purpose,
+                AccountTokenORM.used_at.is_(None),
+                AccountTokenORM.expires_at > now,
+            )
+            .values(used_at=now)
+            .returning(AccountTokenORM)
+        )
+        orm = result.scalar_one_or_none()
+        return _account_token_to_domain(orm) if orm else None

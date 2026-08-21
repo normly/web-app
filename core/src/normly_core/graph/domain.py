@@ -35,6 +35,12 @@ class Layer(str, Enum):
     COMMERCIAL = "commercial"
 
 
+class AccountTokenPurpose(str, Enum):
+    PASSWORD_RESET = "password_reset"
+    EMAIL_VERIFICATION = "email_verification"
+    MAGIC_LINK = "magic_link"
+
+
 class WithdrawnDeliveryError(Exception):
     """
     Raised when an artifact would be created or updated on a delivery that is
@@ -472,3 +478,141 @@ class IdentityResolutionRepository(Protocol):
     def reject_case(
         self, case_id: uuid.UUID, *, resolved_by: str
     ) -> IdentityResolutionCase: ...
+
+
+@dataclass(frozen=True)
+class Account:
+    id: uuid.UUID
+    email: str
+    password_hash: str | None
+    email_verified_at: datetime | None
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class AccountSession:
+    id: uuid.UUID
+    account_id: uuid.UUID
+    session_token: str
+    created_at: datetime
+    expires_at: datetime
+
+
+@dataclass(frozen=True)
+class AccountGoogleIdentity:
+    account_id: uuid.UUID
+    google_subject_id: str
+
+
+@dataclass(frozen=True)
+class AccountToken:
+    id: uuid.UUID
+    account_id: uuid.UUID | None
+    purpose: AccountTokenPurpose
+    token: str
+    created_at: datetime
+    expires_at: datetime
+    used_at: datetime | None
+    email: str | None
+
+
+class AccountRepository(Protocol):
+    """
+    Account identity — email/password accounts. Google-only accounts have
+    `password_hash=None`.
+
+    `create_account` is deliberately NOT idempotent on a duplicate email like
+    `record_delivery`/`add_designation` elsewhere in this file — two different
+    registrants submitting the same email must never silently share an
+    account. It raises `EmailAlreadyRegisteredError` instead.
+    """
+
+    def create_account(self, *, email: str, password_hash: str | None) -> Account: ...
+
+    def get_account_by_id(self, account_id: uuid.UUID) -> Account | None: ...
+
+    def get_account_by_email(self, email: str) -> Account | None: ...
+
+    def mark_email_verified(self, account_id: uuid.UUID, verified_at: datetime) -> None: ...
+
+    def set_password_hash(self, account_id: uuid.UUID, password_hash: str) -> None: ...
+
+
+class EmailAlreadyRegisteredError(Exception):
+    def __init__(self, email: str):
+        self.email = email
+        super().__init__(f"an account already exists for {email!r}")
+
+
+class AccountGoogleIdentityRepository(Protocol):
+    """
+    An account carries at most one Google identity: `account_id` is the
+    primary key of `account_google_identity`, and `google_subject_id` is
+    unique across it.
+
+    `link_google_identity` is idempotent for a link that already exists
+    exactly as requested, following the same convention as `record_delivery`
+    and `add_designation`. Any other collision — a second Google subject for
+    an already-linked account, or a subject already linked to a different
+    account — raises `GoogleIdentityAlreadyLinkedError` rather than an
+    `IntegrityError` that would leave the session unusable.
+    """
+
+    def link_google_identity(
+        self, *, account_id: uuid.UUID, google_subject_id: str
+    ) -> AccountGoogleIdentity: ...
+
+    def get_account_by_google_subject(self, google_subject_id: str) -> Account | None: ...
+
+
+class GoogleIdentityAlreadyLinkedError(Exception):
+    def __init__(self, account_id: uuid.UUID, google_subject_id: str):
+        self.account_id = account_id
+        self.google_subject_id = google_subject_id
+        super().__init__(
+            f"cannot link Google subject {google_subject_id!r} to account "
+            f"{account_id}: a conflicting link already exists"
+        )
+
+
+class AccountSessionRepository(Protocol):
+    def create_session(
+        self, *, account_id: uuid.UUID, session_token: str, created_at: datetime,
+        expires_at: datetime,
+    ) -> AccountSession: ...
+
+    def get_session_by_token(self, session_token: str) -> AccountSession | None: ...
+
+    def extend_session(self, session_id: uuid.UUID, new_expires_at: datetime) -> None: ...
+
+    def revoke_session(self, session_token: str) -> None: ...
+
+
+class AccountTokenRepository(Protocol):
+    """
+    One-time tokens for password reset, email verification, and magic-link
+    login, distinguished by `purpose`.
+
+    `consume_token` MUST be a single atomic UPDATE ... WHERE used_at IS NULL
+    AND expires_at > now ... RETURNING statement, not a SELECT followed by a
+    separate UPDATE — two concurrent requests with the same token must not
+    both succeed.
+
+    A token names either an existing account or a bare email address that has
+    no account yet: magic-link is a registration path too, and the account for
+    an unknown address is created when the link is confirmed, not when it is
+    requested — otherwise anyone could conjure an account for any address they
+    can type without proving they can read that mailbox. `create_token`
+    therefore takes exactly one of `account_id` and `email`; passing both or
+    neither is a programming error and raises `ValueError`.
+    """
+
+    def create_token(
+        self, *, account_id: uuid.UUID | None = None, email: str | None = None,
+        purpose: AccountTokenPurpose, token: str, created_at: datetime,
+        expires_at: datetime,
+    ) -> AccountToken: ...
+
+    def consume_token(
+        self, token: str, purpose: AccountTokenPurpose
+    ) -> AccountToken | None: ...
