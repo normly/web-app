@@ -10,6 +10,9 @@ from email.message import EmailMessage
 from typing import Protocol
 
 
+_SMTP_TIMEOUT_SECONDS = 10
+
+
 class EmailSender(Protocol):
     def send(self, *, to: str, subject: str, body: str) -> None: ...
 
@@ -36,7 +39,11 @@ class SmtpEmailSender:
         message["Subject"] = subject
         message.set_content(body)
 
-        with smtplib.SMTP(self.host, self.port) as client:
+        # Every route is a sync `def` and so runs on Starlette's bounded
+        # threadpool. Without a timeout an unresponsive relay pins a worker
+        # thread forever, and the routers' try/except around send() cannot
+        # help -- the call never returns to raise.
+        with smtplib.SMTP(self.host, self.port, timeout=_SMTP_TIMEOUT_SECONDS) as client:
             if self.username is not None:
                 client.starttls()
                 client.login(self.username, self.password or "")
