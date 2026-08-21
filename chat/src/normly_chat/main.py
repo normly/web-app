@@ -12,6 +12,9 @@ from sqlalchemy import create_engine
 
 from normly_core.pipeline.embeddings import EmbeddingModel
 
+from normly_chat.accounts_client import AccountsClient
+from normly_chat.api_client import ApiClient
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -23,6 +26,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # multi-hundred-MB model the ingestion pipeline uses -- reusing the
     # single already-established EmbeddingModel class, not a second one.
     app.state.embedding_model = EmbeddingModel()
+
+    app.state.api_client = ApiClient(base_url=os.environ["NORMLY_API_BASE_URL"])
+    app.state.accounts_client = AccountsClient(base_url=os.environ["NORMLY_ACCOUNTS_BASE_URL"])
 
     try:
         yield
