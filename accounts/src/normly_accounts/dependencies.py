@@ -14,6 +14,7 @@ def get_session(request: Request) -> Iterator[Session]:
     engine = request.app.state.engine
     with Session(engine) as session:
         yield session
+        session.commit()
 
 
 def get_email_sender(request: Request):
