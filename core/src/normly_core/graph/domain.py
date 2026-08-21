@@ -405,6 +405,10 @@ class SegmentRepository(Protocol):
         self, document_id: uuid.UUID, jurisdiction: str
     ) -> list[Segment]: ...
 
+    def find_similar_segments_for_jurisdiction(
+        self, query_vector: list[float], jurisdiction: str, model_name: str, limit: int = 5,
+    ) -> list[Segment]: ...
+
 
 @dataclass(frozen=True)
 class Embedding:

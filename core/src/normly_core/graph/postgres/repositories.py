@@ -913,6 +913,35 @@ class PostgresSegmentRepository:
         ).scalars()
         return [_segment_to_domain(row) for row in rows]
 
+    def find_similar_segments_for_jurisdiction(
+        self, query_vector: list[float], jurisdiction: str, model_name: str, limit: int = 5,
+    ) -> list[Segment]:
+        # Same read gate as list_segments_for_jurisdiction (may_process AND
+        # may_index_fulltext AND not revoked) -- similarity search is a
+        # different sort order over the same visible set, not a second rights
+        # check. model_name is required, not defaulted: mixing vectors from
+        # two different embedding models in one ORDER BY would compare
+        # distances that live in unrelated vector spaces and return
+        # meaningless nonsense silently.
+        rows = self._session.execute(
+            select(SegmentORM)
+            .join(EmbeddingORM, EmbeddingORM.segment_id == SegmentORM.id)
+            .join(
+                RightsClassificationORM,
+                RightsClassificationORM.document_id == SegmentORM.document_id,
+            )
+            .where(
+                RightsClassificationORM.jurisdiction == jurisdiction,
+                RightsClassificationORM.may_process.is_(True),
+                RightsClassificationORM.may_index_fulltext.is_(True),
+                RightsClassificationORM.revoked_at.is_(None),
+                EmbeddingORM.model_name == model_name,
+            )
+            .order_by(EmbeddingORM.vector.cosine_distance(query_vector))
+            .limit(limit)
+        ).scalars()
+        return [_segment_to_domain(row) for row in rows]
+
 
 def _embedding_to_domain(orm: EmbeddingORM) -> Embedding:
     return Embedding(
