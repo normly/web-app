@@ -12,6 +12,8 @@ from fastapi import FastAPI
 from sqlalchemy import create_engine
 
 from normly_accounts.email import RecordingEmailSender, SmtpEmailSender
+from normly_accounts.routers.login import login_router
+from normly_accounts.routers.registration import registration_router
 
 
 @asynccontextmanager
@@ -52,6 +54,8 @@ def create_app() -> FastAPI:
         },
         lifespan=lifespan,
     )
+    app.include_router(registration_router)
+    app.include_router(login_router)
     return app
 
 
