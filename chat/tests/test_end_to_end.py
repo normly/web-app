@@ -5,8 +5,18 @@ import os
 from datetime import date, datetime, timezone
 
 import pytest
+from sqlalchemy import delete
+from sqlalchemy.orm import Session
 
 from normly_core.graph.domain import LegalBasisCategory
+from normly_core.graph.postgres.orm import (
+    DeliveryORM,
+    DocumentORM,
+    EmbeddingORM,
+    RightsClassificationORM,
+    SegmentORM,
+    SourceORM,
+)
 from normly_core.graph.postgres.repositories import (
     PostgresDeliveryRepository,
     PostgresDocumentRepository,
@@ -24,38 +34,66 @@ pytestmark = pytest.mark.skipif(
 
 
 @pytest.fixture()
-def dguv_fixture(db_session):
-    source = PostgresSourceRepository(db_session).create_source(
-        publisher="DGUV", retrieval_path="https://example.de/dguv-e2e",
-        legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
-        reviewed_at=date(2026, 1, 1), responsible_person="Reviewer",
-    )
-    delivery = PostgresDeliveryRepository(db_session).record_delivery(
-        source_id=source.id, content_hash="sha256:chat-e2e", ingested_at=datetime.now(timezone.utc),
-    )
-    document = PostgresDocumentRepository(db_session).create_document(
-        origin_issuer="DGUV", origin_number="1", edition="2020", part=None,
-        delivery_id=delivery.id,
-    )
-    PostgresRightsRepository(db_session).classify(
-        document_id=document.id, jurisdiction="DE", may_process=True,
-        may_index_fulltext=True, may_cite_passages=True, may_export_free=True,
-        legal_basis_reference="§ 5 UrhG", classified_at=datetime.now(timezone.utc),
-        classified_by="Test", delivery_id=delivery.id,
-    )
-    segment, _ = PostgresSegmentRepository(db_session).add_segment(
-        document_id=document.id, delivery_id=delivery.id, sequence_number=1, heading=None,
-        text="Beim Schweißen ist eine Schutzbrille zu tragen, um die Augen vor "
-             "Funkenflug und ultravioletter Strahlung zu schützen.",
-        language="de",
-    )
-    model = EmbeddingModel()
-    PostgresEmbeddingRepository(db_session).add_embedding(
-        segment_id=segment.id, delivery_id=delivery.id, model_name=MODEL_NAME,
-        vector=model.embed(segment.text),
-    )
-    db_session.commit()
-    return document, segment
+def dguv_fixture(migrated_engine):
+    # api_process/accounts_process are separate OS subprocesses, each with
+    # their own fresh connection to the test database. The savepoint-scoped
+    # db_session used elsewhere in this suite is invisible to them no matter
+    # how many times it's "committed" -- commit() there only releases the
+    # SAVEPOINT within the outer, test-teardown-rolled-back transaction. A
+    # standalone Session bound directly to migrated_engine, committed for
+    # real, is the only way data seeded here is visible to those subprocesses
+    # (same pattern as accounts/tests/test_session_persistence.py). Since
+    # this really persists, the fixture is responsible for deleting what it
+    # created afterwards, in FK-safe (children-before-parents) order.
+    session = Session(migrated_engine)
+    try:
+        source = PostgresSourceRepository(session).create_source(
+            publisher="DGUV", retrieval_path="https://example.de/dguv-e2e",
+            legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
+            reviewed_at=date(2026, 1, 1), responsible_person="Reviewer",
+        )
+        delivery = PostgresDeliveryRepository(session).record_delivery(
+            source_id=source.id, content_hash="sha256:chat-e2e", ingested_at=datetime.now(timezone.utc),
+        )
+        document = PostgresDocumentRepository(session).create_document(
+            origin_issuer="DGUV", origin_number="1", edition="2020", part=None,
+            delivery_id=delivery.id,
+        )
+        PostgresRightsRepository(session).classify(
+            document_id=document.id, jurisdiction="DE", may_process=True,
+            may_index_fulltext=True, may_cite_passages=True, may_export_free=True,
+            legal_basis_reference="§ 5 UrhG", classified_at=datetime.now(timezone.utc),
+            classified_by="Test", delivery_id=delivery.id,
+        )
+        segment, _ = PostgresSegmentRepository(session).add_segment(
+            document_id=document.id, delivery_id=delivery.id, sequence_number=1, heading=None,
+            text="Beim Schweißen ist eine Schutzbrille zu tragen, um die Augen vor "
+                 "Funkenflug und ultravioletter Strahlung zu schützen.",
+            language="de",
+        )
+        model = EmbeddingModel()
+        PostgresEmbeddingRepository(session).add_embedding(
+            segment_id=segment.id, delivery_id=delivery.id, model_name=MODEL_NAME,
+            vector=model.embed(segment.text),
+        )
+        session.commit()
+
+        yield document, segment
+
+        session.execute(delete(EmbeddingORM).where(EmbeddingORM.segment_id == segment.id))
+        session.execute(delete(SegmentORM).where(SegmentORM.id == segment.id))
+        session.execute(
+            delete(RightsClassificationORM).where(
+                RightsClassificationORM.document_id == document.id,
+                RightsClassificationORM.jurisdiction == "DE",
+            )
+        )
+        session.execute(delete(DocumentORM).where(DocumentORM.id == document.id))
+        session.execute(delete(DeliveryORM).where(DeliveryORM.id == delivery.id))
+        session.execute(delete(SourceORM).where(SourceORM.id == source.id))
+        session.commit()
+    finally:
+        session.close()
 
 
 def test_synthesis_question_returns_a_paraphrased_answer_with_citations(e2e_client, dguv_fixture):
