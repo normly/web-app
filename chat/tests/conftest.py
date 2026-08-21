@@ -60,6 +60,7 @@ def client(db_url, monkeypatch, db_session):
     monkeypatch.setenv("NORMLY_DATABASE_URL", db_url)
     monkeypatch.setenv("NORMLY_API_BASE_URL", "http://localhost:8001")
     monkeypatch.setenv("NORMLY_ACCOUNTS_BASE_URL", "http://localhost:8002")
+    monkeypatch.setenv("NORMLY_OLLAMA_BASE_URL", "http://localhost:11434")
     from normly_chat.dependencies import get_session
     from normly_chat.main import create_app
 

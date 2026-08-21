@@ -14,6 +14,7 @@ from normly_core.pipeline.embeddings import EmbeddingModel
 
 from normly_chat.accounts_client import AccountsClient
 from normly_chat.api_client import ApiClient
+from normly_chat.ollama_client import OllamaClient
 
 
 @asynccontextmanager
@@ -29,6 +30,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     app.state.api_client = ApiClient(base_url=os.environ["NORMLY_API_BASE_URL"])
     app.state.accounts_client = AccountsClient(base_url=os.environ["NORMLY_ACCOUNTS_BASE_URL"])
+
+    app.state.ollama_client = OllamaClient(
+        base_url=os.environ["NORMLY_OLLAMA_BASE_URL"],
+        model=os.environ.get("NORMLY_OLLAMA_MODEL", "llama3.1:8b-instruct-q4_0"),
+    )
 
     try:
         yield

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from normly_chat.accounts_client import AccountsClient
 from normly_chat.api_client import ApiClient
+from normly_chat.ollama_client import OllamaClient
 
 
 def get_session(request: Request) -> Iterator[Session]:
@@ -29,3 +30,7 @@ def get_api_client(request: Request) -> ApiClient:
 
 def get_accounts_client(request: Request) -> AccountsClient:
     return request.app.state.accounts_client
+
+
+def get_ollama_client(request: Request) -> "OllamaClient":
+    return request.app.state.ollama_client
