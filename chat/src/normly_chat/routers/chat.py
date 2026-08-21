@@ -60,7 +60,7 @@ def chat(
         )
     else:
         result = build_structural_answer(
-            question_type, payload.message, payload.jurisdiction, api_client,
+            question_type, payload.message, payload.jurisdiction, payload.language, api_client,
         )
 
     answer_type = (
