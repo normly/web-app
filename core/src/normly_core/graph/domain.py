@@ -544,11 +544,34 @@ class EmailAlreadyRegisteredError(Exception):
 
 
 class AccountGoogleIdentityRepository(Protocol):
+    """
+    An account carries at most one Google identity: `account_id` is the
+    primary key of `account_google_identity`, and `google_subject_id` is
+    unique across it.
+
+    `link_google_identity` is idempotent for a link that already exists
+    exactly as requested, following the same convention as `record_delivery`
+    and `add_designation`. Any other collision — a second Google subject for
+    an already-linked account, or a subject already linked to a different
+    account — raises `GoogleIdentityAlreadyLinkedError` rather than an
+    `IntegrityError` that would leave the session unusable.
+    """
+
     def link_google_identity(
         self, *, account_id: uuid.UUID, google_subject_id: str
     ) -> AccountGoogleIdentity: ...
 
     def get_account_by_google_subject(self, google_subject_id: str) -> Account | None: ...
+
+
+class GoogleIdentityAlreadyLinkedError(Exception):
+    def __init__(self, account_id: uuid.UUID, google_subject_id: str):
+        self.account_id = account_id
+        self.google_subject_id = google_subject_id
+        super().__init__(
+            f"cannot link Google subject {google_subject_id!r} to account "
+            f"{account_id}: a conflicting link already exists"
+        )
 
 
 class AccountSessionRepository(Protocol):

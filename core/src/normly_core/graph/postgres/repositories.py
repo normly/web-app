@@ -23,6 +23,7 @@ from normly_core.graph.domain import (
     EdgeType,
     Embedding,
     EmailAlreadyRegisteredError,
+    GoogleIdentityAlreadyLinkedError,
     IdentityResolutionCase,
     IdentityResolutionStatus,
     LegalBasisCategory,
@@ -1103,11 +1104,41 @@ class PostgresAccountGoogleIdentityRepository:
     def link_google_identity(
         self, *, account_id: uuid.UUID, google_subject_id: str
     ) -> AccountGoogleIdentity:
+        # Two constraints can collide here: account_id is the primary key
+        # (one Google identity per account), and google_subject_id is unique
+        # (one account per Google identity). The insert therefore runs inside
+        # a savepoint, the same as create_account -- an unguarded
+        # IntegrityError would not merely raise, it would leave the whole
+        # session unusable for the rest of the request.
+        existing = self._session.get(AccountGoogleIdentityORM, account_id)
+        if existing is not None:
+            if existing.google_subject_id == google_subject_id:
+                # Exactly the requested link already exists: idempotent, same
+                # convention as record_delivery and add_designation.
+                return AccountGoogleIdentity(
+                    account_id=existing.account_id,
+                    google_subject_id=existing.google_subject_id,
+                )
+            # A different subject for this account. Checked here rather than
+            # left to the constraint: adding a second instance under a primary
+            # key the identity map already holds makes SQLAlchemy warn and
+            # discard the pending row, so the database never sees the insert
+            # and no IntegrityError is raised to catch.
+            raise GoogleIdentityAlreadyLinkedError(account_id, google_subject_id)
+
         orm = AccountGoogleIdentityORM(
             account_id=account_id, google_subject_id=google_subject_id
         )
-        self._session.add(orm)
-        self._session.flush()
+        try:
+            with self._session.begin_nested():
+                self._session.add(orm)
+                self._session.flush()
+        except IntegrityError as exc:
+            # The subject is already linked to a DIFFERENT account, or a
+            # concurrent request won the race. Silently returning the existing
+            # row would attach the caller to an identity they did not present,
+            # so it surfaces as a named error instead.
+            raise GoogleIdentityAlreadyLinkedError(account_id, google_subject_id) from exc
         return AccountGoogleIdentity(
             account_id=orm.account_id, google_subject_id=orm.google_subject_id
         )

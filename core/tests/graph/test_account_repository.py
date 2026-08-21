@@ -8,6 +8,7 @@ import pytest
 from normly_core.graph.domain import AccountTokenPurpose
 from normly_core.graph.postgres.repositories import (
     EmailAlreadyRegisteredError,
+    GoogleIdentityAlreadyLinkedError,
     PostgresAccountGoogleIdentityRepository,
     PostgresAccountRepository,
     PostgresAccountSessionRepository,
@@ -156,3 +157,56 @@ def test_consume_token_rejects_the_wrong_purpose(db_session):
     )
 
     assert token_repo.consume_token("mixed-1", AccountTokenPurpose.PASSWORD_RESET) is None
+
+
+def test_link_google_identity_is_idempotent_for_an_identical_link(db_session):
+    account_repo = PostgresAccountRepository(db_session)
+    google_repo = PostgresAccountGoogleIdentityRepository(db_session)
+    account = account_repo.create_account(email="again@example.de", password_hash=None)
+
+    first = google_repo.link_google_identity(
+        account_id=account.id, google_subject_id="sub-same"
+    )
+    second = google_repo.link_google_identity(
+        account_id=account.id, google_subject_id="sub-same"
+    )
+
+    assert first == second
+
+
+def test_link_google_identity_rejects_a_second_subject_for_the_same_account(db_session):
+    """
+    account_id is the primary key, so an account carries at most one Google
+    identity. The collision must surface as a named error -- an unguarded
+    IntegrityError would also poison the session for the rest of the request.
+    """
+    account_repo = PostgresAccountRepository(db_session)
+    google_repo = PostgresAccountGoogleIdentityRepository(db_session)
+    account = account_repo.create_account(email="twosubs@example.de", password_hash=None)
+    google_repo.link_google_identity(account_id=account.id, google_subject_id="sub-first")
+
+    with pytest.raises(GoogleIdentityAlreadyLinkedError):
+        google_repo.link_google_identity(
+            account_id=account.id, google_subject_id="sub-second"
+        )
+
+    # The session survived the failed insert: the savepoint rolled back, not
+    # the enclosing transaction.
+    assert google_repo.get_account_by_google_subject("sub-first") == account
+
+
+def test_link_google_identity_rejects_a_subject_already_linked_elsewhere(db_session):
+    account_repo = PostgresAccountRepository(db_session)
+    google_repo = PostgresAccountGoogleIdentityRepository(db_session)
+    first_account = account_repo.create_account(email="owner@example.de", password_hash=None)
+    second_account = account_repo.create_account(email="other@example.de", password_hash=None)
+    google_repo.link_google_identity(
+        account_id=first_account.id, google_subject_id="sub-shared"
+    )
+
+    with pytest.raises(GoogleIdentityAlreadyLinkedError):
+        google_repo.link_google_identity(
+            account_id=second_account.id, google_subject_id="sub-shared"
+        )
+
+    assert google_repo.get_account_by_google_subject("sub-shared") == first_account

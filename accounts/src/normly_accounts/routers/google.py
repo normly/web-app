@@ -12,6 +12,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from normly_core.graph.postgres.repositories import (
+    GoogleIdentityAlreadyLinkedError,
     PostgresAccountGoogleIdentityRepository,
     PostgresAccountRepository,
 )
@@ -88,8 +89,20 @@ def google_callback(
             # here: it can only create a new Google-only account reachable
             # by this very Google subject.
             account = account_repo.create_account(email=profile.email, password_hash=None)
-        google_repo.link_google_identity(
-            account_id=account.id, google_subject_id=profile.subject_id
-        )
+        try:
+            google_repo.link_google_identity(
+                account_id=account.id, google_subject_id=profile.subject_id
+            )
+        except GoogleIdentityAlreadyLinkedError:
+            # The account already carries a different Google identity -- e.g.
+            # the user's original Google account was deleted and recreated,
+            # giving them a new subject id for the same address. Resolving
+            # that means unlinking the old identity, which needs a
+            # deliberate, authenticated account-settings action rather than
+            # a silent relink from an unauthenticated callback.
+            raise HTTPException(
+                status_code=409,
+                detail="this account is already linked to a different Google identity",
+            )
 
     return _create_session_response(account, session)

@@ -176,3 +176,43 @@ def test_google_callback_returns_400_when_the_token_exchange_fails(client):
     )
 
     assert response.status_code == 400
+
+
+def test_google_callback_is_409_when_the_account_already_has_another_google_identity(
+    client, db_session
+):
+    """
+    An account carries at most one Google identity (account_id is the primary
+    key of account_google_identity). A second subject resolving to the same
+    address -- a deleted and recreated Google account, say -- used to raise an
+    uncaught IntegrityError: a 500, and a session too poisoned to answer
+    anything else.
+    """
+    _override_google_client(
+        client.app, GoogleProfile(
+            subject_id="old-sub", email="relinked@example.de", email_verified=True
+        )
+    )
+    first = client.get(
+        "/v1/accounts/google/callback", params={"code": "c1", "state": "s1"}
+    )
+    assert first.status_code == 200
+
+    _override_google_client(
+        client.app, GoogleProfile(
+            subject_id="new-sub", email="relinked@example.de", email_verified=True
+        )
+    )
+    second = client.get(
+        "/v1/accounts/google/callback", params={"code": "c2", "state": "s2"}
+    )
+
+    assert second.status_code == 409
+
+    # The session is still usable afterwards -- the savepoint rolled back the
+    # failed insert, not the whole request.
+    from normly_core.graph.postgres.repositories import PostgresAccountRepository
+
+    assert PostgresAccountRepository(db_session).get_account_by_email(
+        "relinked@example.de"
+    ) is not None
