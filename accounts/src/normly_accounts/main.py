@@ -13,6 +13,7 @@ from sqlalchemy import create_engine
 
 from normly_accounts.email import RecordingEmailSender, SmtpEmailSender
 from normly_accounts.routers.email_verification import email_verification_router
+from normly_accounts.routers.google import google_router
 from normly_accounts.routers.login import login_router
 from normly_accounts.routers.password_reset import password_reset_router
 from normly_accounts.routers.registration import registration_router
@@ -62,6 +63,7 @@ def create_app() -> FastAPI:
     app.include_router(password_reset_router)
     app.include_router(session_router)
     app.include_router(email_verification_router)
+    app.include_router(google_router)
     return app
 
 
