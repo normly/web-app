@@ -47,5 +47,7 @@ def test_logout_revokes_the_session(client):
     logout = client.post("/v1/accounts/logout", json={"session_token": token})
     assert logout.status_code == 200
 
-    session_check = client.get("/v1/accounts/session", params={"session_token": token})
+    session_check = client.get(
+        "/v1/accounts/session", headers={"Authorization": f"Bearer {token}"}
+    )
     assert session_check.status_code == 401

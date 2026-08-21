@@ -56,7 +56,9 @@ def test_full_email_password_lifecycle(client, db_session):
     assert register.status_code == 200
     token = register.json()["session_token"]
 
-    session_check = client.get("/v1/accounts/session", params={"session_token": token})
+    session_check = client.get(
+        "/v1/accounts/session", headers={"Authorization": f"Bearer {token}"}
+    )
     assert session_check.status_code == 200
     assert session_check.json()["email"] == "capstone@example.de"
 
@@ -73,7 +75,7 @@ def test_full_email_password_lifecycle(client, db_session):
     logout = client.post("/v1/accounts/logout", json={"session_token": token})
     assert logout.status_code == 200
     assert client.get(
-        "/v1/accounts/session", params={"session_token": token}
+        "/v1/accounts/session", headers={"Authorization": f"Bearer {token}"}
     ).status_code == 401
 
     client.post("/v1/accounts/password-reset/request", json={"email": "capstone@example.de"})
