@@ -53,6 +53,33 @@ _SYSTEM_PROMPT = {
     ),
 }
 
+_FAITHFULNESS_PROMPT = {
+    "de": (
+        "Ist die folgende Antwort ausschließlich durch den gegebenen Kontext gedeckt, "
+        "ohne Behauptungen hinzuzufügen, die dort nicht stehen? "
+        "Antworte mit dem ersten Wort 'ja' oder 'nein'."
+    ),
+    "en": (
+        "Is the following answer fully supported by the given context, without adding "
+        "claims that are not in it? Answer with the first word 'yes' or 'no'."
+    ),
+}
+_AFFIRMATIVE_ANSWERS = {"de": "ja", "en": "yes"}
+
+
+def _is_faithful(answer_text: str, context: str, ollama_client) -> bool:
+    check_response = ollama_client.chat([
+        {
+            "role": "system",
+            "content": f"{_FAITHFULNESS_PROMPT['de']}\n\nKontext:\n{context}",
+        },
+        {"role": "user", "content": answer_text},
+    ])
+    first_word = check_response.strip().lower().split()[0] if check_response.strip() else ""
+    return first_word.startswith(_AFFIRMATIVE_ANSWERS["de"]) or first_word.startswith(
+        _AFFIRMATIVE_ANSWERS["en"]
+    )
+
 
 def build_synthesis_answer(
     message: str, jurisdiction: str, language: str, embedding_model, segment_repo, ollama_client,
@@ -74,6 +101,11 @@ def build_synthesis_answer(
 
     if _has_verbatim_overlap(answer_text, context):
         return _fallback(language, ollama_calls=ollama_calls)
+
+    if not _is_faithful(answer_text, context, ollama_client):
+        ollama_calls += 1
+        return _fallback(language, ollama_calls=ollama_calls)
+    ollama_calls += 1
 
     citations = [
         {"document_id": segment.document_id, "segment_id": segment.id} for segment in segments

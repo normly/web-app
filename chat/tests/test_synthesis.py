@@ -47,7 +47,18 @@ def test_no_segments_returns_a_fallback_without_calling_ollama():
 
 def test_a_normal_paraphrase_is_accepted():
     segment = _FakeSegment(uuid.uuid4(), uuid.uuid4(), "Schutzbrillen sind beim Schweißen Pflicht.")
-    ollama = _FakeOllamaClient("Beim Schweißen muss eine Schutzbrille getragen werden.")
+
+    class _TwoCallOllama:
+        def __init__(self):
+            self.calls = 0
+
+        def chat(self, messages):
+            self.calls += 1
+            if self.calls == 1:
+                return "Beim Schweißen muss eine Schutzbrille getragen werden."
+            return "ja"
+
+    ollama = _TwoCallOllama()
     result = build_synthesis_answer(
         "Welche Schutzausrüstung beim Schweißen?", "DE", "de", _FakeEmbeddingModel(),
         _FakeSegmentRepo([segment]), ollama,
@@ -91,3 +102,65 @@ def test_a_verbatim_answer_spanning_a_segment_boundary_is_rejected():
         _FakeSegmentRepo([segment_a, segment_b]), ollama,
     )
     assert result.is_fallback is True
+
+
+def test_an_unfaithful_answer_is_rejected_without_a_verbatim_match():
+    # The Ollama fake needs to answer differently on its two calls: the first
+    # is the actual synthesis generation, the second is the faithfulness
+    # check being asked "is this answer supported by the context?".
+    segment = _FakeSegment(uuid.uuid4(), uuid.uuid4(), "Schutzbrillen sind beim Schweißen Pflicht.")
+
+    class _TwoCallOllama:
+        def __init__(self):
+            self.calls = 0
+
+        def chat(self, messages):
+            self.calls += 1
+            if self.calls == 1:
+                return "Beim Schweißen muss außerdem ein Feuerlöscher mitgeführt werden."
+            return "nein: der Feuerlöscher wird im Kontext nicht erwähnt"
+
+    ollama = _TwoCallOllama()
+    result = build_synthesis_answer(
+        "Was ist beim Schweißen vorgeschrieben?", "DE", "de", _FakeEmbeddingModel(),
+        _FakeSegmentRepo([segment]), ollama,
+    )
+    assert result.is_fallback is True
+    assert ollama.calls == 2
+    assert result.ollama_calls == 2
+
+
+def test_a_faithful_answer_still_passes_the_second_check():
+    segment = _FakeSegment(uuid.uuid4(), uuid.uuid4(), "Schutzbrillen sind beim Schweißen Pflicht.")
+
+    class _TwoCallOllama:
+        def __init__(self):
+            self.calls = 0
+
+        def chat(self, messages):
+            self.calls += 1
+            if self.calls == 1:
+                return "Beim Schweißen muss eine Schutzbrille getragen werden."
+            return "ja"
+
+    ollama = _TwoCallOllama()
+    result = build_synthesis_answer(
+        "Was ist beim Schweißen vorgeschrieben?", "DE", "de", _FakeEmbeddingModel(),
+        _FakeSegmentRepo([segment]), ollama,
+    )
+    assert result.is_fallback is False
+    assert ollama.calls == 2
+
+
+def test_faithfulness_check_is_skipped_after_a_verbatim_rejection():
+    # A clear verbatim hit must not pay for a second, now-pointless model
+    # call -- the answer is already rejected.
+    long_text = " ".join(f"wort{i}" for i in range(20))
+    segment = _FakeSegment(uuid.uuid4(), uuid.uuid4(), long_text)
+    ollama = _FakeOllamaClient(long_text)
+    result = build_synthesis_answer(
+        "Frage", "DE", "de", _FakeEmbeddingModel(), _FakeSegmentRepo([segment]), ollama,
+    )
+    assert result.is_fallback is True
+    assert ollama.calls == 1
+    assert result.ollama_calls == 1
