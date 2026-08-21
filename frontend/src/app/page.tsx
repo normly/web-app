@@ -7,6 +7,8 @@
 import * as React from "react";
 import { MessageList, type ChatMessageView } from "@/components/chat/message-list";
 import { ChatInput } from "@/components/chat/chat-input";
+import { AuthDialog } from "@/components/auth/auth-dialog";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 
 interface ChatApiResponse {
   answer: string;
@@ -48,9 +50,18 @@ export default function HomePage() {
   };
 
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-4 p-4">
-      <MessageList messages={messages} isLoading={isLoading} />
-      <ChatInput onSend={sendMessage} disabled={isLoading} />
-    </main>
+    <>
+      <header className="flex items-center justify-between border-b p-4">
+        <span className="font-semibold">normly</span>
+        <div className="flex items-center gap-2">
+          <LocaleSwitcher />
+          <AuthDialog onAuthenticated={() => {}} />
+        </div>
+      </header>
+      <main className="mx-auto flex max-w-2xl flex-col gap-4 p-4">
+        <MessageList messages={messages} isLoading={isLoading} />
+        <ChatInput onSend={sendMessage} disabled={isLoading} />
+      </main>
+    </>
   );
 }
