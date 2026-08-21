@@ -384,9 +384,10 @@ class AccountTokenORM(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    account_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), sa.ForeignKey("account.id"), nullable=False
+    account_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("account.id"), nullable=True
     )
+    email: Mapped[str | None]
     purpose: Mapped[AccountTokenPurpose] = mapped_column(
         sa.Enum(
             AccountTokenPurpose, name="account_token_purpose", native_enum=False,
@@ -400,4 +401,10 @@ class AccountTokenORM(Base):
     expires_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
     used_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
 
-    __table_args__ = (sa.UniqueConstraint("token", name="uq_account_token_token"),)
+    __table_args__ = (
+        sa.UniqueConstraint("token", name="uq_account_token_token"),
+        sa.CheckConstraint(
+            "(account_id IS NULL) != (email IS NULL)",
+            name="ck_account_token_account_or_email",
+        ),
+    )

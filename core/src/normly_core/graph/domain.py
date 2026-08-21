@@ -507,12 +507,13 @@ class AccountGoogleIdentity:
 @dataclass(frozen=True)
 class AccountToken:
     id: uuid.UUID
-    account_id: uuid.UUID
+    account_id: uuid.UUID | None
     purpose: AccountTokenPurpose
     token: str
     created_at: datetime
     expires_at: datetime
     used_at: datetime | None
+    email: str | None
 
 
 class AccountRepository(Protocol):
@@ -596,11 +597,20 @@ class AccountTokenRepository(Protocol):
     AND expires_at > now ... RETURNING statement, not a SELECT followed by a
     separate UPDATE — two concurrent requests with the same token must not
     both succeed.
+
+    A token names either an existing account or a bare email address that has
+    no account yet: magic-link is a registration path too, and the account for
+    an unknown address is created when the link is confirmed, not when it is
+    requested — otherwise anyone could conjure an account for any address they
+    can type without proving they can read that mailbox. `create_token`
+    therefore takes exactly one of `account_id` and `email`; passing both or
+    neither is a programming error and raises `ValueError`.
     """
 
     def create_token(
-        self, *, account_id: uuid.UUID, purpose: AccountTokenPurpose, token: str,
-        created_at: datetime, expires_at: datetime,
+        self, *, account_id: uuid.UUID | None = None, email: str | None = None,
+        purpose: AccountTokenPurpose, token: str, created_at: datetime,
+        expires_at: datetime,
     ) -> AccountToken: ...
 
     def consume_token(

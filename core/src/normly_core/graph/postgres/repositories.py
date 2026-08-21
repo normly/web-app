@@ -1206,6 +1206,7 @@ def _account_token_to_domain(orm: AccountTokenORM) -> AccountToken:
     return AccountToken(
         id=orm.id, account_id=orm.account_id, purpose=orm.purpose, token=orm.token,
         created_at=orm.created_at, expires_at=orm.expires_at, used_at=orm.used_at,
+        email=orm.email,
     )
 
 
@@ -1214,12 +1215,22 @@ class PostgresAccountTokenRepository:
         self._session = session
 
     def create_token(
-        self, *, account_id: uuid.UUID, purpose: AccountTokenPurpose, token: str,
-        created_at: datetime, expires_at: datetime,
+        self, *, account_id: uuid.UUID | None = None, email: str | None = None,
+        purpose: AccountTokenPurpose, token: str, created_at: datetime,
+        expires_at: datetime,
     ) -> AccountToken:
+        if (account_id is None) == (email is None):
+            # Mirrors ck_account_token_account_or_email. Catching it here keeps
+            # the caller's session usable: an IntegrityError from the check
+            # constraint would abort the surrounding transaction, and this is a
+            # programming error at the call site, never user input.
+            raise ValueError(
+                "create_token needs exactly one of account_id and email, "
+                f"got account_id={account_id!r} and email={email!r}"
+            )
         orm = AccountTokenORM(
-            id=uuid.uuid4(), account_id=account_id, purpose=purpose, token=token,
-            created_at=created_at, expires_at=expires_at, used_at=None,
+            id=uuid.uuid4(), account_id=account_id, email=email, purpose=purpose,
+            token=token, created_at=created_at, expires_at=expires_at, used_at=None,
         )
         self._session.add(orm)
         self._session.flush()

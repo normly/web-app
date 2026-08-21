@@ -4,8 +4,10 @@
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from normly_core.graph.domain import AccountTokenPurpose
+from normly_core.graph.postgres.orm import AccountTokenORM
 from normly_core.graph.postgres.repositories import (
     EmailAlreadyRegisteredError,
     GoogleIdentityAlreadyLinkedError,
@@ -157,6 +159,80 @@ def test_consume_token_rejects_the_wrong_purpose(db_session):
     )
 
     assert token_repo.consume_token("mixed-1", AccountTokenPurpose.PASSWORD_RESET) is None
+
+
+def test_create_token_binds_to_an_email_that_has_no_account_yet(db_session):
+    """
+    Magic-link is a registration path: the token names the address, and the
+    account is created when the link is confirmed and the mailbox is thereby
+    proven readable.
+    """
+    token_repo = PostgresAccountTokenRepository(db_session)
+    now = datetime.now(timezone.utc)
+
+    created = token_repo.create_token(
+        email="nobody-yet@example.de", purpose=AccountTokenPurpose.MAGIC_LINK,
+        token="pending-1", created_at=now, expires_at=now + timedelta(minutes=15),
+    )
+
+    assert created.account_id is None
+    assert created.email == "nobody-yet@example.de"
+
+    consumed = token_repo.consume_token("pending-1", AccountTokenPurpose.MAGIC_LINK)
+    assert consumed is not None
+    assert consumed.account_id is None
+    assert consumed.email == "nobody-yet@example.de"
+
+
+def test_create_token_rejects_both_an_account_and_an_email(db_session):
+    account_repo = PostgresAccountRepository(db_session)
+    token_repo = PostgresAccountTokenRepository(db_session)
+    account = account_repo.create_account(email="both@example.de", password_hash="hashed")
+    now = datetime.now(timezone.utc)
+
+    with pytest.raises(ValueError):
+        token_repo.create_token(
+            account_id=account.id, email="both@example.de",
+            purpose=AccountTokenPurpose.MAGIC_LINK, token="both-1",
+            created_at=now, expires_at=now + timedelta(minutes=15),
+        )
+
+
+def test_create_token_rejects_neither_an_account_nor_an_email(db_session):
+    token_repo = PostgresAccountTokenRepository(db_session)
+    now = datetime.now(timezone.utc)
+
+    with pytest.raises(ValueError):
+        token_repo.create_token(
+            purpose=AccountTokenPurpose.MAGIC_LINK, token="neither-1",
+            created_at=now, expires_at=now + timedelta(minutes=15),
+        )
+
+
+def test_the_database_enforces_exactly_one_of_account_and_email(db_session):
+    """
+    The repository's ValueError is what callers rely on; this proves the check
+    constraint behind it is actually deployed, for any writer that goes around
+    the repository.
+    """
+    account_repo = PostgresAccountRepository(db_session)
+    account = account_repo.create_account(email="dbcheck@example.de", password_hash="h")
+    now = datetime.now(timezone.utc)
+
+    for account_id, email, token in (
+        (None, None, "raw-neither"), (account.id, "dbcheck@example.de", "raw-both"),
+    ):
+        with pytest.raises(IntegrityError):
+            with db_session.begin_nested():
+                db_session.add(
+                    AccountTokenORM(
+                        account_id=account_id, email=email,
+                        purpose=AccountTokenPurpose.MAGIC_LINK, token=token,
+                        created_at=now, expires_at=now + timedelta(minutes=15),
+                        used_at=None,
+                    )
+                )
+                db_session.flush()
 
 
 def test_link_google_identity_is_idempotent_for_an_identical_link(db_session):
