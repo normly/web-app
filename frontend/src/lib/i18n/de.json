@@ -1,0 +1,25 @@
+{
+  "chat": {
+    "sendButton": "Senden",
+    "inputPlaceholder": "Frage stellen…",
+    "loading": "Antwort wird geladen…",
+    "historyLink": "Verlauf"
+  },
+  "auth": {
+    "loginTab": "Anmelden",
+    "registerTab": "Registrieren",
+    "magicLinkTab": "Magic-Link",
+    "emailLabel": "E-Mail-Adresse",
+    "passwordLabel": "Passwort",
+    "loginButton": "Anmelden",
+    "registerButton": "Konto erstellen",
+    "magicLinkButton": "Anmeldelink senden",
+    "googleButton": "Mit Google anmelden",
+    "genericError": "Das hat leider nicht funktioniert. Bitte versuche es erneut."
+  },
+  "history": {
+    "title": "Chat-Verlauf",
+    "empty": "Noch keine Chats vorhanden.",
+    "loginRequired": "Melde dich an, um deinen Chat-Verlauf zu sehen."
+  }
+}

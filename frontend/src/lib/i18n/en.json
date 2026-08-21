@@ -1,0 +1,25 @@
+{
+  "chat": {
+    "sendButton": "Send",
+    "inputPlaceholder": "Ask a question…",
+    "loading": "Loading answer…",
+    "historyLink": "History"
+  },
+  "auth": {
+    "loginTab": "Log in",
+    "registerTab": "Register",
+    "magicLinkTab": "Magic link",
+    "emailLabel": "Email address",
+    "passwordLabel": "Password",
+    "loginButton": "Log in",
+    "registerButton": "Create account",
+    "magicLinkButton": "Send login link",
+    "googleButton": "Sign in with Google",
+    "genericError": "That didn't work. Please try again."
+  },
+  "history": {
+    "title": "Chat history",
+    "empty": "No chats yet.",
+    "loginRequired": "Log in to see your chat history."
+  }
+}
