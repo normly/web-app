@@ -15,6 +15,11 @@ from normly_core.graph.domain import (
     AccountSession,
     AccountToken,
     AccountTokenPurpose,
+    ChatAnswerType,
+    ChatMessage,
+    ChatMessageCitation,
+    ChatMessageRole,
+    ChatSession,
     Delivery,
     Document,
     DocumentDesignation,
@@ -39,6 +44,9 @@ from normly_core.graph.postgres.orm import (
     AccountORM,
     AccountSessionORM,
     AccountTokenORM,
+    ChatMessageCitationORM,
+    ChatMessageORM,
+    ChatSessionORM,
     DeliveryORM,
     DocumentORM,
     DocumentDesignationORM,
@@ -905,6 +913,35 @@ class PostgresSegmentRepository:
         ).scalars()
         return [_segment_to_domain(row) for row in rows]
 
+    def find_similar_segments_for_jurisdiction(
+        self, query_vector: list[float], jurisdiction: str, model_name: str, limit: int = 5,
+    ) -> list[Segment]:
+        # Same read gate as list_segments_for_jurisdiction (may_process AND
+        # may_index_fulltext AND not revoked) -- similarity search is a
+        # different sort order over the same visible set, not a second rights
+        # check. model_name is required, not defaulted: mixing vectors from
+        # two different embedding models in one ORDER BY would compare
+        # distances that live in unrelated vector spaces and return
+        # meaningless nonsense silently.
+        rows = self._session.execute(
+            select(SegmentORM)
+            .join(EmbeddingORM, EmbeddingORM.segment_id == SegmentORM.id)
+            .join(
+                RightsClassificationORM,
+                RightsClassificationORM.document_id == SegmentORM.document_id,
+            )
+            .where(
+                RightsClassificationORM.jurisdiction == jurisdiction,
+                RightsClassificationORM.may_process.is_(True),
+                RightsClassificationORM.may_index_fulltext.is_(True),
+                RightsClassificationORM.revoked_at.is_(None),
+                EmbeddingORM.model_name == model_name,
+            )
+            .order_by(EmbeddingORM.vector.cosine_distance(query_vector))
+            .limit(limit)
+        ).scalars()
+        return [_segment_to_domain(row) for row in rows]
+
 
 def _embedding_to_domain(orm: EmbeddingORM) -> Embedding:
     return Embedding(
@@ -1253,3 +1290,86 @@ class PostgresAccountTokenRepository:
         )
         orm = result.scalar_one_or_none()
         return _account_token_to_domain(orm) if orm else None
+
+
+def _chat_session_to_domain(orm: ChatSessionORM) -> ChatSession:
+    return ChatSession(
+        id=orm.id, session_token=orm.session_token, account_id=orm.account_id,
+        jurisdiction=orm.jurisdiction, language=orm.language, created_at=orm.created_at,
+    )
+
+
+def _chat_message_to_domain(orm: ChatMessageORM) -> ChatMessage:
+    return ChatMessage(
+        id=orm.id, session_id=orm.session_id, role=orm.role, content=orm.content,
+        answer_type=orm.answer_type, created_at=orm.created_at,
+    )
+
+
+def _chat_message_citation_to_domain(orm: ChatMessageCitationORM) -> ChatMessageCitation:
+    return ChatMessageCitation(
+        id=orm.id, message_id=orm.message_id, document_id=orm.document_id,
+        segment_id=orm.segment_id,
+    )
+
+
+class PostgresChatRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def create_session(
+        self, *, session_token: str, jurisdiction: str, language: str,
+        created_at: datetime, account_id: uuid.UUID | None = None,
+    ) -> ChatSession:
+        orm = ChatSessionORM(
+            id=uuid.uuid4(), session_token=session_token, account_id=account_id,
+            jurisdiction=jurisdiction, language=language, created_at=created_at,
+        )
+        self._session.add(orm)
+        self._session.flush()
+        return _chat_session_to_domain(orm)
+
+    def get_session_by_token(self, session_token: str) -> ChatSession | None:
+        orm = self._session.execute(
+            select(ChatSessionORM).where(ChatSessionORM.session_token == session_token)
+        ).scalar_one_or_none()
+        return _chat_session_to_domain(orm) if orm else None
+
+    def link_account(self, session_id: uuid.UUID, account_id: uuid.UUID) -> None:
+        self._session.execute(
+            sa.update(ChatSessionORM)
+            .where(ChatSessionORM.id == session_id)
+            .values(account_id=account_id)
+        )
+
+    def create_message(
+        self, *, session_id: uuid.UUID, role: ChatMessageRole, content: str,
+        answer_type: ChatAnswerType | None, created_at: datetime,
+    ) -> ChatMessage:
+        orm = ChatMessageORM(
+            id=uuid.uuid4(), session_id=session_id, role=role, content=content,
+            answer_type=answer_type, created_at=created_at,
+        )
+        self._session.add(orm)
+        self._session.flush()
+        return _chat_message_to_domain(orm)
+
+    def list_messages_for_session(self, session_id: uuid.UUID) -> list[ChatMessage]:
+        rows = self._session.execute(
+            select(ChatMessageORM)
+            .where(ChatMessageORM.session_id == session_id)
+            .order_by(ChatMessageORM.created_at)
+        ).scalars()
+        return [_chat_message_to_domain(row) for row in rows]
+
+    def add_citation(
+        self, *, message_id: uuid.UUID, document_id: uuid.UUID,
+        segment_id: uuid.UUID | None,
+    ) -> ChatMessageCitation:
+        orm = ChatMessageCitationORM(
+            id=uuid.uuid4(), message_id=message_id, document_id=document_id,
+            segment_id=segment_id,
+        )
+        self._session.add(orm)
+        self._session.flush()
+        return _chat_message_citation_to_domain(orm)

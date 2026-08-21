@@ -405,6 +405,10 @@ class SegmentRepository(Protocol):
         self, document_id: uuid.UUID, jurisdiction: str
     ) -> list[Segment]: ...
 
+    def find_similar_segments_for_jurisdiction(
+        self, query_vector: list[float], jurisdiction: str, model_name: str, limit: int = 5,
+    ) -> list[Segment]: ...
+
 
 @dataclass(frozen=True)
 class Embedding:
@@ -478,6 +482,79 @@ class IdentityResolutionRepository(Protocol):
     def reject_case(
         self, case_id: uuid.UUID, *, resolved_by: str
     ) -> IdentityResolutionCase: ...
+
+
+class ChatMessageRole(str, Enum):
+    USER = "user"
+    ASSISTANT = "assistant"
+
+
+class ChatAnswerType(str, Enum):
+    STRUCTURAL = "structural"
+    SYNTHESIS = "synthesis"
+    FALLBACK = "fallback"
+
+
+@dataclass(frozen=True)
+class ChatSession:
+    id: uuid.UUID
+    session_token: str
+    account_id: uuid.UUID | None
+    jurisdiction: str
+    language: str
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class ChatMessage:
+    id: uuid.UUID
+    session_id: uuid.UUID
+    role: ChatMessageRole
+    content: str
+    answer_type: ChatAnswerType | None
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class ChatMessageCitation:
+    id: uuid.UUID
+    message_id: uuid.UUID
+    document_id: uuid.UUID
+    segment_id: uuid.UUID | None
+
+
+class ChatRepository(Protocol):
+    """
+    Chat session identity and message history.
+
+    A session is anonymous (`account_id is None`) until a valid account
+    session token links it (see the `chat/` package's session-resolution
+    logic) — linking never happens in this layer, it is a plain field
+    update the caller drives after verifying the token elsewhere (`chat/`
+    talks to `accounts/` over HTTP; this repository has no opinion on
+    accounts beyond storing the id).
+    """
+
+    def create_session(
+        self, *, session_token: str, jurisdiction: str, language: str,
+        created_at: datetime, account_id: uuid.UUID | None = None,
+    ) -> ChatSession: ...
+
+    def get_session_by_token(self, session_token: str) -> ChatSession | None: ...
+
+    def link_account(self, session_id: uuid.UUID, account_id: uuid.UUID) -> None: ...
+
+    def create_message(
+        self, *, session_id: uuid.UUID, role: ChatMessageRole, content: str,
+        answer_type: ChatAnswerType | None, created_at: datetime,
+    ) -> ChatMessage: ...
+
+    def list_messages_for_session(self, session_id: uuid.UUID) -> list[ChatMessage]: ...
+
+    def add_citation(
+        self, *, message_id: uuid.UUID, document_id: uuid.UUID,
+        segment_id: uuid.UUID | None,
+    ) -> ChatMessageCitation: ...
 
 
 @dataclass(frozen=True)

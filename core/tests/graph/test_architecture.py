@@ -78,6 +78,8 @@ JURISDICTION_EXEMPT_READS = {
     "AccountRepository.get_account_by_email",
     "AccountGoogleIdentityRepository.get_account_by_google_subject",
     "AccountSessionRepository.get_session_by_token",
+    "ChatRepository.get_session_by_token",
+    "ChatRepository.list_messages_for_session",
 }
 
 

@@ -12,6 +12,8 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from normly_core.graph.domain import (
     AccountTokenPurpose,
+    ChatAnswerType,
+    ChatMessageRole,
     EdgeType,
     IdentityResolutionStatus,
     LegalBasisCategory,
@@ -407,4 +409,70 @@ class AccountTokenORM(Base):
             "(account_id IS NULL) != (email IS NULL)",
             name="ck_account_token_account_or_email",
         ),
+    )
+
+
+class ChatSessionORM(Base):
+    __tablename__ = "chat_session"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    session_token: Mapped[str]
+    account_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("account.id"), nullable=True
+    )
+    jurisdiction: Mapped[str]
+    language: Mapped[str]
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
+
+    __table_args__ = (
+        sa.UniqueConstraint("session_token", name="uq_chat_session_token"),
+    )
+
+
+class ChatMessageORM(Base):
+    __tablename__ = "chat_message"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("chat_session.id"), nullable=False
+    )
+    role: Mapped[ChatMessageRole] = mapped_column(
+        sa.Enum(
+            ChatMessageRole, name="chat_message_role", native_enum=False,
+            values_callable=_enum_values, create_constraint=True,
+        )
+    )
+    content: Mapped[str]
+    answer_type: Mapped[ChatAnswerType | None] = mapped_column(
+        sa.Enum(
+            ChatAnswerType, name="chat_answer_type", native_enum=False,
+            values_callable=_enum_values, create_constraint=True,
+        ),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
+
+
+class ChatMessageCitationORM(Base):
+    __tablename__ = "chat_message_citation"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    message_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("chat_message.id"), nullable=False
+    )
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("document.id"), nullable=False
+    )
+    segment_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("segment.id"), nullable=True
     )

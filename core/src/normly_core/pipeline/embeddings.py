@@ -53,3 +53,12 @@ class EmbeddingModel:
         prefixed = f"passage: {text}"
         vector = self._model.encode(prefixed, normalize_embeddings=True)
         return vector.tolist()
+
+    def embed_query(self, text: str) -> list[float]:
+        # "query: " is e5's documented instruction prefix for search queries,
+        # as opposed to "passage: " for indexed content -- same model, same
+        # vector space, different prefix so the model can tell which role the
+        # text plays.
+        prefixed = f"query: {text}"
+        vector = self._model.encode(prefixed, normalize_embeddings=True)
+        return vector.tolist()
