@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import httpx
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -39,8 +40,19 @@ def register_exception_handlers(app: FastAPI) -> None:
         detail = "invalid or missing parameter: " + ", ".join(locations)
         return JSONResponse(status_code=400, content={"detail": detail})
 
-    import httpx
-
+    # Only genuinely infrastructure-level failures become 503. A programming
+    # error (a KeyError, a None dereference) must NOT be dressed up as
+    # "temporarily unavailable": that invites a pointless retry and hides the
+    # defect from anyone watching status codes. Everything not listed here
+    # propagates and surfaces as an honest 500.
+    #
+    # httpx.HTTPError is in the list here, unlike in api/'s otherwise identical
+    # handler: chat/ is the one service that reaches out to siblings (api/,
+    # accounts/, Ollama) over HTTP, so an unreachable or failing sibling is
+    # this service's equivalent of the database going away -- the caller's
+    # correct response is the same "retry me" signal.
+    #
+    # ConnectionError is a subclass of OSError and so is covered by it.
     for infrastructure_error in (SQLAlchemyError, OSError, httpx.HTTPError):
 
         @app.exception_handler(infrastructure_error)

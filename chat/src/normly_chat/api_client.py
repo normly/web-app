@@ -8,6 +8,13 @@ import uuid
 import httpx
 
 
+# api/ is a sibling service on the same network, not an LLM generation call:
+# a request that has not answered in ten seconds is a failure worth surfacing
+# as a 503, not something to keep waiting on. Set explicitly rather than
+# inheriting httpx's implicit 5s default.
+_TIMEOUT_SECONDS = 10.0
+
+
 class ApiClient:
     """
     Thin httpx wrapper over api/'s public HTTP interface -- chat/ never
@@ -21,7 +28,7 @@ class ApiClient:
     def search_document(
         self, issuer: str, designation: str, jurisdiction: str,
     ) -> dict | None:
-        with httpx.Client() as http:
+        with httpx.Client(timeout=_TIMEOUT_SECONDS) as http:
             response = http.get(
                 f"{self._base_url}/v1/documents",
                 params={"issuer": issuer, "designation": designation, "jurisdiction": jurisdiction},
@@ -32,7 +39,7 @@ class ApiClient:
         return response.json()
 
     def get_validity(self, document_id: uuid.UUID, jurisdiction: str) -> dict | None:
-        with httpx.Client() as http:
+        with httpx.Client(timeout=_TIMEOUT_SECONDS) as http:
             response = http.get(
                 f"{self._base_url}/v1/documents/{document_id}/validity",
                 params={"jurisdiction": jurisdiction},
@@ -43,7 +50,7 @@ class ApiClient:
         return response.json()
 
     def get_edges(self, document_id: uuid.UUID, jurisdiction: str) -> list[dict] | None:
-        with httpx.Client() as http:
+        with httpx.Client(timeout=_TIMEOUT_SECONDS) as http:
             response = http.get(
                 f"{self._base_url}/v1/documents/{document_id}/edges",
                 params={"jurisdiction": jurisdiction},

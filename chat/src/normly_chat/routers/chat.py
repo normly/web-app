@@ -42,8 +42,12 @@ def chat(
     if not payload.message or not payload.jurisdiction:
         raise HTTPException(status_code=400, detail="message and jurisdiction are required")
 
+    # RFC 7235 makes the auth scheme case-insensitive, so a client sending
+    # "bearer <token>" must not silently degrade to an anonymous session.
     account_token = None
-    if authorization is not None and authorization.startswith(_BEARER_PREFIX):
+    if authorization is not None and (
+        authorization[:len(_BEARER_PREFIX)].lower() == _BEARER_PREFIX.lower()
+    ):
         account_token = authorization[len(_BEARER_PREFIX):]
 
     chat_repo = PostgresChatRepository(session)

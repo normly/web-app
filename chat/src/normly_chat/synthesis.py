@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 
 from normly_core.pipeline.embeddings import MODEL_NAME as _EMBEDDING_MODEL_NAME
@@ -59,12 +58,11 @@ _FAITHFULNESS_PROMPT = {
         "ohne Behauptungen hinzuzufügen, die dort nicht stehen? "
         "Antworte mit dem ersten Wort 'ja' oder 'nein'."
     ),
-    "en": (
-        "Is the following answer fully supported by the given context, without adding "
-        "claims that are not in it? Answer with the first word 'yes' or 'no'."
-    ),
 }
-_AFFIRMATIVE_ANSWERS = {"de": "ja", "en": "yes"}
+# German-only by design (see the design spec): the faithfulness check always
+# runs its prompt in German regardless of the answer's language, so there is
+# no English entry to keep in sync.
+_AFFIRMATIVE_ANSWERS = {"de": "ja"}
 
 
 def _is_faithful(answer_text: str, context: str, ollama_client) -> bool:
@@ -76,9 +74,7 @@ def _is_faithful(answer_text: str, context: str, ollama_client) -> bool:
         {"role": "user", "content": answer_text},
     ])
     first_word = check_response.strip().lower().split()[0] if check_response.strip() else ""
-    return first_word.startswith(_AFFIRMATIVE_ANSWERS["de"]) or first_word.startswith(
-        _AFFIRMATIVE_ANSWERS["en"]
-    )
+    return first_word.startswith(_AFFIRMATIVE_ANSWERS["de"])
 
 
 def build_synthesis_answer(

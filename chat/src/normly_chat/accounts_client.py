@@ -9,6 +9,11 @@ from dataclasses import dataclass
 import httpx
 
 
+# Same reasoning as api_client.py's: accounts/ is a sibling service, so an
+# explicit short timeout beats httpx's implicit 5s default.
+_TIMEOUT_SECONDS = 10.0
+
+
 @dataclass(frozen=True)
 class ChatAccountIdentity:
     account_id: uuid.UUID
@@ -29,7 +34,7 @@ class AccountsClient:
         self._base_url = base_url.rstrip("/")
 
     def validate_session(self, session_token: str) -> ChatAccountIdentity | None:
-        with httpx.Client() as http:
+        with httpx.Client(timeout=_TIMEOUT_SECONDS) as http:
             response = http.get(
                 f"{self._base_url}/v1/accounts/session",
                 headers={"Authorization": f"Bearer {session_token}"},
