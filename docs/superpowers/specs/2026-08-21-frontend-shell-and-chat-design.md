@@ -243,6 +243,7 @@ entgegennimmt, das Cookie setzt und zurück zur Chat-Ansicht umleitet.
 | `REQ-UI-004` | Tailwind + shadcn/ui (Radix-Basis) als strukturelle Grundlage, `axe-core`-Prüfung im E2E-Test |
 | `REQ-UI-005` | `/chats`-Historie, Sortierung nach Datum, Fortsetzbarkeit, performant auch bei vielen Sitzungen (Pagination bei Bedarf — siehe Offene Punkte) |
 | `REQ-ACC-001` | Chat vollständig ohne Konto nutzbar; Login ist ein optionaler Zusatz, keine Voraussetzung |
+| `REQ-ACC-004` | „gespeicherte Verläufe" steht explizit auf der abschließenden Liste kontopflichtiger Funktionen — `/chats` auf angemeldete Konten zu beschränken ist damit spec-konform, keine bloße Auslegung |
 | `REQ-MOB-001` | Web-App-Manifest + Service Worker für App-Shell-Caching, Installierbarkeit |
 | `REQ-MOB-003` | Offline-/Caching-Zugriff ausschließlich über den Service Worker als Abstraktionsschicht, keine verstreuten direkten Storage-Zugriffe in der Anwendungslogik |
 | ADR-010 (Auslieferung) | `output: "standalone"`, ein Image für beliebig viele Instanzen, Theming zur Laufzeit statt im Build |
