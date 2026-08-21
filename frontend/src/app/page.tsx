@@ -5,10 +5,12 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { MessageList, type ChatMessageView } from "@/components/chat/message-list";
 import { ChatInput } from "@/components/chat/chat-input";
 import { AuthDialog } from "@/components/auth/auth-dialog";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { useTranslation } from "@/lib/i18n/provider";
 
 interface ChatApiResponse {
   answer: string;
@@ -17,6 +19,7 @@ interface ChatApiResponse {
 }
 
 export default function HomePage() {
+  const { t } = useTranslation();
   const [messages, setMessages] = React.useState<ChatMessageView[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
 
@@ -54,6 +57,9 @@ export default function HomePage() {
       <header className="flex items-center justify-between border-b p-4">
         <span className="font-semibold">normly</span>
         <div className="flex items-center gap-2">
+          <Link href="/chats" className="text-sm underline">
+            {t("chat.historyLink")}
+          </Link>
           <LocaleSwitcher />
           <AuthDialog onAuthenticated={() => {}} />
         </div>

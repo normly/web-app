@@ -16,4 +16,15 @@ describe("HomePage", () => {
     );
     expect(screen.getByPlaceholderText("Frage stellen…")).toBeInTheDocument();
   });
+
+  it("renders a link to the chat history page", () => {
+    render(
+      <LocaleProvider initialLocale="de">
+        <HomePage />
+      </LocaleProvider>,
+    );
+    const historyLink = screen.getByRole("link", { name: "Verlauf" });
+    expect(historyLink).toBeInTheDocument();
+    expect(historyLink).toHaveAttribute("href", "/chats");
+  });
 });
