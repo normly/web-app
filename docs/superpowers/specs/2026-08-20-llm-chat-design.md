@@ -46,6 +46,12 @@ ein Teilprojekt.
    `chat_message`, `chat_message_citation`) im bestehenden `core`-Schema.
 5. Ein einfacher Verbatim-Überlapp-Check (REQ-FUNC-002s „Plagiatsprüfung ohne Treffer") ist
    Teil dieses Teilprojekts, nicht Folgearbeit.
+6. Zusätzlich zum Verbatim-Überlapp-Check ein begrenzter Faithfulness-Check per
+   Selbstprüfung: ein zweiter, gezielter Ollama-Aufruf bewertet nach der eigentlichen
+   Synthese-Antwort, ob deren Aussagen durch die zitierten Segmente gedeckt sind (siehe
+   Datenfluss). Das ist ausdrücklich keine vollständige Faktenprüfung gegen eine externe
+   Wahrheitsquelle (bleibt Nicht-Ziel), sondern eine zusätzliche, heuristische
+   Fehlerbremse auf Basis desselben Modells.
 
 ## Ziel dieses Teilprojekts
 
@@ -68,10 +74,13 @@ Token fortsetzbar.
   jede Berührung mit `accounts/`.
 - **Rate-Limiting/Kontingent** (REQ-SEC-004, serverseitige Kontingentzählung) — wie im
   Backend-API-Teilprojekt eigene Infrastrukturentscheidung, nicht Teil dieses Teilprojekts.
-- **Vollständige Faktenprüfung/Halluzinationserkennung.** REQ-FUNC-001 wird über
-  kontextgebundenes Prompting (nur aus abgerufenen Segmenten antworten) angestrebt, nicht
-  über eine nachgelagerte Verifikation der inhaltlichen Korrektheit — das wäre ein eigenes,
-  größeres Forschungsthema.
+- **Verifikation gegen eine externe Wahrheitsquelle.** REQ-FUNC-001 wird über
+  kontextgebundenes Prompting (nur aus abgerufenen Segmenten antworten) plus dem in
+  „Entschieden mit dem Auftraggeber" Punkt 6 beschriebenen Faithfulness-Check angestrebt —
+  beides sind Heuristiken auf Basis desselben Modells, keine Garantie. Eine belastbare,
+  von Grund auf verlässliche Faktenprüfung (z. B. gegen eine kuratierte Wissensbasis oder
+  mit einem dedizierten, unabhängigen Verifikationsmodell) bleibt ein eigenes, größeres
+  Forschungsthema und ist hier nicht Teil des Umfangs.
 - **Produktions-Deployment/Skalierung des Inferenz-Servers** (SKE, GPU-Provisionierung,
   Lastverteilung) — analog zu den vorigen Teilprojekten eine spätere
   Deployment-Entscheidung.
@@ -105,7 +114,7 @@ chat/
     classify.py             # regelbasierte Struktur-vs-Synthese-Erkennung
     structural.py            # baut Antworten aus api/-Aufrufen (kein LLM)
     synthesis.py              # RAG-Retrieval + Ollama-Aufruf + Paraphrasierungs-Prompt
-                               # + Verbatim-Überlapp-Check
+                               # + Verbatim-Überlapp-Check + Faithfulness-Check
   tests/
 ```
 
@@ -226,18 +235,28 @@ SYNTHESEFRAGE:
            keine Volltextwiedergabe, antworte auf {language}" (REQ-FUNC-001/002) +
            Segmenttexte + Frage
         -> Ollama-Aufruf (Llama 3.1 8B Instruct)
-        -> Verbatim-Überlapp-Check der Antwort gegen die zitierten Segmenttexte
+        -> Verbatim-Überlapp-Check der Antwort gegen die zitierten Segmenttexte (billig,
+           kein Modellaufruf; zuerst, damit ein klarer Treffer keinen zweiten,
+           teureren Modellaufruf mehr braucht)
            (15+ aufeinanderfolgende Wörter überlappend? -> Antwort verwerfen, Fallback
            stattdessen, Vorfall geloggt)
+        -> sonst: Faithfulness-Check (zweiter, gezielter Ollama-Aufruf: "sind die
+           Aussagen dieser Antwort durch den folgenden Kontext gedeckt? ja/nein +
+           Begründung", Kontext = dieselben zitierten Segmente)
+           "nein"? -> Antwort verwerfen, Fallback stattdessen, Vorfall geloggt
         -> sonst: Antwort + Zitate (die verwendeten Segmente/Dokumente)
 
 chat_message (Nutzerfrage) + chat_message (Antwort) + chat_message_citation(s) speichern
 -> Response: {session_token, answer, answer_type, citations}
 ```
 
-Kein LLM-Aufruf für Strukturfragen und für jeden Fallback-Fall — nur die eigentliche Synthese
-ruft das Modell auf (ADR-008s „doppelter Gewinn": geringere Kosten und höhere Verlässlichkeit
-genau dort, wo Fehler am teuersten wären).
+Kein LLM-Aufruf für Strukturfragen und für jeden Fallback-Fall, der schon vor der Generierung
+feststeht (kein Treffer, kein Dokument) — nur eine tatsächlich versuchte Synthese ruft das
+Modell auf, im Erfolgsfall zweimal (Generierung + Faithfulness-Check), beim
+Verbatim-Überlapp-Treffer nur einmal (ADR-008s „doppelter Gewinn": geringere Kosten und höhere
+Verlässlichkeit genau dort, wo Fehler am teuersten wären — der zweite Aufruf ist bewusst nur
+die Ausnahme, nicht die Regel, teurer als der ADR ursprünglich vorsah, aber immer noch auf den
+einen Fall begrenzt, der es zählt).
 
 ## Fehlerbehandlung
 
@@ -249,6 +268,7 @@ genau dort, wo Fehler am teuersten wären).
 | Strukturfrage, aber Dokument in `api/` nicht auffindbar (404) | Fallback-Antwort, kein Chat-Fehler |
 | Synthesefrage ohne relevante Segmente | Fallback-Antwort, kein Modellaufruf |
 | LLM-Antwort enthält 15+ aufeinanderfolgende Wörter aus einem zitierten Quellsegment | Antwort verworfen, Fallback-Antwort stattdessen, Vorfall geloggt |
+| Faithfulness-Check bewertet die Antwort als nicht durch den Kontext gedeckt | Antwort verworfen, Fallback-Antwort stattdessen, Vorfall geloggt |
 | Ollama nicht erreichbar | 503, kein Detail-Leak |
 | Datenbank- oder `api/`-/`accounts/`-Verbindung down | 503, kein Detail-Leak |
 
@@ -263,9 +283,14 @@ genau dort, wo Fehler am teuersten wären).
   Funktionslogik, schnell.
 - Strukturfrage-Pfad: End-to-End gegen echte DGUV-/EUR-Lex-Testdaten, prüft zusätzlich, dass
   kein Ollama-Aufruf stattfindet (Zähler/Spy auf dem Ollama-Client).
-- Synthesefrage-Pfad: End-to-End mit echten DGUV-Segmenten, prüft Zitate und den
-  Verbatim-Überlapp-Check — positiv (normale Paraphrase wird durchgelassen) und negativ (ein
-  absichtlich Volltext-wiederholender Test-Prompt erzwingt den Fallback-Pfad).
+- Synthesefrage-Pfad: End-to-End mit echten DGUV-Segmenten, prüft Zitate, den
+  Verbatim-Überlapp-Check und den Faithfulness-Check — jeweils positiv (normale Paraphrase
+  bzw. gedeckte Aussage wird durchgelassen) und negativ (ein absichtlich
+  Volltext-wiederholender Test-Prompt erzwingt den Fallback über den Verbatim-Check; ein
+  absichtlich Kontext-fremde Behauptungen einstreuender Test-Prompt erzwingt den Fallback
+  über den Faithfulness-Check). Prüft außerdem, dass der Faithfulness-Check bei einem klaren
+  Verbatim-Treffer NICHT mehr aufgerufen wird (Zähler/Spy auf dem Ollama-Client, zweiter
+  Aufruf bleibt aus).
 - Rechteklassifikations-Asymmetrie: dieselbe Frage liefert für einen Rechtsraum ohne
   Klassifikation ausschließlich den Fallback (keine Segmente sichtbar) — analog zum
   bestehenden Muster aus den vorigen Teilprojekten.
@@ -288,9 +313,9 @@ genau dort, wo Fehler am teuersten wären).
 
 | Requirement/ADR | Abdeckung in diesem Design |
 |---|---|
-| REQ-FUNC-001 | Synthese-Antworten ausschließlich aus abgerufenen, rechtsraumsichtbaren Segmenten (Prompt-Bindung); Strukturantworten ausschließlich aus dem Graph |
+| REQ-FUNC-001 | Synthese-Antworten ausschließlich aus abgerufenen, rechtsraumsichtbaren Segmenten (Prompt-Bindung); Strukturantworten ausschließlich aus dem Graph; zusätzlich Faithfulness-Check als Nachkontrolle |
 | REQ-FUNC-002 | Paraphrasierungs-Anweisung im Prompt + Verbatim-Überlapp-Check als Nachkontrolle |
-| REQ-FUNC-003 | Fallback-Antwort für jeden Fall ohne belastbare Grundlage (kein Treffer, kein Dokument, Plagiats-Verdacht) |
+| REQ-FUNC-003 | Fallback-Antwort für jeden Fall ohne belastbare Grundlage (kein Treffer, kein Dokument, Plagiats-Verdacht, nicht gedeckte Aussage) |
 | REQ-INT-002A (nur Historie-Teil) | `chat_session`/`chat_message` erlauben „Chat erneut öffnen" über den `session_token`, ohne Konto — optional zusätzlich über ein verknüpftes Konto |
 | REQ-INT-004 | Ollama als austauschbare Inferenz-Schicht hinter `synthesis.py`; Modellwechsel ohne Änderung an `chat/`s öffentlicher Schnittstelle |
 | REQ-GRAPH-003 | Regelbasierte Klassifikation vor jedem Modellaufruf, Strukturfragen deterministisch über `api/` |
@@ -315,8 +340,12 @@ genau dort, wo Fehler am teuersten wären).
   komplexe Synthesen") — für den Start reicht ein Modell plus regelbasiertes Routing; ein
   zweites, kleineres Modell für unschärfere Klassifikationsfälle ist mit dem aktuellen
   Bestand nicht beobachtbar nötig.
-- **Faktenprüfung/Halluzinationserkennung über reines Prompting hinaus** — siehe Nicht-Ziele,
-  eigenes, größeres Thema.
+- **Belastbare Faktenprüfung gegen eine externe Wahrheitsquelle** (kuratierte Wissensbasis,
+  unabhängiges Verifikationsmodell) — siehe Nicht-Ziele, eigenes, größeres Forschungsthema.
+  Der modellbasierte Faithfulness-Check aus diesem Teilprojekt ist eine Heuristik, keine
+  Garantie; seine tatsächliche Trefferquote (Falsch-Positive/-Negative) ist erst nach
+  Produktivbetrieb mit echten Fragen beobachtbar und könnte eine spätere Kalibrierung
+  nötig machen.
 - **Produktions-Deployment des Inferenz-Servers** (GPU-Provisionierung auf STACKIT,
   Skalierung, SKE-Anbindung) — spätere Deployment-Entscheidung, analog zu den vorigen
   Teilprojekten.
