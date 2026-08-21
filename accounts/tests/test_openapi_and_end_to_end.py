@@ -24,6 +24,25 @@ def test_openapi_schema_documents_every_v1_endpoint(client):
     assert schema["info"]["license"]["name"] == "Apache-2.0"
 
 
+def test_openapi_schema_documents_the_error_responses_with_their_model(client):
+    """
+    The error bodies are only useful to a client generator if the schema names
+    them. Asserting the $ref, not just the status code, is what catches a
+    `responses={400: {"description": ...}}` that documents no model at all.
+    """
+    schema = client.get("/openapi.json").json()
+    error_ref = "#/components/schemas/ErrorResponse"
+
+    # The 400/503 pair comes from the app-wide handlers, so every operation
+    # on every path declares it.
+    for path, operations in schema["paths"].items():
+        for method, operation in operations.items():
+            for status in ("400", "503"):
+                assert operation["responses"][status]["content"]["application/json"][
+                    "schema"
+                ]["$ref"] == error_ref, f"{method.upper()} {path} {status}"
+
+
 def test_full_email_password_lifecycle(client, db_session):
     from sqlalchemy import select
     from normly_core.graph.domain import AccountTokenPurpose

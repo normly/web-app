@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from sqlalchemy import create_engine
 
 from normly_accounts.email import RecordingEmailSender, SmtpEmailSender
+from normly_accounts.errors import COMMON_ERROR_RESPONSES, register_exception_handlers
 from normly_accounts.routers.email_verification import email_verification_router
 from normly_accounts.routers.google import google_router
 from normly_accounts.routers.login import login_router
@@ -59,13 +60,17 @@ def create_app() -> FastAPI:
         },
         lifespan=lifespan,
     )
-    app.include_router(registration_router)
-    app.include_router(login_router)
-    app.include_router(magic_link_router)
-    app.include_router(password_reset_router)
-    app.include_router(session_router)
-    app.include_router(email_verification_router)
-    app.include_router(google_router)
+    register_exception_handlers(app)
+    # Passing the shared responses to every router is what puts the app-wide
+    # 400/503 handlers into the OpenAPI schema; without it a client generator
+    # cannot know those bodies exist.
+    app.include_router(registration_router, responses=COMMON_ERROR_RESPONSES)
+    app.include_router(login_router, responses=COMMON_ERROR_RESPONSES)
+    app.include_router(magic_link_router, responses=COMMON_ERROR_RESPONSES)
+    app.include_router(password_reset_router, responses=COMMON_ERROR_RESPONSES)
+    app.include_router(session_router, responses=COMMON_ERROR_RESPONSES)
+    app.include_router(email_verification_router, responses=COMMON_ERROR_RESPONSES)
+    app.include_router(google_router, responses=COMMON_ERROR_RESPONSES)
     return app
 
 
