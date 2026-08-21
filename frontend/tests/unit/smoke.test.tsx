@@ -4,11 +4,16 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { LocaleProvider } from "@/lib/i18n/provider";
 import HomePage from "@/app/page";
 
 describe("HomePage", () => {
   it("renders without crashing", () => {
-    render(<HomePage />);
-    expect(screen.getByText("normly")).toBeInTheDocument();
+    render(
+      <LocaleProvider initialLocale="de">
+        <HomePage />
+      </LocaleProvider>,
+    );
+    expect(screen.getByPlaceholderText("Frage stellen…")).toBeInTheDocument();
   });
 });
