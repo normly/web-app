@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -21,6 +22,8 @@ from normly_accounts.email import EmailSender
 from normly_accounts.routers.login import _create_session_response
 from normly_accounts.schemas import RegisterRequest, SessionResponse
 from normly_accounts.security import generate_token, hash_password
+
+logger = logging.getLogger(__name__)
 
 registration_router = APIRouter(prefix="/v1/accounts", tags=["registration"])
 
@@ -45,9 +48,16 @@ def register(
         account_id=account.id, purpose=AccountTokenPurpose.EMAIL_VERIFICATION,
         token=generate_token(), created_at=now, expires_at=now + _VERIFICATION_TOKEN_LIFETIME,
     )
-    email_sender.send(
-        to=account.email, subject="Bestätige deine E-Mail-Adresse",
-        body=f"Bitte bestätige deine E-Mail-Adresse: token={token.token}",
-    )
+    try:
+        email_sender.send(
+            to=account.email, subject="Bestätige deine E-Mail-Adresse",
+            body=f"Bitte bestätige deine E-Mail-Adresse: token={token.token}",
+        )
+    except Exception:
+        # Per the design spec: registration itself must not fail when SMTP
+        # is unreachable -- the account and verification token are already
+        # persisted, delivery is decoupled (no retry mechanism yet, tracked
+        # as an accepted open point). Never log the token itself.
+        logger.exception("registration verification email delivery failed for %s", account.email)
 
     return _create_session_response(account, session)

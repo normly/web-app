@@ -2,9 +2,18 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 normly contributors
 
+from fastapi.testclient import TestClient
+
 
 def _register(client, email, password):
     return client.post("/v1/accounts/register", json={"email": email, "password": password})
+
+
+class _RaisingEmailSender:
+    """Test double: simulates an unreachable SMTP relay."""
+
+    def send(self, *, to: str, subject: str, body: str) -> None:
+        raise OSError("simulated SMTP outage")
 
 
 def test_password_reset_request_sends_an_email_for_a_known_address(client, email_sender):
@@ -119,3 +128,56 @@ def test_password_reset_confirm_rejects_an_unknown_token(client):
     )
 
     assert response.status_code == 400
+
+
+def test_password_reset_request_still_succeeds_when_email_delivery_fails(client, db_session):
+    # The account must already exist so the request hits the send() call at
+    # all -- register it through the normal client first.
+    _register(client, "outage@example.de", "correct horse battery staple")
+
+    from normly_accounts.dependencies import get_email_sender, get_session
+    from normly_accounts.main import create_app
+
+    app = create_app()
+    app.dependency_overrides[get_session] = lambda: db_session
+    app.dependency_overrides[get_email_sender] = lambda: _RaisingEmailSender()
+
+    with TestClient(app) as raising_client:
+        response = raising_client.post(
+            "/v1/accounts/password-reset/request", json={"email": "outage@example.de"}
+        )
+
+    # A failed send must not fail the request -- the spec is explicit that
+    # registration/reset requests "schlagen NICHT fehl" when SMTP is down;
+    # the token is already persisted, delivery is a separate concern.
+    assert response.status_code == 200
+    assert response.json() == {"status": "if_the_account_exists_an_email_was_sent"}
+
+
+def test_password_reset_request_is_indistinguishable_for_known_vs_unknown_address_during_outage(
+    client, db_session
+):
+    # This is the actual enumeration-protection property: under an SMTP
+    # outage, a known address whose send() raises must produce the exact
+    # same response as an unknown address (which never calls send() at
+    # all) -- otherwise the status code alone reveals which emails are
+    # registered.
+    _register(client, "outage2@example.de", "correct horse battery staple")
+
+    from normly_accounts.dependencies import get_email_sender, get_session
+    from normly_accounts.main import create_app
+
+    app = create_app()
+    app.dependency_overrides[get_session] = lambda: db_session
+    app.dependency_overrides[get_email_sender] = lambda: _RaisingEmailSender()
+
+    with TestClient(app) as raising_client:
+        known = raising_client.post(
+            "/v1/accounts/password-reset/request", json={"email": "outage2@example.de"}
+        )
+        unknown = raising_client.post(
+            "/v1/accounts/password-reset/request", json={"email": "nobody2@example.de"}
+        )
+
+    assert known.status_code == unknown.status_code == 200
+    assert known.json() == unknown.json()

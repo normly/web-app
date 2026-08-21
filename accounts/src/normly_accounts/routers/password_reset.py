@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -19,6 +20,8 @@ from normly_accounts.dependencies import get_email_sender, get_session
 from normly_accounts.email import EmailSender
 from normly_accounts.schemas import PasswordResetConfirmRequest, PasswordResetRequestRequest
 from normly_accounts.security import generate_token, hash_password
+
+logger = logging.getLogger(__name__)
 
 password_reset_router = APIRouter(prefix="/v1/accounts/password-reset", tags=["password-reset"])
 
@@ -37,10 +40,22 @@ def request_password_reset(
             account_id=account.id, purpose=AccountTokenPurpose.PASSWORD_RESET,
             token=generate_token(), created_at=now, expires_at=now + _RESET_TOKEN_LIFETIME,
         )
-        email_sender.send(
-            to=account.email, subject="Passwort zurücksetzen",
-            body=f"Zum Zurücksetzen deines Passworts: token={token.token}",
-        )
+        try:
+            email_sender.send(
+                to=account.email, subject="Passwort zurücksetzen",
+                body=f"Zum Zurücksetzen deines Passworts: token={token.token}",
+            )
+        except Exception:
+            # Per the design spec: the reset-request call itself must not
+            # fail when SMTP is unreachable -- the token is already
+            # persisted, delivery is decoupled (no retry mechanism yet,
+            # tracked as an accepted open point). Failing loudly here would
+            # also turn this into an account-enumeration side-channel: the
+            # unknown-address branch below never calls send() at all, so a
+            # raised exception here would make known vs. unknown addresses
+            # distinguishable by status code during an SMTP outage. Never
+            # log the token itself.
+            logger.exception("password reset email delivery failed for %s", account.email)
     # Same response whether or not the account exists -- enumeration
     # protection, same principle as login's generic 401.
     return {"status": "if_the_account_exists_an_email_was_sent"}
