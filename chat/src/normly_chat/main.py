@@ -14,7 +14,9 @@ from normly_core.pipeline.embeddings import EmbeddingModel
 
 from normly_chat.accounts_client import AccountsClient
 from normly_chat.api_client import ApiClient
+from normly_chat.errors import COMMON_ERROR_RESPONSES, register_exception_handlers
 from normly_chat.ollama_client import OllamaClient
+from normly_chat.routers.chat import chat_router
 
 
 @asynccontextmanager
@@ -53,6 +55,8 @@ def create_app() -> FastAPI:
         },
         lifespan=lifespan,
     )
+    register_exception_handlers(app)
+    app.include_router(chat_router, responses=COMMON_ERROR_RESPONSES)
     return app
 
 
