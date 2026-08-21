@@ -30,15 +30,15 @@ def _fallback(language: str, ollama_calls: int = 0) -> SynthesisAnswer:
     )
 
 
-def _has_verbatim_overlap(answer: str, source_texts: list[str]) -> bool:
+def _has_verbatim_overlap(answer: str, context: str) -> bool:
     answer_words = answer.split()
-    for source_text in source_texts:
-        source_words = source_text.split()
-        for window_start in range(len(answer_words) - _VERBATIM_OVERLAP_WORDS + 1):
-            window = answer_words[window_start:window_start + _VERBATIM_OVERLAP_WORDS]
-            window_text = " ".join(window)
-            if window_text and window_text in " ".join(source_words):
-                return True
+    context_words = context.split()
+    context_joined = " ".join(context_words)
+    for window_start in range(len(answer_words) - _VERBATIM_OVERLAP_WORDS + 1):
+        window = answer_words[window_start:window_start + _VERBATIM_OVERLAP_WORDS]
+        window_text = " ".join(window)
+        if window_text and window_text in context_joined:
+            return True
     return False
 
 
@@ -72,7 +72,7 @@ def build_synthesis_answer(
     answer_text = ollama_client.chat(messages)
     ollama_calls = 1
 
-    if _has_verbatim_overlap(answer_text, [segment.text for segment in segments]):
+    if _has_verbatim_overlap(answer_text, context):
         return _fallback(language, ollama_calls=ollama_calls)
 
     citations = [

@@ -64,3 +64,30 @@ def test_a_verbatim_repeating_answer_is_rejected():
         "Frage", "DE", "de", _FakeEmbeddingModel(), _FakeSegmentRepo([segment]), ollama,
     )
     assert result.is_fallback is True
+
+
+def test_a_verbatim_answer_spanning_a_segment_boundary_is_rejected():
+    # The LLM is shown the segments joined into one context block, so a
+    # verbatim run copied across the join between segment A's tail and
+    # segment B's head is just as much plagiarism as copying from a single
+    # segment -- even though neither segment's own text contains the full
+    # run on its own.
+    document_id = uuid.uuid4()
+    segment_a = _FakeSegment(
+        uuid.uuid4(), document_id,
+        "In deutschen Werkstätten gilt laut Vorschrift dass Schutzbrillen sind beim",
+    )
+    segment_b = _FakeSegment(
+        uuid.uuid4(), document_id,
+        "Schweißen stets Pflicht um die Augen zuverlässig vor Funkenflug zu schützen im Betrieb.",
+    )
+    straddling_answer = (
+        "gilt laut Vorschrift dass Schutzbrillen sind beim "
+        "Schweißen stets Pflicht um die Augen zuverlässig vor"
+    )
+    ollama = _FakeOllamaClient(straddling_answer)
+    result = build_synthesis_answer(
+        "Frage", "DE", "de", _FakeEmbeddingModel(),
+        _FakeSegmentRepo([segment_a, segment_b]), ollama,
+    )
+    assert result.is_fallback is True
