@@ -72,6 +72,12 @@ JURISDICTION_EXEMPT_READS = {
     "DeliveryRepository.get_delivery",
     # Review-queue listing for staff, not rights-gated content.
     "IdentityResolutionRepository.list_pending_cases",
+    # Account identity and session/token lookups: authentication state, not
+    # rights-gated document content. Accounts are not jurisdiction-scoped.
+    "AccountRepository.get_account_by_id",
+    "AccountRepository.get_account_by_email",
+    "AccountGoogleIdentityRepository.get_account_by_google_subject",
+    "AccountSessionRepository.get_session_by_token",
 }
 
 

@@ -11,6 +11,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from normly_core.graph.domain import (
+    AccountTokenPurpose,
     EdgeType,
     IdentityResolutionStatus,
     LegalBasisCategory,
@@ -324,3 +325,79 @@ class IdentityResolutionCaseORM(Base):
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), server_default=sa.func.now()
     )
+
+
+class AccountORM(Base):
+    __tablename__ = "account"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    email: Mapped[str]
+    password_hash: Mapped[str | None]
+    email_verified_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
+
+    __table_args__ = (sa.UniqueConstraint("email", name="uq_account_email"),)
+
+
+class AccountSessionORM(Base):
+    __tablename__ = "account_session"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("account.id"), nullable=False
+    )
+    session_token: Mapped[str]
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
+    expires_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
+
+    __table_args__ = (
+        sa.UniqueConstraint("session_token", name="uq_account_session_token"),
+    )
+
+
+class AccountGoogleIdentityORM(Base):
+    __tablename__ = "account_google_identity"
+
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("account.id"), primary_key=True
+    )
+    google_subject_id: Mapped[str]
+
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "google_subject_id", name="uq_account_google_identity_subject"
+        ),
+    )
+
+
+class AccountTokenORM(Base):
+    __tablename__ = "account_token"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("account.id"), nullable=False
+    )
+    purpose: Mapped[AccountTokenPurpose] = mapped_column(
+        sa.Enum(
+            AccountTokenPurpose, name="account_token_purpose", native_enum=False,
+            values_callable=_enum_values, create_constraint=True,
+        )
+    )
+    token: Mapped[str]
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
+    expires_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+
+    __table_args__ = (sa.UniqueConstraint("token", name="uq_account_token_token"),)
