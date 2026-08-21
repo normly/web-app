@@ -45,6 +45,14 @@ def dguv_fixture(migrated_engine):
     # (same pattern as accounts/tests/test_session_persistence.py). Since
     # this really persists, the fixture is responsible for deleting what it
     # created afterwards, in FK-safe (children-before-parents) order.
+    #
+    # Every test below requests this fixture BEFORE e2e_client, and must keep
+    # doing so: answering a chat request inserts a chat_message_citation
+    # referencing this document, so Postgres holds a FOR KEY SHARE lock on the
+    # document row until db_session's rolled-back transaction ends. Deleting it
+    # from this second connection blocks until then, and pytest finalizes
+    # fixtures in reverse setup order -- so requesting this one first is what
+    # keeps teardown from hanging.
     session = Session(migrated_engine)
     try:
         source = PostgresSourceRepository(session).create_source(
@@ -96,7 +104,9 @@ def dguv_fixture(migrated_engine):
         session.close()
 
 
-def test_synthesis_question_returns_a_paraphrased_answer_with_citations(e2e_client, dguv_fixture):
+def test_synthesis_question_returns_a_paraphrased_answer_with_citations(
+    dguv_fixture, e2e_client,
+):
     document, segment = dguv_fixture
     response = e2e_client.post(
         "/v1/chat",
@@ -117,7 +127,7 @@ def test_synthesis_question_returns_a_paraphrased_answer_with_citations(e2e_clie
 
 
 def test_synthesis_question_in_english_answers_in_english_against_german_segments(
-    e2e_client, dguv_fixture,
+    dguv_fixture, e2e_client,
 ):
     response = e2e_client.post(
         "/v1/chat",
@@ -136,7 +146,7 @@ def test_synthesis_question_in_english_answers_in_english_against_german_segment
     assert len(body["citations"]) > 0
 
 
-def test_session_continues_across_two_requests(e2e_client, dguv_fixture):
+def test_session_continues_across_two_requests(dguv_fixture, e2e_client):
     first = e2e_client.post(
         "/v1/chat",
         json={"jurisdiction": "DE", "language": "de", "message": "Erste Frage zum Schweißen?"},
