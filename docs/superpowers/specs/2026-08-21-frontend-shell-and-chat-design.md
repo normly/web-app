@@ -46,13 +46,16 @@ erste: Grundgerüst plus Chat-Oberfläche, der laut SRS Kapitel 3.1.1 (`REQ-UI-0
    Worker wird aber jetzt schon angelegt (App-Shell-Caching, Installierbarkeit) — ein späterer
    Push-Handler ließe sich dort ergänzen, ohne die Grundstruktur zu ändern. Siehe Offene
    Punkte.
+6. UI-Beschriftung von Anfang an DE/EN zweisprachig (nachträglich präzisiert, ursprünglich als
+   Folgearbeit vorgesehen) — Cookie-basiert statt URL-Präfix, siehe „Internationalisierung
+   (DE/EN)" unten.
 
 ## Ziel dieses Teilprojekts
 
-Eine installierbare, unter eigener Konfiguration anpassbare Chat-Weboberfläche: Texteingabe,
-Antwortanzeige mit Ladezustand, Quellenverlinkung je Antwort, mehrere wechselbare
-Chat-Sitzungen mit Historie, WCAG-2.1-AA-konform — vollständig nutzbar ohne Konto
-(`REQ-ACC-001`), mit optionalem Login, der die Sitzung ans Konto bindet und damit
+Eine installierbare, unter eigener Konfiguration anpassbare, DE/EN-zweisprachige
+Chat-Weboberfläche: Texteingabe, Antwortanzeige mit Ladezustand, Quellenverlinkung je Antwort,
+mehrere wechselbare Chat-Sitzungen mit Historie, WCAG-2.1-AA-konform — vollständig nutzbar
+ohne Konto (`REQ-ACC-001`), mit optionalem Login, der die Sitzung ans Konto bindet und damit
 geräteübergreifende Historie ermöglicht.
 
 ## Nicht-Ziele
@@ -76,10 +79,10 @@ geräteübergreifende Historie ermöglicht.
   Infrastrukturentscheidung, wie in den Backend-Teilprojekten an mehreren Stellen vermerkt,
   hier nicht Teil des Umfangs. Solange nicht vorhanden, ist die Nutzung in diesem Teilprojekt
   faktisch unbegrenzt.
-- **Mehrsprachige Oberflächentexte (UI-Chrome).** Per CLAUDE.md ist die Nutzeroberfläche auf
-  Deutsch, Mehrsprachigkeit „vorgesehen", aber nicht sofort umzusetzen. `chat/`s
-  `language`-Parameter (de/en) steuert weiterhin, in welcher Sprache das LLM antwortet — das
-  bleibt unabhängig von der (deutschen) UI-Beschriftung bestehen.
+- **Sprachen über Deutsch/Englisch hinaus.** Die UI-Beschriftung ist von Anfang an DE/EN
+  zweisprachig (siehe „Internationalisierung (DE/EN)" unten) — weitere Sprachen sind
+  Folgearbeit, kein allgemeiner Übersetzungsmechanismus für beliebige Sprachen in diesem
+  Teilprojekt.
 
 ## Architektur
 
@@ -121,6 +124,10 @@ frontend/
     lib/
       config.ts                # Theming-/White-Label-Konfiguration, zur Laufzeit gelesen
       backend-clients.ts       # server-seitige fetch-Wrapper für accounts/ und chat/
+      i18n/
+        provider.tsx              # React-Context, liest normly_locale-Cookie
+        de.json
+        en.json
     public/sw.ts oder service-worker.ts  # App-Shell-Caching, kein Push-Handler
   tests/
     unit/                    # Vitest + React Testing Library
@@ -135,6 +142,34 @@ Umgebungsvariablen (nicht in den Build eingebrannt, da `output: "standalone"` ei
 Image für beliebig viele Instanzen liefern soll — ein Rebuild pro Instanz widerspräche dem
 Auslieferungsprinzip aus ADR-010). CSS-Variablen (von Tailwind gelesen) plus ein Logo-Pfad
 werden aus dieser Konfiguration in `layout.tsx` in die Seite injiziert.
+
+### Internationalisierung (DE/EN)
+
+Die UI-Beschriftung (Buttons, Labels, Fehlermeldungen, Dialogtexte) ist von Anfang an
+zweisprachig (Deutsch/Englisch) — unabhängig von `chat/`s eigenem `language`-Parameter, der
+nur steuert, in welcher Sprache das LLM *antwortet*. Beide hängen zusammen (die UI-Sprache
+bestimmt sinnvollerweise den Startwert für `chat/`s `language`-Feld), sind aber zwei getrennte
+Einstellungen: eine deutschsprachige Oberfläche kann trotzdem eine englische Chat-Antwort
+anzeigen, wenn der Nutzer das im Chat explizit so wählt (falls Teilprojekt 1 eine
+Sprachumschaltung für die Antwortsprache eigens im Chat anbietet — sonst folgt sie einfach der
+UI-Sprache).
+
+**Kein URL-Präfix** (`/de/...`, `/en/...`) — die Sprache ist ein Cookie-Wert
+(`normly_locale`), keine Route. Das passt zum bestehenden Cookie-basierten Muster
+(Sitzungs-Token) und vermeidet doppelte Routen für eine App, die größtenteils hinter
+Cookie-/Login-Zustand läuft. Ein Umschalter im Header wechselt die Sprache ohne
+Seiten-Neuladung; ohne gesetztes Cookie bestimmt der `Accept-Language`-Header des ersten
+Requests den Startwert (Fallback Deutsch, wenn nicht eindeutig zuordenbar).
+
+Übersetzungen liegen als einfache Schlüssel-Wert-Wörterbücher (`lib/i18n/de.json`,
+`lib/i18n/en.json`) vor, gelesen über einen React-Context-Provider in `layout.tsx` — für zwei
+Sprachen und reinen UI-Chrome-Text (keine komplexe Pluralisierung/Zahlenformatierung
+absehbar) ist eine schwergewichtige i18n-Bibliothek (z. B. `next-intl` mit
+Locale-Routing-Middleware) nicht nötig und würde vor allem Routing-Komplexität einführen, die
+hier nicht gebraucht wird (siehe „Entschieden mit dem Auftraggeber" zum Verzicht auf
+URL-Präfixe). Jede neue UI-Komponente führt ihre Strings über diesen Provider, nie als
+hartkodierten String — Tests (Komponententests) decken ab, dass beide Sprachwörterbücher für
+dieselbe Komponente vollständig sind (kein fehlender Schlüssel in einer der beiden Sprachen).
 
 ### Backend-Anbindung als BFF (Backend for Frontend)
 
@@ -232,6 +267,9 @@ entgegennimmt, das Cookie setzt und zurück zur Chat-Ansicht umleitet.
   Teilprojekts.
 - **PWA-Installierbarkeit**: manueller Test — Manifest und Service Worker führen zu einem
   gültigen Lighthouse-PWA-Score bzw. tatsächlicher Installierbarkeit in einem Chromium-Browser.
+- **Wörterbuch-Vollständigkeit** (DE/EN): ein Komponententest pro Wörterbuch prüft, dass
+  `de.json` und `en.json` exakt dieselbe Schlüsselmenge enthalten — verhindert einen
+  Sprachwechsel, der einzelne Strings unübersetzt lässt.
 
 ## Bezug zu Requirements und ADRs
 
@@ -247,6 +285,7 @@ entgegennimmt, das Cookie setzt und zurück zur Chat-Ansicht umleitet.
 | `REQ-MOB-001` | Web-App-Manifest + Service Worker für App-Shell-Caching, Installierbarkeit |
 | `REQ-MOB-003` | Offline-/Caching-Zugriff ausschließlich über den Service Worker als Abstraktionsschicht, keine verstreuten direkten Storage-Zugriffe in der Anwendungslogik |
 | ADR-010 (Auslieferung) | `output: "standalone"`, ein Image für beliebig viele Instanzen, Theming zur Laufzeit statt im Build |
+| CLAUDE.md „Mehrsprachigkeit vorgesehen" | DE/EN-UI-Beschriftung von Anfang an, siehe „Internationalisierung (DE/EN)" — vorgezogen statt als Folgearbeit behandelt |
 
 ## Offene Punkte / Folgearbeiten
 
@@ -262,5 +301,5 @@ entgegennimmt, das Cookie setzt und zurück zur Chat-Ansicht umleitet.
 - **Pagination der Chat-Historie** — `REQ-UI-005` verlangt performante Nutzbarkeit auch bei
   vielen Sitzungen; die konkrete Paginierungs-/Ladestrategie ist hier nicht im Detail
   festgelegt und wird im Implementierungsplan konkretisiert.
-- **Mehrsprachige UI-Beschriftung** — aktuell Deutsch, gemäß CLAUDE.md „vorgesehen", aber
-  nicht Teil dieses Teilprojekts.
+- **Sprachen über DE/EN hinaus** — das Wörterbuch-Muster ist auf weitere Sprachen erweiterbar,
+  aber nicht Teil dieses Teilprojekts.
