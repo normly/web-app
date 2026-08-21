@@ -104,3 +104,35 @@ def test_add_citation_links_message_to_document(db_session):
     )
     assert citation.document_id == document.id
     assert citation.segment_id is None
+
+
+def test_list_sessions_for_account_returns_only_that_accounts_sessions_newest_first(db_session):
+    from normly_core.graph.postgres.repositories import PostgresAccountRepository
+
+    account_a = PostgresAccountRepository(db_session).create_account(
+        email="sessions-a@example.de", password_hash=None,
+    )
+    account_b = PostgresAccountRepository(db_session).create_account(
+        email="sessions-b@example.de", password_hash=None,
+    )
+    repo = PostgresChatRepository(db_session)
+    older = repo.create_session(
+        session_token="tok-a-older", jurisdiction="DE", language="de",
+        created_at=datetime(2026, 1, 1, tzinfo=timezone.utc), account_id=account_a.id,
+    )
+    newer = repo.create_session(
+        session_token="tok-a-newer", jurisdiction="DE", language="en",
+        created_at=datetime(2026, 2, 1, tzinfo=timezone.utc), account_id=account_a.id,
+    )
+    repo.create_session(
+        session_token="tok-b", jurisdiction="DE", language="de",
+        created_at=datetime(2026, 1, 15, tzinfo=timezone.utc), account_id=account_b.id,
+    )
+    repo.create_session(
+        session_token="tok-anon", jurisdiction="DE", language="de",
+        created_at=datetime(2026, 1, 20, tzinfo=timezone.utc),
+    )
+
+    sessions = repo.list_sessions_for_account(account_a.id)
+
+    assert [s.id for s in sessions] == [newer.id, older.id]

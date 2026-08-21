@@ -1335,6 +1335,14 @@ class PostgresChatRepository:
         ).scalar_one_or_none()
         return _chat_session_to_domain(orm) if orm else None
 
+    def list_sessions_for_account(self, account_id: uuid.UUID) -> list[ChatSession]:
+        rows = self._session.execute(
+            select(ChatSessionORM)
+            .where(ChatSessionORM.account_id == account_id)
+            .order_by(ChatSessionORM.created_at.desc())
+        ).scalars()
+        return [_chat_session_to_domain(row) for row in rows]
+
     def link_account(self, session_id: uuid.UUID, account_id: uuid.UUID) -> None:
         self._session.execute(
             sa.update(ChatSessionORM)
