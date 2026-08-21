@@ -22,6 +22,14 @@ _REFERENCE_PATTERN = re.compile(
 
 
 def classify(message: str) -> QuestionType:
+    # A structural classification needs the trigger pattern AND a recognizable
+    # designation in the text (the design spec's rule). Words like "aktuell"
+    # and "gültig" are ordinary German and appear in plain synthesis questions
+    # ("Welche Schutzausrüstung ist beim Schweißen aktuell vorgeschrieben?");
+    # without a designation the structural path has nothing to look up and
+    # could only ever produce a fallback, so those belong in retrieval.
+    if extract_designation(message) is None:
+        return QuestionType.SYNTHESIS
     if _VALIDITY_PATTERN.search(message):
         return QuestionType.STRUCTURAL_VALIDITY
     if _REFERENCE_PATTERN.search(message):

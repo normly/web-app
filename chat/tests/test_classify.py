@@ -21,6 +21,21 @@ def test_classifies_an_open_question_as_synthesis():
         QuestionType.SYNTHESIS
 
 
+def test_a_trigger_word_without_a_designation_is_synthesis_not_structural():
+    # "aktuell" and "gültig" are ordinary German words that show up in plain
+    # synthesis questions. A structural classification requires the trigger
+    # pattern AND a recognizable designation -- otherwise the structural path
+    # has nothing to look up and could only ever produce a fallback.
+    assert classify("Welche Schutzausrüstung ist beim Schweißen aktuell vorgeschrieben?") == \
+        QuestionType.SYNTHESIS
+    assert classify("What safety equipment is valid for welding?") == QuestionType.SYNTHESIS
+
+
+def test_a_reference_trigger_word_without_a_designation_is_synthesis():
+    assert classify("Welche Regel ersetzt die alte Schweißvorschrift?") == QuestionType.SYNTHESIS
+    assert classify("Which rule replaces the old welding guidance?") == QuestionType.SYNTHESIS
+
+
 def test_extract_designation_finds_a_din_style_designation_with_issuer_prefix():
     # DIN-style designations are stored WITH the issuer baked into the
     # designation string (issuer="DIN", designation="DIN EN ISO 9001") --
