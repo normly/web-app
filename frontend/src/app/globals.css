@@ -1,0 +1,12 @@
+/* frontend/src/app/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Default brand colors -- overridden at runtime by Task 4's theming
+     system, never baked into the build (a single image serves any
+     instance's own colors). */
+  --brand: 222 89% 55%;
+  --brand-foreground: 0 0% 100%;
+}

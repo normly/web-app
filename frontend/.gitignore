@@ -1,0 +1,24 @@
+# Dependencies
+/node_modules
+
+# Next.js build output
+/.next/
+/out/
+
+# Production build (standalone output, see next.config.mjs)
+/build
+
+# Testing
+/coverage
+/test-results
+/playwright-report
+
+# Environment files
+.env*.local
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# OS / editor
+.DS_Store
