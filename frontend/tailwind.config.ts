@@ -14,6 +14,11 @@ const config: Config = {
         // whatever the runtime configuration sets, not a hardcoded value.
         brand: "hsl(var(--brand) / <alpha-value>)",
         "brand-foreground": "hsl(var(--brand-foreground) / <alpha-value>)",
+        background: "hsl(var(--background) / <alpha-value>)",
+        input: "hsl(var(--input) / <alpha-value>)",
+        accent: "hsl(var(--accent) / <alpha-value>)",
+        "accent-foreground": "hsl(var(--accent-foreground) / <alpha-value>)",
+        muted: "hsl(var(--muted) / <alpha-value>)",
       },
     },
   },
