@@ -7,7 +7,15 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 
-from normly_core.graph.domain import EdgeType, LegalBasisCategory, Layer, TdmOptOutResult
+from normly_core.graph.domain import (
+    AccountTokenPurpose,
+    ChatAnswerType,
+    ChatMessageRole,
+    EdgeType,
+    Layer,
+    LegalBasisCategory,
+    TdmOptOutResult,
+)
 from normly_core.graph.postgres.repositories import (
     PostgresDeliveryRepository,
     PostgresDocumentRepository,
@@ -83,6 +91,9 @@ def test_enum_columns_persist_values_not_member_names(db_session):
         ("source", "tdm_opt_out_result", TdmOptOutResult),
         ("edge", "edge_type", EdgeType),
         ("edge", "layer", Layer),
+        ("account_token", "purpose", AccountTokenPurpose),
+        ("chat_message", "role", ChatMessageRole),
+        ("chat_message", "answer_type", ChatAnswerType),
     ],
 )
 def test_every_enum_column_has_a_database_check_constraint(

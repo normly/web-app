@@ -47,13 +47,20 @@ def upgrade() -> None:
             sa.ForeignKey("chat_session.id"), nullable=False,
         ),
         sa.Column(
-            "role", sa.Enum(*_ROLE_VALUES, name="chat_message_role", native_enum=False),
+            "role",
+            sa.Enum(
+                *_ROLE_VALUES, name="chat_message_role", native_enum=False,
+                create_constraint=True,
+            ),
             nullable=False,
         ),
         sa.Column("content", sa.Text, nullable=False),
         sa.Column(
             "answer_type",
-            sa.Enum(*_ANSWER_TYPE_VALUES, name="chat_answer_type", native_enum=False),
+            sa.Enum(
+                *_ANSWER_TYPE_VALUES, name="chat_answer_type", native_enum=False,
+                create_constraint=True,
+            ),
             nullable=True,
         ),
         sa.Column(
