@@ -1457,3 +1457,14 @@ class PostgresRateLimitRepository:
         count = self._session.execute(stmt).scalar_one()
         self._session.flush()
         return count <= limit
+
+    def delete_buckets_before(self, cutoff: datetime) -> None:
+        # Without this the table grows one row per (key, minute) forever, and
+        # each key embeds a caller address -- so unbounded growth is also
+        # indefinite retention of an identifier. Callers run it opportunistically
+        # alongside record_and_check, which keeps the table bounded without a
+        # scheduled job.
+        self._session.execute(
+            sa.delete(RateLimitBucketORM).where(RateLimitBucketORM.window_start < cutoff)
+        )
+        self._session.flush()

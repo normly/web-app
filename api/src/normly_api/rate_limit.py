@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, Request
 from sqlalchemy.orm import Session
@@ -18,6 +18,13 @@ from normly_core.graph.postgres.repositories import PostgresRateLimitRepository
 # enough for the abuse pattern this guards against (systematic scraping),
 # not split-second fairness.
 _REQUESTS_PER_WINDOW = 60
+
+# How long a spent bucket is kept. Comfortably longer than the one-minute
+# window it belongs to, so nothing in use is ever removed, but short enough
+# that the table stays small and the caller addresses embedded in its keys are
+# not retained indefinitely. Enforced opportunistically on each request rather
+# than by a scheduled job.
+_BUCKET_RETENTION = timedelta(minutes=10)
 
 
 def _client_origin_address(request: Request) -> str:
@@ -56,9 +63,11 @@ def enforce_rate_limit(request: Request) -> None:
     # quota, because ID scanning is exactly the abuse this guards against.
     engine = request.app.state.engine
     with Session(engine) as session:
-        allowed = PostgresRateLimitRepository(session).record_and_check(
+        repository = PostgresRateLimitRepository(session)
+        allowed = repository.record_and_check(
             key=key, window_start=window_start, limit=_REQUESTS_PER_WINDOW,
         )
+        repository.delete_buckets_before(window_start - _BUCKET_RETENTION)
         session.commit()
 
     if not allowed:
