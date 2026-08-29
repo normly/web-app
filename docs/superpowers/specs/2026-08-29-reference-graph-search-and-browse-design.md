@@ -77,9 +77,12 @@ Herkunftsadresse gemeinsam), nicht nur einen Teilaspekt:
   auf `(anon_id, Herkunftsadresse)`; fehlt der Header (z. B. ein hypothetischer
   künftiger Direktzugriff ohne das Frontend-BFF), fällt sie auf die Herkunftsadresse
   allein zurück, statt die Anfrage abzulehnen.
-- Festes Zeitfenster (60 anonyme Anfragen/Minute je Schlüssel, über alle
+- Festes Zeitfenster (300 anonyme Anfragen/Minute je Schlüssel, über alle
   `api/`-Endpunkte hinweg, nicht nur die Suche) als wiederverwendbare
-  FastAPI-Dependency.
+  FastAPI-Dependency. Ursprünglich 60; eine einzelne Detailseite kostet 3+N
+  Anfragen (Dokument, Kanten, Gültigkeit, je Kante eine Auflösung), sodass
+  gewöhnliches Blättern das alte Kontingent aufgebraucht hätte. Der Wert ist
+  ein Startpunkt mit Reserve, nicht aus gemessenem Verkehr abgeleitet.
 
 ### Frontend
 

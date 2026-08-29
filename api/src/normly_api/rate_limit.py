@@ -10,14 +10,20 @@ from sqlalchemy.orm import Session
 
 from normly_core.graph.postgres.repositories import PostgresRateLimitRepository
 
-# 60 anonymous requests/minute per key, applied to every api/ endpoint (not
-# just search) -- see docs/superpowers/specs/2026-08-29-reference-graph-
-# search-and-browse-design.md. Module-level so tests can monkeypatch it down
-# to a small number instead of making 60 real requests. A fixed one-minute
+# Anonymous requests/minute per key, applied to every api/ endpoint (not just
+# search) -- see docs/superpowers/specs/2026-08-29-reference-graph-search-and-
+# browse-design.md. Module-level so tests can monkeypatch it down to a small
+# number instead of making hundreds of real requests. A fixed one-minute
 # bucket (floored to the minute), not a sliding window: simple, and precise
 # enough for the abuse pattern this guards against (systematic scraping),
 # not split-second fairness.
-_REQUESTS_PER_WINDOW = 60
+#
+# 300, not the 60 originally specified: one /documents/[id] page view alone
+# costs 3+N requests (detail, edges, validity, plus one per edge to resolve
+# its label), so ordinary browsing of a few documents would exhaust 60. This
+# is a starting point chosen for headroom, not derived from measured traffic
+# -- revisit once real usage patterns are known.
+_REQUESTS_PER_WINDOW = 300
 
 # How long a spent bucket is kept. Comfortably longer than the one-minute
 # window it belongs to, so nothing in use is ever removed, but short enough
