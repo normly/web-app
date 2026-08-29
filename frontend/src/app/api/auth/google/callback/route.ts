@@ -25,6 +25,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   const response = NextResponse.redirect(new URL("/", request.url));
-  applySessionCookies(response, { accountSessionToken: body.session_token });
+  if (typeof body.session_token === "string") {
+    applySessionCookies(response, { accountSessionToken: body.session_token });
+  }
   return response;
 }
