@@ -476,3 +476,13 @@ class ChatMessageCitationORM(Base):
     segment_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), sa.ForeignKey("segment.id"), nullable=True
     )
+
+
+class RateLimitBucketORM(Base):
+    __tablename__ = "rate_limit_bucket"
+
+    key: Mapped[str] = mapped_column(primary_key=True)
+    window_start: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), primary_key=True
+    )
+    request_count: Mapped[int] = mapped_column(default=0)

@@ -23,6 +23,10 @@ COMMON_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
         "model": ErrorResponse,
         "description": "Malformed request -- an invalid or missing path or query parameter.",
     },
+    429: {
+        "model": ErrorResponse,
+        "description": "Rate limit exceeded for this origin/session. Retry after the current window ends.",
+    },
     503: {
         "model": ErrorResponse,
         "description": "The service cannot reach its database. Retrying may succeed.",

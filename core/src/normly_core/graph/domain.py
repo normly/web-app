@@ -249,6 +249,27 @@ class DocumentRepository(Protocol):
     def find_by_designation(self, issuer: str, designation: str) -> Document | None: ...
 
 
+class RateLimitRepository(Protocol):
+    """
+    A generic, jurisdiction-independent request counter used to enforce
+    REQ-ACC-003's anonymous quota. Not part of the graph model, but kept in
+    the same repository layer as everything else that touches the database,
+    per CLAUDE.md's "Datenbankzugriff nur über die Repository-Schicht".
+    """
+
+    def record_and_check(
+        self, *, key: str, window_start: datetime, limit: int
+    ) -> bool:
+        """
+        Atomically increments the request counter for `key` within the
+        window starting at `window_start`, and reports whether the caller
+        is still within `limit`. Returns True when the request should be
+        allowed (count <= limit after incrementing), False when it should
+        be rejected.
+        """
+        ...
+
+
 class RightsRepository(Protocol):
     def classify(
         self,

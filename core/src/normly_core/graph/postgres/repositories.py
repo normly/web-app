@@ -6,6 +6,7 @@ from datetime import date, datetime, timezone
 
 import sqlalchemy as sa
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
@@ -54,6 +55,7 @@ from normly_core.graph.postgres.orm import (
     EdgeORM,
     EmbeddingORM,
     IdentityResolutionCaseORM,
+    RateLimitBucketORM,
     RightsClassificationORM,
     SegmentORM,
     SourceORM,
@@ -1381,3 +1383,26 @@ class PostgresChatRepository:
         self._session.add(orm)
         self._session.flush()
         return _chat_message_citation_to_domain(orm)
+
+
+class PostgresRateLimitRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def record_and_check(self, *, key: str, window_start: datetime, limit: int) -> bool:
+        # INSERT ... ON CONFLICT DO UPDATE is atomic under concurrent requests
+        # for the same key -- two simultaneous requests in the same window
+        # both reliably see their own increment, unlike a read-then-write
+        # pattern from Python.
+        stmt = (
+            pg_insert(RateLimitBucketORM)
+            .values(key=key, window_start=window_start, request_count=1)
+            .on_conflict_do_update(
+                index_elements=["key", "window_start"],
+                set_={"request_count": RateLimitBucketORM.request_count + 1},
+            )
+            .returning(RateLimitBucketORM.request_count)
+        )
+        count = self._session.execute(stmt).scalar_one()
+        self._session.flush()
+        return count <= limit
