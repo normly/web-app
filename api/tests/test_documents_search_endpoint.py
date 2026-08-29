@@ -84,3 +84,30 @@ def test_search_endpoint_respects_limit(client, db_session):
     body = response.json()
     assert body["total"] == 3
     assert len(body["results"]) == 2
+
+
+def test_search_endpoint_rejects_a_negative_limit_as_400(client, db_session):
+    # Not a 503: a bad parameter is a client error, and letting an
+    # unauthenticated caller raise the "database unreachable" signal at will
+    # both misleads monitoring and invites a pointless retry.
+    response = client.get(
+        "/v1/documents/search", params={"jurisdiction": "DE", "limit": -1},
+    )
+
+    assert response.status_code == 400
+
+
+def test_search_endpoint_rejects_a_negative_offset_as_400(client, db_session):
+    response = client.get(
+        "/v1/documents/search", params={"jurisdiction": "DE", "offset": -1},
+    )
+
+    assert response.status_code == 400
+
+
+def test_search_endpoint_rejects_a_limit_above_the_maximum_as_400(client, db_session):
+    response = client.get(
+        "/v1/documents/search", params={"jurisdiction": "DE", "limit": 101},
+    )
+
+    assert response.status_code == 400

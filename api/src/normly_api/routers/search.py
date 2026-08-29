@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from normly_core.graph.postgres.repositories import PostgresDocumentRepository
@@ -21,10 +21,16 @@ _MAX_LIMIT = 100
 @search_router.get("/search", response_model=DocumentSearchResponse)
 def search_documents_endpoint(
     jurisdiction: str, q: str | None = None, issuer: str | None = None,
-    limit: int = _DEFAULT_LIMIT, offset: int = 0,
+    # Declarative bounds rather than a manual min() clamp: the clamp only
+    # capped the upper end, so a negative value reached SQL and came back as a
+    # 503 -- an unauthenticated caller could raise the exact signal that means
+    # "the database is down" at will, and the caller was told to retry a
+    # request that can never succeed. These also document themselves in the
+    # OpenAPI schema.
+    limit: int = Query(_DEFAULT_LIMIT, ge=1, le=_MAX_LIMIT),
+    offset: int = Query(0, ge=0),
     session: Session = Depends(get_session),
 ) -> DocumentSearchResponse:
-    limit = min(limit, _MAX_LIMIT)
     doc_repo = PostgresDocumentRepository(session)
     documents, total = doc_repo.search_documents_for_jurisdiction(
         jurisdiction, q=q, issuer=issuer, limit=limit, offset=offset,
