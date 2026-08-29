@@ -134,3 +134,45 @@ def test_search_with_no_filters_returns_everything_in_the_jurisdiction(db_sessio
 
     assert total == 1
     assert [d.id for d in results] == [document.id]
+
+
+def test_a_literal_percent_sign_is_not_treated_as_a_wildcard(db_session):
+    doc_repo = PostgresDocumentRepository(db_session)
+    matching = _seed_document(
+        db_session, issuer="DGUV", designation="DGUV 50% Regel",
+        title="Halbe Sache", content_hash="sha256:search-percent-1",
+    )
+    _seed_document(
+        db_session, issuer="DGUV", designation="DGUV Vorschrift 3",
+        title="Elektrische Anlagen", content_hash="sha256:search-percent-2",
+    )
+
+    results, total = doc_repo.search_documents_for_jurisdiction("DE", q="50%")
+
+    assert total == 1
+    assert [d.id for d in results] == [matching.id]
+
+
+def test_a_bare_percent_sign_does_not_match_the_whole_catalogue(db_session):
+    doc_repo = PostgresDocumentRepository(db_session)
+    _seed_document(
+        db_session, issuer="DGUV", designation="DGUV Vorschrift 1",
+        title="Grundsätze der Prävention", content_hash="sha256:search-percent-3",
+    )
+
+    _, total = doc_repo.search_documents_for_jurisdiction("DE", q="%")
+
+    assert total == 0
+
+
+def test_a_literal_underscore_is_not_treated_as_a_single_character_wildcard(db_session):
+    doc_repo = PostgresDocumentRepository(db_session)
+    _seed_document(
+        db_session, issuer="DGUV", designation="DGUV Vorschrift 1",
+        title="Grundsätze der Prävention", content_hash="sha256:search-underscore-1",
+    )
+
+    # "Vorschrift_1" would match "Vorschrift 1" if _ stayed a wildcard.
+    _, total = doc_repo.search_documents_for_jurisdiction("DE", q="Vorschrift_1")
+
+    assert total == 0

@@ -62,6 +62,19 @@ from normly_core.graph.postgres.orm import (
 )
 
 
+def _escape_like(term: str) -> str:
+    """
+    Neutralise LIKE metacharacters in a caller-supplied search term.
+
+    Not an injection concern -- the term is bound as a parameter either way --
+    but an unescaped "%" matches the whole catalogue in a single request, and
+    someone searching for a literal "100%" would otherwise get wildcard
+    behaviour they never asked for. The backslash goes first, or it would
+    escape the escapes added after it.
+    """
+    return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def _require_active_delivery(session: Session, delivery_id: uuid.UUID) -> None:
     """
     Guard every artifact-creating write path.
@@ -536,13 +549,13 @@ class PostgresDocumentRepository:
                 DocumentDesignationORM.document_id == DocumentORM.id,
             )
             if q is not None:
-                pattern = f"%{q}%"
+                pattern = f"%{_escape_like(q)}%"
                 base = base.where(
                     sa.or_(
-                        DocumentDesignationORM.designation.ilike(pattern),
+                        DocumentDesignationORM.designation.ilike(pattern, escape="\\"),
                         DocumentORM.id.in_(
                             select(DocumentTitleORM.document_id).where(
-                                DocumentTitleORM.title.ilike(pattern)
+                                DocumentTitleORM.title.ilike(pattern, escape="\\")
                             )
                         ),
                     )
