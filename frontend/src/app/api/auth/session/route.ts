@@ -15,7 +15,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     headers: { Authorization: `Bearer ${accountSessionToken}` },
   });
   if (!backendResponse.ok) {
-    return NextResponse.json({ account: null });
+    // The token the browser sent is expired/invalid -- stop it from
+    // resending a dead token as Authorization on every subsequent
+    // /api/chat/etc. call by clearing the stale cookie here too.
+    const response = NextResponse.json({ account: null });
+    response.cookies.delete("normly_account_session");
+    return response;
   }
   const body = await backendResponse.json();
   return NextResponse.json({ account: { accountId: body.account_id, email: body.email } });
