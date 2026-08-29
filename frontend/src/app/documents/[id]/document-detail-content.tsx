@@ -50,7 +50,7 @@ const VALIDITY_KEYS: Record<string, TranslationKey> = {
 export function DocumentDetailContent({ documentId }: { documentId: string }) {
   const { t } = useTranslation();
   const { jurisdiction } = useJurisdiction();
-  const [document, setDocument] = React.useState<DocumentDetail | null>(null);
+  const [documentDetail, setDocumentDetail] = React.useState<DocumentDetail | null>(null);
   const [edges, setEdges] = React.useState<ResolvedEdge[]>([]);
   const [validity, setValidity] = React.useState<ValiditySummary | null>(null);
   const [notFound, setNotFound] = React.useState(false);
@@ -71,7 +71,7 @@ export function DocumentDetailContent({ documentId }: { documentId: string }) {
         setNotFound(true);
         return;
       }
-      setDocument(await documentResponse.json());
+      setDocumentDetail(await documentResponse.json());
       setValidity(validityResponse.ok ? await validityResponse.json() : null);
 
       const rawEdges: RawEdge[] = edgesResponse.ok ? await edgesResponse.json() : [];
@@ -103,14 +103,14 @@ export function DocumentDetailContent({ documentId }: { documentId: string }) {
   if (notFound) {
     return <p>{t("search.notFound")}</p>;
   }
-  if (document === null) {
+  if (documentDetail === null) {
     return null;
   }
 
   const primaryDesignation =
-    document.designations.find((d) => d.is_primary)?.designation ??
-    `${document.origin_issuer} ${document.origin_number}`;
-  const primaryTitle = document.titles[0]?.title;
+    documentDetail.designations.find((d) => d.is_primary)?.designation ??
+    `${documentDetail.origin_issuer} ${documentDetail.origin_number}`;
+  const primaryTitle = documentDetail.titles[0]?.title;
 
   return (
     <div className="flex flex-col gap-4">
@@ -126,12 +126,12 @@ export function DocumentDetailContent({ documentId }: { documentId: string }) {
       )}
 
       <a
-        href={document.source.retrieval_path}
+        href={documentDetail.source.retrieval_path}
         className="text-sm underline"
         target="_blank"
         rel="noopener noreferrer"
       >
-        {document.source.publisher}
+        {documentDetail.source.publisher}
       </a>
 
       {edges.length > 0 && (
