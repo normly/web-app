@@ -26,9 +26,14 @@ def _client_origin_address(request: Request) -> str:
     # safe because the proxy is the sole path to this service; a caller
     # reaching api/ directly could otherwise spoof this header. Falls back to
     # the direct connection address when absent (e.g. local/test requests).
+    #
+    # Rightmost entry, not leftmost: proxies APPEND (nginx's
+    # $proxy_add_x_forwarded_for), so the last entry is what our own trusted
+    # hop observed, while everything left of it is caller-supplied and freely
+    # forgeable. Exactly one hop is trusted, matching the deployment model.
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
-        return forwarded.split(",")[0].strip()
+        return forwarded.split(",")[-1].strip()
     return request.client.host if request.client else "unknown"
 
 

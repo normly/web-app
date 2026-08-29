@@ -122,3 +122,31 @@ def test_the_counter_is_committed_and_outlives_the_request(
 
     assert statuses == [200, 200, 429, 429]
     assert _bucket_total(migrated_engine, anon_id) == 4
+
+
+def test_a_spoofed_leftmost_forwarded_for_does_not_buy_a_fresh_bucket(
+    rate_limited_client, monkeypatch, anon_id,
+):
+    """
+    Proxies append to X-Forwarded-For, so the leftmost entry is whatever the
+    caller sent. Keying on it would let anyone reset their own counter by
+    varying that value; only the rightmost entry -- what our own trusted hop
+    saw -- is trustworthy.
+    """
+    import normly_api.rate_limit as rate_limit_module
+
+    monkeypatch.setattr(rate_limit_module, "_REQUESTS_PER_WINDOW", 1)
+
+    first = rate_limited_client.get(
+        "/v1/documents/search",
+        params={"jurisdiction": "DE"},
+        headers={"X-Normly-Anon-Id": anon_id, "X-Forwarded-For": "203.0.113.9, 10.0.0.1"},
+    )
+    second = rate_limited_client.get(
+        "/v1/documents/search",
+        params={"jurisdiction": "DE"},
+        headers={"X-Normly-Anon-Id": anon_id, "X-Forwarded-For": "198.51.100.4, 10.0.0.1"},
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 429
