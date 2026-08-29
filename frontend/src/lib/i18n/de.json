@@ -26,5 +26,27 @@
     "title": "Chat-Verlauf",
     "empty": "Noch keine Chats vorhanden.",
     "loginRequired": "Melde dich an, um deinen Chat-Verlauf zu sehen."
+  },
+  "search": {
+    "inputPlaceholder": "Regelwerk suchen…",
+    "issuerFilterLabel": "Herausgeber",
+    "searchButton": "Suchen",
+    "empty": "Keine Treffer.",
+    "previousPage": "Zurück",
+    "nextPage": "Weiter",
+    "rateLimited": "Zu viele Anfragen. Bitte melde dich an oder versuche es später erneut.",
+    "notFound": "Regelwerk nicht gefunden."
+  },
+  "edgeType": {
+    "references": "Verweist auf",
+    "replaces": "Ersetzt",
+    "withdrawn_by": "Zurückgezogen durch",
+    "based_on_law": "Basiert auf Gesetz",
+    "adopted_from": "Übernommen von"
+  },
+  "validity": {
+    "valid": "Gültig",
+    "replaced": "Ersetzt",
+    "withdrawn": "Zurückgezogen"
   }
 }

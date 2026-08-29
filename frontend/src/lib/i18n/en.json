@@ -26,5 +26,27 @@
     "title": "Chat history",
     "empty": "No chats yet.",
     "loginRequired": "Log in to see your chat history."
+  },
+  "search": {
+    "inputPlaceholder": "Search for a standard…",
+    "issuerFilterLabel": "Issuer",
+    "searchButton": "Search",
+    "empty": "No results.",
+    "previousPage": "Previous",
+    "nextPage": "Next",
+    "rateLimited": "Too many requests. Please log in or try again later.",
+    "notFound": "Document not found."
+  },
+  "edgeType": {
+    "references": "References",
+    "replaces": "Replaces",
+    "withdrawn_by": "Withdrawn by",
+    "based_on_law": "Based on law",
+    "adopted_from": "Adopted from"
+  },
+  "validity": {
+    "valid": "Valid",
+    "replaced": "Replaced",
+    "withdrawn": "Withdrawn"
   }
 }

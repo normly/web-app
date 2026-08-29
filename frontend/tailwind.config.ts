@@ -19,6 +19,8 @@ const config: Config = {
         accent: "hsl(var(--accent) / <alpha-value>)",
         "accent-foreground": "hsl(var(--accent-foreground) / <alpha-value>)",
         muted: "hsl(var(--muted) / <alpha-value>)",
+        foreground: "hsl(var(--foreground) / <alpha-value>)",
+        "muted-foreground": "hsl(var(--muted-foreground) / <alpha-value>)",
       },
     },
   },
