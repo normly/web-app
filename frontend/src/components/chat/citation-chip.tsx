@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 normly contributors
 
+"use client";
+
+import { useTranslation } from "@/lib/i18n/provider";
+
 export interface CitationView {
   documentId: string;
   // null when resolving the citation to a real link failed -- degrade to
@@ -11,8 +15,9 @@ export interface CitationView {
 }
 
 export function CitationChip({ citation }: { citation: CitationView }) {
+  const { t } = useTranslation();
   if (!citation.href) {
-    return <span className="text-xs text-muted-foreground">Quelle</span>;
+    return <span className="text-xs text-muted-foreground">{t("chat.citationSource")}</span>;
   }
   return (
     <a
@@ -21,7 +26,7 @@ export function CitationChip({ citation }: { citation: CitationView }) {
       rel="noopener noreferrer"
       className="text-xs text-brand underline"
     >
-      Quelle
+      {t("chat.citationSource")}
     </a>
   );
 }

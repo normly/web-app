@@ -1,9 +1,13 @@
 {
+  "common": {
+    "close": "Close"
+  },
   "chat": {
     "sendButton": "Send",
     "inputPlaceholder": "Ask a question…",
     "loading": "Loading answer…",
-    "historyLink": "History"
+    "historyLink": "History",
+    "citationSource": "Source"
   },
   "auth": {
     "loginTab": "Log in",
@@ -15,7 +19,8 @@
     "registerButton": "Create account",
     "magicLinkButton": "Send login link",
     "googleButton": "Sign in with Google",
-    "genericError": "That didn't work. Please try again."
+    "genericError": "That didn't work. Please try again.",
+    "logoutButton": "Log out"
   },
   "history": {
     "title": "Chat history",

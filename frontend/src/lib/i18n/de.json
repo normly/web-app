@@ -1,9 +1,13 @@
 {
+  "common": {
+    "close": "Schließen"
+  },
   "chat": {
     "sendButton": "Senden",
     "inputPlaceholder": "Frage stellen…",
     "loading": "Antwort wird geladen…",
-    "historyLink": "Verlauf"
+    "historyLink": "Verlauf",
+    "citationSource": "Quelle"
   },
   "auth": {
     "loginTab": "Anmelden",
@@ -15,7 +19,8 @@
     "registerButton": "Konto erstellen",
     "magicLinkButton": "Anmeldelink senden",
     "googleButton": "Mit Google anmelden",
-    "genericError": "Das hat leider nicht funktioniert. Bitte versuche es erneut."
+    "genericError": "Das hat leider nicht funktioniert. Bitte versuche es erneut.",
+    "logoutButton": "Abmelden"
   },
   "history": {
     "title": "Chat-Verlauf",
