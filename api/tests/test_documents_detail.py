@@ -6,7 +6,7 @@ import uuid
 
 import pytest
 
-from normly_api.routers.documents import _document_to_response
+from normly_api.routers.documents import document_to_response
 
 from tests.test_documents_search import _seed_document
 
@@ -46,4 +46,4 @@ def test_unresolvable_lineage_raises_a_named_error_not_an_attribute_error(db_ses
     orphaned = dataclasses.replace(document, created_via_delivery_id=uuid.uuid4())
 
     with pytest.raises(RuntimeError, match="unknown delivery"):
-        _document_to_response(orphaned, db_session)
+        document_to_response(orphaned, db_session)

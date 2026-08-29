@@ -20,6 +20,7 @@ def test_openapi_schema_documents_every_v1_endpoint(client):
     paths = set(schema["paths"].keys())
     assert paths == {
         "/v1/documents",
+        "/v1/documents/search",
         "/v1/documents/{document_id}",
         "/v1/documents/{document_id}/edges",
         "/v1/documents/{document_id}/validity",

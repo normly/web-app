@@ -509,6 +509,57 @@ class PostgresDocumentRepository:
         ).scalar_one_or_none()
         return _document_to_domain(orm) if orm else None
 
+    def search_documents_for_jurisdiction(
+        self, jurisdiction: str, *, q: str | None = None, issuer: str | None = None,
+        limit: int = 20, offset: int = 0,
+    ) -> tuple[list[Document], int]:
+        base = (
+            select(DocumentORM)
+            .join(
+                RightsClassificationORM,
+                RightsClassificationORM.document_id == DocumentORM.id,
+            )
+            .where(
+                RightsClassificationORM.jurisdiction == jurisdiction,
+                RightsClassificationORM.may_process.is_(True),
+                RightsClassificationORM.revoked_at.is_(None),
+            )
+        )
+
+        if q is not None or issuer is not None:
+            # A document can have several designations, so this join can
+            # multiply rows -- distinct() below dedupes by DocumentORM's
+            # full column set (id is the primary key among them), which is
+            # equivalent to per-document dedup here.
+            base = base.join(
+                DocumentDesignationORM,
+                DocumentDesignationORM.document_id == DocumentORM.id,
+            )
+            if q is not None:
+                pattern = f"%{q}%"
+                base = base.where(
+                    sa.or_(
+                        DocumentDesignationORM.designation.ilike(pattern),
+                        DocumentORM.id.in_(
+                            select(DocumentTitleORM.document_id).where(
+                                DocumentTitleORM.title.ilike(pattern)
+                            )
+                        ),
+                    )
+                )
+            if issuer is not None:
+                base = base.where(DocumentDesignationORM.issuer == issuer)
+            base = base.distinct()
+
+        total = self._session.execute(
+            select(sa.func.count()).select_from(base.subquery())
+        ).scalar_one()
+
+        rows = self._session.execute(
+            base.order_by(DocumentORM.id).limit(limit).offset(offset)
+        ).scalars()
+        return [_document_to_domain(row) for row in rows], total
+
 
 def _rights_to_domain(orm: RightsClassificationORM) -> RightsClassification:
     return RightsClassification(

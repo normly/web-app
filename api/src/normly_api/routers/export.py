@@ -14,7 +14,7 @@ from normly_core.graph.postgres.repositories import (
 )
 
 from normly_api.dependencies import get_session
-from normly_api.routers.documents import _document_to_response
+from normly_api.routers.documents import document_to_response
 from normly_api.schemas import EdgeResponse, ErrorResponse, ExportResponse, LicenseNotice
 
 export_router = APIRouter(prefix="/v1", tags=["export"])
@@ -53,7 +53,7 @@ def export_free_graph(
     edge_repo = PostgresEdgeRepository(session)
 
     documents = doc_repo.list_exportable_documents_for_jurisdiction(jurisdiction)
-    document_responses = [_document_to_response(d, session) for d in documents]
+    document_responses = [document_to_response(d, session) for d in documents]
 
     seen_edge_ids: set = set()
     edge_responses: list[EdgeResponse] = []

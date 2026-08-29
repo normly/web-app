@@ -40,6 +40,11 @@ class DocumentResponse(BaseModel):
     source: SourceResponse
 
 
+class DocumentSearchResponse(BaseModel):
+    results: list[DocumentResponse]
+    total: int
+
+
 class EdgeResponse(BaseModel):
     edge_type: str
     from_document_id: uuid.UUID

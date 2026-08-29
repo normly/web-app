@@ -232,6 +232,20 @@ class DocumentRepository(Protocol):
 
     def list_documents_for_jurisdiction(self, jurisdiction: str) -> list[Document]: ...
 
+    def search_documents_for_jurisdiction(
+        self, jurisdiction: str, *, q: str | None = None, issuer: str | None = None,
+        limit: int = 20, offset: int = 0,
+    ) -> tuple[list[Document], int]:
+        """
+        Free-text (designation/title, case-insensitive substring) and/or
+        issuer-filtered listing, paginated. Returns (page, total_matching) --
+        `total` reflects the full filtered set, not just this page's length.
+        An empty q and issuer returns the whole jurisdiction, paginated --
+        this is also how "browse by issuer" and "browse everything" work,
+        without a separate method.
+        """
+        ...
+
     def list_exportable_documents_for_jurisdiction(self, jurisdiction: str) -> list[Document]:
         """
         Stricter than `list_documents_for_jurisdiction`: additionally requires

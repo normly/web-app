@@ -27,7 +27,7 @@ from normly_api.schemas import (
 documents_router = APIRouter(prefix="/v1/documents", tags=["documents"])
 
 
-def _document_to_response(document: Document, session: Session) -> DocumentResponse:
+def document_to_response(document: Document, session: Session) -> DocumentResponse:
     """
     Build the full DocumentResponse for a document that has ALREADY passed the
     jurisdiction gate (get_document_for_jurisdiction returned non-None for it).
@@ -102,7 +102,7 @@ def search_documents(
             status_code=404, detail="no document matches this designation"
         )
 
-    return _document_to_response(gated, session)
+    return document_to_response(gated, session)
 
 
 @documents_router.get(
@@ -117,4 +117,4 @@ def get_document(
     if gated is None:
         raise HTTPException(status_code=404, detail="document not found")
 
-    return _document_to_response(gated, session)
+    return document_to_response(gated, session)
