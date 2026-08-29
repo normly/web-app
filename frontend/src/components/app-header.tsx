@@ -61,6 +61,9 @@ export function AppHeader({
         <span className="font-semibold">{instanceName}</span>
       )}
       <div className="flex items-center gap-2">
+        <Link href="/search" className="text-sm underline">
+          {t("search.navLink")}
+        </Link>
         {showHistoryLink && (
           <Link href="/chats" className="text-sm underline">
             {t("chat.historyLink")}

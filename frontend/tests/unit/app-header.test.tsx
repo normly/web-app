@@ -86,4 +86,15 @@ describe("AppHeader", () => {
     );
     expect(screen.queryByRole("link", { name: "Verlauf" })).not.toBeInTheDocument();
   });
+  it("always links to the search page, independent of showHistoryLink", async () => {
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ account: null })));
+    render(
+      <LocaleProvider initialLocale="de">
+        <JurisdictionProvider initialJurisdiction="DE">
+          <AppHeader instanceName="normly" logoPath={null} showHistoryLink={false} />
+        </JurisdictionProvider>
+      </LocaleProvider>,
+    );
+    expect(screen.getByRole("link", { name: "Suche" })).toHaveAttribute("href", "/search");
+  });
 });

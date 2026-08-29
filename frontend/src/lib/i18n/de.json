@@ -28,6 +28,7 @@
     "loginRequired": "Melde dich an, um deinen Chat-Verlauf zu sehen."
   },
   "search": {
+    "navLink": "Suche",
     "inputPlaceholder": "Regelwerk suchen…",
     "issuerFilterLabel": "Herausgeber",
     "searchButton": "Suchen",

@@ -28,6 +28,7 @@
     "loginRequired": "Log in to see your chat history."
   },
   "search": {
+    "navLink": "Search",
     "inputPlaceholder": "Search for a standard…",
     "issuerFilterLabel": "Issuer",
     "searchButton": "Search",
