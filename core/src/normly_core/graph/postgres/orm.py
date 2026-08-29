@@ -486,3 +486,8 @@ class RateLimitBucketORM(Base):
         sa.DateTime(timezone=True), primary_key=True
     )
     request_count: Mapped[int] = mapped_column(default=0)
+
+    # The retention cleanup (delete_buckets_before) filters purely on
+    # window_start and runs on every request; without this index that
+    # filter forces a full table scan each time.
+    __table_args__ = (sa.Index("ix_rate_limit_bucket_window_start", "window_start"),)
