@@ -14,6 +14,7 @@
 import * as React from "react";
 import { MessageList, type ChatMessageView } from "@/components/chat/message-list";
 import { ChatInput } from "@/components/chat/chat-input";
+import { useTranslation } from "@/lib/i18n/provider";
 
 interface ChatApiResponse {
   answer: string;
@@ -22,6 +23,7 @@ interface ChatApiResponse {
 }
 
 export function HomePageContent() {
+  const { locale } = useTranslation();
   const [messages, setMessages] = React.useState<ChatMessageView[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
 
@@ -32,7 +34,7 @@ export function HomePageContent() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ jurisdiction: "DE", language: "de", message }),
+        body: JSON.stringify({ jurisdiction: "DE", language: locale, message }),
       });
       const body: ChatApiResponse = await response.json();
       const citations = await Promise.all(
