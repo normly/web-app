@@ -40,4 +40,16 @@ describe("GET /api/documents/[id]/edges", () => {
     expect(url).not.toContain("/../../admin/");
     expect(url).toContain(encodeURIComponent("../../admin"));
   });
+  it("forwards the normly_anon_id cookie as an X-Normly-Anon-Id header", async () => {
+    vi.stubEnv("NORMLY_API_BASE_URL", "http://api.internal");
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify([]), { status: 200 }));
+
+    const request = new NextRequest("http://localhost/api/documents/abc/edges", {
+      headers: { cookie: "normly_anon_id=anon-123" },
+    });
+    await GET(request, { params: { id: "abc" } });
+
+    const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(init.headers["X-Normly-Anon-Id"]).toBe("anon-123");
+  });
 });

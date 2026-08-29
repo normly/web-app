@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getBackendUrls } from "@/lib/backend-urls";
+import { rateLimitHeaders } from "@/lib/rate-limit-headers";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const incoming = request.nextUrl.searchParams;
@@ -17,17 +18,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const offset = incoming.get("offset");
   if (offset) forwarded.set("offset", offset);
 
-  const anonId = request.cookies.get("normly_anon_id")?.value;
-  const forwardedFor = request.headers.get("x-forwarded-for");
-
   const backendResponse = await fetch(
     `${getBackendUrls().api}/v1/documents/search?${forwarded.toString()}`,
-    {
-      headers: {
-        ...(anonId ? { "X-Normly-Anon-Id": anonId } : {}),
-        ...(forwardedFor ? { "X-Forwarded-For": forwardedFor } : {}),
-      },
-    },
+    { headers: rateLimitHeaders(request) },
   );
   const body = await backendResponse.json();
   return NextResponse.json(body, { status: backendResponse.status });
