@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 normly contributors
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getBackendUrls } from "@/lib/backend-urls";
 
 // This GET handler takes no request param and calls no dynamic API, so
