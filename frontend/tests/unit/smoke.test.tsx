@@ -3,12 +3,20 @@
 // Copyright (C) 2026 normly contributors
 
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { LocaleProvider } from "@/lib/i18n/provider";
 import HomePage from "@/app/page";
 
+const originalFetch = global.fetch;
+
 describe("HomePage", () => {
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
   it("renders without crashing", () => {
+    // AppHeader checks /api/auth/session on mount.
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ account: null })));
     render(
       <LocaleProvider initialLocale="de">
         <HomePage />
@@ -18,6 +26,7 @@ describe("HomePage", () => {
   });
 
   it("renders a link to the chat history page", () => {
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ account: null })));
     render(
       <LocaleProvider initialLocale="de">
         <HomePage />

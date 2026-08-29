@@ -44,27 +44,35 @@ export function ChatsPageContent() {
     };
   }, []);
 
+  // The h1 lives here (rather than in page.tsx) because page.tsx is a
+  // Server Component -- it calls getInstanceConfig() to feed AppHeader --
+  // and this title needs useTranslation()'s client-only context.
+  let body: React.ReactNode = null;
   if (requiresLogin) {
-    return <p>{t("history.loginRequired")}</p>;
-  }
-  if (sessions === null) {
-    return null;
-  }
-  if (sessions.length === 0) {
-    return <p>{t("history.empty")}</p>;
+    body = <p>{t("history.loginRequired")}</p>;
+  } else if (sessions !== null && sessions.length === 0) {
+    body = <p>{t("history.empty")}</p>;
+  } else if (sessions !== null) {
+    // Not a link: full click-to-reopen session resumption (loading this
+    // session's past messages into the chat UI on `/`) is real feature
+    // work that hasn't been built yet -- `/` never reads a `session`
+    // query param. Linking to `/?session=${session.session_token}` would
+    // both do nothing and leak a live session credential into the
+    // browser's address bar, history, and any access log. Plain text
+    // until resumption is built.
+    body = (
+      <ul className="flex flex-col gap-2">
+        {sessions.map((session) => (
+          <li key={session.id}>{new Date(session.created_at).toLocaleDateString()}</li>
+        ))}
+      </ul>
+    );
   }
 
-  // Not a link: full click-to-reopen session resumption (loading this
-  // session's past messages into the chat UI on `/`) is real feature work
-  // that hasn't been built yet -- `/` never reads a `session` query param.
-  // Linking to `/?session=${session.session_token}` would both do nothing
-  // and leak a live session credential into the browser's address bar,
-  // history, and any access log. Plain text until resumption is built.
   return (
-    <ul className="flex flex-col gap-2">
-      {sessions.map((session) => (
-        <li key={session.id}>{new Date(session.created_at).toLocaleDateString()}</li>
-      ))}
-    </ul>
+    <>
+      <h1 className="mb-4 text-xl font-semibold">{t("history.title")}</h1>
+      {body}
+    </>
   );
 }
