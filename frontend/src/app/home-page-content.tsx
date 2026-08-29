@@ -15,6 +15,7 @@ import * as React from "react";
 import { MessageList, type ChatMessageView } from "@/components/chat/message-list";
 import { ChatInput } from "@/components/chat/chat-input";
 import { useTranslation } from "@/lib/i18n/provider";
+import { useJurisdiction } from "@/lib/jurisdiction/provider";
 
 interface ChatApiResponse {
   answer: string;
@@ -24,6 +25,7 @@ interface ChatApiResponse {
 
 export function HomePageContent() {
   const { locale } = useTranslation();
+  const { jurisdiction } = useJurisdiction();
   const [messages, setMessages] = React.useState<ChatMessageView[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
 
@@ -34,14 +36,14 @@ export function HomePageContent() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ jurisdiction: "DE", language: locale, message }),
+        body: JSON.stringify({ jurisdiction, language: locale, message }),
       });
       const body: ChatApiResponse = await response.json();
       const citations = await Promise.all(
         body.citations.map(async (citation) => {
           try {
             const documentResponse = await fetch(
-              `/api/documents/${citation.document_id}?jurisdiction=DE`,
+              `/api/documents/${citation.document_id}?jurisdiction=${jurisdiction}`,
             );
             const document = await documentResponse.json();
             return { documentId: citation.document_id, href: document.source?.retrieval_path ?? null };

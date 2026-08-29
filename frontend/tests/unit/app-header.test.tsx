@@ -5,6 +5,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LocaleProvider } from "@/lib/i18n/provider";
+import { JurisdictionProvider } from "@/lib/jurisdiction/provider";
 import { AppHeader } from "@/components/app-header";
 
 const originalFetch = global.fetch;
@@ -18,7 +19,9 @@ describe("AppHeader", () => {
     global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ account: null })));
     render(
       <LocaleProvider initialLocale="de">
-        <AppHeader instanceName="Beispiel-Institut" logoPath={null} />
+        <JurisdictionProvider initialJurisdiction="DE">
+          <AppHeader instanceName="Beispiel-Institut" logoPath={null} />
+        </JurisdictionProvider>
       </LocaleProvider>,
     );
     expect(screen.getByText("Beispiel-Institut")).toBeInTheDocument();
@@ -30,7 +33,9 @@ describe("AppHeader", () => {
     global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ account: null })));
     render(
       <LocaleProvider initialLocale="de">
-        <AppHeader instanceName="Beispiel-Institut" logoPath="/logo.svg" />
+        <JurisdictionProvider initialJurisdiction="DE">
+          <AppHeader instanceName="Beispiel-Institut" logoPath="/logo.svg" />
+        </JurisdictionProvider>
       </LocaleProvider>,
     );
     const logo = await screen.findByRole("img");
@@ -42,7 +47,9 @@ describe("AppHeader", () => {
     global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ account: null })));
     render(
       <LocaleProvider initialLocale="de">
-        <AppHeader instanceName="normly" logoPath={null} />
+        <JurisdictionProvider initialJurisdiction="DE">
+          <AppHeader instanceName="normly" logoPath={null} />
+        </JurisdictionProvider>
       </LocaleProvider>,
     );
     await waitFor(() =>
@@ -58,7 +65,9 @@ describe("AppHeader", () => {
     );
     render(
       <LocaleProvider initialLocale="de">
-        <AppHeader instanceName="normly" logoPath={null} />
+        <JurisdictionProvider initialJurisdiction="DE">
+          <AppHeader instanceName="normly" logoPath={null} />
+        </JurisdictionProvider>
       </LocaleProvider>,
     );
     await waitFor(() => expect(screen.getByText("a@example.de")).toBeInTheDocument());
@@ -70,7 +79,9 @@ describe("AppHeader", () => {
     global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ account: null })));
     render(
       <LocaleProvider initialLocale="de">
-        <AppHeader instanceName="normly" logoPath={null} showHistoryLink={false} />
+        <JurisdictionProvider initialJurisdiction="DE">
+          <AppHeader instanceName="normly" logoPath={null} showHistoryLink={false} />
+        </JurisdictionProvider>
       </LocaleProvider>,
     );
     expect(screen.queryByRole("link", { name: "Verlauf" })).not.toBeInTheDocument();

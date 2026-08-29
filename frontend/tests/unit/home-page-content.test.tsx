@@ -5,6 +5,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LocaleProvider } from "@/lib/i18n/provider";
+import { JurisdictionProvider } from "@/lib/jurisdiction/provider";
 import { HomePageContent } from "@/app/home-page-content";
 
 const originalFetch = global.fetch;
@@ -23,7 +24,9 @@ describe("HomePageContent", () => {
     );
     render(
       <LocaleProvider initialLocale="en">
-        <HomePageContent />
+        <JurisdictionProvider initialJurisdiction="DE">
+          <HomePageContent />
+        </JurisdictionProvider>
       </LocaleProvider>,
     );
 

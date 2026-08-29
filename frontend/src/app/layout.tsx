@@ -7,6 +7,7 @@ import { cookies, headers } from "next/headers";
 import { getInstanceConfig } from "@/lib/config";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import { LocaleProvider, type Locale } from "@/lib/i18n/provider";
+import { JurisdictionProvider, JURISDICTIONS, type Jurisdiction } from "@/lib/jurisdiction/provider";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
@@ -29,9 +30,18 @@ function resolveInitialLocale(): Locale {
   return acceptLanguage.toLowerCase().startsWith("en") ? "en" : "de";
 }
 
+function resolveInitialJurisdiction(): Jurisdiction {
+  const cookieJurisdiction = cookies().get("normly_jurisdiction")?.value;
+  if ((JURISDICTIONS as readonly string[]).includes(cookieJurisdiction ?? "")) {
+    return cookieJurisdiction as Jurisdiction;
+  }
+  return "DE";
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const config = getInstanceConfig();
   const initialLocale = resolveInitialLocale();
+  const initialJurisdiction = resolveInitialJurisdiction();
   return (
     <html
       lang={initialLocale}
@@ -39,8 +49,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <body>
         <LocaleProvider initialLocale={initialLocale}>
-          <ServiceWorkerRegistration />
-          {children}
+          <JurisdictionProvider initialJurisdiction={initialJurisdiction}>
+            <ServiceWorkerRegistration />
+            {children}
+          </JurisdictionProvider>
         </LocaleProvider>
       </body>
     </html>

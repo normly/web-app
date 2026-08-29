@@ -8,6 +8,7 @@ import * as React from "react";
 import Link from "next/link";
 import { AuthDialog } from "@/components/auth/auth-dialog";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { JurisdictionSwitcher } from "@/components/jurisdiction-switcher";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n/provider";
 
@@ -66,6 +67,7 @@ export function AppHeader({
           </Link>
         )}
         <LocaleSwitcher />
+        <JurisdictionSwitcher />
         {account ? (
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">{account.email}</span>
