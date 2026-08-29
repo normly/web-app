@@ -10,10 +10,18 @@ klickbare Dokumentdetailseite über den bestehenden `api/`-Dienst — ohne Sprac
    Gültigkeitsstatus) + eigene Browse-Ansicht nach Herausgeber, unabhängig von einer
    Sucheingabe.
 2. **Ratenbegrenzung:** Jetzt eine einfache serverseitige Ratenbegrenzung in `api/`
-   mitbauen (Postgres-gestützt, herkunftsadressbasiert), statt sie weiter als offenen
-   Punkt zu verschieben — die durchsuchbare Katalogansicht ist ein deutlich
-   attraktiveres Ziel für automatisierte Massenabfragen als der bisherige Chat.
-3. **Jurisdiktion:** Wird app-weiter Zustand (neuer `normly_jurisdiction`-Cookie,
+   mitbauen (Postgres-gestützt), statt sie weiter als offenen Punkt zu verschieben —
+   die durchsuchbare Katalogansicht ist ein deutlich attraktiveres Ziel für
+   automatisierte Massenabfragen als der bisherige Chat.
+3. **Sitzungsmerkmal für die Ratenbegrenzung:** REQ-ACC-003 verlangt die Zählung
+   "anhand eines vergebenen Sitzungsmerkmals in Verbindung mit der Herkunftsadresse"
+   — nicht Herkunftsadresse allein. Statt das als offenen Punkt stehen zu lassen,
+   vergibt das Frontend-BFF einen neuen, eigenständigen anonymen Identifier-Cookie
+   (`normly_anon_id`, getrennt von Chat-/Konto-Sitzung, nur für Ratenbegrenzung
+   gedacht), der bei jedem `api/`-Aufruf als Header mitgeschickt wird. `api/`s
+   Ratenbegrenzung schlüsselt auf (Anon-Id + Herkunftsadresse) statt nur
+   Herkunftsadresse.
+4. **Jurisdiktion:** Wird app-weiter Zustand (neuer `normly_jurisdiction`-Cookie,
    analog zum bestehenden `normly_locale`), gilt für Chat **und** Suche/Browsing
    gemeinsam. Behebt nebenbei die bisher fest kodierte `"DE"`-Vorgabe im Chat-Aufruf.
    Start-Auswahl: DE (Default) und EU — beide bereits in vorhandenen Testdaten
@@ -48,27 +56,39 @@ Browse-nach-Herausgeber mit einem Endpunkt ab, statt zwei separate zu bauen:
   Erweiterung um `q`/`issuer`-Filter und Pagination — keine neue Abstraktion, kein
   Bruch von ADR-006 (Datenbankzugriff nur über die Repository-Schicht).
 
-**Ratenbegrenzung** — bewusst minimal, deckt REQ-ACC-003 in seiner Absicht, nicht in
-jedem Detail ab:
+**Ratenbegrenzung** — deckt REQ-ACC-003 jetzt vollständig ab (Sitzungsmerkmal **und**
+Herkunftsadresse gemeinsam), nicht nur einen Teilaspekt:
 
 - Postgres-gestützter Zähler (kein Redis — nicht Teil des freigegebenen Stacks nach
   CLAUDE.md; Postgres ist ohnehin die gemeinsame Datenhaltung und funktioniert daher
   korrekt auch über mehrere `api/`-Replicas hinweg, anders als ein reiner
   In-Memory-Zähler pro Prozess).
-- Schlüssel: Herkunftsadresse, ausgelesen aus `X-Forwarded-For` (vom vorgeschalteten
-  Reverse Proxy gesetzt) mit Fallback auf die direkte Verbindungsadresse.
-- Festes Zeitfenster (60 anonyme Anfragen/Minute je Herkunftsadresse, über alle
+- Schlüssel: die Kombination aus einem anonymen Sitzungsmerkmal (siehe unten) und der
+  Herkunftsadresse, ausgelesen aus `X-Forwarded-For` (vom vorgeschalteten Reverse
+  Proxy gesetzt) mit Fallback auf die direkte Verbindungsadresse.
+- **Sitzungsmerkmal:** `api/` selbst bleibt bewusst zustandslos — die Vergabe eines
+  Anonym-Identifiers passt konzeptionell an den Rand der Anwendung, nicht in den
+  Kern-Datendienst. Das Frontend-BFF vergibt daher beim ersten Besuch einen neuen,
+  eigenständigen Cookie `normly_anon_id` (httpOnly, zufälliger Wert, ~1 Jahr Laufzeit
+  — getrennt von `normly_session`/`normly_account_session`, ausschließlich für
+  Ratenbegrenzung, keine Verknüpfung zu Chat-Verlauf oder Konto) und reicht ihn bei
+  jedem `api/`-Aufruf als Header `X-Normly-Anon-Id` durch. `api/`s
+  Ratenbegrenzungs-Dependency liest diesen Header, falls vorhanden, und schlüsselt
+  auf `(anon_id, Herkunftsadresse)`; fehlt der Header (z. B. ein hypothetischer
+  künftiger Direktzugriff ohne das Frontend-BFF), fällt sie auf die Herkunftsadresse
+  allein zurück, statt die Anfrage abzulehnen.
+- Festes Zeitfenster (60 anonyme Anfragen/Minute je Schlüssel, über alle
   `api/`-Endpunkte hinweg, nicht nur die Suche) als wiederverwendbare
   FastAPI-Dependency.
-- **Bewusste Lücke, nicht stillschweigend übergangen:** REQ-ACC-003 verlangt die
-  Zählung "anhand eines vergebenen Sitzungsmerkmals in Verbindung mit der
-  Herkunftsadresse" — `api/` hat aktuell kein Sitzungskonzept (anders als `chat/` und
-  `accounts/`). Diese Ratenbegrenzung deckt nur die Herkunftsadresse ab. Ein
-  Sitzungsmerkmal für anonyme `api/`-Zugriffe nachzurüsten ist ein eigenständiges
-  Thema (vermutlich Teil der volleren REQ-SEC-004-Anomalieerkennung) und bleibt
-  offener Punkt.
 
 ### Frontend
+
+**Anonym-Identifier für die Ratenbegrenzung:** Da Next.js Server Components während
+des Renderns keine Cookies setzen können, übernimmt das eine neue, minimale
+`middleware.ts` (bislang nicht vorhanden im Projekt) — läuft vor jeder Anfrage,
+prüft auf `normly_anon_id` und setzt ihn bei Fehlen einmalig. Damit ist der Cookie
+unabhängig davon gesetzt, welche Seite zuerst besucht wird, ohne dass jeder einzelne
+BFF-Route-Handler diese Logik dupliziert.
 
 **Neue Seiten:**
 - `/search` — Sucheingabe + paginierte Trefferliste, Filter nach Herausgeber. Ohne
@@ -134,22 +154,24 @@ sowohl Chat- als auch Such-/Browse-Aufrufe verwenden ihn.
 
 - **`api/`:** Pytest für den neuen Such-Endpunkt (Treffer/Filter/Pagination/
   Rechtegate) und für die Ratenbegrenzung — inklusive eines Tests, der das
-  Zeitfenster tatsächlich auslöst und den 429 verifiziert, nicht nur die
-  Dependency-Verdrahtung.
+  Zeitfenster tatsächlich auslöst und den 429 verifiziert, sowie eines Tests, der
+  bestätigt, dass zwei unterschiedliche `X-Normly-Anon-Id`-Werte von derselben
+  Herkunftsadresse getrennt gezählt werden (nicht nur die Dependency-Verdrahtung).
 - **`core/`:** Repository-Test für die erweiterte `list_documents_for_jurisdiction`
   (Filter- und Pagination-Verhalten), gleiches Muster wie die bestehenden
   Repository-Tests.
-- **`frontend/`:** Vitest-Unit-Tests für die neuen BFF-Routen (inkl. eines
-  Encoding-Tests nach dem Vorbild des in Sub-Projekt 1 gefundenen Path-Traversal-Fixes)
-  und Komponenten, Playwright-Erweiterung der bestehenden E2E-Suite um einen
-  Such-und-Detail-Durchlauf.
+- **`frontend/`:** Test für die neue `middleware.ts` (`normly_anon_id` wird bei
+  fehlendem Cookie gesetzt, bei vorhandenem Cookie unverändert gelassen),
+  Vitest-Unit-Tests für die neuen BFF-Routen (inkl. eines Encoding-Tests nach dem
+  Vorbild des in Sub-Projekt 1 gefundenen Path-Traversal-Fixes) und Komponenten,
+  Playwright-Erweiterung der bestehenden E2E-Suite um einen Such-und-Detail-Durchlauf.
 
 ## Bezug zu Requirements und ADRs
 
 | Requirement/ADR | Bezug |
 |---|---|
 | REQ-ACC-001 (anonyme Basisnutzung) | Suche/Browsing/Referenzgraph-Abfrage funktionieren ohne Konto |
-| REQ-ACC-003 (Kontingent anonyme Nutzung) | Ratenbegrenzung deckt die Herkunftsadresse ab; Sitzungsmerkmal-Kombination bleibt offener Punkt |
+| REQ-ACC-003 (Kontingent anonyme Nutzung) | Ratenbegrenzung deckt Sitzungsmerkmal (`normly_anon_id`) **und** Herkunftsadresse gemeinsam ab, wie im Wortlaut gefordert |
 | REQ-GRAPH-001/003/004 | Neuer Endpunkt bleibt hinter der Repository-Abstraktion, rein deterministisch, kein Modellaufruf |
 | REQ-GRAPH-005 (Internationalisierung) | Jurisdiktions-Auswahl macht die von Anfang an mehrsprachig/mehrrechtsraum-fähige Graphmodellierung erstmals in der UI sichtbar |
 | REQ-GRAPH-006 (rechtsraumabhängige Klassifikation) | Suchendpunkt filtert wie alle bestehenden Endpunkte strikt nach `jurisdiction` |
@@ -159,8 +181,6 @@ sowohl Chat- als auch Such-/Browse-Aufrufe verwenden ihn.
 
 ## Offene Punkte
 
-- Sitzungsmerkmal-Komponente der Ratenbegrenzung (REQ-ACC-003 vollständig) — `api/`
-  hat kein Sitzungskonzept; Nachrüstung ist eigenständiges Thema.
 - Volle Anomalieerkennung/protokollbasierte Auswertung je Herausgeber (REQ-SEC-004)
   — nur die Ratenbegrenzung ist Teil dieses Sub-Projekts.
 - Weitere Rechtsräume über DE/EU hinaus — Auswahl ist als einfache, erweiterbare
