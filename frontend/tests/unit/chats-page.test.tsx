@@ -37,7 +37,7 @@ describe("ChatsPageContent", () => {
     await waitFor(() => expect(screen.getByText("Noch keine Chats vorhanden.")).toBeInTheDocument());
   });
 
-  it("lists sessions with a link to reopen each one", async () => {
+  it("lists sessions as plain text, without a reopen link or the raw session token", async () => {
     global.fetch = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify([
@@ -54,6 +54,15 @@ describe("ChatsPageContent", () => {
         <ChatsPageContent />
       </LocaleProvider>,
     );
-    await waitFor(() => expect(screen.getByRole("link")).toHaveAttribute("href", "/?session=tok-1"));
+    // Full click-to-reopen resumption isn't built yet (`/` never reads a
+    // `session` query param), so the entry must not be an <a>/<Link> --
+    // and, since that link used to be `/?session=<token>`, the raw session
+    // token credential must never appear anywhere in the rendered output.
+    await waitFor(() =>
+      expect(screen.getByText(new Date("2026-01-01T00:00:00Z").toLocaleDateString())).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("tok-1");
+    expect(document.body.innerHTML).not.toContain("tok-1");
   });
 });

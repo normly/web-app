@@ -14,7 +14,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useTranslation } from "@/lib/i18n/provider";
 
 interface ChatSessionSummary {
@@ -55,14 +54,16 @@ export function ChatsPageContent() {
     return <p>{t("history.empty")}</p>;
   }
 
+  // Not a link: full click-to-reopen session resumption (loading this
+  // session's past messages into the chat UI on `/`) is real feature work
+  // that hasn't been built yet -- `/` never reads a `session` query param.
+  // Linking to `/?session=${session.session_token}` would both do nothing
+  // and leak a live session credential into the browser's address bar,
+  // history, and any access log. Plain text until resumption is built.
   return (
     <ul className="flex flex-col gap-2">
       {sessions.map((session) => (
-        <li key={session.id}>
-          <Link href={`/?session=${session.session_token}`} className="underline">
-            {new Date(session.created_at).toLocaleDateString()}
-          </Link>
-        </li>
+        <li key={session.id}>{new Date(session.created_at).toLocaleDateString()}</li>
       ))}
     </ul>
   );
