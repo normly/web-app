@@ -74,6 +74,32 @@ describe("POST /api/chat", () => {
     expect(init.headers.Authorization).toBe("Bearer my-account-token");
   });
 
+  it("sends no Authorization header when there is no account cookie (anonymous chat)", async () => {
+    vi.stubEnv("NORMLY_API_BASE_URL", "http://api.internal");
+    vi.stubEnv("NORMLY_ACCOUNTS_BASE_URL", "http://accounts.internal");
+    vi.stubEnv("NORMLY_CHAT_BASE_URL", "http://chat.internal");
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          session_token: "tok", answer: "x", answer_type: "fallback", citations: [],
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const request = new NextRequest("http://localhost/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ jurisdiction: "DE", language: "de", message: "Testfrage" }),
+      headers: { "content-type": "application/json" },
+    });
+
+    await POST(request);
+
+    const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(init.headers.Authorization).toBeUndefined();
+    expect("Authorization" in init.headers).toBe(false);
+  });
+
   it("passes through a 503 from chat/ without crashing", async () => {
     vi.stubEnv("NORMLY_API_BASE_URL", "http://api.internal");
     vi.stubEnv("NORMLY_ACCOUNTS_BASE_URL", "http://accounts.internal");
