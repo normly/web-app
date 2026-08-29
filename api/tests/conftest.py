@@ -66,13 +66,25 @@ def client(db_url, monkeypatch, db_session):
     The app's own lifespan still needs NORMLY_DATABASE_URL set (it creates its
     own, separate engine on startup) even though requests never use that
     engine directly -- the override intercepts get_session before it would.
+
+    enforce_rate_limit is overridden to a no-op by default. It deliberately
+    ignores get_session and opens its own committing session (see
+    rate_limit.py), so without this override every test in the suite would
+    write real, persisted rows into the session-scoped container's
+    rate_limit_bucket. Nearly all tests share one TestClient origin and send
+    no anon-id, so the whole suite would share a single bucket key inside one
+    real-world minute and start 429-ing unrelated tests once it crossed the
+    limit. Tests that are *about* rate limiting pop this override to exercise
+    the real dependency -- see tests/test_rate_limit.py.
     """
     monkeypatch.setenv("NORMLY_DATABASE_URL", db_url)
     from normly_api.dependencies import get_session
     from normly_api.main import create_app
+    from normly_api.rate_limit import enforce_rate_limit
 
     app = create_app()
     app.dependency_overrides[get_session] = lambda: db_session
+    app.dependency_overrides[enforce_rate_limit] = lambda: None
 
     with TestClient(app) as test_client:
         yield test_client

@@ -5,12 +5,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import HTTPException, Request
 from sqlalchemy.orm import Session
 
 from normly_core.graph.postgres.repositories import PostgresRateLimitRepository
-
-from normly_api.dependencies import get_session
 
 # 60 anonymous requests/minute per key, applied to every api/ endpoint (not
 # just search) -- see docs/superpowers/specs/2026-08-29-reference-graph-
@@ -34,7 +32,7 @@ def _client_origin_address(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def enforce_rate_limit(request: Request, session: Session = Depends(get_session)) -> None:
+def enforce_rate_limit(request: Request) -> None:
     # X-Normly-Anon-Id is set by the frontend BFF's middleware and forwarded
     # on every proxied api/ call -- see frontend/src/middleware.ts. Its
     # absence (a hypothetical direct caller bypassing the frontend) degrades
@@ -44,8 +42,19 @@ def enforce_rate_limit(request: Request, session: Session = Depends(get_session)
     key = f"{anon_id}:{origin}" if anon_id else origin
 
     window_start = datetime.now(timezone.utc).replace(second=0, microsecond=0)
-    allowed = PostgresRateLimitRepository(session).record_and_check(
-        key=key, window_start=window_start, limit=_REQUESTS_PER_WINDOW,
-    )
+
+    # Deliberately NOT the request's own session (get_session): that session is
+    # closed -- and therefore rolled back -- at the end of the request, and
+    # repository methods in this codebase flush but never commit. Counting a
+    # request must survive the request, including when the handler afterwards
+    # raises: a 404 from a scanned document ID has to count against the caller's
+    # quota, because ID scanning is exactly the abuse this guards against.
+    engine = request.app.state.engine
+    with Session(engine) as session:
+        allowed = PostgresRateLimitRepository(session).record_and_check(
+            key=key, window_start=window_start, limit=_REQUESTS_PER_WINDOW,
+        )
+        session.commit()
+
     if not allowed:
         raise HTTPException(status_code=429, detail="rate limit exceeded")
