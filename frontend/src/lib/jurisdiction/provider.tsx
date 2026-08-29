@@ -5,6 +5,7 @@
 "use client";
 
 import * as React from "react";
+import { JURISDICTIONS, type Jurisdiction } from "./constants";
 
 // Mirrors lib/i18n/provider.tsx's LocaleProvider exactly: a small React
 // Context so any client component (JurisdictionSwitcher, the chat send
@@ -12,8 +13,12 @@ import * as React from "react";
 // jurisdiction without prop-drilling, persisted via a plain (non-httpOnly --
 // this is UI state, not a security-relevant token) cookie the root layout
 // reads server-side on the next request.
-export const JURISDICTIONS = ["DE", "EU"] as const;
-export type Jurisdiction = (typeof JURISDICTIONS)[number];
+//
+// JURISDICTIONS/Jurisdiction live in ./constants, not here, and are
+// re-exported below only for this module's existing client consumers --
+// layout.tsx (a Server Component) must import them directly from
+// ./constants instead. See constants.ts for why.
+export { JURISDICTIONS, type Jurisdiction };
 
 interface JurisdictionContextValue {
   jurisdiction: Jurisdiction;

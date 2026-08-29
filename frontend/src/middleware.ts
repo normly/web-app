@@ -2,7 +2,14 @@
 // Copyright (C) 2026 normly contributors
 
 import { NextRequest, NextResponse } from "next/server";
-import { randomUUID } from "crypto";
+
+// Deliberately NOT `import { randomUUID } from "crypto"` -- Node's crypto
+// module is not supported in the Edge Runtime middleware actually executes
+// in at request time (this compiles and passes unit tests, which run
+// middleware() directly in Node, but 500s on every real request once built
+// and served: "The edge runtime does not support Node.js 'crypto' module").
+// The Web Crypto API's global `crypto.randomUUID()` is the edge-compatible
+// equivalent and is available in both the Edge Runtime and Node 19+.
 
 const ANON_ID_COOKIE = "normly_anon_id";
 const ANON_ID_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
@@ -18,7 +25,7 @@ const ANON_ID_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 export function middleware(request: NextRequest): NextResponse {
   const response = NextResponse.next();
   if (!request.cookies.get(ANON_ID_COOKIE)) {
-    response.cookies.set(ANON_ID_COOKIE, randomUUID(), {
+    response.cookies.set(ANON_ID_COOKIE, crypto.randomUUID(), {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

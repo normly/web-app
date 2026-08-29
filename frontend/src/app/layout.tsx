@@ -7,7 +7,8 @@ import { cookies, headers } from "next/headers";
 import { getInstanceConfig } from "@/lib/config";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import { LocaleProvider, type Locale } from "@/lib/i18n/provider";
-import { JurisdictionProvider, JURISDICTIONS, type Jurisdiction } from "@/lib/jurisdiction/provider";
+import { JurisdictionProvider } from "@/lib/jurisdiction/provider";
+import { JURISDICTIONS, type Jurisdiction } from "@/lib/jurisdiction/constants";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
