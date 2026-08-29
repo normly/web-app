@@ -11,7 +11,8 @@ export async function GET(
 ): Promise<NextResponse> {
   const jurisdiction = request.nextUrl.searchParams.get("jurisdiction") ?? "DE";
   const backendResponse = await fetch(
-    `${getBackendUrls().api}/v1/documents/${params.id}?jurisdiction=${jurisdiction}`,
+    `${getBackendUrls().api}/v1/documents/${encodeURIComponent(params.id)}` +
+      `?jurisdiction=${encodeURIComponent(jurisdiction)}`,
   );
   const body = await backendResponse.json();
   return NextResponse.json(body, { status: backendResponse.status });
