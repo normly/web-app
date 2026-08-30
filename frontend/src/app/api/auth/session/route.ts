@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBackendUrls } from "@/lib/backend-urls";
 import { readSessionCookies } from "@/lib/session-cookies";
+import { mapAccountSummary } from "@/lib/account-response";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const { accountSessionToken } = readSessionCookies(request);
@@ -23,5 +24,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return response;
   }
   const body = await backendResponse.json();
-  return NextResponse.json({ account: { accountId: body.account_id, email: body.email } });
+  return NextResponse.json({
+    account: mapAccountSummary(body.account_id, body.email, body),
+  });
 }

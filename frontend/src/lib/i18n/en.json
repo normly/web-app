@@ -57,5 +57,15 @@
     "valid": "Valid",
     "replaced": "Replaced",
     "withdrawn": "Withdrawn"
+  },
+  "account": {
+    "pageTitle": "Account",
+    "loginRequired": "Log in to manage your account.",
+    "nameAvatarTitle": "Name and profile picture",
+    "uploadAvatarButton": "Upload picture",
+    "removeAvatarButton": "Remove picture",
+    "firstNameLabel": "First name",
+    "lastNameLabel": "Last name",
+    "saveNameButton": "Save"
   }
 }

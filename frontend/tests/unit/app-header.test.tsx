@@ -60,7 +60,12 @@ describe("AppHeader", () => {
   it("shows the account email and a logout button when the session check returns an account", async () => {
     global.fetch = vi.fn().mockResolvedValue(
       new Response(
-        JSON.stringify({ account: { accountId: "1", email: "a@example.de" } }),
+        JSON.stringify({
+          account: {
+            accountId: "1", email: "a@example.de", firstName: null, lastName: null,
+            avatarDataUrl: null,
+          },
+        }),
       ),
     );
     render(

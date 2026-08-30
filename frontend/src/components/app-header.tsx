@@ -9,13 +9,10 @@ import Link from "next/link";
 import { AuthDialog } from "@/components/auth/auth-dialog";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { JurisdictionSwitcher } from "@/components/jurisdiction-switcher";
+import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n/provider";
-
-interface AccountSummary {
-  accountId: string;
-  email: string;
-}
+import type { AccountSummary } from "@/lib/account-response";
 
 // getInstanceConfig() reads process.env, which is only meaningful on the
 // server (and isn't inlined for the client, since these aren't NEXT_PUBLIC_
@@ -73,7 +70,13 @@ export function AppHeader({
         <JurisdictionSwitcher />
         {account ? (
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">{account.email}</span>
+            <Link href="/account" className="flex items-center gap-2">
+              <Avatar
+                avatarDataUrl={account.avatarDataUrl} firstName={account.firstName}
+                lastName={account.lastName} email={account.email}
+              />
+              <span className="text-sm text-muted-foreground">{account.email}</span>
+            </Link>
             <Button variant="ghost" size="sm" onClick={handleLogout}>
               {t("auth.logoutButton")}
             </Button>

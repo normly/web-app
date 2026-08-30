@@ -57,5 +57,15 @@
     "valid": "Gültig",
     "replaced": "Ersetzt",
     "withdrawn": "Zurückgezogen"
+  },
+  "account": {
+    "pageTitle": "Konto",
+    "loginRequired": "Melde dich an, um dein Konto zu verwalten.",
+    "nameAvatarTitle": "Name und Profilbild",
+    "uploadAvatarButton": "Bild hochladen",
+    "removeAvatarButton": "Bild entfernen",
+    "firstNameLabel": "Vorname",
+    "lastNameLabel": "Nachname",
+    "saveNameButton": "Speichern"
   }
 }
