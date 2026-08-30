@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from normly_core.graph.domain import Account
 from normly_core.graph.postgres.repositories import (
+    PostgresAccountGoogleIdentityRepository,
     PostgresAccountRepository,
     PostgresChatRepository,
 )
@@ -46,12 +47,9 @@ def delete_account(
 def export_account_data(
     account: Account = Depends(get_current_account), session: Session = Depends(get_session),
 ) -> ExportResponse:
-    # get_account_by_google_subject takes a subject id, not an account id --
-    # there is no "does this account have ANY Google identity" lookup on the
-    # existing Protocol. Query it directly here instead of adding a new
-    # repository method for a single read used only by this export endpoint.
-    from normly_core.graph.postgres.orm import AccountGoogleIdentityORM
-    google_linked = session.get(AccountGoogleIdentityORM, account.id) is not None
+    google_linked = PostgresAccountGoogleIdentityRepository(session).has_google_identity(
+        account.id
+    )
 
     chat_repo = PostgresChatRepository(session)
     chat_sessions = chat_repo.list_sessions_for_account(account.id)
