@@ -12,8 +12,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ detail: "not authenticated" }, { status: 401 });
   }
 
+  // See the comment in /api/auth/session/route.ts -- an uncached fetch is
+  // required for any session-scoped GET, not just that one route, to avoid
+  // Next.js's fetch Data Cache serving a stale or cross-request result for
+  // near-simultaneous identical requests.
   const backendResponse = await fetch(`${getBackendUrls().accounts}/v1/accounts/sessions`, {
     headers: { Authorization: `Bearer ${accountSessionToken}` },
+    cache: "no-store",
   });
   const body = await backendResponse.json();
   return NextResponse.json(body, { status: backendResponse.status });
