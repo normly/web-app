@@ -51,6 +51,10 @@ class PasswordResetConfirmRequest(BaseModel):
     new_password: str
 
 
+class EmailChangeRequest(BaseModel):
+    new_email: EmailStr
+
+
 class MagicLinkRequestRequest(BaseModel):
     email: EmailStr
 
