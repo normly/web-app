@@ -45,17 +45,23 @@ describe("AccountPageContent", () => {
   });
 
   it("renders the name/avatar section once a session is found", async () => {
-    global.fetch = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          account: {
-            accountId: "acc-1", email: "a@example.de", firstName: null, lastName: null,
-            avatarDataUrl: null,
-          },
-        }),
-        { status: 200 },
-      ),
-    );
+    global.fetch = vi.fn((input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.includes("/api/account/sessions")) {
+        return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+      }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            account: {
+              accountId: "acc-1", email: "a@example.de", firstName: null, lastName: null,
+              avatarDataUrl: null,
+            },
+          }),
+          { status: 200 },
+        ),
+      );
+    });
 
     render(
       <LocaleProvider initialLocale="de">

@@ -80,6 +80,10 @@
     "newPasswordLabel": "New password",
     "changePasswordButton": "Change password",
     "passwordChangedMessage": "Your password has been changed.",
-    "passwordChangeError": "The current password is incorrect."
+    "passwordChangeError": "The current password is incorrect.",
+    "sessionsTitle": "Active sessions",
+    "sessionCurrentBadge": "This device",
+    "sessionCreatedLabel": "Signed in since",
+    "revokeSessionButton": "End session"
   }
 }

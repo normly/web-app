@@ -80,6 +80,10 @@
     "newPasswordLabel": "Neues Passwort",
     "changePasswordButton": "Passwort ändern",
     "passwordChangedMessage": "Dein Passwort wurde geändert.",
-    "passwordChangeError": "Das aktuelle Passwort ist falsch."
+    "passwordChangeError": "Das aktuelle Passwort ist falsch.",
+    "sessionsTitle": "Aktive Sitzungen",
+    "sessionCurrentBadge": "Dieses Gerät",
+    "sessionCreatedLabel": "Angemeldet seit",
+    "revokeSessionButton": "Sitzung beenden"
   }
 }
