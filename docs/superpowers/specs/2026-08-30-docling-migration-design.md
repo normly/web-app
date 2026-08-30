@@ -173,7 +173,7 @@ Verfahren:
 | Datei | Änderung |
 |---|---|
 | `core/src/normly_core/pipeline/docling_extraction.py` | **Neu.** Kapselt `DocumentConverter`-Aufruf mit `do_ocr=False` und lokalem `artifacts_path`, einheitliche Fehlerklasse für defekte/unlesbare Dateien. |
-| `core/src/normly_core/pipeline/adapters/dguv.py` | `fetch()` nutzt die neue Schicht statt `pdfplumber.open()`, iteriert `document.iterate_items()` statt `page.extract_text()` + `.splitlines()`. `raw_designation`/`raw_title` aus dem ersten Element. `extract_structure()` läuft weiterhin musterbasiert (`§ N`-Regex) — jetzt angewendet pro Docling-Element statt auf rohem Text-Blob (siehe "Empirischer Befund" unter Architektur: Doclings `SectionHeaderItem`-Klassifikation ist für diesen Dokumenttyp nicht zuverlässig, `§ N`-Zeilen kommen als `ListItem` zurück). |
+| `core/src/normly_core/pipeline/adapters/dguv.py` | `fetch()` nutzt die neue Schicht statt `pdfplumber.open()`, iteriert `document.iterate_items()` statt `page.extract_text()` + `.splitlines()`. `raw_designation`/`raw_title` per Muster aus dem ersten Element getrennt (siehe Datenfluss). `extract_structure()` läuft weiterhin musterbasiert (`§ N`-Regex) — jetzt angewendet pro Docling-Element statt auf rohem Text-Blob (siehe "Empirischer Befund" unter Architektur: Doclings `SectionHeaderItem`-Klassifikation ist für diesen Dokumenttyp nicht zuverlässig, `§ N`-Zeilen kommen als `ListItem` zurück). |
 | `core/src/normly_core/pipeline/adapters/eur_lex.py` | `_fetch_file()` nutzt dieselbe Schicht, liest `table.data.grid` (2D-Liste von `TableCell`, `.text`-Attribut pro Zelle) statt `page.extract_tables()`. Spaltenindex-Logik (`_COLUMN_ESO` etc.) bleibt unverändert — empirisch bestätigt identische Spaltenreihenfolge. Die `.startswith("ESO")`-Umgehung für eingebettete Zeilenumbrüche entfällt: Doclings Zellen enthalten keinen Zeilenumbruch (`"ESO (B)"` statt pdfplumbers `"ESO\n(B)"`), einfacher Vergleich reicht. |
 | `core/pyproject.toml` | `pdfplumber` entfernt, `docling` als neue Abhängigkeit (Versionsbereich beim Implementieren gegen die zu diesem Zeitpunkt aktuelle stabile Version festlegen). |
 | Build/CI (Dockerfile bzw. Pipeline-Definition) | Neuer Schritt: Docling-Modellgewichte einmalig beziehen (`docling-tools models download` oder Äquivalent) und ins Image backen. Kein Netzwerkzugriff auf Hugging Face zur Laufzeit. Modell-Updates laufen künftig über erneutes Ausführen dieses Schritts bei Docling-Versions-Updates, nicht automatisch. |
@@ -187,8 +187,13 @@ Verfahren:
   nicht Doclings Elementtyp-Klassifikation — siehe Architektur). Baut daraus
   `RawSection`-Objekte (Titel = Text des grenzsetzenden Elements, Inhalt =
   Text der folgenden Elemente bis zur nächsten Grenze).
-  `raw_designation`/`raw_title` aus dem ersten Element vor der ersten
-  erkannten Grenze.
+  **Empirisch bestätigte weitere Abweichung:** Docling fasst visuell
+  benachbarte Zeilen zu einem Block zusammen — Designation- und
+  Titel-Zeile der Fixture ("DGUV Vorschrift 1" / "Grundsätze der
+  Prävention", im PDF zwei separate Zeilen) kommen als **ein** Element
+  zurück, nicht als zwei. `raw_designation`/`raw_title` werden daher aus
+  dem ersten Element per Muster getrennt (`^(DGUV Vorschrift \d+)\s*(.*)$`),
+  nicht per Index-Zugriff auf zwei separate Elemente.
 - **EUR-Lex:** Datei → `docling_extraction` → `DoclingDocument` → Adapter
   iteriert `.tables`, liest Zellen über `table.data.grid` weiterhin
   positionsbasiert, baut `RawRecord`s. `extract_structure()` bleibt `[]`
