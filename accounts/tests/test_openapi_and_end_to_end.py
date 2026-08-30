@@ -14,6 +14,7 @@ def test_openapi_schema_documents_every_v1_endpoint(client):
         "/v1/accounts/logout",
         "/v1/accounts/session",
         "/v1/accounts/verify-email",
+        "/v1/accounts/password",
         "/v1/accounts/password-reset/request",
         "/v1/accounts/password-reset/confirm",
         "/v1/accounts/google/login",

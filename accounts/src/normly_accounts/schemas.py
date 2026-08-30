@@ -71,5 +71,10 @@ class SessionValidationResponse(BaseModel):
     avatar_data_url: str | None
 
 
+class SetPasswordRequest(BaseModel):
+    current_password: str | None
+    new_password: str
+
+
 class ErrorResponse(BaseModel):
     detail: str
