@@ -58,4 +58,5 @@ def validate_session(
         account_id=account.id, email=account.email,
         first_name=account.first_name, last_name=account.last_name,
         avatar_data_url=avatar_data_url(account),
+        has_password=account.password_hash is not None,
     )

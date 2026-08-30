@@ -12,7 +12,12 @@ const originalFetch = global.fetch;
 
 const account: AccountSummary = {
   accountId: "acc-1", email: "a@example.de", firstName: null, lastName: null,
-  avatarDataUrl: null,
+  avatarDataUrl: null, hasPassword: true,
+};
+
+const passwordlessAccount: AccountSummary = {
+  accountId: "acc-2", email: "b@example.de", firstName: null, lastName: null,
+  avatarDataUrl: null, hasPassword: false,
 };
 
 describe("DeleteAccountSection", () => {
@@ -20,7 +25,7 @@ describe("DeleteAccountSection", () => {
     global.fetch = originalFetch;
   });
 
-  it("only enables the delete button once the typed email matches the account email", () => {
+  it("stays disabled until the typed email matches, and stays disabled with a matching email but an empty password when the account has a password", () => {
     render(
       <LocaleProvider initialLocale="de">
         <DeleteAccountSection account={account} />
@@ -37,6 +42,27 @@ describe("DeleteAccountSection", () => {
 
     fireEvent.change(screen.getByLabelText("Gib zur Bestätigung deine E-Mail-Adresse ein"), {
       target: { value: "a@example.de" },
+    });
+    expect(deleteButton).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Passwort zur Bestätigung"), {
+      target: { value: "correct horse" },
+    });
+    expect(deleteButton).not.toBeDisabled();
+  });
+
+  it("enables the delete button with just a matching email, no password needed, when the account has no password", () => {
+    render(
+      <LocaleProvider initialLocale="de">
+        <DeleteAccountSection account={passwordlessAccount} />
+      </LocaleProvider>,
+    );
+
+    const deleteButton = screen.getByRole("button", { name: "Konto endgültig löschen" });
+    expect(deleteButton).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Gib zur Bestätigung deine E-Mail-Adresse ein"), {
+      target: { value: "b@example.de" },
     });
     expect(deleteButton).not.toBeDisabled();
   });

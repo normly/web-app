@@ -35,6 +35,7 @@ class AccountResponse(BaseModel):
     first_name: str | None
     last_name: str | None
     avatar_data_url: str | None
+    has_password: bool
 
 
 class SessionResponse(BaseModel):
@@ -69,6 +70,7 @@ class SessionValidationResponse(BaseModel):
     first_name: str | None
     last_name: str | None
     avatar_data_url: str | None
+    has_password: bool
 
 
 class SetPasswordRequest(BaseModel):

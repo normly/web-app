@@ -13,12 +13,14 @@ export interface AccountSummary {
   firstName: string | null;
   lastName: string | null;
   avatarDataUrl: string | null;
+  hasPassword: boolean;
 }
 
 interface RawAccountFields {
   first_name: string | null;
   last_name: string | null;
   avatar_data_url: string | null;
+  has_password: boolean;
 }
 
 export function mapAccountSummary(
@@ -26,6 +28,6 @@ export function mapAccountSummary(
 ): AccountSummary {
   return {
     accountId, email, firstName: raw.first_name, lastName: raw.last_name,
-    avatarDataUrl: raw.avatar_data_url,
+    avatarDataUrl: raw.avatar_data_url, hasPassword: raw.has_password,
   };
 }

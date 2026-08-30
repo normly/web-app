@@ -23,7 +23,8 @@ export function DeleteAccountSection({ account }: { account: AccountSummary }) {
   const [error, setError] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const canDelete = confirmEmail === account.email;
+  const canDelete =
+    confirmEmail === account.email && (!account.hasPassword || password.trim().length > 0);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
