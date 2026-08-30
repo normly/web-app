@@ -31,6 +31,30 @@ def test_requesting_an_email_change_sends_a_confirmation_to_the_new_address(
     assert change_email["to"] == "new-address@example.de"
 
 
+def test_email_change_body_contains_an_absolute_confirm_link_with_encoded_email(
+    client, email_sender
+):
+    headers = _register_and_authorize(client)
+
+    client.post(
+        "/v1/accounts/email/change", json={"new_email": "new+addr@example.de"},
+        headers=headers,
+    )
+
+    body = email_sender.sent[-1]["body"]
+    assert body.startswith(
+        "Zum Bestätigen deiner neuen E-Mail-Adresse: "
+        "http://localhost:3000/confirm-email-change?token="
+    )
+    token = re.search(r"token=([^&\s]+)", body).group(1)
+    assert token
+    # The '+' in the address must be percent-encoded in the link -- an
+    # unencoded '+' would be read back as a literal space by a URL/form
+    # decoder, corrupting the address (the same class of bug already fixed
+    # once on the frontend side of this plan).
+    assert "email=new%2Baddr%40example.de" in body
+
+
 def test_email_is_not_changed_until_the_link_is_confirmed(client, email_sender):
     headers = _register_and_authorize(client)
     client.post(

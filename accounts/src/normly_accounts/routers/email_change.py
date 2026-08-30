@@ -5,7 +5,9 @@
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, timedelta, timezone
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -26,6 +28,10 @@ logger = logging.getLogger(__name__)
 email_change_router = APIRouter(prefix="/v1/accounts/email", tags=["email-change"])
 
 _EMAIL_CHANGE_TOKEN_LIFETIME = timedelta(hours=24)
+
+
+def _public_base_url() -> str:
+    return os.environ.get("NORMLY_PUBLIC_BASE_URL", "http://localhost:3000")
 
 
 @email_change_router.post("/change")
@@ -59,12 +65,13 @@ def request_email_change(
     # this handler is already holding, encoding it into the emailed link
     # instead of the token record.
     try:
+        confirm_url = (
+            f"{_public_base_url()}/confirm-email-change"
+            f"?token={quote(token.token)}&email={quote(payload.new_email)}"
+        )
         email_sender.send(
             to=payload.new_email, subject="Bestätige deine neue E-Mail-Adresse",
-            body=(
-                f"Zum Bestätigen deiner neuen E-Mail-Adresse: "
-                f"token={token.token}&email={payload.new_email}"
-            ),
+            body=f"Zum Bestätigen deiner neuen E-Mail-Adresse: {confirm_url}",
         )
     except Exception:
         logger.exception("email change confirmation delivery failed for %s", payload.new_email)

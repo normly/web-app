@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 normly contributors
 
+import re
+
 from fastapi.testclient import TestClient
 
 
@@ -27,6 +29,21 @@ def test_password_reset_request_sends_an_email_for_a_known_address(client, email
     assert response.status_code == 200
     assert len(email_sender.sent) == 1
     assert email_sender.sent[0]["to"] == "reset@example.de"
+
+
+def test_password_reset_email_body_contains_an_absolute_reset_link(client, email_sender):
+    _register(client, "link@example.de", "correct horse battery staple")
+    email_sender.sent.clear()
+
+    client.post("/v1/accounts/password-reset/request", json={"email": "link@example.de"})
+
+    body = email_sender.sent[0]["body"]
+    match = re.search(r"token=([^&\s]+)", body)
+    assert match is not None
+    assert body.startswith(
+        f"Zum Zurücksetzen deines Passworts: http://localhost:3000/reset-password?token="
+    )
+    assert match.group(1)
 
 
 def test_password_reset_request_returns_the_same_response_for_an_unknown_address(
