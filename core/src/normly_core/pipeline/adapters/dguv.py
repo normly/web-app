@@ -19,9 +19,19 @@ _HEADING_PATTERN = re.compile(r"^§\s*\d+\s+.+")
 # fixture's designation ("DGUV Vorschrift 1") and title ("Grundsätze der
 # Prävention") are two separate lines in the source PDF but arrive as a
 # single Docling text item, unlike pdfplumber's per-line output. Split them
-# back apart by the designation's known "DGUV Vorschrift <N>" prefix rather
-# than assuming two separate elements.
-_DESIGNATION_PATTERN = re.compile(r"^(DGUV Vorschrift \d+)\s*(.*)$")
+# back apart by the designation's known prefix rather than assuming two
+# separate elements.
+#
+# Covers both of DGUV's real numbering conventions (see
+# https://publikationen.dguv.de/regelwerk/): "DGUV Vorschrift <N>" uses a
+# plain running number (Vorschrift 1, Vorschrift 2, ...); "DGUV Regel",
+# "DGUV Information", and "DGUV Grundsatz" instead use a "<NNN>-<NNN>"
+# scheme where the first three digits mark the publication series (Regeln
+# 100-xxx, Informationen 2xx-xxx, Grundsätze 3xx-xxx) -- e.g. "DGUV Regel
+# 100-001", "DGUV Information 204-022", "DGUV Grundsatz 314-003".
+_DESIGNATION_PATTERN = re.compile(
+    r"^(DGUV (?:Vorschrift \d+|(?:Regel|Information|Grundsatz) \d{3}-\d{3}))\s*(.*)$"
+)
 
 # The adapter reads every file in the directory that carries its own prefix.
 # A bare "*.pdf" would be wrong: the directory may hold other sources' files —

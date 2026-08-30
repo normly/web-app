@@ -24,7 +24,7 @@ def test_fetch_yields_one_record_per_pdf_with_full_text():
     assert record.language == "de"
 
 
-def _write_vorschrift_pdf(path, designation: str, title: str) -> None:
+def _write_publication_pdf(path, designation: str, title: str) -> None:
     from reportlab.pdfgen import canvas
 
     pdf = canvas.Canvas(str(path))
@@ -44,14 +44,14 @@ def _write_vorschrift_pdf(path, designation: str, title: str) -> None:
 
 def test_fetch_processes_every_matching_file_in_the_directory(tmp_path):
     """`--directory` means the directory, not one hardcoded filename in it."""
-    _write_vorschrift_pdf(
+    _write_publication_pdf(
         tmp_path / "dguv_vorschrift_1.pdf", "DGUV Vorschrift 1", "Grundsätze der Prävention"
     )
-    _write_vorschrift_pdf(
+    _write_publication_pdf(
         tmp_path / "dguv_vorschrift_2.pdf", "DGUV Vorschrift 2", "Betriebsärzte"
     )
     # A neighbouring source's file in the same directory stays untouched.
-    _write_vorschrift_pdf(tmp_path / "eur_lex_something.pdf", "2006/42/EC", "Machinery")
+    _write_publication_pdf(tmp_path / "eur_lex_something.pdf", "2006/42/EC", "Machinery")
 
     records = list(DguvAdapter(directory=tmp_path, source_id=uuid.uuid4()).fetch())
 
@@ -60,6 +60,23 @@ def test_fetch_processes_every_matching_file_in_the_directory(tmp_path):
         "DGUV Vorschrift 2",
     ]
     assert len({record.content_hash for record in records}) == 2
+
+
+def test_fetch_splits_designation_and_title_for_a_dguv_regel(tmp_path):
+    """The designation/title split must not be Vorschrift-specific: DGUV
+    also publishes Regeln, Informationen, and Grundsätze under a distinct
+    "<NNN>-<NNN>" numbering scheme (e.g. "DGUV Regel 100-001"), and this
+    adapter's own file pattern and stated scope claim to handle any DGUV
+    publication, not just Vorschriften."""
+    _write_publication_pdf(
+        tmp_path / "dguv_regel_100_001.pdf", "DGUV Regel 100-001", "Grundsätze der Prävention"
+    )
+
+    records = list(DguvAdapter(directory=tmp_path, source_id=uuid.uuid4()).fetch())
+
+    assert len(records) == 1
+    assert records[0].raw_designation == "DGUV Regel 100-001"
+    assert records[0].raw_title == "Grundsätze der Prävention"
 
 
 def test_extract_structure_splits_on_paragraph_headings():
