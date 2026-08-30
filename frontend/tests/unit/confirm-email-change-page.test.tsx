@@ -37,7 +37,7 @@ describe("ConfirmEmailChangeContent", () => {
       ).toBeInTheDocument(),
     );
     const [calledUrl] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(calledUrl).toBe("/api/account/email/confirm?token=valid-token&email=new@example.de");
+    expect(calledUrl).toBe("/api/account/email/confirm?token=valid-token&email=new%40example.de");
   });
 
   it("shows an error message on an invalid token", async () => {

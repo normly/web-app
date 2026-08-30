@@ -20,7 +20,7 @@ function ConfirmEmailChangeInner() {
       setStatus("error");
       return;
     }
-    fetch(`/api/account/email/confirm?token=${encodeURIComponent(token)}&email=${email}`)
+    fetch(`/api/account/email/confirm?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`)
       .then((response) => setStatus(response.ok ? "success" : "error"))
       .catch(() => setStatus("error"));
   }, [token, email]);
