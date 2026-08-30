@@ -1202,11 +1202,22 @@ class PostgresAccountRepository:
         )
 
     def update_email(self, account_id: uuid.UUID, new_email: str) -> None:
-        self._session.execute(
-            sa.update(AccountORM)
-            .where(AccountORM.id == account_id)
-            .values(email=new_email)
-        )
+        # The caller (the email-change confirm flow) already checks that
+        # new_email is free before calling this, but that check-then-act is
+        # only advisory -- two confirm requests racing for the same
+        # newly-freed address can both pass the check. The savepoint here
+        # mirrors create_account: it surfaces uq_account_email as a clean,
+        # catchable IntegrityError instead of aborting the whole session.
+        try:
+            with self._session.begin_nested():
+                self._session.execute(
+                    sa.update(AccountORM)
+                    .where(AccountORM.id == account_id)
+                    .values(email=new_email)
+                )
+                self._session.flush()
+        except IntegrityError as exc:
+            raise EmailAlreadyRegisteredError(new_email) from exc
 
     def update_profile_names(
         self, account_id: uuid.UUID, *, first_name: str | None, last_name: str | None

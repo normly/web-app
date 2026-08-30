@@ -63,6 +63,34 @@ def test_set_password_hash(db_session):
     assert repo.get_account_by_id(account.id).password_hash == "new-hash"
 
 
+def test_update_email_changes_the_address(db_session):
+    repo = PostgresAccountRepository(db_session)
+    account = repo.create_account(email="old@example.de", password_hash="hashed")
+
+    repo.update_email(account.id, "new@example.de")
+
+    assert repo.get_account_by_id(account.id).email == "new@example.de"
+
+
+def test_update_email_rejects_a_race_onto_an_address_taken_in_the_meantime(db_session):
+    # The confirm endpoint checks get_account_by_email(new_email) before
+    # calling update_email, but that check-then-act narrows rather than
+    # closes the race: a second confirm for the same newly-freed address can
+    # still land between the check and this call. update_email must surface
+    # that as EmailAlreadyRegisteredError, not let a raw IntegrityError from
+    # uq_account_email escape and poison the session.
+    repo = PostgresAccountRepository(db_session)
+    account = repo.create_account(email="loser@example.de", password_hash="hashed-1")
+    repo.create_account(email="taken@example.de", password_hash="hashed-2")
+
+    with pytest.raises(EmailAlreadyRegisteredError):
+        repo.update_email(account.id, "taken@example.de")
+
+    # The savepoint rollback must leave the session usable for further work,
+    # the same guarantee create_account's begin_nested() already provides.
+    assert repo.get_account_by_id(account.id).email == "loser@example.de"
+
+
 def test_google_identity_links_and_resolves_to_the_account(db_session):
     account_repo = PostgresAccountRepository(db_session)
     google_repo = PostgresAccountGoogleIdentityRepository(db_session)
