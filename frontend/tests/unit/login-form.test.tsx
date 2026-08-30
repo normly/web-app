@@ -71,7 +71,9 @@ describe("LoginForm", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Passwort vergessen?" }));
-    expect(screen.getByRole("button", { name: "Anmeldelink senden" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Link zum Zurücksetzen senden" }),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Zurück zur Anmeldung" }));
     expect(screen.getByRole("button", { name: "Anmelden" })).toBeInTheDocument();

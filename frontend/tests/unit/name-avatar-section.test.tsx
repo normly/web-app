@@ -54,4 +54,82 @@ describe("NameAvatarSection", () => {
     );
     expect(screen.queryByText("Bild entfernen")).not.toBeInTheDocument();
   });
+
+  it("shows an error message when saving the name fails", async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ detail: "something went wrong" }), { status: 500 }),
+    );
+
+    render(
+      <LocaleProvider initialLocale="de">
+        <NameAvatarSection account={account} onAccountUpdated={vi.fn()} />
+      </LocaleProvider>,
+    );
+    fireEvent.change(screen.getByLabelText("Vorname"), { target: { value: "Jamie" } });
+    fireEvent.click(screen.getByRole("button", { name: "Speichern" }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("Name konnte nicht gespeichert werden. Bitte versuche es erneut."),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it("shows an error message when an oversized avatar upload is rejected", async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ detail: "avatar image exceeds 5MB" }), { status: 400 }),
+    );
+
+    render(
+      <LocaleProvider initialLocale="de">
+        <NameAvatarSection account={account} onAccountUpdated={vi.fn()} />
+      </LocaleProvider>,
+    );
+    const file = new File([new Uint8Array(10)], "avatar.png", { type: "image/png" });
+    const input = screen.getByLabelText("Bild hochladen") as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("Profilbild konnte nicht aktualisiert werden. Bitte versuche es erneut."),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it("shows an error message when the avatar upload request fails at the network level", async () => {
+    global.fetch = vi.fn().mockRejectedValue(new TypeError("network error"));
+
+    render(
+      <LocaleProvider initialLocale="de">
+        <NameAvatarSection account={account} onAccountUpdated={vi.fn()} />
+      </LocaleProvider>,
+    );
+    const file = new File([new Uint8Array(10)], "avatar.png", { type: "image/png" });
+    const input = screen.getByLabelText("Bild hochladen") as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("Profilbild konnte nicht aktualisiert werden. Bitte versuche es erneut."),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it("shows an error message when removing the avatar fails at the network level", async () => {
+    const accountWithAvatar: AccountSummary = { ...account, avatarDataUrl: "data:image/png;base64,abc" };
+    global.fetch = vi.fn().mockRejectedValue(new TypeError("network error"));
+
+    render(
+      <LocaleProvider initialLocale="de">
+        <NameAvatarSection account={accountWithAvatar} onAccountUpdated={vi.fn()} />
+      </LocaleProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Bild entfernen" }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("Profilbild konnte nicht aktualisiert werden. Bitte versuche es erneut."),
+      ).toBeInTheDocument(),
+    );
+  });
 });

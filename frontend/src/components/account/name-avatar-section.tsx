@@ -22,6 +22,8 @@ export function NameAvatarSection({
   const [lastName, setLastName] = React.useState(account.lastName ?? "");
   const [isSavingName, setIsSavingName] = React.useState(false);
   const [isUpdatingAvatar, setIsUpdatingAvatar] = React.useState(false);
+  const [nameStatus, setNameStatus] = React.useState<"idle" | "error">("idle");
+  const [avatarStatus, setAvatarStatus] = React.useState<"idle" | "error">("idle");
 
   const saveName = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -33,8 +35,13 @@ export function NameAvatarSection({
         body: JSON.stringify({ first_name: firstName || null, last_name: lastName || null }),
       });
       if (response.ok) {
+        setNameStatus("idle");
         onAccountUpdated(await response.json());
+      } else {
+        setNameStatus("error");
       }
+    } catch {
+      setNameStatus("error");
     } finally {
       setIsSavingName(false);
     }
@@ -49,8 +56,13 @@ export function NameAvatarSection({
       formData.append("avatar", file);
       const response = await fetch("/api/account/avatar", { method: "POST", body: formData });
       if (response.ok) {
+        setAvatarStatus("idle");
         onAccountUpdated(await response.json());
+      } else {
+        setAvatarStatus("error");
       }
+    } catch {
+      setAvatarStatus("error");
     } finally {
       setIsUpdatingAvatar(false);
       event.target.value = "";
@@ -62,8 +74,13 @@ export function NameAvatarSection({
     try {
       const response = await fetch("/api/account/avatar", { method: "DELETE" });
       if (response.ok) {
+        setAvatarStatus("idle");
         onAccountUpdated(await response.json());
+      } else {
+        setAvatarStatus("error");
       }
+    } catch {
+      setAvatarStatus("error");
     } finally {
       setIsUpdatingAvatar(false);
     }
@@ -93,6 +110,9 @@ export function NameAvatarSection({
               {t("account.removeAvatarButton")}
             </button>
           )}
+          {avatarStatus === "error" && (
+            <p className="text-sm text-red-600">{t("account.avatarUpdateError")}</p>
+          )}
         </div>
       </div>
       <form onSubmit={saveName} className="flex flex-col gap-3">
@@ -104,6 +124,9 @@ export function NameAvatarSection({
           {t("account.lastNameLabel")}
           <Input value={lastName} onChange={(event) => setLastName(event.target.value)} />
         </label>
+        {nameStatus === "error" && (
+          <p className="text-sm text-red-600">{t("account.saveNameError")}</p>
+        )}
         <Button type="submit" disabled={isSavingName} className="self-start">
           {t("account.saveNameButton")}
         </Button>
