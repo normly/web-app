@@ -23,6 +23,11 @@ class LogoutRequest(BaseModel):
     session_token: str
 
 
+class UpdateProfileRequest(BaseModel):
+    first_name: str | None = None
+    last_name: str | None = None
+
+
 class AccountResponse(BaseModel):
     id: uuid.UUID
     email: str

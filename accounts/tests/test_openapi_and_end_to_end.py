@@ -20,6 +20,8 @@ def test_openapi_schema_documents_every_v1_endpoint(client):
         "/v1/accounts/google/callback",
         "/v1/accounts/magic-link/request",
         "/v1/accounts/magic-link/confirm",
+        "/v1/accounts/profile",
+        "/v1/accounts/avatar",
     }
     assert schema["info"]["license"]["name"] == "Apache-2.0"
 
