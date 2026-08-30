@@ -76,5 +76,12 @@ class SetPasswordRequest(BaseModel):
     new_password: str
 
 
+class SessionSummaryResponse(BaseModel):
+    id: uuid.UUID
+    created_at: datetime
+    expires_at: datetime
+    is_current: bool
+
+
 class ErrorResponse(BaseModel):
     detail: str

@@ -23,6 +23,7 @@ from normly_accounts.routers.password_reset import password_reset_router
 from normly_accounts.routers.profile import profile_router
 from normly_accounts.routers.registration import registration_router
 from normly_accounts.routers.session import session_router
+from normly_accounts.routers.sessions import sessions_router
 
 
 @asynccontextmanager
@@ -73,6 +74,7 @@ def create_app() -> FastAPI:
     app.include_router(password_reset_router, responses=COMMON_ERROR_RESPONSES)
     app.include_router(password_router, responses=COMMON_ERROR_RESPONSES)
     app.include_router(session_router, responses=COMMON_ERROR_RESPONSES)
+    app.include_router(sessions_router, responses=COMMON_ERROR_RESPONSES)
     app.include_router(email_verification_router, responses=COMMON_ERROR_RESPONSES)
     app.include_router(email_change_router, responses=COMMON_ERROR_RESPONSES)
     app.include_router(google_router, responses=COMMON_ERROR_RESPONSES)
