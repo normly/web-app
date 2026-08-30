@@ -4,6 +4,8 @@
 
 import re
 
+from normly_core.graph.postgres.repositories import PostgresAccountRepository
+
 
 def _register_and_authorize(client, email="owner@example.de"):
     response = client.post(
@@ -64,6 +66,33 @@ def test_requesting_a_change_to_an_already_registered_email_returns_409(client):
 
     response = client.post(
         "/v1/accounts/email/change", json={"new_email": "taken@example.de"}, headers=headers,
+    )
+
+    assert response.status_code == 409
+
+
+def test_confirming_returns_409_when_the_address_is_claimed_after_the_pre_check(
+    client, email_sender, monkeypatch, db_session
+):
+    # Mirrors the race the pre-check in confirm_email_change cannot close: by
+    # the time update_email actually runs, someone else has taken the
+    # address. Simulated here by stubbing out the pre-check (making it
+    # report the address as free, as it would if the race window landed a
+    # moment later) while the address has genuinely already been claimed.
+    headers = _register_and_authorize(client)
+    client.post(
+        "/v1/accounts/email/change", json={"new_email": "racy@example.de"}, headers=headers,
+    )
+    token = re.search(r"token=([^&\s]+)", email_sender.sent[-1]["body"]).group(1)
+    PostgresAccountRepository(db_session).create_account(
+        email="racy@example.de", password_hash="hashed"
+    )
+    monkeypatch.setattr(
+        PostgresAccountRepository, "get_account_by_email", lambda self, email: None
+    )
+
+    response = client.get(
+        f"/v1/accounts/email/confirm?token={token}&email=racy@example.de"
     )
 
     assert response.status_code == 409

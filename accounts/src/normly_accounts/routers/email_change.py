@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from normly_core.graph.domain import Account, AccountTokenPurpose
+from normly_core.graph.domain import Account, AccountTokenPurpose, EmailAlreadyRegisteredError
 from normly_core.graph.postgres.repositories import (
     PostgresAccountRepository,
     PostgresAccountTokenRepository,
@@ -88,5 +88,12 @@ def confirm_email_change(
         # rather than raise an IntegrityError from the UPDATE below.
         raise HTTPException(status_code=409, detail="an account already exists for this email")
 
-    account_repo.update_email(consumed.account_id, email)
+    try:
+        account_repo.update_email(consumed.account_id, email)
+    except EmailAlreadyRegisteredError:
+        # The pre-check above narrows but does not close the race: a second
+        # confirm for the same newly-freed address can still slip past it
+        # and hit uq_account_email in update_email itself. Same response as
+        # the pre-check, so the client sees one consistent 409 either way.
+        raise HTTPException(status_code=409, detail="an account already exists for this email")
     return {"status": "email_changed"}
