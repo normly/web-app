@@ -9,9 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
-import pdfplumber
-
 from normly_core.graph.domain import EdgeType
+from normly_core.pipeline.docling_extraction import extract_document
 from normly_core.pipeline.domain import (
     RawRecord,
     RawReference,
@@ -19,12 +18,15 @@ from normly_core.pipeline.domain import (
     RightsRule,
 )
 
-# Column indices in the Commission's "Summary list of harmonised standards" table,
-# 0-based, verified against the real fixture PDF's `pdfplumber` table extraction:
-# ['Legislation reference (A)', 'ESO (B)', 'Reference number of the standard (C)',
-# 'Title of the standard (D)', 'Type (E)', ...]. The header row's ESO cell is
-# literally "ESO\n(B)" (pdfplumber keeps the embedded line break before the
-# column-letter annotation), so header rows are filtered by prefix, not equality.
+# Column indices in the Commission's "Summary list of harmonised standards"
+# table, 0-based -- verified against the real fixture PDF's Docling table
+# extraction (`table.data.grid`): ['Legislation reference (A)', 'ESO (B)',
+# 'Reference number of the standard (C)', 'Title of the standard (D)',
+# 'Type (E)', ...]. Same column layout Docling produces as pdfplumber did.
+# Unlike pdfplumber, Docling's header cells carry no embedded line break
+# ("ESO (B)", not pdfplumber's "ESO\n(B)") -- the prefix filter below still
+# works correctly either way, so it's kept rather than narrowed to an exact
+# match.
 _COLUMN_ESO = 1
 _COLUMN_STANDARD_REFERENCE = 2
 _COLUMN_TITLE = 3
@@ -63,38 +65,40 @@ class EurLexAdapter:
             fetched_at=now,
         )
 
-        with pdfplumber.open(pdf_path) as pdf:
-            seen_designations: set[str] = set()
-            for page in pdf.pages:
-                for table in page.extract_tables():
-                    for row in table:
-                        if row is None or len(row) <= _COLUMN_TITLE:
-                            continue
-                        eso = (row[_COLUMN_ESO] or "").strip()
-                        designation = (row[_COLUMN_STANDARD_REFERENCE] or "").strip()
-                        title = (row[_COLUMN_TITLE] or "").strip()
-                        if not eso or not designation or eso.startswith("ESO"):
-                            continue
-                        if designation in seen_designations:
-                            continue
-                        seen_designations.add(designation)
-                        yield RawRecord(
-                            source_id=self.source_id,
-                            content_hash=f"{content_hash}:{designation}",
-                            raw_designation=designation,
-                            raw_issuer=eso,
-                            raw_title=title or None,
-                            full_text=None,
-                            language="en",
-                            raw_references=[
-                                RawReference(
-                                    target_issuer="EU",
-                                    target_designation=self.legislation_reference,
-                                    edge_type=EdgeType.BASED_ON_LAW,
-                                )
-                            ],
-                            fetched_at=now,
+        document = extract_document(pdf_path)
+        seen_designations: set[str] = set()
+        for table in document.tables:
+            for row in table.data.grid:
+                if len(row) <= _COLUMN_TITLE:
+                    continue
+                eso_cell = row[_COLUMN_ESO]
+                designation_cell = row[_COLUMN_STANDARD_REFERENCE]
+                title_cell = row[_COLUMN_TITLE]
+                eso = (eso_cell.text if eso_cell else "").strip()
+                designation = (designation_cell.text if designation_cell else "").strip()
+                title = (title_cell.text if title_cell else "").strip()
+                if not eso or not designation or eso.startswith("ESO"):
+                    continue
+                if designation in seen_designations:
+                    continue
+                seen_designations.add(designation)
+                yield RawRecord(
+                    source_id=self.source_id,
+                    content_hash=f"{content_hash}:{designation}",
+                    raw_designation=designation,
+                    raw_issuer=eso,
+                    raw_title=title or None,
+                    full_text=None,
+                    language="en",
+                    raw_references=[
+                        RawReference(
+                            target_issuer="EU",
+                            target_designation=self.legislation_reference,
+                            edge_type=EdgeType.BASED_ON_LAW,
                         )
+                    ],
+                    fetched_at=now,
+                )
 
     def extract_structure(self, record: RawRecord) -> list[RawSection]:
         return []
