@@ -12,6 +12,7 @@
 import * as React from "react";
 import { NameAvatarSection } from "@/components/account/name-avatar-section";
 import { EmailSection } from "@/components/account/email-section";
+import { PasswordSection } from "@/components/account/password-section";
 import { useTranslation } from "@/lib/i18n/provider";
 import type { AccountSummary } from "@/lib/account-response";
 
@@ -45,6 +46,7 @@ export function AccountPageContent() {
       <h1 className="text-xl font-semibold">{t("account.pageTitle")}</h1>
       <NameAvatarSection account={account} onAccountUpdated={setAccount} />
       <EmailSection account={account} />
+      <PasswordSection />
     </div>
   );
 }

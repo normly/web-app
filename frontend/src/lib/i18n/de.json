@@ -74,6 +74,12 @@
     "emailChangeSentMessage": "Bestätigungslink wurde an die neue Adresse gesendet.",
     "emailChangeGenericError": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
     "confirmEmailChangeSuccessMessage": "Deine E-Mail-Adresse wurde geändert. Du kannst dich jetzt mit der neuen Adresse anmelden.",
-    "confirmEmailChangeErrorMessage": "Dieser Bestätigungslink ist ungültig oder abgelaufen."
+    "confirmEmailChangeErrorMessage": "Dieser Bestätigungslink ist ungültig oder abgelaufen.",
+    "passwordTitle": "Passwort",
+    "currentPasswordLabel": "Aktuelles Passwort",
+    "newPasswordLabel": "Neues Passwort",
+    "changePasswordButton": "Passwort ändern",
+    "passwordChangedMessage": "Dein Passwort wurde geändert.",
+    "passwordChangeError": "Das aktuelle Passwort ist falsch."
   }
 }

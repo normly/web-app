@@ -74,6 +74,12 @@
     "emailChangeSentMessage": "A confirmation link was sent to the new address.",
     "emailChangeGenericError": "Something went wrong. Please try again.",
     "confirmEmailChangeSuccessMessage": "Your email address has been changed. You can now log in with the new address.",
-    "confirmEmailChangeErrorMessage": "This confirmation link is invalid or has expired."
+    "confirmEmailChangeErrorMessage": "This confirmation link is invalid or has expired.",
+    "passwordTitle": "Password",
+    "currentPasswordLabel": "Current password",
+    "newPasswordLabel": "New password",
+    "changePasswordButton": "Change password",
+    "passwordChangedMessage": "Your password has been changed.",
+    "passwordChangeError": "The current password is incorrect."
   }
 }
