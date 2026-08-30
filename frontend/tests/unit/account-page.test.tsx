@@ -30,6 +30,20 @@ describe("AccountPageContent", () => {
     );
   });
 
+  it("shows the login-required message when the session fetch rejects", async () => {
+    global.fetch = vi.fn().mockRejectedValue(new Error("network error"));
+
+    render(
+      <LocaleProvider initialLocale="de">
+        <AccountPageContent />
+      </LocaleProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText("Melde dich an, um dein Konto zu verwalten.")).toBeInTheDocument(),
+    );
+  });
+
   it("renders the name/avatar section once a session is found", async () => {
     global.fetch = vi.fn().mockResolvedValue(
       new Response(

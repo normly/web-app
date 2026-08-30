@@ -28,7 +28,8 @@ export function AccountPageContent() {
         } else {
           setAccount(body.account);
         }
-      });
+      })
+      .catch(() => setRequiresLogin(true));
   }, []);
 
   if (requiresLogin) {
