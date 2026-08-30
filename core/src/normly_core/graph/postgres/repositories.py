@@ -1201,6 +1201,13 @@ class PostgresAccountRepository:
             .values(password_hash=password_hash)
         )
 
+    def update_email(self, account_id: uuid.UUID, new_email: str) -> None:
+        self._session.execute(
+            sa.update(AccountORM)
+            .where(AccountORM.id == account_id)
+            .values(email=new_email)
+        )
+
     def update_profile_names(
         self, account_id: uuid.UUID, *, first_name: str | None, last_name: str | None
     ) -> None:
