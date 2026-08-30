@@ -543,11 +543,26 @@ Punkt "kein generisches Dokumentenverständnis" aufgehoben.
 
 **Begründung:** Die ersten beiden Quellen (DGUV, EUR-Lex) kommen mit
 regelbasierter Extraktion zufriedenstellend aus, aber deutlich mehr Quellen
-mit unbekannten, teils komplexeren Layouts folgen. Eine rein regelbasierte
-Struktur-Erkennung (Regex auf Rohtext) skaliert nicht auf Quellen, deren
-Struktur nicht vorher bekannt ist. Ein Layout-Erkennungsmodell zur
-Ingestion-Zeit macht neue Quellen handhabbar, ohne für jede einzelne eine
-neue, quellenspezifische Regel-Engine zu schreiben.
+mit unbekannten, teils komplexeren Layouts folgen. Docling liefert dafür in
+jedem Fall eine sauberere, layoutbewusste Textsegmentierung als
+pdfplumbers reine Zeilenausgabe, sowie eine nachweislich zuverlässige
+Tabellenstruktur-Erkennung (TableFormer, gegen die echte EUR-Lex-Fixture
+verifiziert).
+
+**Wichtig, empirisch korrigiert:** Die ursprüngliche Erwartung, Docling
+würde Überschriften/Abschnittsstruktur für *jede* künftige Quelle
+automatisch erkennen und damit quellenspezifische Regeln überflüssig
+machen, hält nicht für schlicht formatierte Dokumente ohne optische
+Überschriften-Merkmale — bei der DGUV-Fixture kommen `§ N`-Überschriften
+als `ListItem` zurück, nicht als `SectionHeaderItem` (siehe
+`docs/superpowers/specs/2026-08-30-docling-migration-design.md`). Für
+solche Quellen bleibt die Grenzerkennung musterbasiert, jetzt angewendet
+auf Doclings sauber segmentierte Elemente statt auf rohem Text. Der
+Gewinn ist real (bessere Segmentierung, zuverlässige Tabellen, künftig
+auch Nicht-PDF-Formate ohne Zusatzaufwand), aber kleiner als ursprünglich
+erhofft — jede neue Quelle muss weiterhin empirisch gegen eine echte
+Beispieldatei geprüft werden, ob Doclings native Klassifikation für sie
+zuverlässig funktioniert.
 
 **Abgrenzung zu ADR-008:** ADR-008 verbietet den Einsatz eines
 Sprachmodells zur **Anfragezeit** für Strukturfragen — aus Kosten-, Latenz-
@@ -563,9 +578,15 @@ graphbasiert beantwortet, ganz ohne Modellaufruf. ADR-008 bleibt in seinem
 eigentlichen Geltungsbereich unverändert.
 
 **Umsetzung:** Modellgewichte werden einmalig beim Container-Image-Build
-bezogen und gebacken — kein Zugriff auf externe Modell-Repositories
-(Hugging Face) zur Laufzeit, passend zur STACKIT-only-Vorgabe für den
-Betrieb. Details siehe
+bezogen und gebacken — kein Zugriff auf externe Modell-Repositories zur
+Laufzeit, passend zur STACKIT-only-Vorgabe für den Betrieb. Empirisch
+bestätigt: Doclings Standard-Pipeline führt automatisch OCR aus (auch ohne
+Bildinhalte) und lädt dafür bei aktivierter OCR zusätzliche Modelle von
+modelscope.cn nach — einer zweiten, ursprünglich nicht bedachten externen
+Quelle neben Hugging Face (dem Layout-/TableFormer-Modell). OCR wird daher
+explizit deaktiviert (`do_ocr=False`), wodurch dieser zweite Modellbezug
+vollständig entfällt, statt ihn ebenfalls ins Image backen zu müssen.
+Details siehe
 `docs/superpowers/specs/2026-08-30-docling-migration-design.md`.
 
 **Verworfen:** Doclings VLM-Pipeline (generatives Vision-Language-Modell)
