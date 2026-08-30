@@ -27,6 +27,8 @@ def test_openapi_schema_documents_every_v1_endpoint(client):
         "/v1/accounts/avatar",
         "/v1/accounts/email/change",
         "/v1/accounts/email/confirm",
+        "/v1/accounts/me",
+        "/v1/accounts/export",
     }
     assert schema["info"]["license"]["name"] == "Apache-2.0"
 

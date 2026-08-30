@@ -85,3 +85,36 @@ class SessionSummaryResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     detail: str
+
+
+class DeleteAccountRequest(BaseModel):
+    password: str | None
+
+
+class ExportAccountFields(BaseModel):
+    email: str
+    created_at: datetime
+    email_verified: bool
+    google_linked: bool
+    first_name: str | None
+    last_name: str | None
+    avatar_data_url: str | None
+
+
+class ExportChatMessage(BaseModel):
+    role: str
+    content: str
+    created_at: datetime
+
+
+class ExportChatSession(BaseModel):
+    session_token: str
+    jurisdiction: str
+    language: str
+    created_at: datetime
+    messages: list[ExportChatMessage]
+
+
+class ExportResponse(BaseModel):
+    account: ExportAccountFields
+    chat_sessions: list[ExportChatSession]
