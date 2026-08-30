@@ -62,4 +62,18 @@ describe("LoginForm", () => {
     );
     expect(onSuccess).not.toHaveBeenCalled();
   });
+
+  it("switches to the reset-request view and back", async () => {
+    render(
+      <LocaleProvider initialLocale="de">
+        <LoginForm onSuccess={vi.fn()} />
+      </LocaleProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Passwort vergessen?" }));
+    expect(screen.getByRole("button", { name: "Anmeldelink senden" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Zurück zur Anmeldung" }));
+    expect(screen.getByRole("button", { name: "Anmelden" })).toBeInTheDocument();
+  });
 });

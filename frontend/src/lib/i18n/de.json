@@ -20,7 +20,15 @@
     "magicLinkButton": "Anmeldelink senden",
     "googleButton": "Mit Google anmelden",
     "genericError": "Das hat leider nicht funktioniert. Bitte versuche es erneut.",
-    "logoutButton": "Abmelden"
+    "logoutButton": "Abmelden",
+    "forgotPasswordLink": "Passwort vergessen?",
+    "resetRequestButton": "Anmeldelink senden",
+    "resetLinkSent": "Falls ein Konto mit dieser Adresse existiert, wurde eine E-Mail versendet.",
+    "backToLogin": "Zurück zur Anmeldung",
+    "resetNewPasswordLabel": "Neues Passwort",
+    "resetSubmitButton": "Passwort festlegen",
+    "resetSuccessMessage": "Dein Passwort wurde geändert. Du kannst dich jetzt anmelden.",
+    "resetInvalidToken": "Dieser Link ist ungültig oder abgelaufen."
   },
   "history": {
     "title": "Chat-Verlauf",

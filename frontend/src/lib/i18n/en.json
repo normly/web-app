@@ -20,7 +20,15 @@
     "magicLinkButton": "Send login link",
     "googleButton": "Sign in with Google",
     "genericError": "That didn't work. Please try again.",
-    "logoutButton": "Log out"
+    "logoutButton": "Log out",
+    "forgotPasswordLink": "Forgot password?",
+    "resetRequestButton": "Send reset link",
+    "resetLinkSent": "If an account exists for this address, an email was sent.",
+    "backToLogin": "Back to login",
+    "resetNewPasswordLabel": "New password",
+    "resetSubmitButton": "Set password",
+    "resetSuccessMessage": "Your password has been changed. You can now log in.",
+    "resetInvalidToken": "This link is invalid or has expired."
   },
   "history": {
     "title": "Chat history",
