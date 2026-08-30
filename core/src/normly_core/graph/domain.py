@@ -697,6 +697,8 @@ class AccountGoogleIdentityRepository(Protocol):
 
     def get_account_by_google_subject(self, google_subject_id: str) -> Account | None: ...
 
+    def has_google_identity(self, account_id: uuid.UUID) -> bool: ...
+
 
 class GoogleIdentityAlreadyLinkedError(Exception):
     def __init__(self, account_id: uuid.UUID, google_subject_id: str):

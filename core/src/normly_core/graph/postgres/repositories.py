@@ -1341,6 +1341,9 @@ class PostgresAccountGoogleIdentityRepository:
         ).scalar_one_or_none()
         return _account_to_domain(orm) if orm else None
 
+    def has_google_identity(self, account_id: uuid.UUID) -> bool:
+        return self._session.get(AccountGoogleIdentityORM, account_id) is not None
+
 
 def _account_session_to_domain(orm: AccountSessionORM) -> AccountSession:
     return AccountSession(

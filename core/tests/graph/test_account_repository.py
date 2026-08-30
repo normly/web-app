@@ -102,6 +102,18 @@ def test_google_identity_links_and_resolves_to_the_account(db_session):
     assert google_repo.get_account_by_google_subject("unknown-subject") is None
 
 
+def test_has_google_identity_reflects_whether_a_link_exists(db_session):
+    account_repo = PostgresAccountRepository(db_session)
+    google_repo = PostgresAccountGoogleIdentityRepository(db_session)
+    linked = account_repo.create_account(email="linked@example.de", password_hash=None)
+    unlinked = account_repo.create_account(email="unlinked@example.de", password_hash="hashed")
+
+    google_repo.link_google_identity(account_id=linked.id, google_subject_id="sub-456")
+
+    assert google_repo.has_google_identity(linked.id) is True
+    assert google_repo.has_google_identity(unlinked.id) is False
+
+
 def test_session_create_lookup_extend_and_revoke(db_session):
     account_repo = PostgresAccountRepository(db_session)
     session_repo = PostgresAccountSessionRepository(db_session)
