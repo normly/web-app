@@ -84,6 +84,8 @@
     "sessionsTitle": "Aktive Sitzungen",
     "sessionCurrentBadge": "Dieses Gerät",
     "sessionCreatedLabel": "Angemeldet seit",
-    "revokeSessionButton": "Sitzung beenden"
+    "revokeSessionButton": "Sitzung beenden",
+    "sessionsLoadError": "Sitzungen konnten nicht geladen werden. Bitte versuche es erneut.",
+    "sessionRevokeError": "Die Sitzung konnte nicht beendet werden. Bitte versuche es erneut."
   }
 }

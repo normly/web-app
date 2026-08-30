@@ -84,6 +84,8 @@
     "sessionsTitle": "Active sessions",
     "sessionCurrentBadge": "This device",
     "sessionCreatedLabel": "Signed in since",
-    "revokeSessionButton": "End session"
+    "revokeSessionButton": "End session",
+    "sessionsLoadError": "Sessions could not be loaded. Please try again.",
+    "sessionRevokeError": "The session could not be ended. Please try again."
   }
 }

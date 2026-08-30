@@ -25,17 +25,24 @@ interface RawSessionSummary {
 export function SessionsSection() {
   const { t, locale } = useTranslation();
   const [sessions, setSessions] = React.useState<SessionSummary[] | null>(null);
+  const [loadStatus, setLoadStatus] = React.useState<"idle" | "error">("idle");
+  const [revokeStatus, setRevokeStatus] = React.useState<"idle" | "error">("idle");
 
   const load = React.useCallback(() => {
     fetch("/api/account/sessions")
-      .then((response) => response.json())
-      .then((raw: RawSessionSummary[]) =>
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error("load failed"))))
+      .then((raw: RawSessionSummary[]) => {
+        setLoadStatus("idle");
         setSessions(
           raw.map((s) => ({
             id: s.id, createdAt: s.created_at, expiresAt: s.expires_at, isCurrent: s.is_current,
           })),
-        ),
-      );
+        );
+      })
+      .catch(() => {
+        setSessions([]);
+        setLoadStatus("error");
+      });
   }, []);
 
   React.useEffect(() => {
@@ -43,15 +50,28 @@ export function SessionsSection() {
   }, [load]);
 
   const revoke = async (sessionId: string) => {
-    const response = await fetch(`/api/account/sessions/${sessionId}`, { method: "DELETE" });
-    if (response.ok) {
-      setSessions((current) => (current ?? []).filter((s) => s.id !== sessionId));
+    setRevokeStatus("idle");
+    try {
+      const response = await fetch(`/api/account/sessions/${sessionId}`, { method: "DELETE" });
+      if (response.ok) {
+        setSessions((current) => (current ?? []).filter((s) => s.id !== sessionId));
+      } else {
+        setRevokeStatus("error");
+      }
+    } catch {
+      setRevokeStatus("error");
     }
   };
 
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-lg font-semibold">{t("account.sessionsTitle")}</h2>
+      {loadStatus === "error" && (
+        <p className="text-sm text-red-600">{t("account.sessionsLoadError")}</p>
+      )}
+      {revokeStatus === "error" && (
+        <p className="text-sm text-red-600">{t("account.sessionRevokeError")}</p>
+      )}
       <ul className="flex flex-col gap-2">
         {(sessions ?? []).map((session) => (
           <li key={session.id} className="flex items-center justify-between gap-3 text-sm">
