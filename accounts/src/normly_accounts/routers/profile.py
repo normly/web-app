@@ -37,9 +37,8 @@ def update_profile(
     payload: UpdateProfileRequest, account: Account = Depends(get_current_account),
     session: Session = Depends(get_session),
 ) -> AccountResponse:
-    # pydantic v1 is pinned here; __fields_set__ is v1's equivalent of v2's
-    # model_fields_set -- the set of field names actually present in the body.
-    fields_set = payload.__fields_set__
+    # The set of field names actually present in the request body.
+    fields_set = payload.model_fields_set
     first_name = payload.first_name if "first_name" in fields_set else account.first_name
     last_name = payload.last_name if "last_name" in fields_set else account.last_name
 
