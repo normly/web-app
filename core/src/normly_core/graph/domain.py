@@ -601,6 +601,10 @@ class Account:
     password_hash: str | None
     email_verified_at: datetime | None
     created_at: datetime
+    first_name: str | None
+    last_name: str | None
+    avatar_image: bytes | None
+    avatar_content_type: str | None
 
 
 @dataclass(frozen=True)
@@ -650,6 +654,16 @@ class AccountRepository(Protocol):
     def mark_email_verified(self, account_id: uuid.UUID, verified_at: datetime) -> None: ...
 
     def set_password_hash(self, account_id: uuid.UUID, password_hash: str) -> None: ...
+
+    def update_profile_names(
+        self, account_id: uuid.UUID, *, first_name: str | None, last_name: str | None
+    ) -> None: ...
+
+    def set_avatar(
+        self, account_id: uuid.UUID, *, avatar_image: bytes, avatar_content_type: str
+    ) -> None: ...
+
+    def clear_avatar(self, account_id: uuid.UUID) -> None: ...
 
 
 class EmailAlreadyRegisteredError(Exception):

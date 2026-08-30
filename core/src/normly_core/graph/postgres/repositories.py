@@ -1158,6 +1158,8 @@ def _account_to_domain(orm: AccountORM) -> Account:
     return Account(
         id=orm.id, email=orm.email, password_hash=orm.password_hash,
         email_verified_at=orm.email_verified_at, created_at=orm.created_at,
+        first_name=orm.first_name, last_name=orm.last_name,
+        avatar_image=orm.avatar_image, avatar_content_type=orm.avatar_content_type,
     )
 
 
@@ -1197,6 +1199,31 @@ class PostgresAccountRepository:
             sa.update(AccountORM)
             .where(AccountORM.id == account_id)
             .values(password_hash=password_hash)
+        )
+
+    def update_profile_names(
+        self, account_id: uuid.UUID, *, first_name: str | None, last_name: str | None
+    ) -> None:
+        self._session.execute(
+            sa.update(AccountORM)
+            .where(AccountORM.id == account_id)
+            .values(first_name=first_name, last_name=last_name)
+        )
+
+    def set_avatar(
+        self, account_id: uuid.UUID, *, avatar_image: bytes, avatar_content_type: str
+    ) -> None:
+        self._session.execute(
+            sa.update(AccountORM)
+            .where(AccountORM.id == account_id)
+            .values(avatar_image=avatar_image, avatar_content_type=avatar_content_type)
+        )
+
+    def clear_avatar(self, account_id: uuid.UUID) -> None:
+        self._session.execute(
+            sa.update(AccountORM)
+            .where(AccountORM.id == account_id)
+            .values(avatar_image=None, avatar_content_type=None)
         )
 
 

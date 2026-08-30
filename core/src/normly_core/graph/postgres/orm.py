@@ -341,6 +341,10 @@ class AccountORM(Base):
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), server_default=sa.func.now()
     )
+    first_name: Mapped[str | None]
+    last_name: Mapped[str | None]
+    avatar_image: Mapped[bytes | None] = mapped_column(sa.LargeBinary)
+    avatar_content_type: Mapped[str | None]
 
     __table_args__ = (sa.UniqueConstraint("email", name="uq_account_email"),)
 
