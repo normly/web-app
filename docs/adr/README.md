@@ -530,6 +530,51 @@ mehr, als sie an Kosten spart.
 
 ---
 
+## ADR-018 — ML-gestützte Struktur-Erkennung in der Ingestion-Pipeline (Docling)
+
+**Status:** beschlossen
+
+**Entscheidung:** Die Ingestion-Pipeline nutzt ab sofort
+[Docling](https://github.com/docling-project/docling) statt pdfplumber zur
+PDF-Extraktion, einschließlich dessen ML-gestützter Layout- und
+Tabellenstruktur-Erkennung (Standard-Pipeline: Layout-Modell + TableFormer).
+Damit wird der bisher im Ingestion-Spec explizit festgehaltene Nicht-Ziel-
+Punkt "kein generisches Dokumentenverständnis" aufgehoben.
+
+**Begründung:** Die ersten beiden Quellen (DGUV, EUR-Lex) kommen mit
+regelbasierter Extraktion zufriedenstellend aus, aber deutlich mehr Quellen
+mit unbekannten, teils komplexeren Layouts folgen. Eine rein regelbasierte
+Struktur-Erkennung (Regex auf Rohtext) skaliert nicht auf Quellen, deren
+Struktur nicht vorher bekannt ist. Ein Layout-Erkennungsmodell zur
+Ingestion-Zeit macht neue Quellen handhabbar, ohne für jede einzelne eine
+neue, quellenspezifische Regel-Engine zu schreiben.
+
+**Abgrenzung zu ADR-008:** ADR-008 verbietet den Einsatz eines
+Sprachmodells zur **Anfragezeit** für Strukturfragen — aus Kosten-, Latenz-
+und Halluzinationsgründen bei jeder einzelnen Nutzeranfrage. Diese
+Entscheidung betrifft einen anderen Zeitpunkt und eine andere Modellart:
+Doclings Layout-/Tabellenmodell läuft **einmalig zur Ingestion-Zeit**, ist
+**diskriminativ** (erkennt Struktur in vorhandenem Inhalt), nicht
+**generativ** (erfindet keinen Inhalt, kein Halluzinationsrisiko im
+eigentlichen Sinn) und ist bei gleicher Eingabe deterministisch
+reproduzierbar. Das Ergebnis fließt als normaler, deterministischer Inhalt
+in den Referenzgraph ein — jede spätere Anfrage wird weiterhin ausschließlich
+graphbasiert beantwortet, ganz ohne Modellaufruf. ADR-008 bleibt in seinem
+eigentlichen Geltungsbereich unverändert.
+
+**Umsetzung:** Modellgewichte werden einmalig beim Container-Image-Build
+bezogen und gebacken — kein Zugriff auf externe Modell-Repositories
+(Hugging Face) zur Laufzeit, passend zur STACKIT-only-Vorgabe für den
+Betrieb. Details siehe
+`docs/superpowers/specs/2026-08-30-docling-migration-design.md`.
+
+**Verworfen:** Doclings VLM-Pipeline (generatives Vision-Language-Modell)
+als Standard-Extraktionsweg — deutlich schwereres Abhängigkeits- und
+Betriebsprofil ohne aktuellen Bedarf; das diskriminative Standard-Layout-
+Modell reicht für die heutigen Anforderungen.
+
+---
+
 ## Offene Punkte
 
 | Thema | Status | Nächster Schritt |
