@@ -1226,6 +1226,45 @@ class PostgresAccountRepository:
             .values(avatar_image=None, avatar_content_type=None)
         )
 
+    def delete_account(self, account_id: uuid.UUID) -> None:
+        # Explicit, ordered deletes rather than relying on database-level
+        # CASCADE: none of the foreign keys into `account` declare ON DELETE
+        # CASCADE (they default to RESTRICT/NO ACTION), and changing that
+        # default now would also silently affect every other code path that
+        # might ever delete an account row. Children before parents,
+        # respecting every FK in this dependency chain.
+        session_ids = self._session.execute(
+            select(ChatSessionORM.id).where(ChatSessionORM.account_id == account_id)
+        ).scalars().all()
+        if session_ids:
+            message_ids = self._session.execute(
+                select(ChatMessageORM.id).where(ChatMessageORM.session_id.in_(session_ids))
+            ).scalars().all()
+            if message_ids:
+                self._session.execute(
+                    sa.delete(ChatMessageCitationORM).where(
+                        ChatMessageCitationORM.message_id.in_(message_ids)
+                    )
+                )
+            self._session.execute(
+                sa.delete(ChatMessageORM).where(ChatMessageORM.session_id.in_(session_ids))
+            )
+            self._session.execute(
+                sa.delete(ChatSessionORM).where(ChatSessionORM.account_id == account_id)
+            )
+        self._session.execute(
+            sa.delete(AccountTokenORM).where(AccountTokenORM.account_id == account_id)
+        )
+        self._session.execute(
+            sa.delete(AccountSessionORM).where(AccountSessionORM.account_id == account_id)
+        )
+        self._session.execute(
+            sa.delete(AccountGoogleIdentityORM).where(
+                AccountGoogleIdentityORM.account_id == account_id
+            )
+        )
+        self._session.execute(sa.delete(AccountORM).where(AccountORM.id == account_id))
+
 
 class PostgresAccountGoogleIdentityRepository:
     def __init__(self, session: Session):
@@ -1330,6 +1369,28 @@ class PostgresAccountSessionRepository:
                 AccountSessionORM.session_token == session_token
             )
         )
+
+    def list_sessions_for_account(self, account_id: uuid.UUID) -> list[AccountSession]:
+        rows = self._session.execute(
+            select(AccountSessionORM)
+            .where(AccountSessionORM.account_id == account_id)
+            .order_by(AccountSessionORM.created_at.desc())
+        ).scalars()
+        return [_account_session_to_domain(row) for row in rows]
+
+    def revoke_session_by_id(self, session_id: uuid.UUID, account_id: uuid.UUID) -> bool:
+        # Scoped by account_id in the WHERE clause, not just session_id --
+        # this is what prevents one account from revoking another's session
+        # by guessing/enumerating IDs. rowcount is 0 both when the id doesn't
+        # exist and when it belongs to someone else; the caller cannot tell
+        # those apart, which is exactly the point.
+        result = self._session.execute(
+            sa.delete(AccountSessionORM).where(
+                AccountSessionORM.id == session_id,
+                AccountSessionORM.account_id == account_id,
+            )
+        )
+        return result.rowcount > 0
 
 
 def _account_token_to_domain(orm: AccountTokenORM) -> AccountToken:

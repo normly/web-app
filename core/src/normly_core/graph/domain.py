@@ -39,6 +39,7 @@ class AccountTokenPurpose(str, Enum):
     PASSWORD_RESET = "password_reset"
     EMAIL_VERIFICATION = "email_verification"
     MAGIC_LINK = "magic_link"
+    EMAIL_CHANGE = "email_change"
 
 
 class WithdrawnDeliveryError(Exception):
@@ -665,6 +666,8 @@ class AccountRepository(Protocol):
 
     def clear_avatar(self, account_id: uuid.UUID) -> None: ...
 
+    def delete_account(self, account_id: uuid.UUID) -> None: ...
+
 
 class EmailAlreadyRegisteredError(Exception):
     def __init__(self, email: str):
@@ -714,6 +717,10 @@ class AccountSessionRepository(Protocol):
     def extend_session(self, session_id: uuid.UUID, new_expires_at: datetime) -> None: ...
 
     def revoke_session(self, session_token: str) -> None: ...
+
+    def list_sessions_for_account(self, account_id: uuid.UUID) -> list[AccountSession]: ...
+
+    def revoke_session_by_id(self, session_id: uuid.UUID, account_id: uuid.UUID) -> bool: ...
 
 
 class AccountTokenRepository(Protocol):
