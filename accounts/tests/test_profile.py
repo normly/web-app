@@ -47,6 +47,41 @@ def test_update_profile_requires_authorization(client):
     assert response.status_code == 401
 
 
+def test_update_profile_leaves_an_omitted_field_untouched(client):
+    _, headers = _register_and_authorize(client)
+    client.patch(
+        "/v1/accounts/profile", json={"first_name": "Jamie", "last_name": "Weber"},
+        headers=headers,
+    )
+
+    response = client.patch(
+        "/v1/accounts/profile", json={"last_name": "NewLastName"}, headers=headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["first_name"] == "Jamie"
+    assert body["last_name"] == "NewLastName"
+
+
+def test_update_profile_explicit_null_still_clears_a_field(client):
+    _, headers = _register_and_authorize(client)
+    client.patch(
+        "/v1/accounts/profile", json={"first_name": "Jamie", "last_name": "Weber"},
+        headers=headers,
+    )
+
+    response = client.patch(
+        "/v1/accounts/profile", json={"first_name": None, "last_name": "Weber"},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["first_name"] is None
+    assert body["last_name"] == "Weber"
+
+
 def test_upload_avatar_resizes_to_256_and_returns_data_url(client):
     _, headers = _register_and_authorize(client)
     image_bytes = _make_test_image()
@@ -89,6 +124,21 @@ def test_upload_avatar_rejects_a_non_image_file(client):
     )
 
     assert response.status_code == 400
+
+
+def test_upload_avatar_rejects_a_truncated_image_instead_of_crashing(client):
+    _, headers = _register_and_authorize(client)
+    valid_image = _make_test_image()
+    truncated = valid_image[: len(valid_image) // 2]
+
+    response = client.post(
+        "/v1/accounts/avatar",
+        files={"avatar": ("avatar.jpg", truncated, "image/jpeg")},
+        headers=headers,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "avatar must be a valid image file"
 
 
 def test_delete_avatar_clears_it(client, db_session):

@@ -37,10 +37,14 @@ def update_profile(
     payload: UpdateProfileRequest, account: Account = Depends(get_current_account),
     session: Session = Depends(get_session),
 ) -> AccountResponse:
+    # pydantic v1 is pinned here; __fields_set__ is v1's equivalent of v2's
+    # model_fields_set -- the set of field names actually present in the body.
+    fields_set = payload.__fields_set__
+    first_name = payload.first_name if "first_name" in fields_set else account.first_name
+    last_name = payload.last_name if "last_name" in fields_set else account.last_name
+
     account_repo = PostgresAccountRepository(session)
-    account_repo.update_profile_names(
-        account.id, first_name=payload.first_name, last_name=payload.last_name
-    )
+    account_repo.update_profile_names(account.id, first_name=first_name, last_name=last_name)
     updated = account_repo.get_account_by_id(account.id)
     return _account_response(updated)
 
@@ -64,11 +68,14 @@ def upload_avatar(
             raise HTTPException(
                 status_code=400, detail="avatar must be a JPEG, PNG, or WebP image"
             )
-    except UnidentifiedImageError:
+        # Pixel data isn't decoded until convert()/thumbnail() actually read
+        # it, so a truncated/corrupt body can pass open() and verify() clean
+        # and only raise OSError here -- keep these calls inside the try.
+        image = image.convert("RGB")
+        image.thumbnail(_AVATAR_SIZE, Image.LANCZOS)
+    except (UnidentifiedImageError, OSError):
         raise HTTPException(status_code=400, detail="avatar must be a valid image file")
 
-    image = image.convert("RGB")
-    image.thumbnail(_AVATAR_SIZE, Image.LANCZOS)
     # thumbnail() preserves aspect ratio and may not fill both dimensions --
     # paste onto a fixed 256x256 canvas so every avatar is exactly the same
     # size the frontend expects, centered rather than stretched/distorted.
