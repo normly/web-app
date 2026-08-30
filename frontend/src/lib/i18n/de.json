@@ -86,6 +86,15 @@
     "sessionCreatedLabel": "Angemeldet seit",
     "revokeSessionButton": "Sitzung beenden",
     "sessionsLoadError": "Sitzungen konnten nicht geladen werden. Bitte versuche es erneut.",
-    "sessionRevokeError": "Die Sitzung konnte nicht beendet werden. Bitte versuche es erneut."
+    "sessionRevokeError": "Die Sitzung konnte nicht beendet werden. Bitte versuche es erneut.",
+    "exportTitle": "Daten exportieren",
+    "exportDescription": "Lade deine Konto-Stammdaten und deinen vollständigen Chat-Verlauf als Datei herunter.",
+    "exportButton": "Export herunterladen",
+    "deleteAccountTitle": "Konto löschen",
+    "deleteAccountDescription": "Löscht dein Konto und alle verknüpften Daten unwiderruflich, einschließlich des gesamten Chat-Verlaufs.",
+    "deleteAccountPasswordLabel": "Passwort zur Bestätigung",
+    "deleteAccountConfirmLabel": "Gib zur Bestätigung deine E-Mail-Adresse ein",
+    "deleteAccountButton": "Konto endgültig löschen",
+    "deleteAccountError": "Konto konnte nicht gelöscht werden. Prüfe deine Eingaben."
   }
 }

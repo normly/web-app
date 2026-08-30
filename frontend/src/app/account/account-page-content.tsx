@@ -14,6 +14,8 @@ import { NameAvatarSection } from "@/components/account/name-avatar-section";
 import { EmailSection } from "@/components/account/email-section";
 import { PasswordSection } from "@/components/account/password-section";
 import { SessionsSection } from "@/components/account/sessions-section";
+import { ExportSection } from "@/components/account/export-section";
+import { DeleteAccountSection } from "@/components/account/delete-account-section";
 import { useTranslation } from "@/lib/i18n/provider";
 import type { AccountSummary } from "@/lib/account-response";
 
@@ -49,6 +51,8 @@ export function AccountPageContent() {
       <EmailSection account={account} />
       <PasswordSection />
       <SessionsSection />
+      <ExportSection />
+      <DeleteAccountSection account={account} />
     </div>
   );
 }

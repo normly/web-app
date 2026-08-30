@@ -86,6 +86,15 @@
     "sessionCreatedLabel": "Signed in since",
     "revokeSessionButton": "End session",
     "sessionsLoadError": "Sessions could not be loaded. Please try again.",
-    "sessionRevokeError": "The session could not be ended. Please try again."
+    "sessionRevokeError": "The session could not be ended. Please try again.",
+    "exportTitle": "Export data",
+    "exportDescription": "Download your account details and full chat history as a file.",
+    "exportButton": "Download export",
+    "deleteAccountTitle": "Delete account",
+    "deleteAccountDescription": "Permanently deletes your account and all linked data, including your entire chat history.",
+    "deleteAccountPasswordLabel": "Password to confirm",
+    "deleteAccountConfirmLabel": "Type your email address to confirm",
+    "deleteAccountButton": "Permanently delete account",
+    "deleteAccountError": "Could not delete the account. Check your input."
   }
 }
