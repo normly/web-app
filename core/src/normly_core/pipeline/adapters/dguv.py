@@ -10,11 +10,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
-import pdfplumber
-
+from normly_core.pipeline.docling_extraction import extract_document
 from normly_core.pipeline.domain import RawRecord, RawSection, RightsRule
 
 _HEADING_PATTERN = re.compile(r"^§\s*\d+\s+.+")
+
+# Docling merges visually adjacent lines into one text block -- the
+# fixture's designation ("DGUV Vorschrift 1") and title ("Grundsätze der
+# Prävention") are two separate lines in the source PDF but arrive as a
+# single Docling text item, unlike pdfplumber's per-line output. Split them
+# back apart by the designation's known "DGUV Vorschrift <N>" prefix rather
+# than assuming two separate elements.
+_DESIGNATION_PATTERN = re.compile(r"^(DGUV Vorschrift \d+)\s*(.*)$")
 
 # The adapter reads every file in the directory that carries its own prefix.
 # A bare "*.pdf" would be wrong: the directory may hold other sources' files —
@@ -33,15 +40,22 @@ class DguvAdapter:
             content = pdf_path.read_bytes()
             content_hash = f"sha256:{hashlib.sha256(content).hexdigest()}"
 
-            with pdfplumber.open(pdf_path) as pdf:
-                lines: list[str] = []
-                for page in pdf.pages:
-                    text = page.extract_text() or ""
-                    lines.extend(text.splitlines())
+            document = extract_document(pdf_path)
+            texts = [
+                item.text
+                for item, _level in document.iterate_items()
+                if hasattr(item, "text") and item.text
+            ]
 
-            designation = lines[0].strip()
-            title = lines[1].strip() if len(lines) > 1 else None
-            full_text = "\n".join(lines)
+            first = texts[0].strip() if texts else ""
+            match = _DESIGNATION_PATTERN.match(first)
+            if match:
+                designation = match.group(1)
+                title = match.group(2).strip() or None
+            else:
+                designation = first
+                title = None
+            full_text = "\n".join(texts)
 
             yield RawRecord(
                 source_id=self.source_id,

@@ -87,3 +87,38 @@ def test_classify_rights_allows_full_processing():
     assert rule.may_cite_passages is True
     assert rule.may_export_free is True
     assert rule.jurisdiction == "DE"
+
+
+def test_docling_classifies_paragraph_headings_as_list_items_not_section_headers():
+    """
+    Documents a real, empirically verified Docling behavior (2.123.1):
+    §-paragraph headings in DGUV-style plainly-formatted legal text come
+    back as ListItem, not SectionHeaderItem -- Docling's layout model has
+    no visual cue (larger font, boldness, spacing) to distinguish them from
+    a numbered list. This is exactly why extract_structure() stays
+    pattern-based instead of trusting Docling's element classification --
+    see docs/superpowers/specs/2026-08-30-docling-migration-design.md,
+    "Empirischer Befund" and "Entscheidungsverfahren für künftige Adapter".
+
+    If this test starts failing after a future Docling version upgrade,
+    that is a deliberate signal that the classification behavior changed --
+    re-run the decision procedure in the design doc, do not just delete or
+    "fix" this assertion.
+    """
+    from docling_core.types.doc import ListItem, SectionHeaderItem
+
+    from normly_core.pipeline.docling_extraction import extract_document
+
+    document = extract_document(FIXTURE_DIR / "dguv_sample_vorschrift.pdf")
+    known_headings = {
+        "§ 1 Geltungsbereich", "§ 2 Pflichten des Unternehmers",
+        "§ 3 Pflichten der Versicherten",
+    }
+    heading_items = [
+        item for item, _level in document.iterate_items()
+        if getattr(item, "text", None) in known_headings
+    ]
+
+    assert len(heading_items) == 3
+    assert all(isinstance(item, ListItem) for item in heading_items)
+    assert not any(isinstance(item, SectionHeaderItem) for item in heading_items)
