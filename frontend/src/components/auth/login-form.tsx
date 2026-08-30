@@ -15,6 +15,8 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [showResetRequest, setShowResetRequest] = React.useState(false);
+  const [resetSent, setResetSent] = React.useState(false);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -35,6 +37,50 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
       setIsSubmitting(false);
     }
   };
+
+  const submitResetRequest = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await fetch("/api/auth/password-reset/request", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      setResetSent(true);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (showResetRequest) {
+    if (resetSent) {
+      return <p className="text-sm">{t("auth.resetLinkSent")}</p>;
+    }
+    return (
+      <form onSubmit={submitResetRequest} className="flex flex-col gap-3">
+        <label className="flex flex-col gap-1 text-sm">
+          {t("auth.emailLabel")}
+          <Input
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+          />
+        </label>
+        <Button type="submit" disabled={isSubmitting}>
+          {t("auth.resetRequestButton")}
+        </Button>
+        <button
+          type="button"
+          className="text-sm underline"
+          onClick={() => setShowResetRequest(false)}
+        >
+          {t("auth.backToLogin")}
+        </button>
+      </form>
+    );
+  }
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-3">
@@ -60,6 +106,13 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
       <Button type="submit" disabled={isSubmitting}>
         {t("auth.loginButton")}
       </Button>
+      <button
+        type="button"
+        className="text-sm underline"
+        onClick={() => setShowResetRequest(true)}
+      >
+        {t("auth.forgotPasswordLink")}
+      </button>
     </form>
   );
 }

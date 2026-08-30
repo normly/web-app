@@ -39,6 +39,7 @@ class AccountTokenPurpose(str, Enum):
     PASSWORD_RESET = "password_reset"
     EMAIL_VERIFICATION = "email_verification"
     MAGIC_LINK = "magic_link"
+    EMAIL_CHANGE = "email_change"
 
 
 class WithdrawnDeliveryError(Exception):
@@ -601,6 +602,10 @@ class Account:
     password_hash: str | None
     email_verified_at: datetime | None
     created_at: datetime
+    first_name: str | None
+    last_name: str | None
+    avatar_image: bytes | None
+    avatar_content_type: str | None
 
 
 @dataclass(frozen=True)
@@ -651,6 +656,20 @@ class AccountRepository(Protocol):
 
     def set_password_hash(self, account_id: uuid.UUID, password_hash: str) -> None: ...
 
+    def update_email(self, account_id: uuid.UUID, new_email: str) -> None: ...
+
+    def update_profile_names(
+        self, account_id: uuid.UUID, *, first_name: str | None, last_name: str | None
+    ) -> None: ...
+
+    def set_avatar(
+        self, account_id: uuid.UUID, *, avatar_image: bytes, avatar_content_type: str
+    ) -> None: ...
+
+    def clear_avatar(self, account_id: uuid.UUID) -> None: ...
+
+    def delete_account(self, account_id: uuid.UUID) -> None: ...
+
 
 class EmailAlreadyRegisteredError(Exception):
     def __init__(self, email: str):
@@ -678,6 +697,8 @@ class AccountGoogleIdentityRepository(Protocol):
 
     def get_account_by_google_subject(self, google_subject_id: str) -> Account | None: ...
 
+    def has_google_identity(self, account_id: uuid.UUID) -> bool: ...
+
 
 class GoogleIdentityAlreadyLinkedError(Exception):
     def __init__(self, account_id: uuid.UUID, google_subject_id: str):
@@ -700,6 +721,10 @@ class AccountSessionRepository(Protocol):
     def extend_session(self, session_id: uuid.UUID, new_expires_at: datetime) -> None: ...
 
     def revoke_session(self, session_token: str) -> None: ...
+
+    def list_sessions_for_account(self, account_id: uuid.UUID) -> list[AccountSession]: ...
+
+    def revoke_session_by_id(self, session_id: uuid.UUID, account_id: uuid.UUID) -> bool: ...
 
 
 class AccountTokenRepository(Protocol):

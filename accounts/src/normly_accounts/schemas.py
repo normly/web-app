@@ -23,10 +23,19 @@ class LogoutRequest(BaseModel):
     session_token: str
 
 
+class UpdateProfileRequest(BaseModel):
+    first_name: str | None = None
+    last_name: str | None = None
+
+
 class AccountResponse(BaseModel):
     id: uuid.UUID
     email: str
     email_verified: bool
+    first_name: str | None
+    last_name: str | None
+    avatar_data_url: str | None
+    has_password: bool
 
 
 class SessionResponse(BaseModel):
@@ -43,6 +52,10 @@ class PasswordResetConfirmRequest(BaseModel):
     new_password: str
 
 
+class EmailChangeRequest(BaseModel):
+    new_email: EmailStr
+
+
 class MagicLinkRequestRequest(BaseModel):
     email: EmailStr
 
@@ -54,7 +67,56 @@ class MagicLinkConfirmRequest(BaseModel):
 class SessionValidationResponse(BaseModel):
     account_id: uuid.UUID
     email: str
+    first_name: str | None
+    last_name: str | None
+    avatar_data_url: str | None
+    has_password: bool
+
+
+class SetPasswordRequest(BaseModel):
+    current_password: str | None
+    new_password: str
+
+
+class SessionSummaryResponse(BaseModel):
+    id: uuid.UUID
+    created_at: datetime
+    expires_at: datetime
+    is_current: bool
 
 
 class ErrorResponse(BaseModel):
     detail: str
+
+
+class DeleteAccountRequest(BaseModel):
+    password: str | None
+
+
+class ExportAccountFields(BaseModel):
+    email: str
+    created_at: datetime
+    email_verified: bool
+    google_linked: bool
+    first_name: str | None
+    last_name: str | None
+    avatar_data_url: str | None
+
+
+class ExportChatMessage(BaseModel):
+    role: str
+    content: str
+    created_at: datetime
+
+
+class ExportChatSession(BaseModel):
+    session_token: str
+    jurisdiction: str
+    language: str
+    created_at: datetime
+    messages: list[ExportChatMessage]
+
+
+class ExportResponse(BaseModel):
+    account: ExportAccountFields
+    chat_sessions: list[ExportChatSession]

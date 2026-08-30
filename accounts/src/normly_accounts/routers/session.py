@@ -14,6 +14,7 @@ from normly_core.graph.postgres.repositories import (
 )
 
 from normly_accounts.dependencies import get_session
+from normly_accounts.routers.login import avatar_data_url
 from normly_accounts.schemas import SessionValidationResponse
 
 session_router = APIRouter(prefix="/v1/accounts", tags=["session"])
@@ -53,4 +54,9 @@ def validate_session(
     )
 
     account = PostgresAccountRepository(session).get_account_by_id(account_session.account_id)
-    return SessionValidationResponse(account_id=account.id, email=account.email)
+    return SessionValidationResponse(
+        account_id=account.id, email=account.email,
+        first_name=account.first_name, last_name=account.last_name,
+        avatar_data_url=avatar_data_url(account),
+        has_password=account.password_hash is not None,
+    )

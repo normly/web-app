@@ -1158,6 +1158,8 @@ def _account_to_domain(orm: AccountORM) -> Account:
     return Account(
         id=orm.id, email=orm.email, password_hash=orm.password_hash,
         email_verified_at=orm.email_verified_at, created_at=orm.created_at,
+        first_name=orm.first_name, last_name=orm.last_name,
+        avatar_image=orm.avatar_image, avatar_content_type=orm.avatar_content_type,
     )
 
 
@@ -1198,6 +1200,88 @@ class PostgresAccountRepository:
             .where(AccountORM.id == account_id)
             .values(password_hash=password_hash)
         )
+
+    def update_email(self, account_id: uuid.UUID, new_email: str) -> None:
+        # The caller (the email-change confirm flow) already checks that
+        # new_email is free before calling this, but that check-then-act is
+        # only advisory -- two confirm requests racing for the same
+        # newly-freed address can both pass the check. The savepoint here
+        # mirrors create_account: it surfaces uq_account_email as a clean,
+        # catchable IntegrityError instead of aborting the whole session.
+        try:
+            with self._session.begin_nested():
+                self._session.execute(
+                    sa.update(AccountORM)
+                    .where(AccountORM.id == account_id)
+                    .values(email=new_email)
+                )
+                self._session.flush()
+        except IntegrityError as exc:
+            raise EmailAlreadyRegisteredError(new_email) from exc
+
+    def update_profile_names(
+        self, account_id: uuid.UUID, *, first_name: str | None, last_name: str | None
+    ) -> None:
+        self._session.execute(
+            sa.update(AccountORM)
+            .where(AccountORM.id == account_id)
+            .values(first_name=first_name, last_name=last_name)
+        )
+
+    def set_avatar(
+        self, account_id: uuid.UUID, *, avatar_image: bytes, avatar_content_type: str
+    ) -> None:
+        self._session.execute(
+            sa.update(AccountORM)
+            .where(AccountORM.id == account_id)
+            .values(avatar_image=avatar_image, avatar_content_type=avatar_content_type)
+        )
+
+    def clear_avatar(self, account_id: uuid.UUID) -> None:
+        self._session.execute(
+            sa.update(AccountORM)
+            .where(AccountORM.id == account_id)
+            .values(avatar_image=None, avatar_content_type=None)
+        )
+
+    def delete_account(self, account_id: uuid.UUID) -> None:
+        # Explicit, ordered deletes rather than relying on database-level
+        # CASCADE: none of the foreign keys into `account` declare ON DELETE
+        # CASCADE (they default to RESTRICT/NO ACTION), and changing that
+        # default now would also silently affect every other code path that
+        # might ever delete an account row. Children before parents,
+        # respecting every FK in this dependency chain.
+        session_ids = self._session.execute(
+            select(ChatSessionORM.id).where(ChatSessionORM.account_id == account_id)
+        ).scalars().all()
+        if session_ids:
+            message_ids = self._session.execute(
+                select(ChatMessageORM.id).where(ChatMessageORM.session_id.in_(session_ids))
+            ).scalars().all()
+            if message_ids:
+                self._session.execute(
+                    sa.delete(ChatMessageCitationORM).where(
+                        ChatMessageCitationORM.message_id.in_(message_ids)
+                    )
+                )
+            self._session.execute(
+                sa.delete(ChatMessageORM).where(ChatMessageORM.session_id.in_(session_ids))
+            )
+            self._session.execute(
+                sa.delete(ChatSessionORM).where(ChatSessionORM.account_id == account_id)
+            )
+        self._session.execute(
+            sa.delete(AccountTokenORM).where(AccountTokenORM.account_id == account_id)
+        )
+        self._session.execute(
+            sa.delete(AccountSessionORM).where(AccountSessionORM.account_id == account_id)
+        )
+        self._session.execute(
+            sa.delete(AccountGoogleIdentityORM).where(
+                AccountGoogleIdentityORM.account_id == account_id
+            )
+        )
+        self._session.execute(sa.delete(AccountORM).where(AccountORM.id == account_id))
 
 
 class PostgresAccountGoogleIdentityRepository:
@@ -1257,6 +1341,9 @@ class PostgresAccountGoogleIdentityRepository:
         ).scalar_one_or_none()
         return _account_to_domain(orm) if orm else None
 
+    def has_google_identity(self, account_id: uuid.UUID) -> bool:
+        return self._session.get(AccountGoogleIdentityORM, account_id) is not None
+
 
 def _account_session_to_domain(orm: AccountSessionORM) -> AccountSession:
     return AccountSession(
@@ -1303,6 +1390,28 @@ class PostgresAccountSessionRepository:
                 AccountSessionORM.session_token == session_token
             )
         )
+
+    def list_sessions_for_account(self, account_id: uuid.UUID) -> list[AccountSession]:
+        rows = self._session.execute(
+            select(AccountSessionORM)
+            .where(AccountSessionORM.account_id == account_id)
+            .order_by(AccountSessionORM.created_at.desc())
+        ).scalars()
+        return [_account_session_to_domain(row) for row in rows]
+
+    def revoke_session_by_id(self, session_id: uuid.UUID, account_id: uuid.UUID) -> bool:
+        # Scoped by account_id in the WHERE clause, not just session_id --
+        # this is what prevents one account from revoking another's session
+        # by guessing/enumerating IDs. rowcount is 0 both when the id doesn't
+        # exist and when it belongs to someone else; the caller cannot tell
+        # those apart, which is exactly the point.
+        result = self._session.execute(
+            sa.delete(AccountSessionORM).where(
+                AccountSessionORM.id == session_id,
+                AccountSessionORM.account_id == account_id,
+            )
+        )
+        return result.rowcount > 0
 
 
 def _account_token_to_domain(orm: AccountTokenORM) -> AccountToken:

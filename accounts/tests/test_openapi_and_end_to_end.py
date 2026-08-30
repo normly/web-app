@@ -13,13 +13,22 @@ def test_openapi_schema_documents_every_v1_endpoint(client):
         "/v1/accounts/login",
         "/v1/accounts/logout",
         "/v1/accounts/session",
+        "/v1/accounts/sessions",
+        "/v1/accounts/sessions/{session_id}",
         "/v1/accounts/verify-email",
+        "/v1/accounts/password",
         "/v1/accounts/password-reset/request",
         "/v1/accounts/password-reset/confirm",
         "/v1/accounts/google/login",
         "/v1/accounts/google/callback",
         "/v1/accounts/magic-link/request",
         "/v1/accounts/magic-link/confirm",
+        "/v1/accounts/profile",
+        "/v1/accounts/avatar",
+        "/v1/accounts/email/change",
+        "/v1/accounts/email/confirm",
+        "/v1/accounts/me",
+        "/v1/accounts/export",
     }
     assert schema["info"]["license"]["name"] == "Apache-2.0"
 

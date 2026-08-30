@@ -13,13 +13,18 @@ from sqlalchemy import create_engine
 
 from normly_accounts.email import RecordingEmailSender, SmtpEmailSender
 from normly_accounts.errors import COMMON_ERROR_RESPONSES, register_exception_handlers
+from normly_accounts.routers.account_management import account_management_router
+from normly_accounts.routers.email_change import email_change_router
 from normly_accounts.routers.email_verification import email_verification_router
 from normly_accounts.routers.google import google_router
 from normly_accounts.routers.login import login_router
 from normly_accounts.routers.magic_link import magic_link_router
+from normly_accounts.routers.password import password_router
 from normly_accounts.routers.password_reset import password_reset_router
+from normly_accounts.routers.profile import profile_router
 from normly_accounts.routers.registration import registration_router
 from normly_accounts.routers.session import session_router
+from normly_accounts.routers.sessions import sessions_router
 
 
 @asynccontextmanager
@@ -68,9 +73,14 @@ def create_app() -> FastAPI:
     app.include_router(login_router, responses=COMMON_ERROR_RESPONSES)
     app.include_router(magic_link_router, responses=COMMON_ERROR_RESPONSES)
     app.include_router(password_reset_router, responses=COMMON_ERROR_RESPONSES)
+    app.include_router(password_router, responses=COMMON_ERROR_RESPONSES)
     app.include_router(session_router, responses=COMMON_ERROR_RESPONSES)
+    app.include_router(sessions_router, responses=COMMON_ERROR_RESPONSES)
     app.include_router(email_verification_router, responses=COMMON_ERROR_RESPONSES)
+    app.include_router(email_change_router, responses=COMMON_ERROR_RESPONSES)
     app.include_router(google_router, responses=COMMON_ERROR_RESPONSES)
+    app.include_router(profile_router, responses=COMMON_ERROR_RESPONSES)
+    app.include_router(account_management_router, responses=COMMON_ERROR_RESPONSES)
     return app
 
 

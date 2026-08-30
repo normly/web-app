@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -28,6 +29,10 @@ password_reset_router = APIRouter(prefix="/v1/accounts/password-reset", tags=["p
 _RESET_TOKEN_LIFETIME = timedelta(hours=1)
 
 
+def _public_base_url() -> str:
+    return os.environ.get("NORMLY_PUBLIC_BASE_URL", "http://localhost:3000")
+
+
 @password_reset_router.post("/request")
 def request_password_reset(
     payload: PasswordResetRequestRequest, session: Session = Depends(get_session),
@@ -43,7 +48,10 @@ def request_password_reset(
         try:
             email_sender.send(
                 to=account.email, subject="Passwort zurücksetzen",
-                body=f"Zum Zurücksetzen deines Passworts: token={token.token}",
+                body=(
+                    f"Zum Zurücksetzen deines Passworts: "
+                    f"{_public_base_url()}/reset-password?token={token.token}"
+                ),
             )
         except Exception:
             # Per the design spec: the reset-request call itself must not
