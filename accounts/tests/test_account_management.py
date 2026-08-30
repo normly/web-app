@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 normly contributors
 
+import uuid
 from datetime import datetime, timezone
 
 from normly_core.graph.domain import ChatMessageRole
-from normly_core.graph.postgres.repositories import PostgresChatRepository
+from normly_core.graph.postgres.repositories import PostgresAccountRepository, PostgresChatRepository
 
 
 def _register(client, email="delete-target@example.de", password="correct horse"):
@@ -36,6 +37,24 @@ def test_deleting_a_password_account_with_the_correct_password_succeeds(client):
     assert response.status_code == 200
     session_check = client.get("/v1/accounts/session", headers=headers)
     assert session_check.status_code == 401
+
+
+def test_deleting_an_account_commits_before_the_response_is_returned(client, db_session):
+    headers = _register(client, email="commit-check@example.de", password="correct horse")
+    account_id = client.get("/v1/accounts/session", headers=headers).json()["account_id"]
+
+    response = client.request(
+        "DELETE", "/v1/accounts/me", json={"password": "correct horse"}, headers=headers,
+    )
+
+    assert response.status_code == 200
+    # By the time the endpoint has returned, the deletion must already be
+    # durable -- not merely pending in get_session()'s deferred commit at
+    # request-teardown. Query the row back through the repository (same
+    # session used by the request via dependency override) to confirm it is
+    # actually gone, not just that the endpoint reported success.
+    account = PostgresAccountRepository(db_session).get_account_by_id(uuid.UUID(account_id))
+    assert account is None
 
 
 def test_account_deletion_requires_authorization(client):

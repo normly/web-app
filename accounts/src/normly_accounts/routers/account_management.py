@@ -40,6 +40,16 @@ def delete_account(
     # session itself is the only server-side proof available.
 
     PostgresAccountRepository(session).delete_account(account.id)
+    # Commit here, not just at the end of get_session()'s request scope --
+    # same hazard and fix as _create_session_response in login.py: FastAPI
+    # sends this response and only then closes the yield-dependency's
+    # AsyncExitStack, so get_session()'s own commit runs AFTER the client
+    # already sees "account_deleted". A commit failure between those two
+    # points would tell the client (and the frontend, which then clears the
+    # session cookie) that the account is gone when it might not be.
+    # Committing explicitly here makes the deletion durable before the
+    # response is even constructed.
+    session.commit()
     return {"status": "account_deleted"}
 
 
