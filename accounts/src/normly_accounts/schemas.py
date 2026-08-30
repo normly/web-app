@@ -27,6 +27,9 @@ class AccountResponse(BaseModel):
     id: uuid.UUID
     email: str
     email_verified: bool
+    first_name: str | None
+    last_name: str | None
+    avatar_data_url: str | None
 
 
 class SessionResponse(BaseModel):
@@ -54,6 +57,9 @@ class MagicLinkConfirmRequest(BaseModel):
 class SessionValidationResponse(BaseModel):
     account_id: uuid.UUID
     email: str
+    first_name: str | None
+    last_name: str | None
+    avatar_data_url: str | None
 
 
 class ErrorResponse(BaseModel):

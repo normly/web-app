@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import base64
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -25,6 +26,13 @@ login_router = APIRouter(prefix="/v1/accounts", tags=["login"])
 _SESSION_LIFETIME = timedelta(days=30)
 
 
+def avatar_data_url(account: Account) -> str | None:
+    if account.avatar_image is None or account.avatar_content_type is None:
+        return None
+    encoded = base64.b64encode(account.avatar_image).decode("ascii")
+    return f"data:{account.avatar_content_type};base64,{encoded}"
+
+
 def _create_session_response(account: Account, session: Session) -> SessionResponse:
     now = datetime.now(timezone.utc)
     session_repo = PostgresAccountSessionRepository(session)
@@ -37,6 +45,8 @@ def _create_session_response(account: Account, session: Session) -> SessionRespo
         account=AccountResponse(
             id=account.id, email=account.email,
             email_verified=account.email_verified_at is not None,
+            first_name=account.first_name, last_name=account.last_name,
+            avatar_data_url=avatar_data_url(account),
         ),
     )
 
