@@ -66,6 +66,14 @@
     "removeAvatarButton": "Bild entfernen",
     "firstNameLabel": "Vorname",
     "lastNameLabel": "Nachname",
-    "saveNameButton": "Speichern"
+    "saveNameButton": "Speichern",
+    "emailTitle": "E-Mail-Adresse",
+    "currentEmailLabel": "Aktuelle E-Mail-Adresse",
+    "newEmailLabel": "Neue E-Mail-Adresse",
+    "requestEmailChangeButton": "E-Mail-Adresse ändern",
+    "emailChangeSentMessage": "Bestätigungslink wurde an die neue Adresse gesendet.",
+    "emailChangeGenericError": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+    "confirmEmailChangeSuccessMessage": "Deine E-Mail-Adresse wurde geändert. Du kannst dich jetzt mit der neuen Adresse anmelden.",
+    "confirmEmailChangeErrorMessage": "Dieser Bestätigungslink ist ungültig oder abgelaufen."
   }
 }

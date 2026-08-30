@@ -66,6 +66,14 @@
     "removeAvatarButton": "Remove picture",
     "firstNameLabel": "First name",
     "lastNameLabel": "Last name",
-    "saveNameButton": "Save"
+    "saveNameButton": "Save",
+    "emailTitle": "Email address",
+    "currentEmailLabel": "Current email address",
+    "newEmailLabel": "New email address",
+    "requestEmailChangeButton": "Change email address",
+    "emailChangeSentMessage": "A confirmation link was sent to the new address.",
+    "emailChangeGenericError": "Something went wrong. Please try again.",
+    "confirmEmailChangeSuccessMessage": "Your email address has been changed. You can now log in with the new address.",
+    "confirmEmailChangeErrorMessage": "This confirmation link is invalid or has expired."
   }
 }
