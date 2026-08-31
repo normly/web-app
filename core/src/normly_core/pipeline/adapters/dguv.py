@@ -10,7 +10,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
-from normly_core.pipeline.docling_extraction import extract_document
+from normly_core.pipeline.docling_extraction import (
+    DocumentExtractionError,
+    extract_document,
+    report_skipped_source,
+)
 from normly_core.pipeline.domain import RawRecord, RawSection, RightsRule
 
 # A paragraph marker: "§ 1", "§ 12", occasionally "§ 2a" in German legal
@@ -201,36 +205,46 @@ class DguvAdapter:
 
     def fetch(self) -> Iterable[RawRecord]:
         for pdf_path in sorted(self.directory.glob(_FILE_PATTERN)):
-            content = pdf_path.read_bytes()
-            content_hash = f"sha256:{hashlib.sha256(content).hexdigest()}"
+            # One unreadable file must cost only that file. Without this, the
+            # error would surface in the runner's `for record in fetch()` line,
+            # outside its per-record guard, aborting the run and losing every
+            # file behind this one -- see report_skipped_source().
+            try:
+                yield from self._fetch_file(pdf_path)
+            except DocumentExtractionError as error:
+                report_skipped_source(pdf_path, error)
 
-            document = extract_document(pdf_path)
-            lines: list[str] = []
-            for item, _level in document.iterate_items():
-                text = getattr(item, "text", None)
-                if text:
-                    lines.extend(_logical_lines(text))
+    def _fetch_file(self, pdf_path: Path) -> Iterable[RawRecord]:
+        content = pdf_path.read_bytes()
+        content_hash = f"sha256:{hashlib.sha256(content).hexdigest()}"
 
-            first = lines[0] if lines else ""
-            match = _DESIGNATION_PATTERN.match(first)
-            if match:
-                designation = match.group(1)
-                title = match.group(2).strip() or None
-            else:
-                designation = first
-                title = None
-            full_text = "\n".join(lines)
+        document = extract_document(pdf_path)
+        lines: list[str] = []
+        for item, _level in document.iterate_items():
+            text = getattr(item, "text", None)
+            if text:
+                lines.extend(_logical_lines(text))
 
-            yield RawRecord(
-                source_id=self.source_id,
-                content_hash=content_hash,
-                raw_designation=designation,
-                raw_issuer="DGUV",
-                raw_title=title,
-                full_text=full_text,
-                language="de",
-                fetched_at=datetime.now(timezone.utc),
-            )
+        first = lines[0] if lines else ""
+        match = _DESIGNATION_PATTERN.match(first)
+        if match:
+            designation = match.group(1)
+            title = match.group(2).strip() or None
+        else:
+            designation = first
+            title = None
+        full_text = "\n".join(lines)
+
+        yield RawRecord(
+            source_id=self.source_id,
+            content_hash=content_hash,
+            raw_designation=designation,
+            raw_issuer="DGUV",
+            raw_title=title,
+            full_text=full_text,
+            language="de",
+            fetched_at=datetime.now(timezone.utc),
+        )
 
     def extract_structure(self, record: RawRecord) -> list[RawSection]:
         assert record.full_text is not None

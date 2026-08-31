@@ -26,6 +26,7 @@ this project has no reason to depend on before an actual OCR need exists.
 from __future__ import annotations
 
 import os
+import sys
 import threading
 from pathlib import Path
 
@@ -61,6 +62,21 @@ _converters_lock = threading.Lock()
 
 class DocumentExtractionError(Exception):
     """Raised when Docling cannot parse a source file."""
+
+
+def report_skipped_source(path: Path, error: Exception) -> None:
+    """Report a source file an adapter had to skip, and carry on.
+
+    An adapter's fetch() is a generator, so an exception raised inside it
+    reaches the runner while it is pulling the next record -- outside the
+    per-record guard that makes "one bad record blocks only itself" true, and
+    with no way to resume the generator afterwards. One unreadable file would
+    therefore abort a whole ingestion run and silently lose every file behind
+    it. Adapters catch DocumentExtractionError per file and report it here
+    instead, mirroring how runner.py reports a failed record: on stderr, named,
+    and not fatal.
+    """
+    print(f"skipping {path}: {error!r}", file=sys.stderr)
 
 
 def _get_converter(artifacts_path_value: str | None) -> DocumentConverter:

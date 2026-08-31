@@ -10,7 +10,11 @@ from pathlib import Path
 from typing import Iterable
 
 from normly_core.graph.domain import EdgeType
-from normly_core.pipeline.docling_extraction import extract_document
+from normly_core.pipeline.docling_extraction import (
+    DocumentExtractionError,
+    extract_document,
+    report_skipped_source,
+)
 from normly_core.pipeline.domain import (
     RawRecord,
     RawReference,
@@ -46,12 +50,24 @@ class EurLexAdapter:
 
     def fetch(self) -> Iterable[RawRecord]:
         for pdf_path in sorted(self.directory.glob(_FILE_PATTERN)):
-            yield from self._fetch_file(pdf_path)
+            # One unreadable file must cost only that file. Without this, the
+            # error would surface in the runner's `for record in fetch()` line,
+            # outside its per-record guard, aborting the run and losing every
+            # file behind this one -- see report_skipped_source().
+            try:
+                yield from self._fetch_file(pdf_path)
+            except DocumentExtractionError as error:
+                report_skipped_source(pdf_path, error)
 
     def _fetch_file(self, pdf_path: Path) -> Iterable[RawRecord]:
         content = pdf_path.read_bytes()
         content_hash = f"sha256:{hashlib.sha256(content).hexdigest()}"
         now = datetime.now(timezone.utc)
+
+        # Extract before yielding anything: a file that cannot be read must
+        # yield no records at all, not a legal-act record whose standards
+        # never followed.
+        document = extract_document(pdf_path)
 
         yield RawRecord(
             source_id=self.source_id,
@@ -65,7 +81,6 @@ class EurLexAdapter:
             fetched_at=now,
         )
 
-        document = extract_document(pdf_path)
         seen_designations: set[str] = set()
         for table in document.tables:
             for row in table.data.grid:

@@ -62,6 +62,29 @@ def test_fetch_processes_every_matching_file_in_the_directory(tmp_path):
     assert len({record.content_hash for record in records}) == 2
 
 
+def test_fetch_skips_an_unreadable_file_and_keeps_reading_the_rest(tmp_path, capsys):
+    """One bad record must block only itself -- the runner's guarantee. It
+    cannot hold for a file that fails inside fetch(): the runner meets that
+    error while pulling the next record, outside its per-record guard, and a
+    generator that raised cannot be resumed. So the adapter isolates it, and
+    says so on stderr rather than skipping in silence."""
+    _write_publication_pdf(
+        tmp_path / "dguv_vorschrift_1.pdf", "DGUV Vorschrift 1", "Grundsätze der Prävention"
+    )
+    (tmp_path / "dguv_vorschrift_2.pdf").write_text("this is not a PDF")
+    _write_publication_pdf(
+        tmp_path / "dguv_vorschrift_3.pdf", "DGUV Vorschrift 3", "Betriebsärzte"
+    )
+
+    records = list(DguvAdapter(directory=tmp_path, source_id=uuid.uuid4()).fetch())
+
+    assert [record.raw_designation for record in records] == [
+        "DGUV Vorschrift 1",
+        "DGUV Vorschrift 3",
+    ]
+    assert "dguv_vorschrift_2.pdf" in capsys.readouterr().err
+
+
 def test_fetch_splits_designation_and_title_for_a_dguv_regel(tmp_path):
     """The designation/title split must not be Vorschrift-specific: DGUV
     also publishes Regeln, Informationen, and Grundsätze under a distinct

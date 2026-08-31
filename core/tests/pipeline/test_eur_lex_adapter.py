@@ -67,6 +67,33 @@ def test_fetch_reads_every_matching_file_and_ignores_other_sources_files(tmp_pat
     assert all(not record.raw_designation.startswith("DGUV") for record in records)
 
 
+def test_fetch_skips_an_unreadable_file_and_keeps_reading_the_rest(tmp_path, capsys):
+    """One unreadable file must not take the rest of the run with it. The
+    runner cannot isolate a failure raised inside fetch() -- it surfaces while
+    the runner pulls the next record, outside its per-record guard, and a
+    generator that raised cannot be resumed -- so the adapter does it, and
+    reports the skipped file on stderr."""
+    import shutil
+
+    (tmp_path / "eur_lex_broken.pdf").write_text("this is not a PDF")
+    shutil.copy(
+        FIXTURE_DIR / "eur_lex_machinery_summary.pdf",
+        tmp_path / "eur_lex_machinery_summary.pdf",
+    )
+    adapter = EurLexAdapter(
+        directory=tmp_path, source_id=uuid.uuid4(), legislation_reference="2006/42/EC",
+    )
+
+    records = list(adapter.fetch())
+
+    # The broken file sorts first, so the good file's records prove the run
+    # continued past it -- and only one legal-act record was yielded, from the
+    # file that could actually be read.
+    assert [r.raw_designation for r in records].count("2006/42/EC") == 1
+    assert any("EN ISO 12100" in record.raw_designation for record in records)
+    assert "eur_lex_broken.pdf" in capsys.readouterr().err
+
+
 def test_extract_structure_is_always_empty():
     adapter = EurLexAdapter(
         directory=FIXTURE_DIR, source_id=uuid.uuid4(), legislation_reference="2006/42/EC",

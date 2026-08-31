@@ -164,6 +164,13 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
 
         return delta
 
+    # Anything an adapter raises while producing the next record happens here,
+    # in this loop's own `next()` call, not inside the guard below -- and a
+    # generator that raised cannot be resumed, so this loop could not carry on
+    # even if it caught it. Per-source isolation therefore belongs to the
+    # adapters, which skip a file they cannot read and keep yielding (see
+    # docling_extraction.report_skipped_source). What reaches this line is what
+    # an adapter could not handle at all, and it ends the run.
     for record in adapter.fetch():
         if delivery_repo.find_delivery(record.source_id, record.content_hash) is not None:
             summary.records_skipped += 1
