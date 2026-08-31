@@ -69,10 +69,67 @@ def test_extract_document_caches_separately_per_artifacts_path(monkeypatch, tmp_
 
     other_path = str(tmp_path)
     monkeypatch.setenv("NORMLY_DOCLING_ARTIFACTS_PATH", other_path)
-    docling_extraction._get_converter(other_path)
+    # _get_converter() now initialises the pipeline eagerly, which for a set
+    # artifacts_path means loading the models from it. This test is about the
+    # cache key, not about model files, and tmp_path holds no models -- so the
+    # initialisation is stubbed out here rather than populated.
+    with patch.object(DocumentConverter, "initialize_pipeline"):
+        docling_extraction._get_converter(other_path)
 
     assert set(docling_extraction._converters) == {None, other_path}
     assert docling_extraction._converters[None] is not docling_extraction._converters[other_path]
+
+
+def test_a_bad_artifacts_path_raises_a_normly_error_when_the_converter_is_built(
+    monkeypatch, tmp_path
+):
+    """Docling signals an artifacts_path that is not a directory with a bare
+    RuntimeError from its pipeline constructor. That must not escape this
+    module: it has one error class for anything wrong with a conversion, and
+    callers guard against that one.
+
+    It must also happen here, at converter-construction time. Docling builds
+    its pipeline lazily on the first convert() call, so an unmounted or
+    typo'd model path would otherwise stay invisible until real ingestion
+    traffic arrives.
+    """
+    missing = tmp_path / "nowhere"
+    monkeypatch.setenv("NORMLY_DOCLING_ARTIFACTS_PATH", str(missing))
+    docling_extraction._converters.clear()
+
+    with patch.object(DocumentConverter, "convert") as convert:
+        with pytest.raises(DocumentExtractionError, match="initialise"):
+            docling_extraction._get_converter(str(missing))
+
+    # Eager: no document was ever converted, and none had to be.
+    convert.assert_not_called()
+    # A converter whose pipeline failed must not be cached as if it worked.
+    assert docling_extraction._converters == {}
+
+
+def test_an_artifacts_path_without_models_raises_a_normly_error_too(monkeypatch, tmp_path):
+    """The other half of the same misconfiguration: the path is a directory,
+    but the pre-fetched models are not in it. Docling raises FileNotFoundError
+    for that one; the caller must not have to know the difference."""
+    monkeypatch.setenv("NORMLY_DOCLING_ARTIFACTS_PATH", str(tmp_path))
+    docling_extraction._converters.clear()
+
+    with pytest.raises(DocumentExtractionError, match="initialise"):
+        docling_extraction._get_converter(str(tmp_path))
+
+    assert docling_extraction._converters == {}
+
+
+def test_a_bad_artifacts_path_raises_a_normly_error_from_extract_document(
+    monkeypatch, tmp_path
+):
+    """The same failure, seen from the call adapters actually make."""
+    missing = tmp_path / "nowhere"
+    monkeypatch.setenv("NORMLY_DOCLING_ARTIFACTS_PATH", str(missing))
+    docling_extraction._converters.clear()
+
+    with pytest.raises(DocumentExtractionError):
+        extract_document(FIXTURE_DIR / "dguv_sample_vorschrift.pdf")
 
 
 def test_extract_document_raises_on_a_partial_success_conversion(monkeypatch):

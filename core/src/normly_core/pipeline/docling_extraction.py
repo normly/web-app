@@ -37,8 +37,16 @@ from docling_core.types.doc import DoclingDocument
 
 _ARTIFACTS_PATH_ENV = "NORMLY_DOCLING_ARTIFACTS_PATH"
 
-# DocumentConverter eagerly loads the layout and TableFormer models when
-# constructed -- roughly 1s of fixed overhead, independent of document size.
+# Constructing a DocumentConverter is itself cheap -- its __init__ only sets
+# up an empty `initialized_pipelines` dict. The cost (roughly 1s of fixed
+# overhead, independent of document size) is in the pipeline behind that dict:
+# Docling builds it, layout and TableFormer models included, on first use and
+# then reuses it. That cache is a *per-instance* dict, so a converter built
+# per call would reload the models every time. Hence: cache the converter.
+# _get_converter() below additionally forces that pipeline to be built at
+# cache time rather than on the first document, so the load cost is paid once
+# per adapter run and a misconfigured artifacts_path fails immediately.
+#
 # Docling supports reusing one instance across many convert() calls (its own
 # pipeline construction is guarded by a module-level lock to make this safe;
 # see its docstring: models are "initialised once per pipeline instance and
@@ -70,6 +78,27 @@ def _get_converter(artifacts_path_value: str | None) -> DocumentConverter:
                     InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
                 }
             )
+            # Build the pipeline now instead of letting convert() do it on the
+            # first document. Docling validates artifacts_path in the
+            # pipeline's constructor and signals a path that is not a
+            # directory -- a typo, an unmounted volume -- with a bare
+            # RuntimeError. Lazily, that surfaces only once real ingestion
+            # traffic arrives; eagerly, a misconfigured deployment fails where
+            # it is configured. RuntimeError is what Docling's own API
+            # documents for this call (see DocumentConverter.
+            # initialize_pipeline's docstring), so it is caught here, in this
+            # one narrow spot, and translated into this module's single error
+            # class -- nothing else in the run may see a raw Docling error.
+            try:
+                converter.initialize_pipeline(InputFormat.PDF)
+            except (RuntimeError, FileNotFoundError, _DoclingConversionError) as exc:
+                raise DocumentExtractionError(
+                    "Docling could not initialise its PDF pipeline "
+                    f"(artifacts_path={artifacts_path_value!r}): {exc}"
+                ) from exc
+            # Only cache what is actually usable: a converter whose pipeline
+            # failed to initialise must not be handed to the next caller, so a
+            # corrected environment can still succeed without a restart.
             _converters[artifacts_path_value] = converter
         return converter
 
