@@ -199,6 +199,28 @@ Verfahren:
   positionsbasiert, baut `RawRecord`s. `extract_structure()` bleibt `[]`
   (keine Struktur bei reinen Katalogdaten — unverändert gegenüber heute).
 
+### Entscheidung: bereits ingestierte Lieferungen aus der pdfplumber-Zeit
+
+`run_adapter()` überspringt eine Quelldatei, deren Inhaltshash bereits als
+Lieferung verzeichnet ist. Dieser Hash beschreibt nur die Quelldatei, nicht
+die Extraktions-Engine — ein Wechsel der Engine löst also **keine** erneute
+Extraktion aus. Bereits ingestierte Bestände behalten damit ihre
+pdfplumber-Herkunft, während neue Lieferungen über Docling laufen: ein
+Korpus gemischter Provenienz.
+
+Entschieden für diese Migration: Es gibt noch keinen produktiven Bestand,
+nur eine Entwicklungsdatenbank. Deren Inhalt wird **manuell zurückgesetzt
+und die Ingestion vollständig neu ausgeführt**; das Ergebnis ist ein Korpus
+rein Docling-basierter Provenienz. Ein Backfill- oder
+Neu-Extraktions-Mechanismus wird dafür bewusst **nicht** gebaut — er hätte
+heute keinen Bestand, auf den er angewendet würde.
+
+Neu zu bewerten, sobald ein echter produktiver Bestand existiert und eine
+Engine-Änderung ohne vollständige Neu-Ingestion erfolgen muss. Dann braucht
+es einen expliziten Mechanismus (etwa Extraktions-Engine und -Version als
+Teil der Lieferungs-Abstammung, plus einen gezielten Neu-Extraktionslauf) —
+diese Entscheidung ist hier bewusst vertagt, nicht übersehen.
+
 ## Fehlerbehandlung
 
 - Defekte/unlesbare Datei: Docling wirft eigene Exceptions. Die
@@ -259,6 +281,18 @@ Verfahren:
 
 ## Offene Punkte / Folgearbeiten
 
+- **Offener Punkt, benannt und nachverfolgt: Der Offline-Test läuft heute
+  nirgends.** `core/tests/pipeline/test_docling_offline.py` — der einzige
+  automatisierte Nachweis der härtesten Vorgabe aus `CLAUDE.md` (keine
+  US-Dienste im Betrieb, kein Laufzeit-Netzwerkzugriff auf Modellquellen) —
+  ist per `skipif` an `NORMLY_DOCLING_ARTIFACTS_PATH` gebunden. Diese
+  Variable wird nirgends im Repository gesetzt, und eine CI existiert noch
+  nicht (bewusst außerhalb des Umfangs dieser Migration). In jeder Umgebung,
+  in der die Testsuite heute läuft, überspringt der Test sich also still:
+  die Vorgabe hat derzeit **keine** automatisierte Absicherung. Zu beheben
+  mit der ohnehin vorgesehenen Containerisierung/CI — dort muss
+  `NORMLY_DOCLING_ARTIFACTS_PATH` auf die vorab bezogenen Modelle zeigen,
+  damit der Test tatsächlich läuft, statt weiter zu überspringen.
 - Exakter Docling-Versionsbereich für `core/pyproject.toml` wird beim
   Implementieren gegen die dann aktuelle stabile Version festgelegt.
 - OCR-Aktivierung für künftige gescannte/bildbasierte Quellen — bewusst
