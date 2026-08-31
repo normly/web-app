@@ -44,12 +44,18 @@ _MAX_HEADING_WORDS = 10
 # occurrences ("Pflichten des Unternehmers") never match: the check requires an
 # upper-case initial.
 #
-# Used by _split_paragraph_run() only, and only inside a run whose heading is
-# already confirmed. Being a word list, it is necessarily incomplete; that is
-# affordable here because a missing opener costs a bare "§ N" heading instead
-# of the full one (see _split_paragraph_run()), never a fabricated section.
-# _is_heading_start() had the opposite exposure and does not use it -- see the
-# note on the designation test there.
+# Being a word list, it is necessarily incomplete, so it is only ever used
+# where a missing word cannot fabricate anything:
+#
+# * _split_paragraph_run(), inside a run whose heading is already confirmed --
+#   a missing opener costs a bare "§ N" heading instead of the full one.
+# * _is_publication_title_line(), as one rejection test among several -- a
+#   missing opener there is caught by the structural rules beside it, and a
+#   heading is never admitted *because* a word is absent from this list.
+#
+# _is_heading_start() itself does not consult it: deciding a heading on "the
+# word in front is not in this list" is what the designation test replaced --
+# see the note there.
 _SENTENCE_OPENERS = frozenset(
     """
     der die das dem den des dieser diese dieses diesem diesen
@@ -93,11 +99,83 @@ _DESIGNATION_PATTERN = re.compile(
     r"^(DGUV (?:Vorschrift \d+|(?:Regel|Information|Grundsatz) \d{3}-\d{3}))\s*(.*)$"
 )
 
+# Real publications set an issue date between designation and title ("DGUV
+# Vorschrift 1 vom 1. November 2013 Grundsätze der Prävention"). It is the only
+# thing allowed to stand where the title's first word would otherwise be --
+# deliberately matched by an explicit shape rather than by "skip leading
+# lower-case words", which would also let a verb through and readmit "DGUV
+# Vorschrift 1 gilt in Verbindung mit ArbSchG § 5 ..." as a title line.
+_ISSUE_DATE_PREFIX = re.compile(
+    r"^vom\s+(?:\d{1,2}\.\s*\d{1,2}\.\s*\d{4}|\d{1,2}\.\s*\w+\s+\d{4})\s*"
+)
+
 # The adapter reads every file in the directory that carries its own prefix.
 # A bare "*.pdf" would be wrong: the directory may hold other sources' files —
 # the test fixtures for both adapters already share one — and this adapter can
 # only make sense of DGUV publications.
 _FILE_PATTERN = "dguv_*.pdf"
+
+
+def _is_publication_title_line(lead: str) -> bool:
+    """Is this lead text the publication's own designation-and-title line?
+
+    `_DESIGNATION_PATTERN` alone cannot answer that: its tail is `\\s*(.*)$`,
+    so it accepts anything glued behind the designation number, including a
+    whole second sentence ("DGUV Vorschrift 1 Grundsätze der Prävention
+    Ausweislich § 14 ArbSchG trägt ..."). The tail therefore has to look like a
+    title as well, and a DGUV title is a plain noun phrase:
+
+    * it opens with a capitalised word -- its head noun -- with only an issue
+      date allowed in front. A designation continued by prose opens with a verb
+      instead ("DGUV Vorschrift 1 regelt ...", "... nennt folgende ...").
+    * it stays within the length a heading title stays within.
+    * German capitalises nouns and nothing else, so inside a noun phrase the
+      capitalised words are separated by lower-case function words ("Grundsätze
+      der Prävention", "Betriebsärzte und Fachkräfte für Arbeitssicherheit").
+      Two capitalised words in a row therefore mark a new constituent -- a
+      sentence starting behind the title ("... der Prävention Ausweislich § 14
+      ...", "... im Betrieb Laut § 5 ..."). The title's own first two words are
+      exempt: a title's opening word is capitalised whatever it is, so an
+      adjective may legitimately stand before its noun there ("Erste Hilfe im
+      Betrieb").
+    * it contains no capitalised sentence opener beyond its own first word.
+      That word list is incomplete by construction (see `_SENTENCE_OPENERS`) --
+      it is one test among several here, never the test, and the structural
+      rule above is what catches the openers it does not know.
+    """
+    match = _DESIGNATION_PATTERN.match(lead)
+    if match is None:
+        return False
+    tail = _ISSUE_DATE_PREFIX.sub("", match.group(2).strip(), count=1)
+    words = tail.split()
+    if not words:
+        # Designation alone on the line; the title is set elsewhere or absent.
+        return True
+    if not words[0][:1].isupper():
+        return False
+    if len(words) > _MAX_HEADING_WORDS:
+        return False
+    if any(
+        word[:1].isupper() and previous[:1].isupper()
+        for previous, word in zip(words[1:], words[2:])
+    ):
+        return False
+    return not any(
+        word[:1].isupper() and word.strip(",.;:()").lower() in _SENTENCE_OPENERS
+        for word in words[1:]
+    )
+
+
+def _heading_has_a_title(run: str) -> bool:
+    """Does the text behind this marker separate into a title and a body?
+
+    The evidence on the marker's other side. `_split_paragraph_run()` falls
+    back to a bare "§ N" heading whenever it cannot tell one from the other,
+    and that is exactly what happens when the marker is a cross-reference and
+    everything behind it is the rest of a sentence ("§ 14 ArbSchG trägt der
+    Unternehmer die Kosten.").
+    """
+    return _MARKER_PATTERN.fullmatch(_split_paragraph_run(run)[0]) is None
 
 
 def _is_heading_start(text: str, match: re.Match[str], *, is_first_marker: bool) -> bool:
@@ -121,10 +199,18 @@ def _is_heading_start(text: str, match: re.Match[str], *, is_first_marker: bool)
       after body text, where a capitalised word before a "§" is a sentence
       start, not a title tail ("... zu tragen. Nach § 14 DGUV Vorschrift 1
       ...", "Ausweislich § 3 ..."), so those require a real sentence boundary.
-    * `_DESIGNATION_PATTERN` -- and even the first marker must actually have
-      that title line in front of it, i.e. the lead text must open with the
-      publication's designation ("DGUV Vorschrift 1 Grundsätze der Prävention
-      § 1 ..."). Anything else in front of a first marker is a sentence.
+    * `_is_publication_title_line()` -- and even the first marker must actually
+      have that title line in front of it: the lead text must be the
+      publication's designation *and nothing but its title* ("DGUV Vorschrift 1
+      Grundsätze der Prävention § 1 ..."). Anything else in front of a first
+      marker is a sentence. Testing the designation alone was not enough: a
+      sentence glued onto the title with no punctuation between them ("... der
+      Prävention Ausweislich § 14 ArbSchG trägt ...") still opens with the
+      designation, so the title's own shape has to be checked as well.
+    * `_heading_has_a_title()` -- and the allowance wants corroboration from
+      the marker's other side too. It exists for a heading, and a heading is a
+      marker plus its title; where no title can be told apart from what follows
+      the marker, nothing supports splitting here.
 
     The designation test replaces an earlier attempt that instead rejected a
     known list of sentence-opening words (`_SENTENCE_OPENERS`). That direction
@@ -135,12 +221,16 @@ def _is_heading_start(text: str, match: re.Match[str], *, is_first_marker: bool)
     Asking instead for the one shape the allowance exists for turns an
     open-ended exclusion list into a closed positive match.
 
-    `_DESIGNATION_PATTERN` is anchored, so cover text before the designation
-    would deny the allowance. That is deliberate: matching the designation
-    anywhere in the lead would readmit the fabrication through a sentence that
-    merely names a publication ("... nach der DGUV Vorschrift 1 § 5 ..."), and
-    the same anchored assumption already carries the designation/title split
-    in _fetch_file(), where such an item would be misread first anyway.
+    `_DESIGNATION_PATTERN` is anchored and applied with `.match()`. The anchor
+    is what does the work: cover text before the designation denies the
+    allowance, so a sentence that merely names a publication ("... nach der
+    DGUV Vorschrift 1 § 5 ...") cannot readmit the fabrication. `.search()`
+    would behave identically here -- the pattern carries `^` and no MULTILINE
+    flag, and the lead text is newline-free by the time it arrives (see
+    _logical_lines(), which joins on spaces) -- so `.match()` is chosen only
+    for saying plainly what the pattern already requires. The same anchored
+    assumption carries the designation/title split in _fetch_file(), where such
+    an item would be misread first anyway.
 
     Every guard fails towards "not a heading". The cost of that is a section
     whose heading is not recognised -- its text is kept, merged into what
@@ -166,7 +256,14 @@ def _is_heading_start(text: str, match: re.Match[str], *, is_first_marker: bool)
         return False
     if not is_first_marker:
         return False
-    return _DESIGNATION_PATTERN.match(preceding) is not None
+    if not _is_publication_title_line(preceding):
+        return False
+    # The run this marker would open, bounded by the next marker: what lies
+    # beyond that belongs to the next run either way, and shortening the text
+    # under test cannot invent a title where there is none.
+    next_marker = _MARKER_PATTERN.search(text, match.end())
+    run_end = next_marker.start() if next_marker else len(text)
+    return _heading_has_a_title(text[match.start() : run_end].strip())
 
 
 def _split_paragraph_run(run: str) -> list[str]:

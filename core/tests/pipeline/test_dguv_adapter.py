@@ -363,6 +363,128 @@ def test_logical_lines_still_splits_a_title_line_carrying_an_issue_date():
     ]
 
 
+def test_logical_lines_does_not_split_when_a_sentence_is_glued_onto_the_title():
+    """Opening with the designation is not enough to be a title line.
+
+    The designation pattern's tail is `(.*)`, so it swallows whatever follows
+    the designation number -- including a whole second sentence run onto the
+    title with no punctuation between them. Every text below therefore starts
+    with a real designation, and none of them is a title line: the marker sits
+    inside a sentence, and splitting there fabricates a section out of it.
+    """
+    from normly_core.pipeline.adapters.dguv import _logical_lines
+
+    glued_sentence = (
+        "DGUV Vorschrift 1 Grundsätze der Prävention "
+        "Ausweislich § 14 ArbSchG trägt der Unternehmer die Kosten."
+    )
+    assert _logical_lines(glued_sentence) == [glued_sentence]
+
+    designation_as_subject = (
+        "DGUV Vorschrift 1 regelt in Verbindung mit ArbSchG "
+        "§ 5 Gefährdungsbeurteilung der Arbeitsplätze."
+    )
+    assert _logical_lines(designation_as_subject) == [designation_as_subject]
+
+    enumeration = (
+        "DGUV Vorschrift 1 nennt folgende Vorschriften: "
+        "§ 14 DGUV Vorschrift 1 und weitere."
+    )
+    assert _logical_lines(enumeration) == [enumeration]
+
+    other_series = (
+        "DGUV Regel 100-001 Anwendung der Unfallverhuetungsvorschrift "
+        "Gemaess ArbSchG § 5 Gefaehrdungsbeurteilung der Arbeitsplaetze."
+    )
+    assert _logical_lines(other_series) == [other_series]
+
+
+def test_logical_lines_does_not_split_on_a_glued_sentence_with_an_unlisted_opener():
+    """The glued-sentence guard may not lean on a list of known openers either.
+
+    "Ausweislich", "Laut", "Zwecks" open a sentence exactly like "Gemäß" does
+    and no enumeration of them can be finished, so the title's *shape* has to
+    decide: German capitalises nouns, so a noun phrase separates its
+    capitalised words by lower-case function words ("Grundsätze der
+    Prävention"). Two capitalised words in a row past the title's opening word
+    mean a new constituent began -- whatever word it is.
+    """
+    from normly_core.pipeline.adapters.dguv import _logical_lines
+
+    # The run behind this marker even splits cleanly into title and body
+    # ("§ 5 ArbSchG" + "Der Unternehmer ..."), so only the lead can reject it.
+    listed_nowhere = (
+        "DGUV Vorschrift 1 Grundsätze der Prävention "
+        "Laut § 5 ArbSchG Der Unternehmer zahlt die Kosten."
+    )
+    assert _logical_lines(listed_nowhere) == [listed_nowhere]
+
+    # ... and here the run behind the marker looks exactly like a real heading.
+    heading_shaped_run = (
+        "DGUV Vorschrift 1 Grundsätze der Prävention "
+        "Zwecks § 5 Gefährdungsbeurteilung der Arbeitsplätze"
+    )
+    assert _logical_lines(heading_shaped_run) == [heading_shaped_run]
+
+    after_a_two_word_title = (
+        "DGUV Information 204-022 Erste Hilfe im Betrieb "
+        "Ausweislich § 14 SGB Die Kosten trägt der Unternehmer."
+    )
+    assert _logical_lines(after_a_two_word_title) == [after_a_two_word_title]
+
+
+def test_logical_lines_splits_title_lines_of_every_real_shape():
+    """The counterpart: the title shapes the guard above must let through.
+
+    A title's own first word is capitalised whatever its part of speech, so an
+    adjective may stand before its noun there ("Erste Hilfe") -- the one place
+    two capitalised words in a row are a title and not a new sentence. A title
+    also runs longer than the fixture's three words, and a publication may set
+    no title on the designation line at all.
+    """
+    from normly_core.pipeline.adapters.dguv import _logical_lines
+
+    assert _logical_lines(
+        "DGUV Information 204-022 Erste Hilfe im Betrieb § 1 Geltungsbereich"
+    ) == ["DGUV Information 204-022 Erste Hilfe im Betrieb", "§ 1 Geltungsbereich"]
+
+    assert _logical_lines(
+        "DGUV Vorschrift 2 Betriebsärzte und Fachkräfte für Arbeitssicherheit "
+        "§ 1 Geltungsbereich"
+    ) == [
+        "DGUV Vorschrift 2 Betriebsärzte und Fachkräfte für Arbeitssicherheit",
+        "§ 1 Geltungsbereich",
+    ]
+
+    assert _logical_lines("DGUV Vorschrift 1 § 1 Geltungsbereich") == [
+        "DGUV Vorschrift 1",
+        "§ 1 Geltungsbereich",
+    ]
+
+
+def test_logical_lines_splits_consecutive_headings_without_a_title_line():
+    """Two real headings in one merged item, no designation in front of them.
+
+    The lead-side guards only ever apply to a marker that has text before it;
+    a page that begins with its first heading must keep splitting on every one
+    of them, body sentences and all.
+    """
+    from normly_core.pipeline.adapters.dguv import _logical_lines
+
+    text = (
+        "§ 1 Geltungsbereich Diese Vorschrift gilt für alle Unternehmen und Versicherte. "
+        "§ 2 Pflichten des Unternehmers "
+        "Der Unternehmer hat die Kosten für die Maßnahmen zu tragen."
+    )
+
+    assert _logical_lines(text) == [
+        "§ 1 Geltungsbereich",
+        "Diese Vorschrift gilt für alle Unternehmen und Versicherte.",
+        "§ 2 Pflichten des Unternehmers",
+        "Der Unternehmer hat die Kosten für die Maßnahmen zu tragen.",
+    ]
+
+
 def test_logical_lines_keeps_the_whole_text_when_the_title_boundary_is_unclear():
     """Where title and body cannot be told apart, a bare "§ N" heading is
     correct-but-poorer. Inventing a boundary, or dropping the text, is not."""
