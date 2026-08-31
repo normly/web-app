@@ -301,3 +301,26 @@ diese Entscheidung ist hier bewusst vertagt, nicht übersehen.
   wie DGUV oder EUR-Lex zeigen, kann geprüft werden, ob sich aus den dann
   mehreren Beispielen eine echte, abgeleitete (nicht geratene)
   Mapping-Abstraktion lohnt — bewusst nicht vorweggenommen (siehe Nicht-Ziele).
+- **Bekannte, bewusst akzeptierte Restlücke in der DGUV-Überschriftenerkennung
+  (`_is_publication_title_line()` / `_heading_has_a_title()` in
+  `core/src/normly_core/pipeline/adapters/dguv.py`).** Nach fünf Runden Fix
+  und adversarieller Re-Review verbleibt ein enger Fall, in dem eine echte
+  Bezeichnung+Titel-Zeile — ohne satzschließende Interpunktion dazwischen —
+  unmittelbar von einem Querverweis auf ein anderes Regelwerk gefolgt wird,
+  dessen Einleitung ausschließlich aus kleingeschriebenen Funktionswörtern
+  besteht (z. B. "in Verbindung mit"). Solche Einleitungen lösen die
+  vorhandenen Satzanfangs-/Wortlisten-Schutzmechanismen nicht aus, wodurch der
+  Querverweis fälschlich als eigener `§ N`-Abschnitt erkannt werden kann.
+  Beispiel, das den Fall weiterhin reproduziert: "DGUV Vorschrift 1 Grundsätze
+  der Prävention in Verbindung mit ArbSchG § 5 Gefährdungsbeurteilung der
+  Arbeitsplätze". Eine weitere Verschärfung (z. B. eine strengere
+  Titellängen-Obergrenze) wurde bewusst nicht vorgenommen, da sie im Gegenzug
+  echte, längere DGUV-Publikationstitel fälschlich verwerfen würde — ein
+  schlechterer Tausch als das verbleibende enge Restrisiko. Die Lücke ist in
+  ihrer Wirkung begrenzt: `full_text`/`raw_title` behalten in jedem Fall den
+  vollständigen Text; der Fehler äußert sich ausschließlich als falsch
+  zugeordneter Abschnitt (der auf den Querverweis folgende Satz landet im
+  fabrizierten Abschnitt statt im tatsächlich zugehörigen), nie als Verlust
+  oder Verfälschung von Inhalt. Folgearbeit: bei der ersten realen (nicht
+  Fixture-basierten) DGUV-Korpusaufnahme stichprobenartig prüfen, ob der Fall
+  in der Praxis auftritt, und bei Bedarf erneut aufgreifen.
