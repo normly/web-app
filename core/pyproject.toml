@@ -29,3 +29,11 @@ packages = ["src/normly_core"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+filterwarnings = [
+    # Docling's own internal pipeline code (standard_pdf_pipeline.py) reads its
+    # own deprecated PipelineOptions.generate_table_images field on every
+    # convert() call; nothing in normly_core touches this field. Remove this
+    # filter once docling stops triggering the warning internally, or if
+    # docling is dropped.
+    "ignore:This field is deprecated\\. Use `generate_page_images=True` and call `TableItem\\.get_image\\(\\)` to extract table images from page images\\.:DeprecationWarning:docling.*",
+]

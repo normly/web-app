@@ -12,6 +12,27 @@ from testcontainers.community.postgres import PostgresContainer
 
 CORE_DIR = Path(__file__).parents[1]
 
+# Docling's own internal pipeline code (docling/pipeline/standard_pdf_pipeline.py)
+# reads its own deprecated PipelineOptions.generate_table_images field on every
+# convert() call; nothing in normly_core touches this field. pytest applies a
+# bare `-W error` command-line flag *after* (and therefore with higher priority
+# than) the ini-level `filterwarnings` entry in pyproject.toml, so that entry
+# alone cannot suppress this warning when the suite is run with `-W error` --
+# only a `filterwarnings` mark, which pytest applies last and therefore wins,
+# can. Remove this alongside the matching pyproject.toml entry once docling
+# stops triggering the warning internally, or if docling is dropped.
+_DOCLING_DEPRECATED_TABLE_IMAGES_FILTER = (
+    "ignore:This field is deprecated\\. Use `generate_page_images=True` and call "
+    "`TableItem\\.get_image\\(\\)` to extract table images from page images\\."
+    ":DeprecationWarning:docling.*"
+)
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    marker = pytest.mark.filterwarnings(_DOCLING_DEPRECATED_TABLE_IMAGES_FILTER)
+    for item in items:
+        item.add_marker(marker)
+
 
 @pytest.fixture(scope="session")
 def postgres_container():
