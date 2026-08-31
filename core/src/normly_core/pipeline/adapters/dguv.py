@@ -241,6 +241,12 @@ class DguvAdapter:
             # error would surface in the runner's `for record in fetch()` line,
             # outside its per-record guard, aborting the run and losing every
             # file behind this one -- see report_skipped_source().
+            #
+            # DocumentExtractionError only. A PipelineInitializationError is a
+            # broken deployment, not a broken file: it would fail identically
+            # for every file here, so skipping it would turn a misconfigured
+            # run into a silent, exit-0 "success" over zero records. It is a
+            # separate class precisely so this clause lets it through.
             try:
                 yield from self._fetch_file(pdf_path)
             except DocumentExtractionError as error:

@@ -4,6 +4,8 @@
 import uuid
 from pathlib import Path
 
+import pytest
+
 from normly_core.graph.domain import EdgeType
 from normly_core.pipeline.adapters.eur_lex import EurLexAdapter
 
@@ -92,6 +94,38 @@ def test_fetch_skips_an_unreadable_file_and_keeps_reading_the_rest(tmp_path, cap
     assert [r.raw_designation for r in records].count("2006/42/EC") == 1
     assert any("EN ISO 12100" in record.raw_designation for record in records)
     assert "eur_lex_broken.pdf" in capsys.readouterr().err
+
+
+def test_fetch_does_not_skip_a_misconfigured_pipeline(tmp_path, capsys, monkeypatch):
+    """A broken deployment must end the run, not be skipped once per file.
+
+    The per-file skip above would otherwise absorb it for every file alike --
+    NORMLY_DOCLING_ARTIFACTS_PATH pointing at a path with no models fails the
+    same way on all of them -- and the run would report success over zero
+    records. The failure is a separate exception class so this cannot happen.
+    """
+    import shutil
+
+    from normly_core.pipeline import docling_extraction
+    from normly_core.pipeline.docling_extraction import PipelineInitializationError
+
+    shutil.copy(
+        FIXTURE_DIR / "eur_lex_machinery_summary.pdf",
+        tmp_path / "eur_lex_machinery_summary.pdf",
+    )
+    adapter = EurLexAdapter(
+        directory=tmp_path, source_id=uuid.uuid4(), legislation_reference="2006/42/EC",
+    )
+
+    monkeypatch.setenv("NORMLY_DOCLING_ARTIFACTS_PATH", str(tmp_path / "no_models_here"))
+    docling_extraction._converters.clear()
+    try:
+        with pytest.raises(PipelineInitializationError):
+            list(adapter.fetch())
+    finally:
+        docling_extraction._converters.clear()
+
+    assert "skipping" not in capsys.readouterr().err
 
 
 def test_extract_structure_is_always_empty():

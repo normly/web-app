@@ -170,7 +170,13 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
     # even if it caught it. Per-source isolation therefore belongs to the
     # adapters, which skip a file they cannot read and keep yielding (see
     # docling_extraction.report_skipped_source). What reaches this line is what
-    # an adapter could not handle at all, and it ends the run.
+    # an adapter could not handle at all, and it ends the run -- notably a
+    # PipelineInitializationError, which is a misconfigured deployment rather
+    # than one bad file and would fail the same way for every remaining source.
+    # It is deliberately left uncaught all the way out to the process: main()
+    # never reaches its commit or its summary line, and the operator gets a
+    # traceback naming the bad artifacts_path and a non-zero exit code instead
+    # of a success line over zero records.
     for record in adapter.fetch():
         if delivery_repo.find_delivery(record.source_id, record.content_hash) is not None:
             summary.records_skipped += 1

@@ -61,7 +61,35 @@ _converters_lock = threading.Lock()
 
 
 class DocumentExtractionError(Exception):
-    """Raised when Docling cannot parse a source file."""
+    """Raised when Docling cannot parse a source file.
+
+    Scope: *one* file. Adapters catch this per file, report it, and carry on
+    with the next one -- see report_skipped_source(). Anything that will fail
+    the same way for every file must not be raised as this, or a run has no
+    way to tell "this PDF is corrupt" from "nothing here can ever work"; use
+    PipelineInitializationError.
+    """
+
+
+class PipelineInitializationError(Exception):
+    """Raised when Docling's PDF pipeline itself cannot be built.
+
+    Deliberately *not* a subclass of DocumentExtractionError. The two are
+    handled in opposite ways and the type is what separates them:
+
+    A corrupt PDF is a property of that file, so the adapters skip it and keep
+    going -- one bad file must block only itself. A broken pipeline is a
+    property of the deployment (NORMLY_DOCLING_ARTIFACTS_PATH pointing at a
+    typo, an unmounted volume, or a directory holding no models), so it fails
+    identically for every file in the directory. Were it a subclass, the
+    adapters' per-file `except DocumentExtractionError` would swallow it once
+    per file and the run would end with exit code 0, a success line, and zero
+    records ingested -- an unattended production run with a misconfigured
+    deployment looking exactly like a healthy one. As a separate class, a bare
+    `except DocumentExtractionError` lets it through, and it ends the run the
+    way it did before this layer existed: loudly, and with a non-zero exit
+    code.
+    """
 
 
 def report_skipped_source(path: Path, error: Exception) -> None:
@@ -103,12 +131,15 @@ def _get_converter(artifacts_path_value: str | None) -> DocumentConverter:
             # it is configured. RuntimeError is what Docling's own API
             # documents for this call (see DocumentConverter.
             # initialize_pipeline's docstring), so it is caught here, in this
-            # one narrow spot, and translated into this module's single error
-            # class -- nothing else in the run may see a raw Docling error.
+            # one narrow spot -- nothing else in the run may see a raw Docling
+            # error. It is translated into PipelineInitializationError and not
+            # into DocumentExtractionError: this failure is the deployment's,
+            # not this file's, and it must not be mistaken for a bad PDF and
+            # skipped once per file until the run reports success over nothing.
             try:
                 converter.initialize_pipeline(InputFormat.PDF)
             except (RuntimeError, FileNotFoundError, _DoclingConversionError) as exc:
-                raise DocumentExtractionError(
+                raise PipelineInitializationError(
                     "Docling could not initialise its PDF pipeline "
                     f"(artifacts_path={artifacts_path_value!r}): {exc}"
                 ) from exc

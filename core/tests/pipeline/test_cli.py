@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 normly contributors
 
+import os
 from pathlib import Path
 
 import pytest
@@ -88,6 +89,62 @@ def test_main_reuses_the_same_source_row_on_a_second_run(committed_db):
             sa.select(SourceORM.id).where(SourceORM.publisher == "DGUV")
         ).scalars().all()
     assert len(sources) == 1
+
+
+def test_main_fails_hard_on_a_misconfigured_artifacts_path(
+    committed_db, monkeypatch, capsys
+):
+    """A broken model path must not produce a successful-looking run.
+
+    The adapters skip a file they cannot extract and carry on, so that one
+    corrupt PDF blocks only itself. A misconfigured
+    NORMLY_DOCLING_ARTIFACTS_PATH fails identically for *every* file, and if
+    that skip absorbed it the run would print its summary line and return 0
+    having ingested nothing -- indistinguishable, unattended, from a healthy
+    run. It has to reach main() and end it.
+    """
+    from normly_core.pipeline import docling_extraction
+    from normly_core.pipeline.docling_extraction import PipelineInitializationError
+
+    monkeypatch.setenv("NORMLY_DOCLING_ARTIFACTS_PATH", str(FIXTURE_DIR / "no_models_here"))
+    docling_extraction._converters.clear()
+    try:
+        with pytest.raises(PipelineInitializationError):
+            main(["ingest", "dguv", "--directory", str(FIXTURE_DIR)])
+    finally:
+        docling_extraction._converters.clear()
+
+    # No summary line: main() never got past run_adapter(), so it never
+    # committed and never reported anything as processed.
+    assert "processed=" not in capsys.readouterr().out
+
+
+def test_the_process_exits_non_zero_on_a_misconfigured_artifacts_path(db_url, tmp_path):
+    """The same failure at the boundary an operator actually sees.
+
+    main() letting the error through is only half the guarantee; what a shell
+    script or a scheduler reads is the exit code. Run as a real process, since
+    that is the only place `python -m normly_core.pipeline` can be observed.
+    """
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [sys.executable, "-m", "normly_core.pipeline", "ingest", "dguv",
+         "--directory", str(FIXTURE_DIR)],
+        capture_output=True, text=True,
+        env={
+            **os.environ,
+            "NORMLY_DATABASE_URL": db_url,
+            "NORMLY_DOCLING_ARTIFACTS_PATH": str(tmp_path / "no_models_here"),
+        },
+    )
+
+    assert result.returncode != 0
+    assert "PipelineInitializationError" in result.stderr
+    # The message names what to fix, and no success line was printed.
+    assert "no_models_here" in result.stderr
+    assert "processed=" not in result.stdout
 
 
 def test_main_reports_a_missing_database_url(monkeypatch, capsys):

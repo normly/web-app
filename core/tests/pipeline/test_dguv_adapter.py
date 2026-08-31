@@ -4,6 +4,8 @@
 import uuid
 from pathlib import Path
 
+import pytest
+
 from normly_core.pipeline.adapters.dguv import DguvAdapter
 
 FIXTURE_DIR = Path(__file__).parents[1] / "fixtures"
@@ -83,6 +85,42 @@ def test_fetch_skips_an_unreadable_file_and_keeps_reading_the_rest(tmp_path, cap
         "DGUV Vorschrift 3",
     ]
     assert "dguv_vorschrift_2.pdf" in capsys.readouterr().err
+
+
+def test_fetch_does_not_skip_a_misconfigured_pipeline(tmp_path, capsys, monkeypatch):
+    """A broken deployment must end the run, not be skipped once per file.
+
+    The per-file skip above and the eager pipeline check in
+    docling_extraction.py meet here: NORMLY_DOCLING_ARTIFACTS_PATH pointing at
+    a path with no models fails identically for every file, so a per-file
+    `except` would skip all of them and let the run finish with exit code 0, a
+    success line, and zero records ingested -- an unattended production run
+    with a broken deployment looking exactly like a healthy one. The failure
+    is a separate exception class so this cannot happen.
+    """
+    from normly_core.pipeline import docling_extraction
+    from normly_core.pipeline.docling_extraction import PipelineInitializationError
+
+    _write_publication_pdf(
+        tmp_path / "dguv_vorschrift_1.pdf", "DGUV Vorschrift 1", "Grundsätze der Prävention"
+    )
+    _write_publication_pdf(
+        tmp_path / "dguv_vorschrift_2.pdf", "DGUV Vorschrift 2", "Betriebsärzte"
+    )
+
+    monkeypatch.setenv("NORMLY_DOCLING_ARTIFACTS_PATH", str(tmp_path / "no_models_here"))
+    docling_extraction._converters.clear()
+    try:
+        with pytest.raises(PipelineInitializationError):
+            list(DguvAdapter(directory=tmp_path, source_id=uuid.uuid4()).fetch())
+    finally:
+        # The bogus path is never cached (only a usable converter is), but the
+        # cache was cleared to force a rebuild, so leave it empty rather than
+        # holding a converter the next test believes it built.
+        docling_extraction._converters.clear()
+
+    # Not reported as a skipped file either: skipping is what it must not do.
+    assert "skipping" not in capsys.readouterr().err
 
 
 def test_fetch_splits_designation_and_title_for_a_dguv_regel(tmp_path):

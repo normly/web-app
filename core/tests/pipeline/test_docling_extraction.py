@@ -9,7 +9,11 @@ from docling.datamodel.base_models import ConversionStatus
 from docling.document_converter import DocumentConverter
 
 from normly_core.pipeline import docling_extraction
-from normly_core.pipeline.docling_extraction import DocumentExtractionError, extract_document
+from normly_core.pipeline.docling_extraction import (
+    DocumentExtractionError,
+    PipelineInitializationError,
+    extract_document,
+)
 
 FIXTURE_DIR = Path(__file__).parents[1] / "fixtures"
 
@@ -85,8 +89,8 @@ def test_a_bad_artifacts_path_raises_a_normly_error_when_the_converter_is_built(
 ):
     """Docling signals an artifacts_path that is not a directory with a bare
     RuntimeError from its pipeline constructor. That must not escape this
-    module: it has one error class for anything wrong with a conversion, and
-    callers guard against that one.
+    module: raw Docling errors stay inside it, and callers guard against its
+    own classes.
 
     It must also happen here, at converter-construction time. Docling builds
     its pipeline lazily on the first convert() call, so an unmounted or
@@ -98,7 +102,7 @@ def test_a_bad_artifacts_path_raises_a_normly_error_when_the_converter_is_built(
     docling_extraction._converters.clear()
 
     with patch.object(DocumentConverter, "convert") as convert:
-        with pytest.raises(DocumentExtractionError, match="initialise"):
+        with pytest.raises(PipelineInitializationError, match="initialise"):
             docling_extraction._get_converter(str(missing))
 
     # Eager: no document was ever converted, and none had to be.
@@ -114,7 +118,7 @@ def test_an_artifacts_path_without_models_raises_a_normly_error_too(monkeypatch,
     monkeypatch.setenv("NORMLY_DOCLING_ARTIFACTS_PATH", str(tmp_path))
     docling_extraction._converters.clear()
 
-    with pytest.raises(DocumentExtractionError, match="initialise"):
+    with pytest.raises(PipelineInitializationError, match="initialise"):
         docling_extraction._get_converter(str(tmp_path))
 
     assert docling_extraction._converters == {}
@@ -128,8 +132,22 @@ def test_a_bad_artifacts_path_raises_a_normly_error_from_extract_document(
     monkeypatch.setenv("NORMLY_DOCLING_ARTIFACTS_PATH", str(missing))
     docling_extraction._converters.clear()
 
-    with pytest.raises(DocumentExtractionError):
+    with pytest.raises(PipelineInitializationError):
         extract_document(FIXTURE_DIR / "dguv_sample_vorschrift.pdf")
+
+
+def test_a_pipeline_failure_is_not_a_document_extraction_error():
+    """The class relationship is the whole mechanism, so it is asserted.
+
+    Adapters catch DocumentExtractionError per file and carry on -- one
+    corrupt PDF must block only itself. A pipeline that cannot be built fails
+    the same way for every file, so being caught by that clause would turn a
+    misconfigured deployment into a run that skips everything and still exits
+    0 reporting success. Making PipelineInitializationError a subclass here
+    would silently restore exactly that.
+    """
+    assert not issubclass(PipelineInitializationError, DocumentExtractionError)
+    assert not issubclass(DocumentExtractionError, PipelineInitializationError)
 
 
 def test_extract_document_raises_on_a_partial_success_conversion(monkeypatch):
