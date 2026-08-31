@@ -54,7 +54,7 @@ _SENTENCE_OPENERS = frozenset(
     und oder sowie auch als ferner außerdem ausserdem zusätzlich zusaetzlich
     darüber darueber daneben dabei dazu dadurch damit deshalb daher somit
     hierzu hierfür hierfuer insbesondere weiterhin ergänzend ergaenzend
-    abweichend entsprechend zusammen gemeinsam
+    abweichend entsprechend zusammen gemeinsam gemäß gemaess
     ist sind war waren hat haben muss müssen muessen kann können koennen
     darf dürfen duerfen soll sollen wird werden gilt gelten liegt liegen
     """.split()
@@ -93,7 +93,7 @@ _DESIGNATION_PATTERN = re.compile(
 _FILE_PATTERN = "dguv_*.pdf"
 
 
-def _is_heading_start(text: str, match: re.Match[str]) -> bool:
+def _is_heading_start(text: str, match: re.Match[str], *, is_first_marker: bool) -> bool:
     """Does this paragraph marker start a heading, or is it a cross-reference?
 
     Both look identical to a regex; what separates them is their surroundings.
@@ -103,6 +103,28 @@ def _is_heading_start(text: str, match: re.Match[str]) -> bool:
     it is introduced by a lower-case word ("nach § 5", "gemäß § 12") and
     followed either by a lower-case word or by reference syntax ("§ 5 Absatz
     2").
+
+    The title line is the awkward case: it ends in a capitalised noun with no
+    full stop ("... Grundsätze der Prävention § 1 Geltungsbereich"), so a
+    capitalised word before the marker has to be allowed to precede a heading.
+    That allowance is deliberately kept as narrow as the case that needs it:
+
+    * `is_first_marker` -- only the item's *first* marker can be preceded by
+      the publication's own title. Every later marker in the same item sits
+      after body text, where a capitalised word before a "§" is a sentence
+      start, not a title tail ("... zu tragen. Nach § 14 DGUV Vorschrift 1
+      ...", "Ausweislich § 3 ..."), so those require a real sentence boundary.
+    * `_SENTENCE_OPENERS` -- even before the first marker, a capitalised word
+      from that closed class of non-nouns opened a sentence rather than ending
+      a title ("Nach § 14 ...", "Die Regel gilt. Gemäß § 12 ..."). German
+      capitalises nouns, so a capitalised non-noun is a sentence's first word;
+      a title's last word is a noun.
+
+    Both guards fail towards "not a heading". The cost of that is a section
+    whose heading is not recognised -- its text is kept, merged into what
+    precedes it. The cost of the opposite error is a fabricated section, the
+    sentence's opening word orphaned into the previous one, and the rest of a
+    perfectly ordinary sentence filed under a heading that does not exist.
     """
     following = text[match.end() :].lstrip().split(" ", 1)[0]
     if not following[:1].isupper():
@@ -118,7 +140,11 @@ def _is_heading_start(text: str, match: re.Match[str]) -> bool:
         return True
     # A lower-case word before the marker means the marker is part of that
     # sentence, so it cannot be a heading.
-    return not previous_word[:1].islower()
+    if previous_word[:1].islower():
+        return False
+    if not is_first_marker:
+        return False
+    return previous_word.strip(",.;:()").lower() not in _SENTENCE_OPENERS
 
 
 def _split_paragraph_run(run: str) -> list[str]:
@@ -182,8 +208,14 @@ def _logical_lines(text: str) -> list[str]:
     if not text:
         return []
 
+    # "First marker" is counted over every marker in the item, not over the
+    # ones that turned out to be headings: what the allowance in
+    # _is_heading_start() exists for is a marker that can still have the
+    # publication's title in front of it, and only the very first one can.
     starts = [
-        match for match in _MARKER_PATTERN.finditer(text) if _is_heading_start(text, match)
+        match
+        for position, match in enumerate(_MARKER_PATTERN.finditer(text))
+        if _is_heading_start(text, match, is_first_marker=position == 0)
     ]
     if not starts:
         return [text]

@@ -193,6 +193,70 @@ def test_logical_lines_does_not_split_at_a_cross_reference():
     assert _logical_lines(body) == [body]
 
 
+def test_logical_lines_does_not_split_at_a_cross_reference_opening_a_sentence():
+    """The reference guard cannot only look at what follows the marker.
+
+    "§ 5 Absatz 2" is caught by _REFERENCE_FOLLOWERS, but a cross-reference
+    that names its regulation instead of a subsection is followed by a
+    capitalised word like any heading ("§ 14 DGUV Vorschrift 1", "§ 12
+    ArbSchG"). What is in front of the marker then has to decide -- and both
+    sentences below open with a capitalised word only because they open a
+    sentence, not because a title ended there. Splitting here would invent a
+    section, orphan the sentence's first word into whatever preceded it, and
+    file the rest of the sentence under a heading that does not exist.
+    """
+    from normly_core.pipeline.adapters.dguv import _logical_lines
+
+    first = "Nach § 14 DGUV Vorschrift 1 hat der Unternehmer die Kosten zu tragen."
+    assert _logical_lines(first) == [first]
+
+    second = "Die Regel gilt. Gemäß § 12 ArbSchG sind Maßnahmen zu treffen."
+    assert _logical_lines(second) == [second]
+
+
+def test_logical_lines_does_not_split_at_a_cross_reference_inside_a_section_body():
+    """The same shape, but deep inside an item that already has real headings.
+
+    The allowance for a capitalised word before a marker exists for exactly
+    one thing: the publication's own title line, which can only ever sit
+    before the *first* marker of an item. A marker further in is preceded by
+    body text, so it needs a real sentence boundary -- otherwise every
+    "Ausweislich § 3 ..." in a section's own prose starts a phantom section
+    and steals the rest of the paragraph from the section it belongs to.
+    """
+    from normly_core.pipeline.adapters.dguv import _logical_lines
+
+    text = (
+        "DGUV Vorschrift 1 Grundsätze der Prävention "
+        "§ 1 Geltungsbereich Diese Vorschrift gilt für alle Unternehmen. "
+        "§ 2 Pflichten des Unternehmers Der Unternehmer trifft die Maßnahmen. "
+        "Ausweislich § 14 DGUV Vorschrift 1 trägt er die Kosten."
+    )
+
+    assert _logical_lines(text) == [
+        "DGUV Vorschrift 1 Grundsätze der Prävention",
+        "§ 1 Geltungsbereich",
+        "Diese Vorschrift gilt für alle Unternehmen.",
+        "§ 2 Pflichten des Unternehmers",
+        "Der Unternehmer trifft die Maßnahmen. "
+        "Ausweislich § 14 DGUV Vorschrift 1 trägt er die Kosten.",
+    ]
+
+
+def test_logical_lines_still_splits_the_publications_own_title_line():
+    """The case the capitalised-word allowance was built for, kept working.
+
+    "Grundsätze der Prävention" ends the title with a noun and no full stop,
+    so the first marker really is preceded by a capitalised word and really is
+    a heading. Narrowing the allowance must not take this away.
+    """
+    from normly_core.pipeline.adapters.dguv import _logical_lines
+
+    assert _logical_lines(
+        "DGUV Vorschrift 1 Grundsätze der Prävention § 1 Geltungsbereich"
+    ) == ["DGUV Vorschrift 1 Grundsätze der Prävention", "§ 1 Geltungsbereich"]
+
+
 def test_logical_lines_keeps_the_whole_text_when_the_title_boundary_is_unclear():
     """Where title and body cannot be told apart, a bare "§ N" heading is
     correct-but-poorer. Inventing a boundary, or dropping the text, is not."""
