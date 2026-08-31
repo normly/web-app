@@ -93,6 +93,93 @@ def test_extract_structure_splits_on_paragraph_headings():
     assert [s.sequence_number for s in sections] == [1, 2, 3]
 
 
+def _write_continuous_publication_pdf(path) -> None:
+    """A DGUV-style publication set continuously -- no blank spacer lines.
+
+    The committed fixture separates its paragraphs with blank lines, which
+    makes Docling's layout model emit one text item per line. A normally set
+    publication has no such spacers, and Docling then merges the whole page
+    into a single text item (verified against Docling 2.123.1). Both shapes
+    occur in a real corpus, depending on how the PDF was authored.
+    """
+    from reportlab.pdfgen import canvas
+
+    pdf = canvas.Canvas(str(path))
+    lines = [
+        "DGUV Vorschrift 1",
+        "Grundsätze der Prävention",
+        "§ 1 Geltungsbereich",
+        "Diese Vorschrift gilt für alle Unternehmen und Versicherte.",
+        "Sie gilt ferner für Bildungseinrichtungen.",
+        "§ 2 Pflichten des Unternehmers",
+        "Der Unternehmer hat die erforderlichen Maßnahmen zur Verhütung von",
+        "Arbeitsunfällen zu treffen.",
+        "§ 3 Pflichten der Versicherten",
+        "Die Versicherten haben die Anweisungen des Unternehmers zu befolgen.",
+    ]
+    y = 800
+    for line in lines:
+        pdf.drawString(72, y, line)
+        y -= 20
+    pdf.save()
+
+
+def test_fetch_splits_a_continuously_set_publication_docling_merges_into_one_item(tmp_path):
+    """The realistic layout: no blank lines, so Docling returns the entire page
+    as a single merged text item. Reading structure off item boundaries alone
+    then finds nothing -- designation, title and every § end up glued into one
+    blob. The line structure has to be rebuilt from the §-markers."""
+    _write_continuous_publication_pdf(tmp_path / "dguv_vorschrift_1.pdf")
+    adapter = DguvAdapter(directory=tmp_path, source_id=uuid.uuid4())
+
+    record = list(adapter.fetch())[0]
+
+    assert record.raw_designation == "DGUV Vorschrift 1"
+    assert record.raw_title == "Grundsätze der Prävention"
+
+    sections = adapter.extract_structure(record)
+    assert [section.heading for section in sections] == [
+        "§ 1 Geltungsbereich",
+        "§ 2 Pflichten des Unternehmers",
+        "§ 3 Pflichten der Versicherten",
+    ]
+    assert [section.sequence_number for section in sections] == [1, 2, 3]
+    assert sections[0].text.startswith("Diese Vorschrift gilt für alle Unternehmen")
+    assert "Bildungseinrichtungen" in sections[0].text
+    assert "Arbeitsunfällen zu treffen" in sections[1].text
+    assert "Anweisungen des Unternehmers" in sections[2].text
+
+
+def test_logical_lines_keeps_a_single_heading_line_intact():
+    """The other shape: one Docling item that already is exactly one line."""
+    from normly_core.pipeline.adapters.dguv import _logical_lines
+
+    assert _logical_lines("§ 1 Geltungsbereich") == ["§ 1 Geltungsbereich"]
+    assert _logical_lines("§ 2 Pflichten des Unternehmers") == [
+        "§ 2 Pflichten des Unternehmers"
+    ]
+
+
+def test_logical_lines_does_not_split_at_a_cross_reference():
+    """"§ 5" inside a sentence is a reference, not a heading -- splitting there
+    would fabricate a section out of the middle of a paragraph."""
+    from normly_core.pipeline.adapters.dguv import _logical_lines
+
+    body = "Der Unternehmer hat nach § 5 Absatz 2 die Versicherten zu unterweisen."
+
+    assert _logical_lines(body) == [body]
+
+
+def test_logical_lines_keeps_the_whole_text_when_the_title_boundary_is_unclear():
+    """Where title and body cannot be told apart, a bare "§ N" heading is
+    correct-but-poorer. Inventing a boundary, or dropping the text, is not."""
+    from normly_core.pipeline.adapters.dguv import _logical_lines
+
+    lines = _logical_lines("§ 4 Unterweisung Arbeitgeber unterweisen jährlich.")
+
+    assert lines == ["§ 4", "Unterweisung Arbeitgeber unterweisen jährlich."]
+
+
 def test_classify_rights_allows_full_processing():
     adapter = DguvAdapter(directory=FIXTURE_DIR, source_id=uuid.uuid4())
     record = list(adapter.fetch())[0]
