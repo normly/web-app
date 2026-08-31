@@ -295,6 +295,74 @@ def test_logical_lines_still_splits_the_publications_own_title_line():
     ) == ["DGUV Vorschrift 1 Grundsätze der Prävention", "§ 1 Geltungsbereich"]
 
 
+def test_logical_lines_does_not_split_at_a_cross_reference_opened_by_an_unlisted_word():
+    """The allowance may not depend on a list of known sentence openers.
+
+    Any word list is open-ended: "Ausweislich" and the ß-less "Gemäss" open a
+    sentence exactly like "Nach" or "Gemäß" do, and no closed enumeration of
+    German introducers can be finished. The allowance is therefore granted on
+    what it exists for -- the publication's own designation line -- and every
+    other lead text is a sentence, whatever word it happens to start with.
+    """
+    from normly_core.pipeline.adapters.dguv import _logical_lines
+
+    unlisted = "Ausweislich § 14 DGUV Vorschrift 1 trägt der Unternehmer die Kosten."
+    assert _logical_lines(unlisted) == [unlisted]
+
+    sz_folded = "Gemäss § 12 ArbSchG sind Maßnahmen zu treffen."
+    assert _logical_lines(sz_folded) == [sz_folded]
+
+
+def test_logical_lines_does_not_split_at_a_colon_introduced_reference():
+    """No word list can reach this one: the word before the marker is a
+    capitalised noun ("Vorschriften:"), the same shape a title line ends in.
+    Only the absence of a designation in front of the marker tells them apart.
+    """
+    from normly_core.pipeline.adapters.dguv import _logical_lines
+
+    enumeration = "Es gelten folgende Vorschriften: § 14 DGUV Vorschrift 1 und weitere."
+
+    assert _logical_lines(enumeration) == [enumeration]
+
+
+def test_logical_lines_finds_a_real_heading_after_a_leading_cross_reference():
+    """An ordinary merged item that happens to open with a cross-reference.
+
+    Rejecting the leading "§ 14" must not cost the real "§ 2" behind it: this
+    is not an exotic edge case but the everyday shape of a merged page whose
+    first sentence cites another regulation.
+    """
+    from normly_core.pipeline.adapters.dguv import _logical_lines
+
+    text = (
+        "Ausweislich § 14 DGUV Vorschrift 1 trägt er die Kosten. "
+        "§ 2 Pflichten des Unternehmers Der Unternehmer trifft die Maßnahmen."
+    )
+
+    assert _logical_lines(text) == [
+        "Ausweislich § 14 DGUV Vorschrift 1 trägt er die Kosten.",
+        "§ 2 Pflichten des Unternehmers",
+        "Der Unternehmer trifft die Maßnahmen.",
+    ]
+
+
+def test_logical_lines_still_splits_a_title_line_carrying_an_issue_date():
+    """The designation line as real publications set it: designation, issue
+    date, title. The date's ordinal ("1.") ends in a full stop and its year is
+    a bare number, neither of which may disturb the split -- and the lead text
+    still has to be recognised as a designation for the first marker to count
+    as a heading."""
+    from normly_core.pipeline.adapters.dguv import _logical_lines
+
+    assert _logical_lines(
+        "DGUV Vorschrift 1 vom 1. November 2013 "
+        "Grundsätze der Prävention § 1 Geltungsbereich"
+    ) == [
+        "DGUV Vorschrift 1 vom 1. November 2013 Grundsätze der Prävention",
+        "§ 1 Geltungsbereich",
+    ]
+
+
 def test_logical_lines_keeps_the_whole_text_when_the_title_boundary_is_unclear():
     """Where title and body cannot be told apart, a bare "§ N" heading is
     correct-but-poorer. Inventing a boundary, or dropping the text, is not."""

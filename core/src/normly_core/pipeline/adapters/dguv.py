@@ -43,6 +43,13 @@ _MAX_HEADING_WORDS = 10
 # ends and its body begins inside one merged Docling text item. Lower-case
 # occurrences ("Pflichten des Unternehmers") never match: the check requires an
 # upper-case initial.
+#
+# Used by _split_paragraph_run() only, and only inside a run whose heading is
+# already confirmed. Being a word list, it is necessarily incomplete; that is
+# affordable here because a missing opener costs a bare "§ N" heading instead
+# of the full one (see _split_paragraph_run()), never a fabricated section.
+# _is_heading_start() had the opposite exposure and does not use it -- see the
+# note on the designation test there.
 _SENTENCE_OPENERS = frozenset(
     """
     der die das dem den des dieser diese dieses diesem diesen
@@ -54,7 +61,7 @@ _SENTENCE_OPENERS = frozenset(
     und oder sowie auch als ferner außerdem ausserdem zusätzlich zusaetzlich
     darüber darueber daneben dabei dazu dadurch damit deshalb daher somit
     hierzu hierfür hierfuer insbesondere weiterhin ergänzend ergaenzend
-    abweichend entsprechend zusammen gemeinsam gemäß gemaess
+    abweichend entsprechend zusammen gemeinsam gemäß gemaess gemäss
     ist sind war waren hat haben muss müssen muessen kann können koennen
     darf dürfen duerfen soll sollen wird werden gilt gelten liegt liegen
     """.split()
@@ -114,13 +121,28 @@ def _is_heading_start(text: str, match: re.Match[str], *, is_first_marker: bool)
       after body text, where a capitalised word before a "§" is a sentence
       start, not a title tail ("... zu tragen. Nach § 14 DGUV Vorschrift 1
       ...", "Ausweislich § 3 ..."), so those require a real sentence boundary.
-    * `_SENTENCE_OPENERS` -- even before the first marker, a capitalised word
-      from that closed class of non-nouns opened a sentence rather than ending
-      a title ("Nach § 14 ...", "Die Regel gilt. Gemäß § 12 ..."). German
-      capitalises nouns, so a capitalised non-noun is a sentence's first word;
-      a title's last word is a noun.
+    * `_DESIGNATION_PATTERN` -- and even the first marker must actually have
+      that title line in front of it, i.e. the lead text must open with the
+      publication's designation ("DGUV Vorschrift 1 Grundsätze der Prävention
+      § 1 ..."). Anything else in front of a first marker is a sentence.
 
-    Both guards fail towards "not a heading". The cost of that is a section
+    The designation test replaces an earlier attempt that instead rejected a
+    known list of sentence-opening words (`_SENTENCE_OPENERS`). That direction
+    cannot be finished: it closed "Nach § 14 ..." and "Gemäß § 12 ..." but not
+    "Ausweislich § 14 ...", not the ß-less "Gemäss § 12 ...", and by
+    construction not "Es gelten folgende Vorschriften: § 14 ...", where the
+    word before the marker is a capitalised noun like a title's last word.
+    Asking instead for the one shape the allowance exists for turns an
+    open-ended exclusion list into a closed positive match.
+
+    `_DESIGNATION_PATTERN` is anchored, so cover text before the designation
+    would deny the allowance. That is deliberate: matching the designation
+    anywhere in the lead would readmit the fabrication through a sentence that
+    merely names a publication ("... nach der DGUV Vorschrift 1 § 5 ..."), and
+    the same anchored assumption already carries the designation/title split
+    in _fetch_file(), where such an item would be misread first anyway.
+
+    Every guard fails towards "not a heading". The cost of that is a section
     whose heading is not recognised -- its text is kept, merged into what
     precedes it. The cost of the opposite error is a fabricated section, the
     sentence's opening word orphaned into the previous one, and the rest of a
@@ -144,7 +166,7 @@ def _is_heading_start(text: str, match: re.Match[str], *, is_first_marker: bool)
         return False
     if not is_first_marker:
         return False
-    return previous_word.strip(",.;:()").lower() not in _SENTENCE_OPENERS
+    return _DESIGNATION_PATTERN.match(preceding) is not None
 
 
 def _split_paragraph_run(run: str) -> list[str]:
