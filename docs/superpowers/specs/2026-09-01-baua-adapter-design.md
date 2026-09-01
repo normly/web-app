@@ -251,12 +251,30 @@ generierten Fixtures (eine je Reihe), analog zum Vorgehen bei
 - **Ungeprüft gegen ein echtes Dokument.** Weder Designation-Muster noch
   Titel-Extraktion noch die Annahme über Doclings Element-Zusammenfassung
   wurden gegen eine echte TRGS/TRBS/TRBA-PDF verifiziert — `baua.de`s
-  Bot-Schutz verhinderte das während des Designs. Sobald der Operator die
-  ersten echten Dateien beschafft, sollte der erste reale Ingestion-Lauf
+  Bot-Schutz verhinderte das während des Designs. Trifft das erste
+  Docling-Textelement eines echten Dokuments nicht auf
+  `_DESIGNATION_PATTERN` (z. B. Deckblatt- statt Designation-Text), entsteht
+  daraus stillschweigend ein regulär eingelesenes Dokument mit Datenmüll als
+  `raw_designation` — kein automatischer Prüffall. Weil `runner.py` die
+  Delivery (Content-Hash) in derselben Transaktion wie das Dokument
+  schreibt, lässt sich ein so fehlerhafter Erstlauf nach einer
+  Adapter-Korrektur nicht einfach günstig erneut einspielen; der Operator
+  muss die betroffenen Delivery-/Dokument-Zeilen zunächst von Hand löschen.
+  Genau deshalb ist die Stichprobenprüfung des ersten realen Laufs keine
+  Kür, sondern Voraussetzung *vor* jedem größeren Ingest: sobald der
+  Operator die ersten echten Dateien beschafft, muss dieser erste Lauf
   stichprobenartig geprüft werden, bevor größere Mengen eingelesen werden.
 - **Feingranulare Abschnittserkennung** (nummerierte Überschriften) ist
   bewusst vertagt (siehe "Entscheidung: Struktur-Tiefe Phase 1"). Eigene
   Folgeaufgabe, sobald reale Dokumente zur Musterbildung vorliegen.
+- **Kein strukturiertes "Teil N" / Teilnummer-Feld.** `TRGS 500 Teil 1` und
+  `TRGS 500 Teil 2` werden dadurch zwei unverbundene Dokumentknoten:
+  `RawRecord` kennt kein `part`-Feld, `runner.py` schreibt `part` immer als
+  `None`. Der Adapter selbst erfasst "Teil N" korrekt als Teil der
+  Designation-Zeichenkette — die Lücke liegt unterhalb des Adapters, in der
+  gemeinsamen `RawRecord`/`runner.py`-Schicht, und wird erst durch BAuA als
+  erste Quelle mit teilnummerierten Designationen sichtbar. Eigene
+  Folgeaufgabe auf Pipeline-Ebene, nicht spezifisch für diesen Adapter.
 - **Datei-Namenskonvention** (`baua_trgs_*.pdf` usw.) ist eine Annahme dieses
   Designs, keine von BAuA vorgegebene Konvention — der Operator muss beim
   Ablegen der Dateien entsprechend benennen. Bei Bedarf leicht erweiterbar
