@@ -12,6 +12,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from normly_core.graph.postgres.repositories import PostgresSourceRepository
+from normly_core.pipeline.adapters.baua import BauaAdapter
 from normly_core.pipeline.adapters.dguv import DguvAdapter
 from normly_core.pipeline.adapters.eur_lex import EurLexAdapter
 from normly_core.pipeline.domain import SourceAdapter
@@ -36,6 +37,8 @@ def build_adapter(source: str, *, directory: Path, session: Session) -> SourceAd
         )
     if source == "dguv":
         return DguvAdapter(directory=directory, source_id=registered.id)
+    if source == "baua":
+        return BauaAdapter(directory=directory, source_id=registered.id)
     raise ValueError(f"unknown source: {source!r}")
 
 
@@ -44,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     ingest_parser = subparsers.add_parser("ingest")
-    ingest_parser.add_argument("source", choices=["eur-lex", "dguv"])
+    ingest_parser.add_argument("source", choices=["eur-lex", "dguv", "baua"])
     ingest_parser.add_argument(
         "--directory", type=Path, required=True,
         help="local directory containing the source's raw files",

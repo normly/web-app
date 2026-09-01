@@ -57,6 +57,20 @@ def test_build_adapter_rejects_unknown_source(db_session):
         build_adapter("not-a-real-source", directory=FIXTURE_DIR, session=db_session)
 
 
+def test_build_adapter_returns_baua_adapter_for_baua_source(db_session):
+    adapter = build_adapter("baua", directory=FIXTURE_DIR, session=db_session)
+    assert type(adapter).__name__ == "BauaAdapter"
+
+
+def test_build_adapter_registers_baua_with_category_a(db_session):
+    adapter = build_adapter("baua", directory=FIXTURE_DIR, session=db_session)
+
+    registered = db_session.get(SourceORM, adapter.source_id)
+    assert registered is not None
+    assert registered.publisher == "BAuA"
+    assert registered.jurisdiction == "DE"
+
+
 def test_build_adapter_registers_the_source_it_binds_the_adapter_to(db_session):
     adapter = build_adapter("dguv", directory=FIXTURE_DIR, session=db_session)
 
@@ -78,6 +92,30 @@ def test_main_ingests_a_directory_end_to_end(committed_db, capsys):
             )
         ).scalar_one()
     assert designation == "DGUV Vorschrift 1"
+
+
+def test_main_ingests_a_baua_directory_end_to_end(committed_db, capsys, tmp_path):
+    from reportlab.pdfgen import canvas
+
+    pdf = canvas.Canvas(str(tmp_path / "baua_trgs_900.pdf"))
+    for y, line in zip(
+        range(800, 700, -20),
+        ["TRGS 900", "Arbeitsplatzgrenzwerte", "", "Text."],
+    ):
+        pdf.drawString(72, y, line)
+    pdf.save()
+
+    exit_code = main(["ingest", "baua", "--directory", str(tmp_path)])
+
+    assert exit_code == 0
+    assert "failed=0" in capsys.readouterr().out
+    with committed_db.connect() as connection:
+        designation = connection.execute(
+            sa.select(DocumentDesignationORM.designation).where(
+                DocumentDesignationORM.issuer == "BAuA"
+            )
+        ).scalar_one()
+    assert designation == "TRGS 900"
 
 
 def test_main_reuses_the_same_source_row_on_a_second_run(committed_db):
