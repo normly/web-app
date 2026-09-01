@@ -17,7 +17,7 @@ models on first use -- convenient for development, not acceptable in
 production.
 
 OCR is deliberately disabled (do_ocr=False): Docling's default pipeline
-runs OCR even on pure vector-text PDFs like the two sources this codebase
+runs OCR even on pure vector-text PDFs like the sources this codebase
 ingests today, and does so by downloading additional models from
 modelscope.cn -- a second external model source beyond Hugging Face that
 this project has no reason to depend on before an actual OCR need exists.
