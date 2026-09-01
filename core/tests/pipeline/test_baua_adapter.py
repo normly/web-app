@@ -14,6 +14,10 @@ def _write_publication_pdf(path: Path, lines: list[str]) -> None:
     from reportlab.pdfgen import canvas
 
     pdf = canvas.Canvas(str(path))
+    # Y-coordinate and gap sizes are empirically tuned for this Docling version (2.124.0).
+    # The specific values (700, 10, 60) ensure that in common test cases, designation and
+    # title stay in one Docling item while body text moves to separate items. The i==1
+    # special case creates a larger gap after the title to enforce this separation.
     y = 700  # Start in middle of page for better extraction
     for i, line in enumerate(lines):
         if line:  # Only draw non-empty lines
@@ -98,13 +102,12 @@ def test_fetch_reads_all_three_series_and_ignores_other_sources_files(tmp_path):
 
 def test_fetch_leaves_title_unset_when_docling_merges_the_whole_page(tmp_path):
     """A continuously-set publication (no blank lines between paragraphs)
-    makes Docling merge the entire page into one text item -- verified
-    behavior for this document family, see
-    docs/superpowers/specs/2026-08-30-docling-migration-design.md,
-    "Empirischer Befund". Without a bound, the designation pattern's `(.*)$`
-    tail would then capture the rest of the document as its "title". The
-    length cap must fail toward `title=None`, never toward a fabricated
-    title -- and `full_text` must keep everything regardless."""
+    causes Docling to merge designation, title, and at least the start of the
+    body into a single text item. Without a length cap, the designation
+    pattern's `(.*)$` tail would then capture body prose as its "title".
+    The length cap (_MAX_TITLE_WORDS=12) must fail toward `title=None`,
+    never toward a fabricated title -- and `full_text` must keep everything
+    regardless."""
     _write_publication_pdf(
         tmp_path / "baua_trgs_900.pdf",
         [
