@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 import sqlalchemy as sa
 
+from normly_core.graph.domain import LegalBasisCategory
 from normly_core.graph.postgres.orm import DocumentDesignationORM, SourceORM
 from normly_core.pipeline.cli import build_adapter, main
 
@@ -69,6 +70,7 @@ def test_build_adapter_registers_baua_with_category_a(db_session):
     assert registered is not None
     assert registered.publisher == "BAuA"
     assert registered.jurisdiction == "DE"
+    assert registered.legal_basis_category == LegalBasisCategory.A
 
 
 def test_build_adapter_registers_the_source_it_binds_the_adapter_to(db_session):
@@ -98,6 +100,11 @@ def test_main_ingests_a_baua_directory_end_to_end(committed_db, capsys, tmp_path
     from reportlab.pdfgen import canvas
 
     pdf = canvas.Canvas(str(tmp_path / "baua_trgs_900.pdf"))
+    # This geometry is untuned (unlike _write_publication_pdf's empirically-tuned
+    # gaps in test_baua_adapter.py) and does not reliably keep designation and
+    # title in one Docling item vs. separate ones. That is fine here: this test
+    # only asserts raw_designation, which survives either way -- title-extraction
+    # reliability is irrelevant to what this test checks.
     for y, line in zip(
         range(800, 700, -20),
         ["TRGS 900", "Arbeitsplatzgrenzwerte", "", "Text."],

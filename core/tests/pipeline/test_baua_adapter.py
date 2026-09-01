@@ -17,7 +17,9 @@ def _write_publication_pdf(path: Path, lines: list[str]) -> None:
     # Y-coordinate and gap sizes are empirically tuned for this Docling version (2.124.0).
     # The specific values (700, 10, 60) ensure that in common test cases, designation and
     # title stay in one Docling item while body text moves to separate items. The i==1
-    # special case creates a larger gap after the title to enforce this separation.
+    # special case creates a larger gap after the fixture's *second line* -- whatever its
+    # content is (a title in most callers, but body prose for the whole-page-merge test)
+    # -- to enforce this separation.
     y = 700  # Start in middle of page for better extraction
     for i, line in enumerate(lines):
         if line:  # Only draw non-empty lines
@@ -122,7 +124,7 @@ def test_fetch_reads_all_three_series_and_ignores_other_sources_files(tmp_path):
     ]
 
 
-def test_fetch_leaves_title_unset_when_docling_merges_the_whole_page(tmp_path):
+def test_fetch_leaves_title_unset_when_docling_merges_designation_title_and_body(tmp_path):
     """A continuously-set publication (no blank lines between paragraphs)
     causes Docling to merge designation, title, and at least the start of the
     body into a single text item. Without a length cap, the designation
