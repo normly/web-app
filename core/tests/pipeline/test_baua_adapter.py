@@ -69,3 +69,28 @@ def test_fetch_parses_a_teil_suffixed_designation(tmp_path):
 
     assert records[0].raw_designation == "TRGS 500 Teil 1"
     assert records[0].raw_title == "Schutzmaßnahmen"
+
+
+def test_fetch_reads_all_three_series_and_ignores_other_sources_files(tmp_path):
+    """`--directory` means the directory, not one hardcoded filename in it,
+    and the three series share one adapter (design spec, "Ziel dieses
+    Teilprojekts")."""
+    _write_publication_pdf(
+        tmp_path / "baua_trgs_900.pdf", ["TRGS 900", "Arbeitsplatzgrenzwerte", "", "Text."]
+    )
+    _write_publication_pdf(
+        tmp_path / "baua_trbs_1201.pdf", ["TRBS 1201", "Prüfung von Arbeitsmitteln", "", "Text."]
+    )
+    _write_publication_pdf(
+        tmp_path / "baua_trba_100.pdf", ["TRBA 100", "Schutzmaßnahmen", "", "Text."]
+    )
+    # A neighbouring source's file in the same directory stays untouched.
+    _write_publication_pdf(
+        tmp_path / "dguv_vorschrift_1.pdf", ["DGUV Vorschrift 1", "Grundsätze", "", "Text."]
+    )
+
+    records = list(BauaAdapter(directory=tmp_path, source_id=uuid.uuid4()).fetch())
+
+    assert sorted(record.raw_designation for record in records) == [
+        "TRBA 100", "TRBS 1201", "TRGS 900",
+    ]
