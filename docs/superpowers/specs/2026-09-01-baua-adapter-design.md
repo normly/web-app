@@ -55,9 +55,13 @@ gemacht.
   als auch `curl` (mit realistischem Browser-User-Agent) lieferten für jede
   während des Designs getestete URL, einschließlich des direkten
   `TRBS-Bekanntmachungen.pdf`-Index-Links, HTTP 403. Ein Umgehungsversuch
-  wurde bewusst nicht unternommen. Beschaffung bleibt manuell — deckungsgleich
-  mit dem bestehenden Modell für DGUV und EUR-Lex, wo der Operator Dateien
-  selbst in das Ingest-Verzeichnis legt.
+  wurde bewusst nicht unternommen. Beschaffung bleibt in diesem Teilprojekt
+  manuell — deckungsgleich mit dem bestehenden Modell für DGUV und EUR-Lex,
+  wo der Operator Dateien selbst in das Ingest-Verzeichnis legt. **Nicht als
+  Dauerzustand gedacht:** manuelle Beschaffung skaliert nicht auf drei
+  laufend erweiterte Regelwerksreihen mit unregelmäßigen Neuveröffentlichungen
+  — automatisierte Beschaffung ist als eigene Folgeaufgabe vorgesehen, siehe
+  "Offene Punkte".
 - **Keine feingranulare Abschnittserkennung** (nummerierte Überschriften wie
   "1 Zielsetzung", "2.1 Begriffsbestimmungen") in diesem Durchgang — siehe
   Architektur. Bewusst als eigene Folgeaufgabe vertagt.
@@ -227,6 +231,23 @@ generierten Fixtures (eine je Reihe), analog zum Vorgehen bei
 
 ## Offene Punkte / Folgearbeiten
 
+- **Automatisierte Beschaffung als eigene Folgeaufgabe.** Der manuelle
+  Beschaffungsweg dieses Teilprojekts (Operator lädt PDFs herunter, legt sie
+  ins Ingest-Verzeichnis) skaliert nicht dauerhaft: BAuA veröffentlicht neue
+  und überarbeitete TRGS/TRBS/TRBA-Fassungen laufend und unregelmäßig über
+  drei Reihen hinweg — anders als bei einer einmalig gepflegten
+  Erstbestandsquelle braucht das einen wiederholbaren Beschaffungsprozess.
+  Realistischerweise geht das nur automatisiert. `baua.de`s Bot-Schutz
+  (Bunny Shield, siehe Nicht-Ziele) verhindert einen naiven Scraper — zu
+  klären, sobald diese Aufgabe angegangen wird: ob BAuA einen offiziellen
+  Zugang ohne Bot-Schutz anbietet (z. B. eine Datenaustausch-Schnittstelle
+  oder einen RSS-/Newsletter-Feed für Neuveröffentlichungen), oder ob eine
+  browserbasierte Beschaffung mit dokumentierter, rechtlich geprüfter
+  Begründung nötig wird. Sobald automatisierte Erfassung ansteht, wird auch
+  REQ-PIPE-003 (Prüfung auf einen maschinenlesbaren Nutzungsvorbehalt) für
+  diese Quelle real relevant — hier als Nicht-Ziel nur deshalb ausgeklammert,
+  weil die Erfassung in diesem Teilprojekt manuell bleibt (siehe dort).
+  Eigenes Design/Spec, nicht Teil dieses Adapters.
 - **Ungeprüft gegen ein echtes Dokument.** Weder Designation-Muster noch
   Titel-Extraktion noch die Annahme über Doclings Element-Zusammenfassung
   wurden gegen eine echte TRGS/TRBS/TRBA-PDF verifiziert — `baua.de`s
