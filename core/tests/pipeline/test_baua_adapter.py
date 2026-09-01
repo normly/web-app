@@ -94,3 +94,29 @@ def test_fetch_reads_all_three_series_and_ignores_other_sources_files(tmp_path):
     assert sorted(record.raw_designation for record in records) == [
         "TRBA 100", "TRBS 1201", "TRGS 900",
     ]
+
+
+def test_fetch_leaves_title_unset_when_docling_merges_the_whole_page(tmp_path):
+    """A continuously-set publication (no blank lines between paragraphs)
+    makes Docling merge the entire page into one text item -- verified
+    behavior for this document family, see
+    docs/superpowers/specs/2026-08-30-docling-migration-design.md,
+    "Empirischer Befund". Without a bound, the designation pattern's `(.*)$`
+    tail would then capture the rest of the document as its "title". The
+    length cap must fail toward `title=None`, never toward a fabricated
+    title -- and `full_text` must keep everything regardless."""
+    _write_publication_pdf(
+        tmp_path / "baua_trgs_900.pdf",
+        [
+            "TRGS 900 Arbeitsplatzgrenzwerte Diese TRGS konkretisiert im Rahmen des",
+            "Vollzuges der Gefahrstoffverordnung die Anforderungen an die Ermittlung",
+            "und Beurteilung der Konzentration von Gefahrstoffen am Arbeitsplatz.",
+        ],
+    )
+
+    records = list(BauaAdapter(directory=tmp_path, source_id=uuid.uuid4()).fetch())
+
+    assert records[0].raw_designation == "TRGS 900"
+    assert records[0].raw_title is None
+    assert "Ermittlung" in records[0].full_text
+    assert "Beurteilung der Konzentration" in records[0].full_text
