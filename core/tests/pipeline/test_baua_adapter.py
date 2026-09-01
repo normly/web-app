@@ -120,3 +120,40 @@ def test_fetch_leaves_title_unset_when_docling_merges_the_whole_page(tmp_path):
     assert records[0].raw_title is None
     assert "Ermittlung" in records[0].full_text
     assert "Beurteilung der Konzentration" in records[0].full_text
+
+
+def test_fetch_skips_an_unreadable_file_and_keeps_reading_the_rest(tmp_path, capsys):
+    _write_publication_pdf(
+        tmp_path / "baua_trgs_900.pdf", ["TRGS 900", "Arbeitsplatzgrenzwerte", "", "Text."]
+    )
+    (tmp_path / "baua_trbs_1201.pdf").write_text("this is not a PDF")
+    _write_publication_pdf(
+        tmp_path / "baua_trba_100.pdf", ["TRBA 100", "Schutzmaßnahmen", "", "Text."]
+    )
+
+    records = list(BauaAdapter(directory=tmp_path, source_id=uuid.uuid4()).fetch())
+
+    assert sorted(record.raw_designation for record in records) == ["TRBA 100", "TRGS 900"]
+    assert "baua_trbs_1201.pdf" in capsys.readouterr().err
+
+
+def test_fetch_does_not_skip_a_misconfigured_pipeline(tmp_path, capsys, monkeypatch):
+    """A broken deployment must end the run, not be skipped once per file --
+    identical reasoning and pattern to dguv.py's/eur_lex.py's own test of
+    the same name."""
+    from normly_core.pipeline import docling_extraction
+    from normly_core.pipeline.docling_extraction import PipelineInitializationError
+
+    _write_publication_pdf(
+        tmp_path / "baua_trgs_900.pdf", ["TRGS 900", "Arbeitsplatzgrenzwerte", "", "Text."]
+    )
+
+    monkeypatch.setenv("NORMLY_DOCLING_ARTIFACTS_PATH", str(tmp_path / "no_models_here"))
+    docling_extraction._converters.clear()
+    try:
+        with pytest.raises(PipelineInitializationError):
+            list(BauaAdapter(directory=tmp_path, source_id=uuid.uuid4()).fetch())
+    finally:
+        docling_extraction._converters.clear()
+
+    assert "skipping" not in capsys.readouterr().err
