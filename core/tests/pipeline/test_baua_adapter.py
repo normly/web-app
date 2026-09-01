@@ -157,3 +157,48 @@ def test_fetch_does_not_skip_a_misconfigured_pipeline(tmp_path, capsys, monkeypa
         docling_extraction._converters.clear()
 
     assert "skipping" not in capsys.readouterr().err
+
+
+def test_extract_structure_returns_one_full_text_segment():
+    adapter = BauaAdapter(directory=Path("."), source_id=uuid.uuid4())
+    record = RawRecord(
+        source_id=adapter.source_id, content_hash="sha256:x",
+        raw_designation="TRGS 900", raw_issuer="BAuA", raw_title="Arbeitsplatzgrenzwerte",
+        full_text="Volltext hier.", language="de",
+    )
+
+    sections = adapter.extract_structure(record)
+
+    assert len(sections) == 1
+    assert sections[0].sequence_number == 1
+    assert sections[0].heading is None
+    assert sections[0].text == "Volltext hier."
+
+
+def test_extract_structure_is_empty_without_full_text():
+    adapter = BauaAdapter(directory=Path("."), source_id=uuid.uuid4())
+    record = RawRecord(
+        source_id=adapter.source_id, content_hash="sha256:x",
+        raw_designation="TRGS 900", raw_issuer="BAuA", raw_title=None,
+        full_text=None, language="de",
+    )
+
+    assert adapter.extract_structure(record) == []
+
+
+def test_classify_rights_allows_full_processing():
+    adapter = BauaAdapter(directory=Path("."), source_id=uuid.uuid4())
+    record = RawRecord(
+        source_id=adapter.source_id, content_hash="sha256:x",
+        raw_designation="TRGS 900", raw_issuer="BAuA", raw_title="Arbeitsplatzgrenzwerte",
+        full_text="Volltext hier.", language="de",
+    )
+
+    rule = adapter.classify_rights(record)
+
+    assert rule.may_process is True
+    assert rule.may_index_fulltext is True
+    assert rule.may_cite_passages is True
+    assert rule.may_export_free is True
+    assert rule.jurisdiction == "DE"
+    assert "TRGS/TRBS/TRBA" in rule.legal_basis_reference
