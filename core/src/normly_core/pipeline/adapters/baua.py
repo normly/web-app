@@ -77,7 +77,16 @@ class BauaAdapter:
             text for item, _level in document.iterate_items()
             if (text := getattr(item, "text", None))
         ]
-        first_text = texts[0] if texts else ""
+        # Normalize whitespace before matching, same as DguvAdapter's
+        # _logical_lines() (dguv.py: `text = " ".join(text.split())`).
+        # Docling can emit irregular whitespace (extra spaces, embedded
+        # newlines) inside a merged text item, and the designation becomes
+        # this document's identity key (identity.resolve() matches on exact
+        # string equality; it flows into document.origin_number via
+        # runner.py) -- un-normalized whitespace variation between two PDFs
+        # of the *same* rule would fork them into two unrelated document
+        # nodes.
+        first_text = " ".join(texts[0].split()) if texts else ""
 
         match = _DESIGNATION_PATTERN.match(first_text)
         if match:

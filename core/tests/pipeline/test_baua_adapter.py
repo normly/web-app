@@ -75,6 +75,28 @@ def test_fetch_parses_a_teil_suffixed_designation(tmp_path):
     assert records[0].raw_title == "Schutzmaßnahmen"
 
 
+def test_fetch_normalizes_irregular_whitespace_before_matching_designation(tmp_path):
+    """Docling can emit irregular whitespace (extra spaces, embedded
+    newlines) inside a merged text item. The designation becomes this
+    document's identity key (identity.resolve() matches on exact string
+    equality; it flows into document.origin_number via runner.py), so an
+    un-normalized whitespace difference between two PDFs of the *same* rule
+    would fork them into two unrelated document nodes. `_DESIGNATION_PATTERN`
+    itself tolerates any whitespace shape (`\\s+` matches a run of any
+    length), but without normalizing first, that irregular run is captured
+    verbatim into the designation string -- the bug is not a failed match,
+    it is a designation whose exact text varies with incidental source
+    formatting."""
+    _write_publication_pdf(
+        tmp_path / "baua_trgs_500_teil_1.pdf",
+        ["TRGS 500  Teil  1", "Schutzmaßnahmen", "", "Body text hier."],
+    )
+
+    records = list(BauaAdapter(directory=tmp_path, source_id=uuid.uuid4()).fetch())
+
+    assert records[0].raw_designation == "TRGS 500 Teil 1"
+
+
 def test_fetch_reads_all_three_series_and_ignores_other_sources_files(tmp_path):
     """`--directory` means the directory, not one hardcoded filename in it,
     and the three series share one adapter (design spec, "Ziel dieses
