@@ -57,3 +57,15 @@ def test_fetch_splits_designation_and_title_per_series(
     assert record.full_text is not None
     assert "konkretisiert die Anforderungen" in record.full_text
     assert record.language == "de"
+
+
+def test_fetch_parses_a_teil_suffixed_designation(tmp_path):
+    _write_publication_pdf(
+        tmp_path / "baua_trgs_500_teil_1.pdf",
+        ["TRGS 500 Teil 1", "Schutzmaßnahmen", "", "Body text hier."],
+    )
+
+    records = list(BauaAdapter(directory=tmp_path, source_id=uuid.uuid4()).fetch())
+
+    assert records[0].raw_designation == "TRGS 500 Teil 1"
+    assert records[0].raw_title == "Schutzmaßnahmen"
