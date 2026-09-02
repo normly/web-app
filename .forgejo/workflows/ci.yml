@@ -1,0 +1,36 @@
+name: CI
+on:
+  pull_request:
+    branches: [main]
+  push:
+
+jobs:
+  test-accounts:
+    runs-on: stackit-docker
+    container: python:3.12
+    steps:
+      - run: cd accounts && pip install -e .[dev] && pytest
+
+  test-api:
+    runs-on: stackit-docker
+    container: python:3.12
+    steps:
+      - run: cd api && pip install -e .[dev] && pytest
+
+  test-chat:
+    runs-on: stackit-docker
+    container: python:3.12
+    steps:
+      - run: cd chat && pip install -e .[dev] && pytest
+
+  test-core:
+    runs-on: stackit-docker
+    container: python:3.12
+    steps:
+      - run: cd core && pip install -e .[dev] && pytest
+
+  test-frontend:
+    runs-on: stackit-docker
+    container: node:20
+    steps:
+      - run: cd frontend && npm ci && npm test
