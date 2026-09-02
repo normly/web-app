@@ -33,12 +33,14 @@ Instanz funktionieren; vermutlich bietet das Managed-Forgejo-Angebot keinen
 HTTPS-Klon-Beispiele). Ein Runner für Forgejo Actions ist laut Auftraggeber
 bereits registriert. Details siehe `reference_stackit_git`-Notiz.
 
-**REQ-GIT-001/002 sind damit weiterhin nicht erfüllt** — STACKIT Git ist
-noch nicht die führende Plattform (aktuell werden beide Remotes unabhängig
-von Hand bespielt, kein automatischer Mirror in beide Richtungen). Diese
-Migration ist ausdrücklich **nicht** Teil dieses Teilprojekts (siehe
-Nicht-Ziele) — die Pipeline-Konfiguration selbst ist davon unabhängig
-entwerfbar und wird direkt gegen die neue STACKIT-Instanz verifiziert.
+**REQ-GIT-001/002 sind damit aktuell nicht erfüllt** — STACKIT Git ist noch
+nicht die führende Plattform (aktuell werden beide Remotes unabhängig von
+Hand bespielt, kein automatischer Mirror in beide Richtungen). Auf
+ausdrücklichen Wunsch des Auftraggebers holt dieses Teilprojekt den
+zentralen technischen Teil davon bereits hier nach: einen automatisierten
+Push-Mirror von STACKIT Git (führend) nach GitHub (Beitragsfassade) nach
+jedem Merge — das konkrete Akzeptanzkriterium aus REQ-GIT-002. Was davon
+bewusst *nicht* mit erledigt wird, steht unter Nicht-Ziele.
 
 ## Ziel dieses Teilprojekts
 
@@ -51,13 +53,20 @@ entwerfbar und wird direkt gegen die neue STACKIT-Instanz verifiziert.
   Pipeline-Lauf) — nicht nur "blind" geschriebenes YAML.
 - Dokumentierte Anleitung zur einmaligen Aktivierung des Branch-Schutzes auf
   `main`, damit die Pipeline tatsächlich zum Merge-Gate wird (REQ-GIT-004).
+- Ein automatisierter Push-Mirror von STACKIT Git nach GitHub, sodass
+  STACKIT Git nach jedem Merge auf `main` den GitHub-Spiegel selbstständig
+  aktuell hält (REQ-GIT-001/002) — kein manuelles Doppel-Pushen mehr wie
+  während dieser Brainstorming-Sitzung.
 
 ## Nicht-Ziele
 
-- **Keine Migration auf STACKIT Git als führende Plattform** (REQ-GIT-001/002)
-  — Mirror-Richtung, Beitragsfassaden-Automatisierung, DCO-Prüfung auf
-  GitHub-Seite. Eigenes, größeres Teilprojekt. Diese Pipeline läuft auf der
-  STACKIT-Instanz, unabhängig davon, welche Plattform am Ende führend ist.
+- **Keine Beitragsfassaden-Automatisierung und keine DCO-Prüfung auf
+  GitHub-Seite** (Teil von REQ-GIT-002, aber nicht dessen Mirror-
+  Akzeptanzkriterium). Der Weg "externer Pull Request auf GitHub → landet
+  geprüft in der STACKIT-Pipeline" (REQ-GIT-002-Abnahmekriterium) bleibt
+  offen — dieses Teilprojekt baut nur die *ausgehende* Spiegelung
+  STACKIT→GitHub, nicht die Rückführung eingehender externer Beiträge.
+  Eigene, spätere Aufgabe.
 - **Kein Linting, kein Security-Scanning.** REQ-BUILD-003 verlangt beides,
   aber aktuell ist in keinem Paket ein Linter oder Scan-Tool konfiguriert.
   Werkzeugwahl und das Bereinigen bestehender Verstöße sind eigene
@@ -154,6 +163,28 @@ verifiziert, siehe Testkonzept; falls Forgejo Actions hier von der
 GitHub-Actions-Syntax abweicht, wird das YAML entsprechend angepasst, ohne
 an der Architekturentscheidung "keine Marketplace-Actions" zu rütteln.)
 
+### STACKIT Git als führende Plattform: Push-Mirror nach GitHub
+
+Für REQ-GIT-002s Akzeptanzkriterium "automatisierter Push-Mirror nach jedem
+Merge" braucht es **keinen** Forgejo-Actions-Job. Forgejo bietet dafür eine
+eingebaute Repo-Funktion: unter Settings → Repository → Mirror Settings →
+Push Mirror lässt sich ein Ziel-Repository (die GitHub-URL) samt
+Zugangsdaten (ein GitHub Personal Access Token mit Schreibrecht nur auf
+dieses Repo) hinterlegen. Verifiziert gegen die Forgejo-Dokumentation:
+Forgejo synchronisiert danach automatisch bei jedem Push auf das
+STACKIT-Repo, nicht nur auf einem Zeitintervall — genau das geforderte
+Verhalten, ganz ohne eigene Pipeline-Logik. Das Token wird von Forgejos
+eigener Zugangsdaten-Verwaltung gehalten, taucht nirgends im Repository oder
+in `ci.yml` auf — passt zu REQ-INST-003 ("Zugangsdaten... ausschließlich im
+[Secrets Manager]").
+
+Praktisch bedeutet das: `main` auf STACKIT Git wird ab Einrichtung dieses
+Mirrors zur einzigen Stelle, an der tatsächlich gemergt werden muss —
+GitHub `main` wird ab dann ausschließlich per Mirror beschrieben, nie mehr
+von Hand gepusht (der direkte GitHub-Push während dieser Sitzung war eine
+bewusste, einmalige Ausnahme vor Einrichtung dieses Mirrors, siehe
+Gesprächsverlauf, nicht der künftige Normalfall).
+
 ### Voraussetzung: Docker-in-Docker auf dem Runner
 
 Alle vier Python-Pakete nutzen `testcontainers[postgres]` — die Tests
@@ -214,16 +245,26 @@ Check am Pull Request.
 | REQ-BUILD-002 | Pipeline läuft auf STACKIT Pipelines (Forgejo Actions), keine US-SaaS-CI, keine Marketplace-Action-Nachladung von GitHub zur Laufzeit. |
 | REQ-BUILD-003 | Fehlgeschlagene Tests verhindern (nach Aktivierung des Branch-Schutzes) den Merge — Linting/Security-Anteil bewusst als Folgeaufgabe vertagt, siehe Nicht-Ziele. |
 | REQ-GIT-004 | Wird durch diese Pipeline erst *erfüllbar* (technische Voraussetzung); die eigentliche Durchsetzung (Merge-Blockade bei rotem Status) ist der dokumentierte manuelle Aktivierungsschritt unten. |
-| REQ-GIT-001/002 | Unberührt — siehe Nicht-Ziele, eigenes Teilprojekt. |
+| REQ-GIT-001/002 | Mirror-Akzeptanzkriterium erfüllt (Forgejo-Push-Mirror, siehe Architektur). Beitragsfassaden-Automatisierung/DCO-Prüfung auf GitHub-Seite bleibt offen, siehe Nicht-Ziele. |
 | REQ-INST-002, REQ-DIST-004 | Unberührt — kein Deployment, kein Image-Build in diesem Teilprojekt. |
 
-## Aktivierungsschritt nach Implementierung (manuell, einmalig)
+## Aktivierungsschritte nach Implementierung (manuell, einmalig)
 
-Sobald die Pipeline gegen die STACKIT-Instanz nachweislich grün läuft, muss
-der Auftraggeber in den Forgejo-Repo-Einstellungen für `main` konfigurieren:
-Pull Request erforderlich, direkte Pushes unterbunden, die fünf neuen
-Status-Checks als Pflicht-Checks markiert. Erst danach ist REQ-GIT-004
-tatsächlich durchgesetzt, nicht nur technisch möglich.
+Zwei Repo-Einstellungen auf STACKIT Git, keine davon Teil des committeten
+Codes:
+
+1. **Push-Mirror einrichten** (siehe Architektur oben) — Settings →
+   Repository → Mirror Settings → Push Mirror, Ziel-URL
+   `https://github.com/Sn4kez/normly-app.git`, GitHub-Token mit
+   Schreibrecht nur auf dieses Repo hinterlegen.
+2. **Branch-Schutz für `main`** — Pull Request erforderlich, direkte Pushes
+   unterbunden, die fünf neuen CI-Status-Checks als Pflicht-Checks markiert.
+   Erst danach ist REQ-GIT-004 tatsächlich durchgesetzt, nicht nur technisch
+   möglich.
+
+Reihenfolge relevant: Schritt 2 sollte erst erfolgen, nachdem die Pipeline
+(Testkonzept) nachweislich grün läuft — sonst blockiert der eigene erste
+Merge sich selbst.
 
 ## Offene Punkte / Folgearbeiten
 
@@ -237,7 +278,10 @@ tatsächlich durchgesetzt, nicht nur technisch möglich.
   gängige Actions betreibt, kann diese Entscheidung (kein `uses:`) in einer
   späteren Iteration bewusst gelockert werden — nicht in diesem Durchgang,
   da unverifiziert.
-- **REQ-GIT-001/002-Migration** (STACKIT Git als führende Plattform,
-  automatischer Mirror) bleibt offen, eigenes Teilprojekt.
+- **Externe Beitragsannahme über GitHub** (REQ-GIT-002-Abnahmekriterium:
+  ein externer Pull Request auf GitHub durchläuft einen definierten Weg bis
+  in die STACKIT-Pipeline) bleibt offen — dieses Teilprojekt baut nur die
+  ausgehende Spiegelung STACKIT→GitHub, keine Rückführung. DCO-Prüfung auf
+  GitHub-Seite ebenfalls offen. Eigene, spätere Aufgabe.
 - **Linting, Security-Scanning, Dependency-Caching, Docker-Image-Build,
   Playwright-E2E** — alle bewusst vertagt, siehe jeweils Nicht-Ziele.
