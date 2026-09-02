@@ -15,7 +15,7 @@ jobs:
           git remote add origin "https://${GITHUB_TOKEN}@${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}.git"
           git fetch -q --depth=1 origin "$GITHUB_SHA"
           git checkout -q FETCH_HEAD
-      - run: cd accounts && pip install -e .[dev] && pytest
+      - run: cd accounts && pip install -e ../core -e .[dev] && pytest
 
   test-api:
     runs-on: stackit-docker
@@ -27,7 +27,7 @@ jobs:
           git remote add origin "https://${GITHUB_TOKEN}@${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}.git"
           git fetch -q --depth=1 origin "$GITHUB_SHA"
           git checkout -q FETCH_HEAD
-      - run: cd api && pip install -e .[dev] && pytest
+      - run: cd api && pip install -e ../core -e .[dev] && pytest
 
   test-chat:
     runs-on: stackit-docker
@@ -39,7 +39,7 @@ jobs:
           git remote add origin "https://${GITHUB_TOKEN}@${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}.git"
           git fetch -q --depth=1 origin "$GITHUB_SHA"
           git checkout -q FETCH_HEAD
-      - run: cd chat && pip install -e .[dev] && pytest
+      - run: cd chat && pip install -e ../core -e .[dev] && pytest
 
   test-core:
     runs-on: stackit-docker
