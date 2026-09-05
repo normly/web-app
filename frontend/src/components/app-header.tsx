@@ -9,6 +9,7 @@ import Link from "next/link";
 import { AuthDialog } from "@/components/auth/auth-dialog";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { JurisdictionSwitcher } from "@/components/jurisdiction-switcher";
+import { ModeToggle } from "@/components/mode-toggle";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n/provider";
@@ -68,6 +69,7 @@ export function AppHeader({
         )}
         <LocaleSwitcher />
         <JurisdictionSwitcher />
+        <ModeToggle />
         {account ? (
           <div className="flex items-center gap-2">
             <Link href="/account" className="flex items-center gap-2">

@@ -9,6 +9,7 @@ import { ServiceWorkerRegistration } from "@/components/service-worker-registrat
 import { LocaleProvider, type Locale } from "@/lib/i18n/provider";
 import { JurisdictionProvider } from "@/lib/jurisdiction/provider";
 import { JURISDICTIONS, type Jurisdiction } from "@/lib/jurisdiction/constants";
+import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
@@ -46,15 +47,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang={initialLocale}
+      suppressHydrationWarning
       style={{ "--brand": config.brandColorHsl } as React.CSSProperties}
     >
       <body>
-        <LocaleProvider initialLocale={initialLocale}>
-          <JurisdictionProvider initialJurisdiction={initialJurisdiction}>
-            <ServiceWorkerRegistration />
-            {children}
-          </JurisdictionProvider>
-        </LocaleProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <LocaleProvider initialLocale={initialLocale}>
+            <JurisdictionProvider initialJurisdiction={initialJurisdiction}>
+              <ServiceWorkerRegistration />
+              {children}
+            </JurisdictionProvider>
+          </LocaleProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

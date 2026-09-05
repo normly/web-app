@@ -8,6 +8,10 @@ import { LocaleProvider } from "@/lib/i18n/provider";
 import { JurisdictionProvider } from "@/lib/jurisdiction/provider";
 import { AppHeader } from "@/components/app-header";
 
+vi.mock("next-themes", () => ({
+  useTheme: () => ({ resolvedTheme: "light", setTheme: vi.fn() }),
+}));
+
 const originalFetch = global.fetch;
 
 describe("AppHeader", () => {
@@ -101,5 +105,17 @@ describe("AppHeader", () => {
       </LocaleProvider>,
     );
     expect(screen.getByRole("link", { name: "Suche" })).toHaveAttribute("href", "/search");
+  });
+
+  it("renders the mode toggle button", async () => {
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ account: null })));
+    render(
+      <LocaleProvider initialLocale="de">
+        <JurisdictionProvider initialJurisdiction="DE">
+          <AppHeader instanceName="normly" logoPath={null} />
+        </JurisdictionProvider>
+      </LocaleProvider>,
+    );
+    expect(screen.getByRole("button", { name: "Farbschema umschalten" })).toBeInTheDocument();
   });
 });

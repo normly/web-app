@@ -39,7 +39,7 @@ export function Avatar({
   }
   return (
     <span
-      className="flex items-center justify-center rounded-full bg-brand text-brand-foreground text-xs font-medium"
+      className="flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium"
       style={{ width: size, height: size }}
     >
       {initialsFor(firstName, lastName, email)}
