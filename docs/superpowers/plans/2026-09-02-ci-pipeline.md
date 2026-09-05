@@ -247,15 +247,20 @@ commit landing on `main` (event `"push"`, `head_branch` `"main"`). Confirm
 
 ## After This Plan (not part of it — manual, requires the project owner)
 
-These are the two Aktivierungsschritte from the design spec. Neither is a
-code change, so neither is a plan task — an agentic worker cannot complete
-them (both require a logged-in browser session on
-`normly.git.onstackit.cloud`, and per this plan's Global Constraints, no
-task here touches repo settings or credentials via the API):
+**Superseded 2026-09-05 (ADR-019):** the push-mirror step below is dropped —
+GitHub is no longer an active target for anything going forward. The
+existing `Sn4kez/normly-app` GitHub repo is left as-is (historical snapshot,
+last synced by hand), but nothing should set up automated mirroring to it.
+Only the branch-protection step remains:
 
-1. **Push-Mirror**: project owner goes to the repo's Settings → Repository
-   → Mirror Settings → Push Mirror, adds `https://github.com/Sn4kez/normly-app.git`
-   as the target with a GitHub PAT scoped to only that repo.
-2. **Branch protection on `main`**: only after step 1 and after this plan's
-   Task 1 is fully complete and merged — require pull requests, forbid
-   direct pushes, mark all five `test-*` checks as required.
+1. **Branch protection on `main`**: after this plan's Task 1 is fully
+   complete and merged — require pull requests, forbid direct pushes, mark
+   only the four green checks (`test-accounts`, `test-api`, `test-chat`,
+   `test-frontend`) as required. **Do NOT mark `test-core` as required** —
+   it is deliberately, permanently red until the Docling cold-start
+   title-extraction gap (see the design spec's "Offene Punkte") is fixed as
+   its own follow-up task. Neither is a code change, so this
+   isn't a plan task — an agentic worker cannot complete it (requires a
+   logged-in browser session on `normly.git.onstackit.cloud`, and per this
+   plan's Global Constraints, no task here touches repo settings or
+   credentials via the API).
