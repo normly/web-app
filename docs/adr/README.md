@@ -83,7 +83,9 @@ künftige Trägerorganisation oder GmbH? Vor dem ersten externen Beitrag klären
 
 ## ADR-004 — STACKIT Git als führende Plattform, GitHub als Beitragsfassade
 
-**Status:** beschlossen
+**Status:** teilweise abgelöst durch ADR-019 (2026-09-05) — die
+Beitragsfassade auf GitHub entfällt, STACKIT Git bleibt führende Plattform
+wie hier entschieden.
 
 **Entscheidung:** STACKIT Git (Forgejo) mit STACKIT Pipelines ist führend für
 Quellcode, Build, Artefakte, Zugangsdaten und Deployment. GitHub dient als
@@ -255,10 +257,12 @@ Die Trennung von Code und Daten ist nötig, weil sich Normenstände deutlich
 häufiger ändern als der Code; sonst wächst das Image und jede Datenaktualisierung
 erzwingt einen Neubau.
 
-**Registry:** STACKIT Container Registry ist führend. Öffentlicher Bezug über
-GitHub Container Registry (konsistent zur Beitragsfassade, keine Pull-Limits).
-Docker Hub allenfalls später als dritter Spiegel — die strengen Limits für
-anonyme Pulls sind gerade in Firmennetzen eine echte Hürde.
+**Registry:** STACKIT Container Registry ist führend. **Nachtrag 2026-09-05
+(ADR-019):** der ursprünglich vorgesehene öffentliche Spiegel über GitHub
+Container Registry entfällt zusammen mit der GitHub-Beitragsfassade — STACKIT
+Container Registry ist die alleinige Registry. Docker Hub allenfalls später
+als eigenständiger Spiegel, falls die Pull-Limits für anonyme Zugriffe zum
+echten Problem werden — unabhängig von der GitHub-Frage.
 
 ---
 
@@ -593,6 +597,38 @@ Details siehe
 als Standard-Extraktionsweg — deutlich schwereres Abhängigkeits- und
 Betriebsprofil ohne aktuellen Bedarf; das diskriminative Standard-Layout-
 Modell reicht für die heutigen Anforderungen.
+
+---
+
+## ADR-019 — Kein GitHub mehr als Beitragsfassade
+
+**Status:** beschlossen
+
+**Entscheidung:** GitHub entfällt als Ziel für jede künftige Automatisierung.
+Es wird kein Push-Mirror von STACKIT Git nach GitHub eingerichtet und keine
+Beitragsannahme (Issues, Pull Requests) dort mehr vorgesehen. STACKIT Git
+ist von Anfang an die alleinige Plattform für Quellcode, Beiträge, Build und
+Betrieb — nicht nur führend neben einer öffentlichen Fassade. Der
+bestehende GitHub-Spiegel (`Sn4kez/normly-app`, Remote `origin`) bleibt als
+historischer Schnappschuss stehen, wird aber nicht mehr aktiv bespielt.
+
+**Begründung:** Zwei Plattformen parallel zu pflegen — Push-Mirror,
+doppelte Issue-Tracker-Disziplin, Sync-Aufwand — steht in keinem Verhältnis
+zum bislang ausgebliebenen externen Beitragsvolumen über GitHub. Eine
+Plattform ist einfacher und passt besser zur ohnehin STACKIT-zentrierten
+Betriebsrealität.
+
+**Konsequenz:** Löst ADR-004 teilweise ab (STACKIT-Git-Teil bleibt
+unverändert bestehen, der GitHub-Beitragsfassade-Teil entfällt). REQ-GIT-002
+(„Öffentliche Beitragsfassade") ist damit hinfällig und in
+`docs/srs/03-anforderungen.md` entsprechend markiert. Der in
+`docs/superpowers/specs/2026-09-02-ci-pipeline-design.md` /
+`docs/superpowers/plans/2026-09-02-ci-pipeline.md` dokumentierte
+Push-Mirror-Schritt wird nicht umgesetzt.
+
+**Verworfen:** Beibehaltung von GitHub als reine, weiterhin manuell
+gepflegte Beitragsfassade ohne Automatisierung (löst das
+Pflegeaufwand-Problem nicht, verzögert die Entscheidung nur).
 
 ---
 

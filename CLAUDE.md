@@ -13,9 +13,9 @@ Diese Regeln haben rechtliche oder strategische Gründe. Bei Konflikt mit einer
 Aufgabe: nachfragen, nicht umgehen.
 
 - **Keine US-Dienste für Betrieb, Build, Daten, Secrets oder Deployment.**
-  Alles läuft auf STACKIT. Einzige Ausnahme: GitHub als öffentliche
-  Beitragsfassade für Quellcode und Images — dort niemals Zugangsdaten, Runner
-  oder Deployment-Rechte.
+  Alles läuft auf STACKIT, ohne Ausnahme — auch kein GitHub mehr als
+  öffentliche Beitragsfassade. STACKIT Git ist von Anfang an die alleinige
+  Plattform für Quellcode, Beiträge, Build und Betrieb. → ADR-019
 - **Kein Scraping kommerziell verwerteter Katalogbestände** (DIN Media/Nautos
   und vergleichbare). Nur vertraglich beziehen. Gilt auch bei öffentlicher
   Zugänglichkeit. → ADR-012
@@ -85,8 +85,8 @@ kommerziell verwertete Kataloge.
 - **Auslieferung:** signierte Container-Images plus lauffähiges Compose-Setup.
   Der Wissensbestand liegt **nicht** im Image, sondern als eigenständig
   versionierter Dump. Code und Daten getrennt versioniert. → ADR-010
-- **Registry:** STACKIT Container Registry (führend), öffentlicher Bezug über
-  GHCR.
+- **Registry:** STACKIT Container Registry, alleinig — kein öffentlicher
+  Spiegel über GHCR mehr. → ADR-019
 - **CI:** STACKIT Pipelines (Forgejo Actions, weitgehend
   GitHub-Actions-kompatibel).
 - **Frontend:** Next.js mit `standalone`-Output, zugleich installierbare PWA.

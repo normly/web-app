@@ -352,7 +352,7 @@ Dieses Kapitel definiert Anforderungen an die Bereitstellung, Konfiguration und 
 
 **Abnahmekriterium:** Infrastruktur- und Vertragsprüfung bestätigt ausschließliche Nutzung von STACKIT-Services in Deutschland.
 
-**Weitere Informationen:** Gilt auch für LLM-Inferenz, Vektordatenbanken, Logging und Monitoring. Einzige Ausnahme ist die Veröffentlichung des ohnehin öffentlichen Quellcodes und der Container-Images auf einer externen Plattform als Beitragsfassade, siehe REQ-GIT-002.
+**Weitere Informationen:** Gilt auch für LLM-Inferenz, Vektordatenbanken, Logging und Monitoring. Die zuvor hier vorgesehene Ausnahme für eine externe Beitragsfassade (GitHub) entfällt seit ADR-019 — REQ-GIT-002 ist hinfällig, es gibt keine externe Plattform mehr, auf der Quellcode oder Images liegen.
 
 #### REQ-INST-002 — Automatisiertes Deployment
 
@@ -512,7 +512,7 @@ Dieses Kapitel beschreibt Anforderungen an die Verteilung, Skalierung und Trennu
 
 **Abnahmekriterium:** Eine leere Umgebung wird ohne Vorkenntnisse allein anhand der Dokumentation in Betrieb genommen; ein Wechsel des Datenstands erfolgt ohne Neubau des Images.
 
-**Weitere Informationen:** Führende Registry ist die STACKIT Container Registry. Für den öffentlichen Bezug ist ein Spiegel auf der bereits als Beitragsfassade genutzten Plattform vorzusehen. Helm-Charts für den Betrieb auf Kubernetes können ergänzend folgen. Cache-Strategien sind zu berücksichtigen.
+**Weitere Informationen:** Führende und alleinige Registry ist die STACKIT Container Registry — kein Spiegel mehr auf einer externen Plattform (ADR-019, ADR-010-Nachtrag). Der öffentlich lesbare Bezug im Akzeptanzkriterium ist über anonymen Lesezugriff auf die STACKIT Container Registry selbst zu lösen, nicht über eine zweite Plattform. Helm-Charts für den Betrieb auf Kubernetes können ergänzend folgen. Cache-Strategien sind zu berücksichtigen.
 
 ### 3.5.4 Wartbarkeit
 
@@ -734,15 +734,16 @@ Dieses Kapitel definiert Anforderungen an Plattform, Ablauf und Absicherung der 
 
 **Abnahmekriterium:** Infrastruktur-Review bestätigt, dass kein Build- oder Deployment-Schritt außerhalb von STACKIT läuft.
 
-### REQ-GIT-002 — Öffentliche Beitragsfassade
+### REQ-GIT-002 — Öffentliche Beitragsfassade (entfällt)
 
-**Statement:** Der quelloffene Kern wird zusätzlich auf einer öffentlich zugänglichen Plattform (GitHub) als Beitragsfassade gespiegelt. Dort finden Issues und Pull Requests statt. Der Spiegel enthält keine Zugangsdaten, Runner, Build-Artefakte oder Deployment-Rechte.
+**Status:** Hinfällig seit ADR-019 (2026-09-05). Keine GitHub-Beitragsfassade
+mehr — STACKIT Git ist von Anfang an die alleinige Plattform für Quellcode,
+Beiträge, Build und Betrieb. Beitragswege für externe Mitwirkende laufen
+direkt über STACKIT Git.
 
-**Rationale:** Sichtbarkeit und niedrige Beitragshürde für externe Mitwirkende, ohne Betrieb und Daten aus der souveränen Umgebung zu verlagern.
+**Ursprüngliches Statement (Referenz, nicht mehr gültig):** Der quelloffene Kern wird zusätzlich auf einer öffentlich zugänglichen Plattform (GitHub) als Beitragsfassade gespiegelt. Dort finden Issues und Pull Requests statt. Der Spiegel enthält keine Zugangsdaten, Runner, Build-Artefakte oder Deployment-Rechte.
 
-**Akzeptanzkriterium:** Automatisierter Push-Mirror nach jedem Merge; Beiträge werden ausschließlich an einer Stelle entgegengenommen; DCO-Prüfung aktiv.
-
-**Abnahmekriterium:** Ein externer Pull Request durchläuft den definierten Weg bis in die STACKIT-Pipeline.
+**Ursprüngliche Rationale:** Sichtbarkeit und niedrige Beitragshürde für externe Mitwirkende, ohne Betrieb und Daten aus der souveränen Umgebung zu verlagern.
 
 ### REQ-GIT-003 — Branch- und Release-Strategie
 

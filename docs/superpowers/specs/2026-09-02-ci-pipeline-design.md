@@ -1,5 +1,12 @@
 # Design: CI/CD-Pipeline (Testausführung als Merge-Gate)
 
+**Nachtrag 2026-09-05 (ADR-019):** Der Push-Mirror STACKIT→GitHub, den
+dieser Spec unten als Ziel/Architektur/Aktivierungsschritt beschreibt, wird
+**nicht** eingerichtet — GitHub entfällt als Ziel für jede künftige
+Automatisierung. Die betroffenen Abschnitte bleiben unten stehen, um die
+damalige Entscheidungsgrundlage nachvollziehbar zu halten, sind aber als
+überholt zu lesen; siehe ADR-019 für die Begründung.
+
 ## Kontext
 
 REQ-BUILD-002 verlangt STACKIT Pipelines (Forgejo Actions) als Build-/Test-
@@ -245,26 +252,25 @@ Check am Pull Request.
 | REQ-BUILD-002 | Pipeline läuft auf STACKIT Pipelines (Forgejo Actions), keine US-SaaS-CI, keine Marketplace-Action-Nachladung von GitHub zur Laufzeit. |
 | REQ-BUILD-003 | Fehlgeschlagene Tests verhindern (nach Aktivierung des Branch-Schutzes) den Merge — Linting/Security-Anteil bewusst als Folgeaufgabe vertagt, siehe Nicht-Ziele. |
 | REQ-GIT-004 | Wird durch diese Pipeline erst *erfüllbar* (technische Voraussetzung); die eigentliche Durchsetzung (Merge-Blockade bei rotem Status) ist der dokumentierte manuelle Aktivierungsschritt unten. |
-| REQ-GIT-001/002 | Mirror-Akzeptanzkriterium erfüllt (Forgejo-Push-Mirror, siehe Architektur). Beitragsfassaden-Automatisierung/DCO-Prüfung auf GitHub-Seite bleibt offen, siehe Nicht-Ziele. |
+| REQ-GIT-001 | Erfüllt — STACKIT Git ist mit dieser Pipeline die führende Plattform für Build/Test. |
+| REQ-GIT-002 | **Entfällt (ADR-019, 2026-09-05).** Push-Mirror wird nicht eingerichtet; kein GitHub als Beitragsfassade mehr. Requirement in `docs/srs/03-anforderungen.md` entsprechend als überholt markiert. |
 | REQ-INST-002, REQ-DIST-004 | Unberührt — kein Deployment, kein Image-Build in diesem Teilprojekt. |
 
 ## Aktivierungsschritte nach Implementierung (manuell, einmalig)
 
-Zwei Repo-Einstellungen auf STACKIT Git, keine davon Teil des committeten
-Codes:
+**Überholt durch ADR-019 (2026-09-05):** Schritt 1 (Push-Mirror) entfällt —
+GitHub wird nicht mehr automatisiert bespielt. Nur noch eine
+Repo-Einstellung auf STACKIT Git bleibt offen:
 
-1. **Push-Mirror einrichten** (siehe Architektur oben) — Settings →
-   Repository → Mirror Settings → Push Mirror, Ziel-URL
-   `https://github.com/Sn4kez/normly-app.git`, GitHub-Token mit
-   Schreibrecht nur auf dieses Repo hinterlegen.
-2. **Branch-Schutz für `main`** — Pull Request erforderlich, direkte Pushes
-   unterbunden, die fünf neuen CI-Status-Checks als Pflicht-Checks markiert.
+1. **Branch-Schutz für `main`** — Pull Request erforderlich, direkte Pushes
+   unterbunden, **nur die vier grünen Checks** (`test-accounts`, `test-api`,
+   `test-chat`, `test-frontend`) als Pflicht-Checks markiert. **`test-core`
+   bewusst NICHT als Pflicht-Check**, solange die weiter unten dokumentierte
+   Docling-Kaltstart-Fehlfunktion nicht behoben ist — siehe "Offene Punkte".
    Erst danach ist REQ-GIT-004 tatsächlich durchgesetzt, nicht nur technisch
-   möglich.
-
-Reihenfolge relevant: Schritt 2 sollte erst erfolgen, nachdem die Pipeline
-(Testkonzept) nachweislich grün läuft — sonst blockiert der eigene erste
-Merge sich selbst.
+   möglich. Sollte erst erfolgen, nachdem die Pipeline (Testkonzept)
+   nachweislich grün läuft (bis auf das akzeptierte `test-core`) — sonst
+   blockiert der eigene erste Merge sich selbst.
 
 ## Offene Punkte / Folgearbeiten
 
@@ -278,11 +284,8 @@ Merge sich selbst.
   gängige Actions betreibt, kann diese Entscheidung (kein `uses:`) in einer
   späteren Iteration bewusst gelockert werden — nicht in diesem Durchgang,
   da unverifiziert.
-- **Externe Beitragsannahme über GitHub** (REQ-GIT-002-Abnahmekriterium:
-  ein externer Pull Request auf GitHub durchläuft einen definierten Weg bis
-  in die STACKIT-Pipeline) bleibt offen — dieses Teilprojekt baut nur die
-  ausgehende Spiegelung STACKIT→GitHub, keine Rückführung. DCO-Prüfung auf
-  GitHub-Seite ebenfalls offen. Eigene, spätere Aufgabe.
+- ~~**Externe Beitragsannahme über GitHub**~~ — **hinfällig (ADR-019).**
+  REQ-GIT-002 entfällt; keine Beitragsfassade auf GitHub mehr geplant.
 - **Linting, Security-Scanning, Dependency-Caching, Docker-Image-Build,
   Playwright-E2E** — alle bewusst vertagt, siehe jeweils Nicht-Ziele.
 - **`test-core` wird auf jedem Lauf rot und ist bewusst akzeptiert (nicht
@@ -310,3 +313,12 @@ Merge sich selbst.
   pip-Installation). Folgeaufgabe: Das Fixture-Setup abstrahieren, um
   CI-native Alternativen (z. B. TestClient-Übergabe statt prozess-
   Spawning) zu unterstützen.
+- **Behoben (2026-09-05, finale Whole-Branch-Review):** `on: push:` hatte
+  keinen Branch-Filter — ein Push auf einen Branch mit offenem Pull Request
+  löste dadurch gleichzeitig einen `push`- und einen `pull_request`-Lauf auf
+  demselben geteilten Runner aus (empirisch als Ursache eines
+  `test-chat`-Fehlschlags durch Ressourcen-Konkurrenz bestätigt, kein echter
+  Regressionsfehler). Jetzt `push: branches: [main]` — ein Feature-Branch
+  löst nur noch den `pull_request`-Lauf aus. Zusätzlich `timeout-minutes: 30`
+  auf jedem Job, damit ein hängender Job nicht die gesamte Runner-Kapazität
+  bis zum Runner-Standard-Timeout blockiert.
