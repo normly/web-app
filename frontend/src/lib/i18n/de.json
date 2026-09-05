@@ -1,6 +1,7 @@
 {
   "common": {
-    "close": "Schließen"
+    "close": "Schließen",
+    "toggleTheme": "Farbschema umschalten"
   },
   "chat": {
     "sendButton": "Senden",

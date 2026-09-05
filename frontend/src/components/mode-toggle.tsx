@@ -8,9 +8,11 @@ import * as React from "react";
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "@/lib/i18n/provider";
 
 export function ModeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
+  const { t } = useTranslation();
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
 
@@ -18,7 +20,7 @@ export function ModeToggle() {
     <Button
       variant="outline"
       size="icon"
-      aria-label="Farbschema umschalten"
+      aria-label={t("common.toggleTheme")}
       onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
     >
       {mounted && resolvedTheme === "dark" ? (

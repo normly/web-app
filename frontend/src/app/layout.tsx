@@ -47,6 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang={initialLocale}
+      suppressHydrationWarning
       style={{ "--brand": config.brandColorHsl } as React.CSSProperties}
     >
       <body>
