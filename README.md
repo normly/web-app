@@ -72,10 +72,10 @@ als Issue melden — siehe [SECURITY.md](SECURITY.md).
 
 ## Wo der Code liegt
 
-Führende Plattform für Quellcode, Build und Deployment ist **STACKIT Git**
-(Forgejo, Rechenzentren in Deutschland). Dieses Repository ist die öffentliche
-Beitragsfassade: Issues und Pull Requests finden **hier** statt, Betrieb und
-Daten bleiben in Deutschland.
+Alleinige Plattform für Quellcode, Beiträge, Build und Deployment ist
+**STACKIT Git** (Forgejo, Rechenzentren in Deutschland) — keine externe
+Beitragsfassade mehr (ADR-019). Issues und Pull Requests finden dort statt,
+Betrieb und Daten bleiben in Deutschland.
 
 ## Dokumentation
 
