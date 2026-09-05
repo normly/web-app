@@ -285,3 +285,28 @@ Merge sich selbst.
   GitHub-Seite ebenfalls offen. Eigene, spätere Aufgabe.
 - **Linting, Security-Scanning, Dependency-Caching, Docker-Image-Build,
   Playwright-E2E** — alle bewusst vertagt, siehe jeweils Nicht-Ziele.
+- **`test-core` wird auf jedem Lauf rot und ist bewusst akzeptiert (nicht
+  verborgen, ignoriert oder übersprungen).** Grund: Docling's DGUV/BAuA-
+  Titelerkennung (`raw_title` wird `None` statt echter Titel) ist fragil
+  gegenüber einem *frischen* HuggingFace-Modell-Download — reproduzierbar
+  via `docker run python:3.12` mit völlig frischer pip-Installation und
+  keinem vorgefertigten Modell-Cache. Tests passen lokal in dieser
+  Projektausgabe nur, weil diesen Checkout gecachte HF-Modelle aus
+  früherer Arbeit hat, daher wird ein echtes Kalt-Start-Extraction nie
+  tatsächlich geübt. Jede wirklich frische Umgebung (neue Dev-Maschine,
+  neugebauter CI-Runner, frischer Produktions-Container) wird
+  wahrscheinlich denselben Fehlschlag treffen. Reparatur ist eigene
+  Folgeaufgabe (Docling-Modellversion-Sensibilität in `DguvAdapter` /
+  `BauaAdapter` debuggen), nicht Teil dieses CI-Teilprojekts. `test-core`
+  wird bewusst sichtbar/rot gehalten und ist *nicht* als erforderlicher
+  Branch-Schutz-Check markiert, bis das gesondert untersucht und behoben
+  ist.
+- **`tests/test_structural_end_to_end.py` in `chat` ist von CI ausgeschlossen
+  (nicht fehlerhaft, aber Fixture-Abhängigkeit mit CI inkompatibel).** Diese
+  4 Tests spawnen Sibling-Pakete (`api`, `accounts`) via deren lokal-
+  dev-only `.venv/bin/uvicorn`-Konvention (siehe
+  `chat/tests/conftest.py:98-121`), die im frischen CI-Container nicht
+  existiert (dort werden keine per-Package-venvs gebaut, nur frische
+  pip-Installation). Folgeaufgabe: Das Fixture-Setup abstrahieren, um
+  CI-native Alternativen (z. B. TestClient-Übergabe statt prozess-
+  Spawning) zu unterstützen.

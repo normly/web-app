@@ -39,6 +39,10 @@ jobs:
           git remote add origin "https://${GITHUB_TOKEN}@${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}.git"
           git fetch -q --depth=1 origin "$GITHUB_SHA"
           git checkout -q FETCH_HEAD
+      # Exclude tests/test_structural_end_to_end.py: those 4 tests spawn sibling packages
+      # via local-dev-only .venv/bin/uvicorn (see chat/tests/conftest.py:98-121), which
+      # doesn't exist in CI (no per-package venvs built in fresh container). Tests excluded
+      # from CI, not broken. See docs/superpowers/specs/2026-09-02-ci-pipeline-design.md.
       - run: cd chat && pip install -e ../core -e .[dev] && pytest --ignore=tests/test_structural_end_to_end.py
 
   test-core:
