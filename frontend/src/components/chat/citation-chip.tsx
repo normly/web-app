@@ -24,7 +24,7 @@ export function CitationChip({ citation }: { citation: CitationView }) {
       href={citation.href}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-xs text-brand underline"
+      className="text-xs text-primary underline"
     >
       {t("chat.citationSource")}
     </a>
