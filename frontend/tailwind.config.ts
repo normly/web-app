@@ -28,61 +28,60 @@ const config: Config = {
   darkMode: ["class"],
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
-  	extend: {
-  		colors: {
-  			brand: 'hsl(var(--brand) / <alpha-value>)',
-  			'brand-foreground': 'hsl(var(--brand-foreground) / <alpha-value>)',
-  			background: 'withOpacity("--background")',
-  			foreground: 'withOpacity("--foreground")',
-  			card: 'withOpacity("--card")',
-  			'card-foreground': 'withOpacity("--card-foreground")',
-  			popover: 'withOpacity("--popover")',
-  			'popover-foreground': 'withOpacity("--popover-foreground")',
-  			primary: 'withOpacity("--primary")',
-  			'primary-foreground': 'withOpacity("--primary-foreground")',
-  			secondary: 'withOpacity("--secondary")',
-  			'secondary-foreground': 'withOpacity("--secondary-foreground")',
-  			muted: 'withOpacity("--muted")',
-  			'muted-foreground': 'withOpacity("--muted-foreground")',
-  			accent: 'withOpacity("--accent")',
-  			'accent-foreground': 'withOpacity("--accent-foreground")',
-  			destructive: 'withOpacity("--destructive")',
-  			'destructive-foreground': 'withOpacity("--destructive-foreground")',
-  			border: 'withOpacity("--border")',
-  			input: 'withOpacity("--input")',
-  			ring: 'withOpacity("--ring")',
-  			'chart-1': 'withOpacity("--chart-1")',
-  			'chart-2': 'withOpacity("--chart-2")',
-  			'chart-3': 'withOpacity("--chart-3")',
-  			'chart-4': 'withOpacity("--chart-4")',
-  			'chart-5': 'withOpacity("--chart-5")',
-  			sidebar: {
-  				DEFAULT: 'hsl(var(--sidebar-background))',
-  				foreground: 'hsl(var(--sidebar-foreground))',
-  				primary: 'hsl(var(--sidebar-primary))',
-  				'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-  				accent: 'hsl(var(--sidebar-accent))',
-  				'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
-  				border: 'hsl(var(--sidebar-border))',
-  				ring: 'hsl(var(--sidebar-ring))'
-  			},
-  			'sidebar-foreground': 'withOpacity("--sidebar-foreground")',
-  			'sidebar-primary': 'withOpacity("--sidebar-primary")',
-  			'sidebar-primary-foreground': 'withOpacity("--sidebar-primary-foreground")',
-  			'sidebar-accent': 'withOpacity("--sidebar-accent")',
-  			'sidebar-accent-foreground': 'withOpacity("--sidebar-accent-foreground")',
-  			'sidebar-border': 'withOpacity("--sidebar-border")',
-  			'sidebar-ring': 'withOpacity("--sidebar-ring")'
-  		},
-  		borderColor: {
-  			DEFAULT: 'var(--border)'
-  		},
-  		borderRadius: {
-  			lg: 'var(--radius)',
-  			md: 'calc(var(--radius) - 2px)',
-  			sm: 'calc(var(--radius) - 4px)'
-  		}
-  	}
+    extend: {
+      colors: {
+        // Dormant multi-tenant branding override (REQ-DIST-003) -- see
+        // globals.css. Not used by any component added after 2026-09-05.
+        brand: "hsl(var(--brand) / <alpha-value>)",
+        "brand-foreground": "hsl(var(--brand-foreground) / <alpha-value>)",
+
+        // shadcn default theme. These variables hold complete oklch()
+        // color functions (not raw component triples), so they're
+        // referenced directly -- no hsl()/oklch() wrapper, and no
+        // <alpha-value> opacity trick (needs raw numbers). Nothing here
+        // needs bg-primary/50-style opacity modifiers.
+        background: withOpacity("--background"),
+        foreground: withOpacity("--foreground"),
+        card: withOpacity("--card"),
+        "card-foreground": withOpacity("--card-foreground"),
+        popover: withOpacity("--popover"),
+        "popover-foreground": withOpacity("--popover-foreground"),
+        primary: withOpacity("--primary"),
+        "primary-foreground": withOpacity("--primary-foreground"),
+        secondary: withOpacity("--secondary"),
+        "secondary-foreground": withOpacity("--secondary-foreground"),
+        muted: withOpacity("--muted"),
+        "muted-foreground": withOpacity("--muted-foreground"),
+        accent: withOpacity("--accent"),
+        "accent-foreground": withOpacity("--accent-foreground"),
+        destructive: withOpacity("--destructive"),
+        "destructive-foreground": withOpacity("--destructive-foreground"),
+        border: withOpacity("--border"),
+        input: withOpacity("--input"),
+        ring: withOpacity("--ring"),
+        "chart-1": withOpacity("--chart-1"),
+        "chart-2": withOpacity("--chart-2"),
+        "chart-3": withOpacity("--chart-3"),
+        "chart-4": withOpacity("--chart-4"),
+        "chart-5": withOpacity("--chart-5"),
+        sidebar: withOpacity("--sidebar"),
+        "sidebar-foreground": withOpacity("--sidebar-foreground"),
+        "sidebar-primary": withOpacity("--sidebar-primary"),
+        "sidebar-primary-foreground": withOpacity("--sidebar-primary-foreground"),
+        "sidebar-accent": withOpacity("--sidebar-accent"),
+        "sidebar-accent-foreground": withOpacity("--sidebar-accent-foreground"),
+        "sidebar-border": withOpacity("--sidebar-border"),
+        "sidebar-ring": withOpacity("--sidebar-ring"),
+      },
+      borderColor: {
+        DEFAULT: "var(--border)",
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+      },
+    },
   },
   plugins: [tailwindcssAnimate],
 };
