@@ -29,7 +29,7 @@ describe("AppShell", () => {
     global.fetch = originalFetch;
   });
 
-  it("renders exactly the Chat and Suche nav links, nothing else", async () => {
+  it("renders exactly the Chat and Suche nav links plus the /login link, nothing else", async () => {
     global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ account: null })));
     render(
       <LocaleProvider initialLocale="de">
@@ -40,10 +40,13 @@ describe("AppShell", () => {
     );
     expect(screen.getByRole("link", { name: "Chat" })).toHaveAttribute("href", "/");
     expect(screen.getByRole("link", { name: "Suche" })).toHaveAttribute("href", "/search");
-    expect(screen.getAllByRole("link")).toHaveLength(2);
+    // AuthDialog's old trigger button is a Link now (Task 8), so the
+    // logged-out footer contributes a third link alongside the two nav
+    // items -- this count must stay in sync with that behavior change.
+    expect(screen.getAllByRole("link")).toHaveLength(3);
   });
 
-  it("shows the login trigger in the footer when logged out", async () => {
+  it("shows a link to /login in the footer when logged out", async () => {
     global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ account: null })));
     render(
       <LocaleProvider initialLocale="de">
@@ -53,7 +56,7 @@ describe("AppShell", () => {
       </LocaleProvider>,
     );
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Anmelden" })).toBeInTheDocument(),
+      expect(screen.getByRole("link", { name: "Anmelden" })).toHaveAttribute("href", "/login"),
     );
   });
 

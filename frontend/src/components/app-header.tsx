@@ -6,7 +6,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { AuthDialog } from "@/components/auth/auth-dialog";
 import { useAccountSession } from "@/lib/use-account-session";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { JurisdictionSwitcher } from "@/components/jurisdiction-switcher";
@@ -28,7 +27,7 @@ export function AppHeader({
   logoPath: string | null;
 }) {
   const { t } = useTranslation();
-  const { account, refreshSession, logout } = useAccountSession();
+  const { account, logout } = useAccountSession();
 
   return (
     <header className="flex items-center justify-between border-b p-4">
@@ -58,7 +57,9 @@ export function AppHeader({
             </Button>
           </div>
         ) : (
-          <AuthDialog onAuthenticated={refreshSession} />
+          <Button variant="outline" asChild>
+            <Link href="/login">{t("auth.loginTab")}</Link>
+          </Button>
         )}
       </div>
     </header>

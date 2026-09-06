@@ -8,9 +8,9 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronsUpDown, LogOut, MessageSquare, Search, User as UserIcon } from "lucide-react";
-import { AuthDialog } from "@/components/auth/auth-dialog";
 import { ProfileOverlay } from "@/components/account/profile-overlay";
 import { Avatar } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,12 +45,10 @@ const NAV_ITEMS: Array<{ href: string; labelKey: TranslationKey; icon: typeof Me
 
 function NavUser({
   account,
-  refreshSession,
   logout,
   onOpenProfile,
 }: {
   account: AccountSummary | null;
-  refreshSession: () => void;
   logout: () => Promise<void>;
   onOpenProfile: () => void;
 }) {
@@ -59,7 +57,9 @@ function NavUser({
   if (!account) {
     return (
       <div className="p-2 group-data-[collapsible=icon]:hidden">
-        <AuthDialog onAuthenticated={refreshSession} />
+        <Button variant="outline" asChild>
+          <Link href="/login">{t("auth.loginTab")}</Link>
+        </Button>
       </div>
     );
   }
@@ -116,7 +116,7 @@ export function AppShell({
   const pathname = usePathname();
   const { t } = useTranslation();
   const [profileOpen, setProfileOpen] = React.useState(false);
-  const { account, refreshSession, logout, setAccount } = useAccountSession();
+  const { account, logout, setAccount } = useAccountSession();
 
   return (
     <SidebarProvider>
@@ -157,7 +157,6 @@ export function AppShell({
         <SidebarFooter>
           <NavUser
             account={account}
-            refreshSession={refreshSession}
             logout={logout}
             onOpenProfile={() => setProfileOpen(true)}
           />
