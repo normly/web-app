@@ -36,7 +36,12 @@
   "history": {
     "title": "Chat history",
     "empty": "No chats yet.",
-    "loginRequired": "Log in to see your chat history."
+    "loginRequired": "Log in to see your chat history.",
+    "newChatButton": "New chat",
+    "bucketToday": "Today",
+    "bucketYesterday": "Yesterday",
+    "bucketLast7Days": "Last 7 days",
+    "bucketOlder": "Older"
   },
   "nav": {
     "chat": "Chat",

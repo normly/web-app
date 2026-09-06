@@ -36,7 +36,12 @@
   "history": {
     "title": "Chat-Verlauf",
     "empty": "Noch keine Chats vorhanden.",
-    "loginRequired": "Melde dich an, um deinen Chat-Verlauf zu sehen."
+    "loginRequired": "Melde dich an, um deinen Chat-Verlauf zu sehen.",
+    "newChatButton": "Neuer Chat",
+    "bucketToday": "Heute",
+    "bucketYesterday": "Gestern",
+    "bucketLast7Days": "Vor 7 Tagen",
+    "bucketOlder": "Älter"
   },
   "nav": {
     "chat": "Chat",
