@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from datetime import datetime, timedelta, timezone
 
@@ -19,6 +20,8 @@ from normly_accounts.dependencies import get_email_sender, get_session
 from normly_accounts.email import EmailSender
 from normly_accounts.schemas import VerifyEmailResendRequest
 from normly_accounts.security import generate_token
+
+logger = logging.getLogger(__name__)
 
 email_verification_router = APIRouter(prefix="/v1/accounts", tags=["email-verification"])
 
@@ -65,13 +68,12 @@ def resend_verification_email(
             )
         except Exception:
             # Same rationale as every other best-effort send in this
-            # codebase (password_reset.py, registration.py): the request
-            # itself must not fail when SMTP is unreachable, and staying
-            # silent here (rather than raising) avoids turning a delivery
-            # outage into an account-enumeration side-channel between a
-            # known-unverified address and an unknown one. Never log the
+            # codebase (password_reset.py, registration.py, magic_link.py):
+            # the request itself must not fail when SMTP is unreachable.
+            # Log that a delivery failure happened, for on-call
+            # observability, same as those other routers -- but never the
             # token itself.
-            pass
+            logger.exception("verify-email resend delivery failed for %s", account.email)
     # Same response regardless of whether the account exists or is
     # already verified -- enumeration protection, same principle as
     # password-reset's own request endpoint.
