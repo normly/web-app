@@ -115,6 +115,7 @@
     "deleteAccountPasswordLabel": "Passwort zur Bestätigung",
     "deleteAccountConfirmLabel": "Gib zur Bestätigung deine E-Mail-Adresse ein",
     "deleteAccountButton": "Konto endgültig löschen",
-    "deleteAccountError": "Konto konnte nicht gelöscht werden. Prüfe deine Eingaben."
+    "deleteAccountError": "Konto konnte nicht gelöscht werden. Prüfe deine Eingaben.",
+    "dataSectionTitle": "Konto & Daten"
   }
 }

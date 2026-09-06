@@ -29,5 +29,5 @@ export function useAccountSession() {
     }
   }, []);
 
-  return { account, refreshSession, logout };
+  return { account, refreshSession, logout, setAccount };
 }
