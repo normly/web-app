@@ -7,13 +7,13 @@
 import * as React from "react";
 import Link from "next/link";
 import { AuthDialog } from "@/components/auth/auth-dialog";
+import { useAccountSession } from "@/lib/use-account-session";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { JurisdictionSwitcher } from "@/components/jurisdiction-switcher";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n/provider";
-import type { AccountSummary } from "@/lib/account-response";
 
 // getInstanceConfig() reads process.env, which is only meaningful on the
 // server (and isn't inlined for the client, since these aren't NEXT_PUBLIC_
@@ -30,26 +30,7 @@ export function AppHeader({
   showHistoryLink?: boolean;
 }) {
   const { t } = useTranslation();
-  const [account, setAccount] = React.useState<AccountSummary | null>(null);
-
-  const refreshSession = React.useCallback(() => {
-    fetch("/api/auth/session")
-      .then((response) => response.json())
-      .then((body: { account: AccountSummary | null }) => setAccount(body.account))
-      .catch(() => setAccount(null));
-  }, []);
-
-  React.useEffect(() => {
-    refreshSession();
-  }, [refreshSession]);
-
-  const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-    } finally {
-      setAccount(null);
-    }
-  };
+  const { account, refreshSession, logout } = useAccountSession();
 
   return (
     <header className="flex items-center justify-between border-b p-4">
@@ -79,7 +60,7 @@ export function AppHeader({
               />
               <span className="text-sm text-muted-foreground">{account.email}</span>
             </Link>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
+            <Button variant="ghost" size="sm" onClick={logout}>
               {t("auth.logoutButton")}
             </Button>
           </div>

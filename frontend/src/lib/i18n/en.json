@@ -36,6 +36,17 @@
     "empty": "No chats yet.",
     "loginRequired": "Log in to see your chat history."
   },
+  "nav": {
+    "chat": "Chat",
+    "search": "Search",
+    "account": "Account",
+    "notificationsLabel": "Notifications",
+    "noNotifications": "No new notifications",
+    "documentDetailTitle": "Document",
+    "toggleSidebar": "Toggle sidebar",
+    "sidebarTitle": "Sidebar",
+    "sidebarDescription": "Displays the mobile sidebar."
+  },
   "search": {
     "navLink": "Search",
     "inputPlaceholder": "Search for a standard…",

@@ -3,6 +3,7 @@
 // Copyright (C) 2026 normly contributors
 
 import type { Config } from "tailwindcss";
+import tailwindcssAnimate from "tailwindcss-animate";
 
 // Tailwind v3's `/NN` opacity-modifier syntax (e.g. bg-primary/90) needs a
 // color value it can combine with an opacity number -- a bare `var(--x)`
@@ -82,7 +83,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [tailwindcssAnimate],
 };
 
 export default config;

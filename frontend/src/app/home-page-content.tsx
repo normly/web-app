@@ -59,9 +59,9 @@ export function HomePageContent() {
   };
 
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-4 p-4">
+    <div className="mx-auto flex max-w-2xl flex-col gap-4 p-4">
       <MessageList messages={messages} isLoading={isLoading} />
       <ChatInput onSend={sendMessage} disabled={isLoading} />
-    </main>
+    </div>
   );
 }
