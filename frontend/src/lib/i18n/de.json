@@ -34,7 +34,9 @@
     "loginPageHeading": "Willkommen zurück",
     "loginPageDescription": "Melde dich an, um fortzufahren.",
     "noAccountLink": "Noch kein Konto?",
-    "magicLinkPromptText": "Lieber ohne Passwort?"
+    "magicLinkPromptText": "Lieber ohne Passwort?",
+    "signupPageHeading": "Konto erstellen",
+    "haveAccountLink": "Bereits ein Konto?"
   },
   "history": {
     "empty": "Noch keine Chats vorhanden.",

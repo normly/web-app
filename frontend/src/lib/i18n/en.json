@@ -34,7 +34,9 @@
     "loginPageHeading": "Welcome back",
     "loginPageDescription": "Log in to continue.",
     "noAccountLink": "Don't have an account yet?",
-    "magicLinkPromptText": "Prefer no password?"
+    "magicLinkPromptText": "Prefer no password?",
+    "signupPageHeading": "Create an account",
+    "haveAccountLink": "Already have an account?"
   },
   "history": {
     "empty": "No chats yet.",
