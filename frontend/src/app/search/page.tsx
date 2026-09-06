@@ -12,9 +12,9 @@ export default function SearchPage() {
   return (
     <AppShell instanceName={config.instanceName} logoPath={config.logoPath}>
       <PageHeader titleKey="nav.search" />
-      <main className="mx-auto max-w-2xl p-4">
+      <div className="mx-auto max-w-2xl p-4">
         <SearchPageContent />
-      </main>
+      </div>
     </AppShell>
   );
 }

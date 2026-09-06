@@ -67,7 +67,12 @@ const SheetContent = React.forwardRef<
       {children}
       <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">
         <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
+        {/* Hardcoded German, not wired to i18n: this generic primitive has
+            no useTranslation() access, and today its only consumer is the
+            German-primary app (sidebar.tsx's mobile Sheet -- see Finding 4
+            in the app-shell final review). Revisit if sheet.tsx grows a
+            non-German consumer. */}
+        <span className="sr-only">Schließen</span>
       </SheetPrimitive.Close>
     </SheetPrimitive.Content>
   </SheetPortal>

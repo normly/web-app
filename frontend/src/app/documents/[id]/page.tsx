@@ -12,9 +12,9 @@ export default function DocumentDetailPage({ params }: { params: { id: string } 
   return (
     <AppShell instanceName={config.instanceName} logoPath={config.logoPath}>
       <PageHeader titleKey="nav.documentDetailTitle" />
-      <main className="mx-auto max-w-2xl p-4">
+      <div className="mx-auto max-w-2xl p-4">
         <DocumentDetailContent documentId={params.id} />
-      </main>
+      </div>
     </AppShell>
   );
 }

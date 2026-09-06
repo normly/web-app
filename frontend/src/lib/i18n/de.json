@@ -42,7 +42,10 @@
     "account": "Konto",
     "notificationsLabel": "Benachrichtigungen",
     "noNotifications": "Keine neuen Benachrichtigungen",
-    "documentDetailTitle": "Dokument"
+    "documentDetailTitle": "Dokument",
+    "toggleSidebar": "Seitenleiste umschalten",
+    "sidebarTitle": "Seitenleiste",
+    "sidebarDescription": "Zeigt die mobile Seitenleiste an."
   },
   "search": {
     "navLink": "Suche",

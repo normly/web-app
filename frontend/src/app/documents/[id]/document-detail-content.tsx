@@ -115,7 +115,7 @@ export function DocumentDetailContent({ documentId }: { documentId: string }) {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-xl font-semibold">{primaryDesignation}</h1>
+        <h2 className="text-xl font-semibold">{primaryDesignation}</h2>
         {primaryTitle && <p className="text-muted-foreground">{primaryTitle}</p>}
       </div>
 

@@ -213,8 +213,13 @@ const Sidebar = React.forwardRef<
             side={side}
           >
             <SheetHeader className="sr-only">
-              <SheetTitle>Sidebar</SheetTitle>
-              <SheetDescription>Displays the mobile sidebar.</SheetDescription>
+              {/* Deliberate hand-edit of this generated primitive: German UI
+                  is a hard CLAUDE.md requirement, and this sr-only Sheet
+                  title/description has no i18n access from here (see
+                  Finding 4 in the app-shell final review). Hardcoded, not
+                  wired to useTranslation() -- out of scope for this fix. */}
+              <SheetTitle>Seitenleiste</SheetTitle>
+              <SheetDescription>Zeigt die mobile Seitenleiste an.</SheetDescription>
             </SheetHeader>
             <div className="flex h-full w-full flex-col">{children}</div>
           </SheetContent>
@@ -289,6 +294,10 @@ const SidebarTrigger = React.forwardRef<
       {...props}
     >
       <PanelLeft />
+      {/* English fallback accessible name for any caller that doesn't pass
+          aria-label; callers in this app pass a German aria-label (see
+          Finding 4 in the app-shell final review), which wins for
+          assistive tech. */}
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   )

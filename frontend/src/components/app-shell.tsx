@@ -31,7 +31,6 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarRail,
-  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { useTranslation } from "@/lib/i18n/provider";
 import { useAccountSession } from "@/lib/use-account-session";
@@ -115,15 +114,18 @@ export function AppShell({
     <SidebarProvider>
       <Sidebar variant="inset" collapsible="icon">
         <SidebarHeader>
-          <div className="flex items-center gap-2 px-2 py-1 group-data-[collapsible=icon]:flex-col">
+          <div className="flex items-center gap-2 px-2 py-1">
             {logoPath ? (
-              <img src={logoPath} alt={instanceName} className="h-6" />
+              <img
+                src={logoPath}
+                alt={instanceName}
+                className="h-6 group-data-[collapsible=icon]:hidden"
+              />
             ) : (
               <span className="truncate font-semibold group-data-[collapsible=icon]:hidden">
                 {instanceName}
               </span>
             )}
-            <SidebarTrigger className="ml-auto group-data-[collapsible=icon]:ml-0" />
           </div>
         </SidebarHeader>
         <SidebarContent>
@@ -147,7 +149,10 @@ export function AppShell({
         <SidebarFooter>
           <NavUser />
         </SidebarFooter>
-        <SidebarRail />
+        {/* Kept for desktop drag-to-toggle at the sidebar edge; the reachable
+            control for keyboard/touch users is PageHeader's SidebarTrigger
+            (see Finding 1 in the app-shell final review). */}
+        <SidebarRail aria-label={t("nav.toggleSidebar")} />
       </Sidebar>
       <SidebarInset>{children}</SidebarInset>
     </SidebarProvider>

@@ -89,4 +89,20 @@ describe("AppShell", () => {
     );
     expect(screen.getByText("page content")).toBeInTheDocument();
   });
+
+  it("does not render a SidebarTrigger itself (Finding 1: the only toggle must live in PageHeader, in SidebarInset -- one rendered inside the Sidebar it opens is unreachable on mobile)", () => {
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ account: null })));
+    const { container } = render(
+      <LocaleProvider initialLocale="de">
+        <AppShell instanceName="normly" logoPath={null}>
+          <div>content</div>
+        </AppShell>
+      </LocaleProvider>,
+    );
+    // Distinguished from SidebarRail (also a <button>, also toggles the
+    // sidebar, also carries a German aria-label) by SidebarTrigger's own
+    // data-sidebar="trigger" marker -- an accessible-name query here would
+    // ambiguously match the rail too.
+    expect(container.querySelector('[data-sidebar="trigger"]')).not.toBeInTheDocument();
+  });
 });

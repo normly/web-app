@@ -11,6 +11,7 @@ import { JurisdictionSwitcher } from "@/components/jurisdiction-switcher";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useTranslation } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/dictionary-keys";
 
@@ -25,9 +26,12 @@ export function PageHeader({
 
   return (
     <header className="flex items-center justify-between gap-4 border-b p-4">
-      <div>
-        <h1 className="text-lg font-semibold">{t(titleKey)}</h1>
-        {subtitleKey && <p className="text-sm text-muted-foreground">{t(subtitleKey)}</p>}
+      <div className="flex items-center gap-2">
+        <SidebarTrigger aria-label={t("nav.toggleSidebar")} />
+        <div>
+          <h1 className="text-lg font-semibold">{t(titleKey)}</h1>
+          {subtitleKey && <p className="text-sm text-muted-foreground">{t(subtitleKey)}</p>}
+        </div>
       </div>
       <div className="flex items-center gap-2">
         <LocaleSwitcher />

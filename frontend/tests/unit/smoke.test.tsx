@@ -39,6 +39,18 @@ describe("HomePage", () => {
     expect(screen.getByPlaceholderText("Frage stellen…")).toBeInTheDocument();
   });
 
+  it("renders exactly one <main> landmark (Finding 2: SidebarInset already renders one; page content must not nest a second)", () => {
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ account: null })));
+    render(
+      <LocaleProvider initialLocale="de">
+        <JurisdictionProvider initialJurisdiction="DE">
+          <HomePage />
+        </JurisdictionProvider>
+      </LocaleProvider>,
+    );
+    expect(document.querySelectorAll("main")).toHaveLength(1);
+  });
+
   // The old AppHeader's "Verlauf" link to /chats is gone now that HomePage is
   // wrapped in AppShell: its sidebar deliberately renders only Chat and
   // Suche (see app-shell.test.tsx), and /chats itself is slated for

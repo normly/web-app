@@ -42,7 +42,10 @@
     "account": "Account",
     "notificationsLabel": "Notifications",
     "noNotifications": "No new notifications",
-    "documentDetailTitle": "Document"
+    "documentDetailTitle": "Document",
+    "toggleSidebar": "Toggle sidebar",
+    "sidebarTitle": "Sidebar",
+    "sidebarDescription": "Displays the mobile sidebar."
   },
   "search": {
     "navLink": "Search",
