@@ -16,7 +16,6 @@ import {
   SidebarHeader,
   SidebarMenu,
   SidebarMenuItem,
-  SidebarProvider,
 } from "@/components/ui/sidebar";
 import { useTranslation } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/dictionary-keys";
@@ -34,16 +33,23 @@ interface Bucket {
   sessions: ChatSessionSummary[];
 }
 
-function isSameCalendarDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+// Whole calendar days between `now` and `createdAt` (0 = same day, 1 = the
+// day before, etc.), computed from local-midnight-normalized dates so the
+// "Vor 7 Tagen"/"Älter" cutoff uses the same calendar-day model as
+// "Heute"/"Gestern" -- not a rolling 24h*7 window, which would put a
+// morning session from exactly 7 days ago in a different bucket than an
+// evening session from the same calendar date, depending on what time of
+// day `now` happens to be.
+function calendarDaysAgo(now: Date, createdAt: Date): number {
+  const msPerDay = 24 * 60 * 60 * 1000;
+  return Math.round((startOfDay(now).getTime() - startOfDay(createdAt).getTime()) / msPerDay);
 }
 
 function groupSessionsByBucket(sessions: ChatSessionSummary[], now: Date): Bucket[] {
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const sevenDaysAgo = new Date(now);
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
   const buckets: Bucket[] = [
     { labelKey: "history.bucketToday", sessions: [] },
     { labelKey: "history.bucketYesterday", sessions: [] },
@@ -56,11 +62,12 @@ function groupSessionsByBucket(sessions: ChatSessionSummary[], now: Date): Bucke
   );
   for (const session of sorted) {
     const createdAt = new Date(session.created_at);
-    if (isSameCalendarDay(createdAt, now)) {
+    const daysAgo = calendarDaysAgo(now, createdAt);
+    if (daysAgo === 0) {
       buckets[0].sessions.push(session);
-    } else if (isSameCalendarDay(createdAt, yesterday)) {
+    } else if (daysAgo === 1) {
       buckets[1].sessions.push(session);
-    } else if (createdAt.getTime() >= sevenDaysAgo.getTime()) {
+    } else if (daysAgo <= 7) {
       buckets[2].sessions.push(session);
     } else {
       buckets[3].sessions.push(session);
@@ -97,48 +104,50 @@ export function ChatHistorySidebar({ onNewChat }: { onNewChat: () => void }) {
   const buckets = sessions ? groupSessionsByBucket(sessions, new Date()) : [];
 
   return (
-    // collapsible="offcanvas" (the default): hidden entirely behind a
-    // Sheet on mobile until its own trigger (rendered in ChatShell's
-    // SidebarInset, never in here -- see Global Constraints) opens it;
-    // visible inline on desktop by default. This SidebarProvider's own
-    // sidebar_state cookie write collides with AppShell's outer one --
-    // accepted, see Global Constraints, not fixed here.
-    <SidebarProvider>
-      <Sidebar>
-        <SidebarHeader className="p-2">
-          <Button onClick={handleNewChat} variant="outline" className="w-full justify-start gap-2">
-            <Plus className="size-4" />
-            {t("history.newChatButton")}
-          </Button>
-        </SidebarHeader>
-        <SidebarContent>
-          {requiresLogin && (
-            <p className="p-2 text-sm text-muted-foreground">{t("history.loginRequired")}</p>
-          )}
-          {sessions !== null && sessions.length === 0 && (
-            <p className="p-2 text-sm text-muted-foreground">{t("history.empty")}</p>
-          )}
-          {buckets.map((bucket) => (
-            <SidebarGroup key={bucket.labelKey}>
-              <SidebarGroupLabel>{t(bucket.labelKey)}</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {bucket.sessions.map((session) => (
-                    <SidebarMenuItem key={session.id}>
-                      {/* Plain text, not a link or button: no session-
-                          resumption feature exists (see Global Constraints)
-                          -- this must not look clickable. */}
-                      <span className="flex h-8 items-center rounded-md px-2 text-sm text-sidebar-foreground/70">
-                        {new Date(session.created_at).toLocaleString(locale)}
-                      </span>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          ))}
-        </SidebarContent>
-      </Sidebar>
-    </SidebarProvider>
+    // No SidebarProvider here: this component is always rendered as a
+    // sibling of SidebarInset/SidebarTrigger under ChatShell's own
+    // SidebarProvider (Task 5), matching the only existing precedent in
+    // this codebase, app-shell.tsx -- one provider shared by Sidebar and
+    // SidebarInset as siblings, never nested inside either. useSidebar()
+    // resolves to the nearest ancestor provider, so an internal provider
+    // here would disconnect ChatShell's mobile SidebarTrigger from this
+    // Sidebar's state. collapsible="offcanvas" (the default): hidden
+    // entirely behind a Sheet on mobile until that shared trigger opens
+    // it; visible inline on desktop by default.
+    <Sidebar>
+      <SidebarHeader className="p-2">
+        <Button onClick={handleNewChat} variant="outline" className="w-full justify-start gap-2">
+          <Plus className="size-4" />
+          {t("history.newChatButton")}
+        </Button>
+      </SidebarHeader>
+      <SidebarContent>
+        {requiresLogin && (
+          <p className="p-2 text-sm text-muted-foreground">{t("history.loginRequired")}</p>
+        )}
+        {sessions !== null && sessions.length === 0 && (
+          <p className="p-2 text-sm text-muted-foreground">{t("history.empty")}</p>
+        )}
+        {buckets.map((bucket) => (
+          <SidebarGroup key={bucket.labelKey}>
+            <SidebarGroupLabel>{t(bucket.labelKey)}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {bucket.sessions.map((session) => (
+                  <SidebarMenuItem key={session.id}>
+                    {/* Plain text, not a link or button: no session-
+                        resumption feature exists (see Global Constraints)
+                        -- this must not look clickable. */}
+                    <span className="flex h-8 items-center rounded-md px-2 text-sm text-sidebar-foreground/70">
+                      {new Date(session.created_at).toLocaleString(locale)}
+                    </span>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
+      </SidebarContent>
+    </Sidebar>
   );
 }
