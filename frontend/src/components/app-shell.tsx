@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useTranslation } from "@/lib/i18n/provider";
 import { useAccountSession } from "@/lib/use-account-session";
+import type { AccountSummary } from "@/lib/account-response";
 import type { TranslationKey } from "@/lib/i18n/dictionary-keys";
 
 const NAV_ITEMS: Array<{ href: string; labelKey: TranslationKey; icon: typeof MessageSquare }> = [
@@ -42,9 +43,18 @@ const NAV_ITEMS: Array<{ href: string; labelKey: TranslationKey; icon: typeof Me
   { href: "/search", labelKey: "nav.search", icon: Search },
 ];
 
-function NavUser({ onOpenProfile }: { onOpenProfile: () => void }) {
+function NavUser({
+  account,
+  refreshSession,
+  logout,
+  onOpenProfile,
+}: {
+  account: AccountSummary | null;
+  refreshSession: () => void;
+  logout: () => Promise<void>;
+  onOpenProfile: () => void;
+}) {
   const { t } = useTranslation();
-  const { account, refreshSession, logout } = useAccountSession();
 
   if (!account) {
     return (
@@ -106,6 +116,7 @@ export function AppShell({
   const pathname = usePathname();
   const { t } = useTranslation();
   const [profileOpen, setProfileOpen] = React.useState(false);
+  const { account, refreshSession, logout, setAccount } = useAccountSession();
 
   return (
     <SidebarProvider>
@@ -144,7 +155,12 @@ export function AppShell({
           </SidebarGroup>
         </SidebarContent>
         <SidebarFooter>
-          <NavUser onOpenProfile={() => setProfileOpen(true)} />
+          <NavUser
+            account={account}
+            refreshSession={refreshSession}
+            logout={logout}
+            onOpenProfile={() => setProfileOpen(true)}
+          />
         </SidebarFooter>
         {/* Kept for desktop drag-to-toggle at the sidebar edge; the reachable
             control for keyboard/touch users is PageHeader's SidebarTrigger
@@ -152,7 +168,12 @@ export function AppShell({
         <SidebarRail aria-label={t("nav.toggleSidebar")} />
       </Sidebar>
       <SidebarInset>{children}</SidebarInset>
-      <ProfileOverlay open={profileOpen} onOpenChange={setProfileOpen} />
+      <ProfileOverlay
+        open={profileOpen}
+        onOpenChange={setProfileOpen}
+        account={account}
+        setAccount={setAccount}
+      />
     </SidebarProvider>
   );
 }

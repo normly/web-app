@@ -4,6 +4,16 @@
 
 import { test, expect } from "@playwright/test";
 
+async function openProfileOverlay(page: import("@playwright/test").Page) {
+  // The trigger button's accessible name includes the Avatar fallback's
+  // initials text node alongside the email (same issue Task 3's unit test
+  // hit, see app-shell.test.tsx) -- match on the email substring via
+  // regex, not an exact name.
+  await page.getByRole("button", { name: /.+@.+/ }).click();
+  await page.getByRole("menuitem", { name: "Konto" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+}
+
 async function registerAndOpenAccountPage(page: import("@playwright/test").Page) {
   const email = `e2e-account-${Date.now()}@example.de`;
   await page.goto("/");
@@ -14,7 +24,7 @@ async function registerAndOpenAccountPage(page: import("@playwright/test").Page)
   await page.getByRole("button", { name: "Konto erstellen" }).click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
 
-  await page.goto("/account");
+  await openProfileOverlay(page);
   return email;
 }
 
@@ -31,6 +41,10 @@ test.describe("account management", () => {
     await page.getByRole("button", { name: "Speichern" }).click();
 
     await page.reload();
+    // The overlay is client-only React state, not persisted across a
+    // reload -- the dialog is closed after reload even though the
+    // session cookie (and therefore the account itself) survives it.
+    await openProfileOverlay(page);
     await expect(page.getByLabel("Vorname")).toHaveValue("Jamie");
   });
 
@@ -58,6 +72,7 @@ test.describe("account management", () => {
 
   test("a user can change their password and log in with the new one", async ({ page }) => {
     const email = await registerAndOpenAccountPage(page);
+    await page.getByRole("button", { name: "Passwort" }).click();
 
     // registerAndOpenAccountPage() registers with a password, so the
     // account already has a password_hash -- password.py's set_password
@@ -80,6 +95,7 @@ test.describe("account management", () => {
 
   test("the current session is listed and cannot be revoked from itself", async ({ page }) => {
     await registerAndOpenAccountPage(page);
+    await page.getByRole("button", { name: "Aktive Sitzungen" }).click();
 
     await expect(page.getByText("Dieses Gerät")).toBeVisible();
     await expect(page.getByRole("button", { name: "Sitzung beenden" })).not.toBeVisible();
@@ -87,6 +103,7 @@ test.describe("account management", () => {
 
   test("a user can download their data export", async ({ page }) => {
     await registerAndOpenAccountPage(page);
+    await page.getByRole("button", { name: "Konto & Daten" }).click();
 
     const [download] = await Promise.all([
       page.waitForEvent("download"),
@@ -99,6 +116,7 @@ test.describe("account management", () => {
     page,
   }) => {
     const email = await registerAndOpenAccountPage(page);
+    await page.getByRole("button", { name: "Konto & Daten" }).click();
 
     const deleteButton = page.getByRole("button", { name: "Konto endgültig löschen" });
     await expect(deleteButton).toBeDisabled();
@@ -107,9 +125,11 @@ test.describe("account management", () => {
     await page.getByLabel("Passwort zur Bestätigung").fill("correct horse battery staple");
     await deleteButton.click();
 
-    // DeleteAccountSection reloads the page on success (Task 14) -- the URL
-    // stays "/account", but the reload re-fetches /api/auth/session, which
-    // now finds the cookie cleared and renders the logged-out message.
-    await expect(page.getByText("Melde dich an, um dein Konto zu verwalten.")).toBeVisible();
+    // DeleteAccountSection reloads the page on success (Task 14) -- the
+    // reload re-fetches /api/auth/session, which now finds the cookie
+    // cleared. AppShell's NavUser falls back to the login trigger, and the
+    // overlay itself is gone (client-only state, reset by the reload), so
+    // assert on the logged-out sidebar state rather than the overlay text.
+    await expect(page.getByRole("button", { name: "Anmelden" })).toBeVisible();
   });
 });

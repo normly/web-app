@@ -12,9 +12,9 @@ import { PasswordSection } from "@/components/account/password-section";
 import { SessionsSection } from "@/components/account/sessions-section";
 import { ExportSection } from "@/components/account/export-section";
 import { DeleteAccountSection } from "@/components/account/delete-account-section";
-import { useAccountSession } from "@/lib/use-account-session";
 import { useTranslation } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
+import type { AccountSummary } from "@/lib/account-response";
 import type { TranslationKey } from "@/lib/i18n/dictionary-keys";
 
 type SectionId = "profile" | "email" | "password" | "sessions" | "data";
@@ -30,28 +30,39 @@ const SECTIONS: { id: SectionId; labelKey: TranslationKey }[] = [
 export function ProfileOverlay({
   open,
   onOpenChange,
+  account,
+  setAccount,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  account: AccountSummary | null;
+  setAccount: React.Dispatch<React.SetStateAction<AccountSummary | null>>;
 }) {
   const { t } = useTranslation();
-  const { account, setAccount } = useAccountSession();
   const [activeSection, setActiveSection] = React.useState<SectionId>("profile");
 
+  const handleOpenChange = (next: boolean) => {
+    if (!next) {
+      setActiveSection("profile");
+    }
+    onOpenChange(next);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogTitle>{t("account.pageTitle")}</DialogTitle>
         {!account ? (
           <p className="text-sm text-muted-foreground">{t("account.loginRequired")}</p>
         ) : (
           <div className="flex flex-col gap-6 sm:flex-row">
-            <nav className="flex shrink-0 flex-row gap-1 overflow-x-auto sm:w-40 sm:flex-col sm:overflow-visible">
+            <nav className="flex shrink-0 flex-row gap-1 overflow-x-auto sm:w-48 sm:flex-col sm:overflow-visible">
               {SECTIONS.map((section) => (
                 <button
                   key={section.id}
                   type="button"
                   onClick={() => setActiveSection(section.id)}
+                  aria-current={activeSection === section.id ? "true" : undefined}
                   className={cn(
                     "whitespace-nowrap rounded-md px-3 py-2 text-left text-sm transition-colors",
                     activeSection === section.id
