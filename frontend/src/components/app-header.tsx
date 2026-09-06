@@ -23,11 +23,9 @@ import { useTranslation } from "@/lib/i18n/provider";
 export function AppHeader({
   instanceName,
   logoPath,
-  showHistoryLink = true,
 }: {
   instanceName: string;
   logoPath: string | null;
-  showHistoryLink?: boolean;
 }) {
   const { t } = useTranslation();
   const { account, refreshSession, logout } = useAccountSession();
@@ -43,11 +41,6 @@ export function AppHeader({
         <Link href="/search" className="text-sm underline">
           {t("search.navLink")}
         </Link>
-        {showHistoryLink && (
-          <Link href="/chats" className="text-sm underline">
-            {t("chat.historyLink")}
-          </Link>
-        )}
         <LocaleSwitcher />
         <JurisdictionSwitcher />
         <ModeToggle />

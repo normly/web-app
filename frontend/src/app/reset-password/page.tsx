@@ -10,10 +10,7 @@ export default function ResetPasswordPage() {
   const config = getInstanceConfig();
   return (
     <>
-      <AppHeader
-        instanceName={config.instanceName} logoPath={config.logoPath}
-        showHistoryLink={false}
-      />
+      <AppHeader instanceName={config.instanceName} logoPath={config.logoPath} />
       <main className="mx-auto max-w-2xl p-4">
         <ResetPasswordContent />
       </main>

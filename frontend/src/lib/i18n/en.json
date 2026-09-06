@@ -7,7 +7,6 @@
     "sendButton": "Send",
     "inputPlaceholder": "Ask a question…",
     "loading": "Loading answer…",
-    "historyLink": "History",
     "citationSource": "Source",
     "copyButtonLabel": "Copy response",
     "copiedLabel": "Copied"
@@ -34,7 +33,6 @@
     "resetInvalidToken": "This link is invalid or has expired."
   },
   "history": {
-    "title": "Chat history",
     "empty": "No chats yet.",
     "loginRequired": "Log in to see your chat history.",
     "newChatButton": "New chat",

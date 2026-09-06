@@ -7,7 +7,6 @@
     "sendButton": "Senden",
     "inputPlaceholder": "Frage stellen…",
     "loading": "Antwort wird geladen…",
-    "historyLink": "Verlauf",
     "citationSource": "Quelle",
     "copyButtonLabel": "Antwort kopieren",
     "copiedLabel": "Kopiert"
@@ -34,7 +33,6 @@
     "resetInvalidToken": "Dieser Link ist ungültig oder abgelaufen."
   },
   "history": {
-    "title": "Chat-Verlauf",
     "empty": "Noch keine Chats vorhanden.",
     "loginRequired": "Melde dich an, um deinen Chat-Verlauf zu sehen.",
     "newChatButton": "Neuer Chat",
