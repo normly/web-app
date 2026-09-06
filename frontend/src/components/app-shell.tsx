@@ -9,6 +9,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronsUpDown, LogOut, MessageSquare, Search, User as UserIcon } from "lucide-react";
 import { AuthDialog } from "@/components/auth/auth-dialog";
+import { ProfileOverlay } from "@/components/account/profile-overlay";
 import { Avatar } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -41,7 +42,7 @@ const NAV_ITEMS: Array<{ href: string; labelKey: TranslationKey; icon: typeof Me
   { href: "/search", labelKey: "nav.search", icon: Search },
 ];
 
-function NavUser() {
+function NavUser({ onOpenProfile }: { onOpenProfile: () => void }) {
   const { t } = useTranslation();
   const { account, refreshSession, logout } = useAccountSession();
 
@@ -77,14 +78,9 @@ function NavUser() {
           <DropdownMenuContent className="min-w-56 rounded-lg" side="top" align="end">
             <DropdownMenuLabel className="font-normal">{account.email}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {/* Interim: links to the existing standalone /account page.
-                Plan 4 (Profil-Overlay) replaces this with an overlay
-                trigger -- not this plan's job, see Global Constraints. */}
-            <DropdownMenuItem asChild>
-              <Link href="/account">
-                <UserIcon className="mr-2 size-4" />
-                {t("nav.account")}
-              </Link>
+            <DropdownMenuItem onClick={onOpenProfile}>
+              <UserIcon className="mr-2 size-4" />
+              {t("nav.account")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={logout}>
@@ -109,6 +105,7 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const { t } = useTranslation();
+  const [profileOpen, setProfileOpen] = React.useState(false);
 
   return (
     <SidebarProvider>
@@ -147,7 +144,7 @@ export function AppShell({
           </SidebarGroup>
         </SidebarContent>
         <SidebarFooter>
-          <NavUser />
+          <NavUser onOpenProfile={() => setProfileOpen(true)} />
         </SidebarFooter>
         {/* Kept for desktop drag-to-toggle at the sidebar edge; the reachable
             control for keyboard/touch users is PageHeader's SidebarTrigger
@@ -155,6 +152,7 @@ export function AppShell({
         <SidebarRail aria-label={t("nav.toggleSidebar")} />
       </Sidebar>
       <SidebarInset>{children}</SidebarInset>
+      <ProfileOverlay open={profileOpen} onOpenChange={setProfileOpen} />
     </SidebarProvider>
   );
 }

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 normly contributors
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LocaleProvider } from "@/lib/i18n/provider";
 import { AppShell } from "@/components/app-shell";
@@ -104,5 +104,38 @@ describe("AppShell", () => {
     // data-sidebar="trigger" marker -- an accessible-name query here would
     // ambiguously match the rail too.
     expect(container.querySelector('[data-sidebar="trigger"]')).not.toBeInTheDocument();
+  });
+
+  it("opens the profile overlay instead of navigating when Konto is clicked", async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          account: {
+            accountId: "1", email: "a@example.de", firstName: null, lastName: null,
+            avatarDataUrl: null,
+          },
+        }),
+      ),
+    );
+    render(
+      <LocaleProvider initialLocale="de">
+        <AppShell instanceName="normly" logoPath={null}>
+          <div>content</div>
+        </AppShell>
+      </LocaleProvider>,
+    );
+    await waitFor(() => expect(screen.getByText("a@example.de")).toBeInTheDocument());
+    // Name is a regex, not the exact string: the trigger button's
+    // accessible name also includes the Avatar fallback's initials text
+    // node ("A a@example.de"), which an exact match would never find.
+    const trigger = screen.getByRole("button", { name: /a@example\.de/ });
+    // Radix's DropdownMenuTrigger (v2.1.24) only opens on pointerdown or
+    // Enter/Space -- never on a plain click -- and jsdom has no native
+    // PointerEvent, so fireEvent.click(trigger) can never open it here.
+    // Keyboard activation is a real user interaction and sidesteps that.
+    fireEvent.keyDown(trigger, { key: "Enter" });
+    fireEvent.click(screen.getByRole("menuitem", { name: "Konto" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Konto" })).not.toBeInTheDocument();
   });
 });
