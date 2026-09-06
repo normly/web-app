@@ -38,7 +38,9 @@
     "signupPageHeading": "Create an account",
     "haveAccountLink": "Already have an account?",
     "magicLinkPageHeading": "Sign in with a link",
-    "magicLinkPageDescription": "Enter your email address and we'll send you a sign-in link."
+    "magicLinkPageDescription": "Enter your email address and we'll send you a sign-in link.",
+    "resetPasswordPageHeading": "Set a new password",
+    "resetPasswordPageDescription": "Choose a new password for your account."
   },
   "history": {
     "empty": "No chats yet.",

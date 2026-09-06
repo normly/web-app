@@ -38,7 +38,9 @@
     "signupPageHeading": "Konto erstellen",
     "haveAccountLink": "Bereits ein Konto?",
     "magicLinkPageHeading": "Mit Link anmelden",
-    "magicLinkPageDescription": "Gib deine E-Mail-Adresse ein, wir schicken dir einen Anmeldelink."
+    "magicLinkPageDescription": "Gib deine E-Mail-Adresse ein, wir schicken dir einen Anmeldelink.",
+    "resetPasswordPageHeading": "Neues Passwort festlegen",
+    "resetPasswordPageDescription": "Wähle ein neues Passwort für dein Konto."
   },
   "history": {
     "empty": "Noch keine Chats vorhanden.",
