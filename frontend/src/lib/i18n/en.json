@@ -8,7 +8,9 @@
     "inputPlaceholder": "Ask a question…",
     "loading": "Loading answer…",
     "historyLink": "History",
-    "citationSource": "Source"
+    "citationSource": "Source",
+    "copyButtonLabel": "Copy response",
+    "copiedLabel": "Copied"
   },
   "auth": {
     "loginTab": "Log in",

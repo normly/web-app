@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 normly contributors
 
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { LocaleProvider } from "@/lib/i18n/provider";
 import { MessageList, type ChatMessageView } from "@/components/chat/message-list";
 
@@ -47,5 +47,30 @@ describe("MessageList", () => {
     );
     expect(screen.getByText("Fallback-Antwort ohne Quelle.")).toBeInTheDocument();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("copies the assistant message to the clipboard when the copy button is clicked", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const messages: ChatMessageView[] = [
+      { role: "assistant", content: "DIN EN ISO 9001 ist noch gültig.", citations: [] },
+    ];
+    render(
+      <LocaleProvider initialLocale="de">
+        <MessageList messages={messages} isLoading={false} />
+      </LocaleProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Antwort kopieren" }));
+    expect(writeText).toHaveBeenCalledWith("DIN EN ISO 9001 ist noch gültig.");
+  });
+
+  it("does not render a copy button next to a user message", () => {
+    const messages: ChatMessageView[] = [{ role: "user", content: "Ist DIN EN ISO 9001 gültig?" }];
+    render(
+      <LocaleProvider initialLocale="de">
+        <MessageList messages={messages} isLoading={false} />
+      </LocaleProvider>,
+    );
+    expect(screen.queryByRole("button", { name: "Antwort kopieren" })).not.toBeInTheDocument();
   });
 });

@@ -8,7 +8,9 @@
     "inputPlaceholder": "Frage stellen…",
     "loading": "Antwort wird geladen…",
     "historyLink": "Verlauf",
-    "citationSource": "Quelle"
+    "citationSource": "Quelle",
+    "copyButtonLabel": "Antwort kopieren",
+    "copiedLabel": "Kopiert"
   },
   "auth": {
     "loginTab": "Anmelden",
