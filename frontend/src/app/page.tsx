@@ -3,15 +3,16 @@
 // Copyright (C) 2026 normly contributors
 
 import { getInstanceConfig } from "@/lib/config";
-import { AppHeader } from "@/components/app-header";
+import { AppShell } from "@/components/app-shell";
+import { PageHeader } from "@/components/page-header";
 import { HomePageContent } from "./home-page-content";
 
 export default function HomePage() {
   const config = getInstanceConfig();
   return (
-    <>
-      <AppHeader instanceName={config.instanceName} logoPath={config.logoPath} />
+    <AppShell instanceName={config.instanceName} logoPath={config.logoPath}>
+      <PageHeader titleKey="nav.chat" />
       <HomePageContent />
-    </>
+    </AppShell>
   );
 }

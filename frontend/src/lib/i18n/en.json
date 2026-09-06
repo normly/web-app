@@ -41,7 +41,8 @@
     "search": "Search",
     "account": "Account",
     "notificationsLabel": "Notifications",
-    "noNotifications": "No new notifications"
+    "noNotifications": "No new notifications",
+    "documentDetailTitle": "Document"
   },
   "search": {
     "navLink": "Search",

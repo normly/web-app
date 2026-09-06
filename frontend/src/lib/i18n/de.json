@@ -41,7 +41,8 @@
     "search": "Suche",
     "account": "Konto",
     "notificationsLabel": "Benachrichtigungen",
-    "noNotifications": "Keine neuen Benachrichtigungen"
+    "noNotifications": "Keine neuen Benachrichtigungen",
+    "documentDetailTitle": "Dokument"
   },
   "search": {
     "navLink": "Suche",

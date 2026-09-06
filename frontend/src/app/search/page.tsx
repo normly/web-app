@@ -3,17 +3,18 @@
 // Copyright (C) 2026 normly contributors
 
 import { getInstanceConfig } from "@/lib/config";
-import { AppHeader } from "@/components/app-header";
+import { AppShell } from "@/components/app-shell";
+import { PageHeader } from "@/components/page-header";
 import { SearchPageContent } from "./search-page-content";
 
 export default function SearchPage() {
   const config = getInstanceConfig();
   return (
-    <>
-      <AppHeader instanceName={config.instanceName} logoPath={config.logoPath} />
+    <AppShell instanceName={config.instanceName} logoPath={config.logoPath}>
+      <PageHeader titleKey="nav.search" />
       <main className="mx-auto max-w-2xl p-4">
         <SearchPageContent />
       </main>
-    </>
+    </AppShell>
   );
 }
