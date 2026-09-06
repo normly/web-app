@@ -114,6 +114,27 @@ export function ChatHistorySidebar({ onNewChat }: { onNewChat: () => void }) {
     // Sidebar's state. collapsible="offcanvas" (the default): hidden
     // entirely behind a Sheet on mobile until that shared trigger opens
     // it; visible inline on desktop by default.
+    //
+    // Known limitation, documented not fixed (accepted for this plan):
+    // the chat page still nests ChatShell's SidebarProvider inside
+    // AppShell's own outer one (page.tsx), so there are two independent
+    // SidebarProvider instances on the page even though this component
+    // itself adds none. The vendored sidebar.tsx primitive assumes at
+    // most one provider per page and shows two symptoms as a result:
+    // (1) both providers read/write the same `sidebar_state` cookie
+    // (SIDEBAR_COOKIE_NAME in sidebar.tsx), so one provider's persisted
+    // open/collapsed state silently clobbers the other's; (2) both
+    // providers independently attach a window-level Ctrl/Cmd+B keydown
+    // listener (also in sidebar.tsx), so a single keypress toggles both
+    // sidebars at once, and the inner sidebar's off-canvas position ends
+    // up misaligned relative to the outer one's new (collapsed) width --
+    // visible as clipped/overlapping content at the boundary. Both share
+    // the same root cause (sidebar.tsx being written for a single
+    // provider) and the same resolution path: whoever eventually forks
+    // sidebar.tsx to support multiple independent providers per page
+    // should address both together, e.g. via a per-provider cookie name/
+    // id and an opt-out for the global keyboard shortcut. Out of scope
+    // for this plan.
     <Sidebar>
       <SidebarHeader className="p-2">
         <Button onClick={handleNewChat} variant="outline" className="w-full justify-start gap-2">

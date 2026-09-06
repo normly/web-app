@@ -2,12 +2,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 normly contributors
 //
-// Split out of page.tsx for the same reason chats/chats-page-content.tsx
-// is: page.tsx now needs to be a Server Component (it calls
-// getInstanceConfig(), which reads process.env and is only meaningful
-// server-side -- see AppHeader's comment) so it can pass instanceName/
-// logoPath down as props, while the chat state/hooks below need a client
-// component.
+// Split out of page.tsx because page.tsx now needs to be a Server
+// Component (it calls getInstanceConfig(), which reads process.env and
+// is only meaningful server-side -- see AppHeader's comment) so it can
+// pass instanceName/logoPath down as props, while the chat state/hooks
+// below need a client component.
 
 "use client";
 

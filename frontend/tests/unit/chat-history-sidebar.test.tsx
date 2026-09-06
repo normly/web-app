@@ -91,13 +91,20 @@ describe("ChatHistorySidebar", () => {
     const sevenDaysAgoText = sevenDaysAgo.toLocaleString("de");
     const eightDaysAgoText = eightDaysAgo.toLocaleString("de");
 
+    const sessionTokens = [
+      "session-token-alpha-001",
+      "session-token-beta-002",
+      "session-token-gamma-003",
+      "session-token-delta-004",
+    ];
+
     global.fetch = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify([
-          { id: "1", session_token: "a", jurisdiction: "DE", language: "de", created_at: today.toISOString() },
-          { id: "2", session_token: "b", jurisdiction: "DE", language: "de", created_at: yesterday.toISOString() },
-          { id: "3", session_token: "c", jurisdiction: "DE", language: "de", created_at: sevenDaysAgo.toISOString() },
-          { id: "4", session_token: "d", jurisdiction: "DE", language: "de", created_at: eightDaysAgo.toISOString() },
+          { id: "1", session_token: sessionTokens[0], jurisdiction: "DE", language: "de", created_at: today.toISOString() },
+          { id: "2", session_token: sessionTokens[1], jurisdiction: "DE", language: "de", created_at: yesterday.toISOString() },
+          { id: "3", session_token: sessionTokens[2], jurisdiction: "DE", language: "de", created_at: sevenDaysAgo.toISOString() },
+          { id: "4", session_token: sessionTokens[3], jurisdiction: "DE", language: "de", created_at: eightDaysAgo.toISOString() },
         ]),
         { status: 200 },
       ),
@@ -116,6 +123,20 @@ describe("ChatHistorySidebar", () => {
     expect(within(findGroupContaining("Gestern")).getByText(yesterdayText)).toBeInTheDocument();
     expect(within(findGroupContaining("Vor 7 Tagen")).getByText(sevenDaysAgoText)).toBeInTheDocument();
     expect(within(findGroupContaining("Älter")).getByText(eightDaysAgoText)).toBeInTheDocument();
+
+    // History items are genuinely non-interactive -- no click-to-resume,
+    // ever (see Global Constraints) -- so there must be no <a> anywhere
+    // in the sidebar.
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    // The raw session_token must never leak into the rendered DOM: only
+    // the formatted created_at timestamp is shown, never the credential
+    // itself. Checking the whole body's innerHTML (not just the sidebar
+    // subtree) is deliberate -- it also catches a leak via a stray
+    // data-* attribute, title, or anywhere else in the tree, not only
+    // visible text.
+    for (const token of sessionTokens) {
+      expect(document.body.innerHTML).not.toContain(token);
+    }
   });
 
   it("calls onNewChat and the new-session endpoint when the button is clicked", async () => {

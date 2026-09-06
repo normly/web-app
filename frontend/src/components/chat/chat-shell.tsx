@@ -37,7 +37,16 @@ export function ChatShell({
     // sidebar in the page's normal layout flow -- exactly where the two
     // sidebars are meant to meet.
     <div className="relative w-full flex-1 will-change-transform">
-      <SidebarProvider>
+      {/* min-h-0 overrides the primitive's own min-h-svh (see
+          sidebar.tsx's SidebarProvider): cn()'s twMerge keeps the LAST
+          class touching a given CSS property, and this className prop is
+          merged in after the primitive's own classes, so min-h-0 wins.
+          Without this, this nested provider's min-h-svh stacks on top of
+          AppShell's outer SidebarProvider (page.tsx) doing the same,
+          making every chat page render taller than the actual viewport
+          (a permanent whole-page scrollbar) -- confirmed via a real
+          browser render, not something jsdom-based unit tests catch. */}
+      <SidebarProvider className="min-h-0">
         <ChatHistorySidebar onNewChat={onNewChat} />
         {/* A plain div, not SidebarInset: HomePageContent is already
             rendered inside AppShell's own SidebarInset (page.tsx), which

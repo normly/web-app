@@ -66,6 +66,7 @@ describe("HomePage", () => {
 
   // The old AppHeader's "Verlauf" link to /chats is gone now that HomePage is
   // wrapped in AppShell: its sidebar deliberately renders only Chat and
-  // Suche (see app-shell.test.tsx), and /chats itself is slated for
-  // retirement once the chat page is rebuilt with a nested history sidebar.
+  // Suche (see app-shell.test.tsx). The standalone /chats route itself has
+  // since been retired -- the chat page was rebuilt with a nested history
+  // sidebar (see ChatShell/ChatHistorySidebar) that replaces it.
 });
