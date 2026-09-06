@@ -30,7 +30,11 @@
     "resetNewPasswordLabel": "Neues Passwort",
     "resetSubmitButton": "Passwort festlegen",
     "resetSuccessMessage": "Dein Passwort wurde geändert. Du kannst dich jetzt anmelden.",
-    "resetInvalidToken": "Dieser Link ist ungültig oder abgelaufen."
+    "resetInvalidToken": "Dieser Link ist ungültig oder abgelaufen.",
+    "loginPageHeading": "Willkommen zurück",
+    "loginPageDescription": "Melde dich an, um fortzufahren.",
+    "noAccountLink": "Noch kein Konto?",
+    "magicLinkPromptText": "Lieber ohne Passwort?"
   },
   "history": {
     "empty": "Noch keine Chats vorhanden.",

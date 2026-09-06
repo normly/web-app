@@ -30,7 +30,11 @@
     "resetNewPasswordLabel": "New password",
     "resetSubmitButton": "Set password",
     "resetSuccessMessage": "Your password has been changed. You can now log in.",
-    "resetInvalidToken": "This link is invalid or has expired."
+    "resetInvalidToken": "This link is invalid or has expired.",
+    "loginPageHeading": "Welcome back",
+    "loginPageDescription": "Log in to continue.",
+    "noAccountLink": "Don't have an account yet?",
+    "magicLinkPromptText": "Prefer no password?"
   },
   "history": {
     "empty": "No chats yet.",
