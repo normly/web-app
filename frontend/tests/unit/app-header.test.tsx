@@ -47,7 +47,7 @@ describe("AppHeader", () => {
     expect(logo).toHaveAttribute("alt", "Beispiel-Institut");
   });
 
-  it("shows the login trigger when the session check returns no account", async () => {
+  it("shows a link to /login when the session check returns no account", async () => {
     global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ account: null })));
     render(
       <LocaleProvider initialLocale="de">
@@ -57,7 +57,7 @@ describe("AppHeader", () => {
       </LocaleProvider>,
     );
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Anmelden" })).toBeInTheDocument(),
+      expect(screen.getByRole("link", { name: "Anmelden" })).toHaveAttribute("href", "/login"),
     );
   });
 

@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 normly contributors
 
+import re
+
 from fastapi.testclient import TestClient
 
 
@@ -33,6 +35,21 @@ def test_register_sends_a_verification_email(client, email_sender):
 
     assert len(email_sender.sent) == 1
     assert email_sender.sent[0]["to"] == "verifyme@example.de"
+
+
+def test_register_verification_email_contains_an_absolute_link(client, email_sender):
+    client.post(
+        "/v1/accounts/register",
+        json={"email": "verifylink@example.de", "password": "correct horse battery staple"},
+    )
+
+    body = email_sender.sent[0]["body"]
+    match = re.search(r"token=([^&\s]+)", body)
+    assert match is not None
+    assert body.startswith(
+        "Bitte bestätige deine E-Mail-Adresse: http://localhost:3000/verify-email?token="
+    )
+    assert match.group(1)
 
 
 def test_register_rejects_a_duplicate_email(client):
