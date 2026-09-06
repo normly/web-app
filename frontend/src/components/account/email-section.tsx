@@ -49,7 +49,7 @@ export function EmailSection({ account }: { account: AccountSummary }) {
             />
           </label>
           {status === "error" && (
-            <p className="text-sm text-red-600">{t("account.emailChangeGenericError")}</p>
+            <p className="text-sm text-destructive">{t("account.emailChangeGenericError")}</p>
           )}
           <Button type="submit" disabled={isSubmitting} className="self-start">
             {t("account.requestEmailChangeButton")}

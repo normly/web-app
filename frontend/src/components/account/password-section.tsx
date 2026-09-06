@@ -59,7 +59,7 @@ export function PasswordSection() {
           <p className="text-sm">{t("account.passwordChangedMessage")}</p>
         )}
         {status === "error" && (
-          <p className="text-sm text-red-600">{t("account.passwordChangeError")}</p>
+          <p className="text-sm text-destructive">{t("account.passwordChangeError")}</p>
         )}
         <Button type="submit" disabled={isSubmitting} className="self-start">
           {t("account.changePasswordButton")}

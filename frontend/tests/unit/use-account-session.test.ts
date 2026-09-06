@@ -50,4 +50,26 @@ describe("useAccountSession", () => {
     expect(global.fetch).toHaveBeenCalledWith("/api/auth/logout", { method: "POST" });
     expect(result.current.account).toBeNull();
   });
+
+  it("exposes a setter that updates the account without a network call", async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          account: {
+            accountId: "1", email: "a@example.de", firstName: null, lastName: null,
+            avatarDataUrl: null,
+          },
+        }),
+      ),
+    );
+    const { result } = renderHook(() => useAccountSession());
+    await waitFor(() => expect(result.current.account?.email).toBe("a@example.de"));
+
+    const fetchCallsBefore = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.length;
+    act(() => {
+      result.current.setAccount((current) => (current ? { ...current, firstName: "Alex" } : current));
+    });
+    expect(result.current.account?.firstName).toBe("Alex");
+    expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(fetchCallsBefore);
+  });
 });

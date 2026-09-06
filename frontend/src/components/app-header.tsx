@@ -46,13 +46,13 @@ export function AppHeader({
         <ModeToggle />
         {account ? (
           <div className="flex items-center gap-2">
-            <Link href="/account" className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <Avatar
                 avatarDataUrl={account.avatarDataUrl} firstName={account.firstName}
                 lastName={account.lastName} email={account.email}
               />
               <span className="text-sm text-muted-foreground">{account.email}</span>
-            </Link>
+            </div>
             <Button variant="ghost" size="sm" onClick={logout}>
               {t("auth.logoutButton")}
             </Button>

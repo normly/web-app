@@ -67,10 +67,10 @@ export function SessionsSection() {
     <section className="flex flex-col gap-3">
       <h2 className="text-lg font-semibold">{t("account.sessionsTitle")}</h2>
       {loadStatus === "error" && (
-        <p className="text-sm text-red-600">{t("account.sessionsLoadError")}</p>
+        <p className="text-sm text-destructive">{t("account.sessionsLoadError")}</p>
       )}
       {revokeStatus === "error" && (
-        <p className="text-sm text-red-600">{t("account.sessionRevokeError")}</p>
+        <p className="text-sm text-destructive">{t("account.sessionRevokeError")}</p>
       )}
       <ul className="flex flex-col gap-2">
         {(sessions ?? []).map((session) => (

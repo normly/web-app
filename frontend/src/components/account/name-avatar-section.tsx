@@ -104,14 +104,14 @@ export function NameAvatarSection({
           </label>
           {account.avatarDataUrl && (
             <button
-              type="button" className="text-sm text-red-600 underline"
+              type="button" className="text-sm text-destructive underline"
               onClick={removeAvatar} disabled={isUpdatingAvatar}
             >
               {t("account.removeAvatarButton")}
             </button>
           )}
           {avatarStatus === "error" && (
-            <p className="text-sm text-red-600">{t("account.avatarUpdateError")}</p>
+            <p className="text-sm text-destructive">{t("account.avatarUpdateError")}</p>
           )}
         </div>
       </div>
@@ -125,7 +125,7 @@ export function NameAvatarSection({
           <Input value={lastName} onChange={(event) => setLastName(event.target.value)} />
         </label>
         {nameStatus === "error" && (
-          <p className="text-sm text-red-600">{t("account.saveNameError")}</p>
+          <p className="text-sm text-destructive">{t("account.saveNameError")}</p>
         )}
         <Button type="submit" disabled={isSavingName} className="self-start">
           {t("account.saveNameButton")}

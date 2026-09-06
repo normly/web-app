@@ -115,6 +115,7 @@
     "deleteAccountPasswordLabel": "Password to confirm",
     "deleteAccountConfirmLabel": "Type your email address to confirm",
     "deleteAccountButton": "Permanently delete account",
-    "deleteAccountError": "Could not delete the account. Check your input."
+    "deleteAccountError": "Could not delete the account. Check your input.",
+    "dataSectionTitle": "Account & Data"
   }
 }
