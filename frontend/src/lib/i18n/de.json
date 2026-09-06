@@ -40,7 +40,13 @@
     "magicLinkPageHeading": "Mit Link anmelden",
     "magicLinkPageDescription": "Gib deine E-Mail-Adresse ein, wir schicken dir einen Anmeldelink.",
     "resetPasswordPageHeading": "Neues Passwort festlegen",
-    "resetPasswordPageDescription": "Wähle ein neues Passwort für dein Konto."
+    "resetPasswordPageDescription": "Wähle ein neues Passwort für dein Konto.",
+    "verifyEmailPageHeading": "E-Mail-Adresse bestätigen",
+    "verifyingMessage": "Deine E-Mail-Adresse wird bestätigt…",
+    "verifiedMessage": "Deine E-Mail-Adresse wurde bestätigt.",
+    "verifyInvalidMessage": "Dieser Link ist ungültig oder abgelaufen.",
+    "resendVerificationButton": "Bestätigungslink erneut senden",
+    "resendVerificationSentMessage": "Falls ein Konto mit dieser Adresse existiert und noch nicht bestätigt ist, wurde eine E-Mail versendet."
   },
   "history": {
     "empty": "Noch keine Chats vorhanden.",

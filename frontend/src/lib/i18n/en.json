@@ -40,7 +40,13 @@
     "magicLinkPageHeading": "Sign in with a link",
     "magicLinkPageDescription": "Enter your email address and we'll send you a sign-in link.",
     "resetPasswordPageHeading": "Set a new password",
-    "resetPasswordPageDescription": "Choose a new password for your account."
+    "resetPasswordPageDescription": "Choose a new password for your account.",
+    "verifyEmailPageHeading": "Verify your email address",
+    "verifyingMessage": "Verifying your email address…",
+    "verifiedMessage": "Your email address has been verified.",
+    "verifyInvalidMessage": "This link is invalid or has expired.",
+    "resendVerificationButton": "Resend verification link",
+    "resendVerificationSentMessage": "If an account with this address exists and isn't verified yet, an email was sent."
   },
   "history": {
     "empty": "No chats yet.",
