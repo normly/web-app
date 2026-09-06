@@ -36,7 +36,9 @@
     "noAccountLink": "Noch kein Konto?",
     "magicLinkPromptText": "Lieber ohne Passwort?",
     "signupPageHeading": "Konto erstellen",
-    "haveAccountLink": "Bereits ein Konto?"
+    "haveAccountLink": "Bereits ein Konto?",
+    "magicLinkPageHeading": "Mit Link anmelden",
+    "magicLinkPageDescription": "Gib deine E-Mail-Adresse ein, wir schicken dir einen Anmeldelink."
   },
   "history": {
     "empty": "Noch keine Chats vorhanden.",

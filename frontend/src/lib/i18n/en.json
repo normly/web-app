@@ -36,7 +36,9 @@
     "noAccountLink": "Don't have an account yet?",
     "magicLinkPromptText": "Prefer no password?",
     "signupPageHeading": "Create an account",
-    "haveAccountLink": "Already have an account?"
+    "haveAccountLink": "Already have an account?",
+    "magicLinkPageHeading": "Sign in with a link",
+    "magicLinkPageDescription": "Enter your email address and we'll send you a sign-in link."
   },
   "history": {
     "empty": "No chats yet.",
