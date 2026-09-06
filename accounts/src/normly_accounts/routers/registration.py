@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -30,6 +31,10 @@ registration_router = APIRouter(prefix="/v1/accounts", tags=["registration"])
 _VERIFICATION_TOKEN_LIFETIME = timedelta(hours=48)
 
 
+def _public_base_url() -> str:
+    return os.environ.get("NORMLY_PUBLIC_BASE_URL", "http://localhost:3000")
+
+
 @registration_router.post("/register", response_model=SessionResponse)
 def register(
     payload: RegisterRequest, session: Session = Depends(get_session),
@@ -51,7 +56,10 @@ def register(
     try:
         email_sender.send(
             to=account.email, subject="Bestätige deine E-Mail-Adresse",
-            body=f"Bitte bestätige deine E-Mail-Adresse: token={token.token}",
+            body=(
+                f"Bitte bestätige deine E-Mail-Adresse: "
+                f"{_public_base_url()}/verify-email?token={token.token}"
+            ),
         )
     except Exception:
         # Per the design spec: registration itself must not fail when SMTP

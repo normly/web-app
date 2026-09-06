@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 normly contributors
 
+import re
+
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
@@ -121,6 +123,18 @@ def test_magic_link_confirm_is_single_use(client, db_session):
 
     assert first.status_code == 200
     assert second.status_code == 400
+
+
+def test_magic_link_email_body_contains_an_absolute_link(client, email_sender):
+    client.post("/v1/accounts/magic-link/request", json={"email": "linktest@example.de"})
+
+    body = email_sender.sent[0]["body"]
+    match = re.search(r"token=([^&\s]+)", body)
+    assert match is not None
+    assert body.startswith(
+        "Zum Anmelden: http://localhost:3000/magic-link?token="
+    )
+    assert match.group(1)
 
 
 def test_magic_link_request_still_succeeds_when_email_delivery_fails(client, db_session):

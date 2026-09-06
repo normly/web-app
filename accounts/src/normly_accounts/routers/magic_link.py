@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -28,6 +29,10 @@ logger = logging.getLogger(__name__)
 magic_link_router = APIRouter(prefix="/v1/accounts/magic-link", tags=["magic-link"])
 
 _MAGIC_LINK_TOKEN_LIFETIME = timedelta(minutes=15)
+
+
+def _public_base_url() -> str:
+    return os.environ.get("NORMLY_PUBLIC_BASE_URL", "http://localhost:3000")
 
 
 @magic_link_router.post("/request")
@@ -59,7 +64,7 @@ def request_magic_link(
     try:
         email_sender.send(
             to=payload.email, subject="Dein Login-Link",
-            body=f"Zum Anmelden: token={token.token}",
+            body=f"Zum Anmelden: {_public_base_url()}/magic-link?token={token.token}",
         )
     except Exception:
         # Per the design spec: the magic-link request itself must not fail
