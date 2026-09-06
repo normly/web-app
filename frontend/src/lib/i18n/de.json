@@ -39,7 +39,9 @@
   "nav": {
     "chat": "Chat",
     "search": "Suche",
-    "account": "Konto"
+    "account": "Konto",
+    "notificationsLabel": "Benachrichtigungen",
+    "noNotifications": "Keine neuen Benachrichtigungen"
   },
   "search": {
     "navLink": "Suche",
