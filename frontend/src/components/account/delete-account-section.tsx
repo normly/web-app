@@ -46,8 +46,8 @@ export function DeleteAccountSection({ account }: { account: AccountSummary }) {
   };
 
   return (
-    <section className="flex flex-col gap-3 rounded border border-red-600 p-4">
-      <h2 className="text-lg font-semibold text-red-600">{t("account.deleteAccountTitle")}</h2>
+    <section className="flex flex-col gap-3 rounded border border-destructive p-4">
+      <h2 className="text-lg font-semibold text-destructive">{t("account.deleteAccountTitle")}</h2>
       <p className="text-sm text-muted-foreground">{t("account.deleteAccountDescription")}</p>
       <form onSubmit={submit} className="flex flex-col gap-3">
         <label className="flex flex-col gap-1 text-sm">
@@ -60,10 +60,10 @@ export function DeleteAccountSection({ account }: { account: AccountSummary }) {
             type="password" value={password} onChange={(event) => setPassword(event.target.value)}
           />
         </label>
-        {error && <p className="text-sm text-red-600">{t("account.deleteAccountError")}</p>}
+        {error && <p className="text-sm text-destructive">{t("account.deleteAccountError")}</p>}
         <Button
           type="submit" disabled={!canDelete || isSubmitting}
-          className="self-start bg-red-600 text-white hover:bg-red-700"
+          variant="destructive" className="self-start"
         >
           {t("account.deleteAccountButton")}
         </Button>
