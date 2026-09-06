@@ -36,6 +36,11 @@
     "empty": "No chats yet.",
     "loginRequired": "Log in to see your chat history."
   },
+  "nav": {
+    "chat": "Chat",
+    "search": "Search",
+    "account": "Account"
+  },
   "search": {
     "navLink": "Search",
     "inputPlaceholder": "Search for a standard…",

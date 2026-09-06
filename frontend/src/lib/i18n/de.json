@@ -36,6 +36,11 @@
     "empty": "Noch keine Chats vorhanden.",
     "loginRequired": "Melde dich an, um deinen Chat-Verlauf zu sehen."
   },
+  "nav": {
+    "chat": "Chat",
+    "search": "Suche",
+    "account": "Konto"
+  },
   "search": {
     "navLink": "Suche",
     "inputPlaceholder": "Regelwerk suchen…",
