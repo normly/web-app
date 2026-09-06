@@ -46,7 +46,9 @@
     "verifiedMessage": "Deine E-Mail-Adresse wurde bestätigt.",
     "verifyInvalidMessage": "Dieser Link ist ungültig oder abgelaufen.",
     "resendVerificationButton": "Bestätigungslink erneut senden",
-    "resendVerificationSentMessage": "Falls ein Konto mit dieser Adresse existiert und noch nicht bestätigt ist, wurde eine E-Mail versendet."
+    "resendVerificationSentMessage": "Falls ein Konto mit dieser Adresse existiert und noch nicht bestätigt ist, wurde eine E-Mail versendet.",
+    "magicLinkConfirmingMessage": "Du wirst angemeldet…",
+    "magicLinkInvalidMessage": "Dieser Link ist ungültig oder abgelaufen."
   },
   "history": {
     "empty": "Noch keine Chats vorhanden.",

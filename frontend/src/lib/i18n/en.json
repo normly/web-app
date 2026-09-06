@@ -46,7 +46,9 @@
     "verifiedMessage": "Your email address has been verified.",
     "verifyInvalidMessage": "This link is invalid or has expired.",
     "resendVerificationButton": "Resend verification link",
-    "resendVerificationSentMessage": "If an account with this address exists and isn't verified yet, an email was sent."
+    "resendVerificationSentMessage": "If an account with this address exists and isn't verified yet, an email was sent.",
+    "magicLinkConfirmingMessage": "Signing you in…",
+    "magicLinkInvalidMessage": "This link is invalid or has expired."
   },
   "history": {
     "empty": "No chats yet.",

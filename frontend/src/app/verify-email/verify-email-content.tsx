@@ -23,9 +23,18 @@ function VerifyEmailStatus() {
 
   React.useEffect(() => {
     if (!token) return;
+    let cancelled = false;
     fetch(`/api/auth/verify-email?token=${encodeURIComponent(token)}`)
-      .then((response) => setStatus(response.ok ? "verified" : "invalid"))
-      .catch(() => setStatus("invalid"));
+      .then((response) => {
+        if (cancelled) return;
+        setStatus(response.ok ? "verified" : "invalid");
+      })
+      .catch(() => {
+        if (!cancelled) setStatus("invalid");
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   const submitResend = async (event: React.FormEvent) => {

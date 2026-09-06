@@ -33,7 +33,7 @@ export function AuthSplitLayout({
         </div>
         <div className="relative hidden bg-muted lg:block">
           <img
-            src="https://deifkwefumgah.cloudfront.net/shadcnblocks/image-set/placeholder/images/6-3x4.jpg"
+            src="/auth-split-photo.jpg"
             alt=""
             className="absolute inset-0 size-full object-cover"
           />
