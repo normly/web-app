@@ -36,7 +36,7 @@ describe("PageHeader", () => {
     expect(screen.queryByText("Konto")).not.toBeInTheDocument();
   });
 
-  it("shows the static no-notifications message in the bell popover", () => {
+  it("shows the static no-notifications message in the bell popover", async () => {
     render(
       <LocaleProvider initialLocale="de">
         <JurisdictionProvider initialJurisdiction="DE">
@@ -45,6 +45,6 @@ describe("PageHeader", () => {
       </LocaleProvider>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Benachrichtigungen" }));
-    expect(screen.getByText("Keine neuen Benachrichtigungen")).toBeInTheDocument();
+    expect(await screen.findByText("Keine neuen Benachrichtigungen")).toBeInTheDocument();
   });
 });
