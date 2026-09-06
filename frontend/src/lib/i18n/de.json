@@ -52,7 +52,8 @@
     "documentDetailTitle": "Dokument",
     "toggleSidebar": "Seitenleiste umschalten",
     "sidebarTitle": "Seitenleiste",
-    "sidebarDescription": "Zeigt die mobile Seitenleiste an."
+    "sidebarDescription": "Zeigt die mobile Seitenleiste an.",
+    "toggleChatHistory": "Chatverlauf umschalten"
   },
   "search": {
     "navLink": "Suche",

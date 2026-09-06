@@ -27,8 +27,16 @@ describe("HomePage", () => {
   });
 
   it("renders without crashing", () => {
-    // AppShell's user-footer checks /api/auth/session on mount.
-    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ account: null })));
+    // AppShell's user-footer checks /api/auth/session on mount, and (since
+    // ChatShell wires in ChatHistorySidebar) HomePageContent now also fires
+    // /api/chat/sessions on mount -- route by URL so each gets its own
+    // Response instance instead of racing to read one shared body twice.
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/chat/sessions") {
+        return Promise.resolve(new Response(JSON.stringify([]), { status: 401 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({ account: null })));
+    });
     render(
       <LocaleProvider initialLocale="de">
         <JurisdictionProvider initialJurisdiction="DE">
@@ -40,7 +48,12 @@ describe("HomePage", () => {
   });
 
   it("renders exactly one <main> landmark (Finding 2: SidebarInset already renders one; page content must not nest a second)", () => {
-    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ account: null })));
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/chat/sessions") {
+        return Promise.resolve(new Response(JSON.stringify([]), { status: 401 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({ account: null })));
+    });
     render(
       <LocaleProvider initialLocale="de">
         <JurisdictionProvider initialJurisdiction="DE">

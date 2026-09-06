@@ -14,6 +14,7 @@
 import * as React from "react";
 import { MessageList, type ChatMessageView } from "@/components/chat/message-list";
 import { ChatInput } from "@/components/chat/chat-input";
+import { ChatShell } from "@/components/chat/chat-shell";
 import { useTranslation } from "@/lib/i18n/provider";
 import { useJurisdiction } from "@/lib/jurisdiction/provider";
 
@@ -59,9 +60,11 @@ export function HomePageContent() {
   };
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-4 p-4">
-      <MessageList messages={messages} isLoading={isLoading} />
-      <ChatInput onSend={sendMessage} disabled={isLoading} />
-    </div>
+    <ChatShell onNewChat={() => setMessages([])}>
+      <div className="mx-auto flex max-w-2xl flex-1 flex-col gap-4 p-4">
+        <MessageList messages={messages} isLoading={isLoading} />
+        <ChatInput onSend={sendMessage} disabled={isLoading} />
+      </div>
+    </ChatShell>
   );
 }
