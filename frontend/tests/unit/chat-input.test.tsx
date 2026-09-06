@@ -21,13 +21,22 @@ describe("ChatInput", () => {
     expect(onSend).toHaveBeenCalledWith("Ist DIN EN ISO 9001 gültig?");
   });
 
-  it("calls onSend when Enter is pressed", () => {
+  it("calls onSend when Enter is pressed without Shift", () => {
     const onSend = vi.fn();
     renderWithLocale(<ChatInput onSend={onSend} disabled={false} />);
     const textbox = screen.getByPlaceholderText("Frage stellen…");
     fireEvent.change(textbox, { target: { value: "Frage" } });
     fireEvent.keyDown(textbox, { key: "Enter" });
     expect(onSend).toHaveBeenCalledWith("Frage");
+  });
+
+  it("does not call onSend when Shift+Enter is pressed (newline instead)", () => {
+    const onSend = vi.fn();
+    renderWithLocale(<ChatInput onSend={onSend} disabled={false} />);
+    const textbox = screen.getByPlaceholderText("Frage stellen…");
+    fireEvent.change(textbox, { target: { value: "Frage" } });
+    fireEvent.keyDown(textbox, { key: "Enter", shiftKey: true });
+    expect(onSend).not.toHaveBeenCalled();
   });
 
   it("does not call onSend while disabled (e.g. a request is in flight)", () => {

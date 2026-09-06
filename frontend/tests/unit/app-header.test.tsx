@@ -84,23 +84,12 @@ describe("AppHeader", () => {
     expect(screen.queryByRole("button", { name: "Anmelden" })).not.toBeInTheDocument();
   });
 
-  it("omits the history link when showHistoryLink is false", async () => {
+  it("links to the search page", async () => {
     global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ account: null })));
     render(
       <LocaleProvider initialLocale="de">
         <JurisdictionProvider initialJurisdiction="DE">
-          <AppHeader instanceName="normly" logoPath={null} showHistoryLink={false} />
-        </JurisdictionProvider>
-      </LocaleProvider>,
-    );
-    expect(screen.queryByRole("link", { name: "Verlauf" })).not.toBeInTheDocument();
-  });
-  it("always links to the search page, independent of showHistoryLink", async () => {
-    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ account: null })));
-    render(
-      <LocaleProvider initialLocale="de">
-        <JurisdictionProvider initialJurisdiction="DE">
-          <AppHeader instanceName="normly" logoPath={null} showHistoryLink={false} />
+          <AppHeader instanceName="normly" logoPath={null} />
         </JurisdictionProvider>
       </LocaleProvider>,
     );

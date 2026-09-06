@@ -27,8 +27,16 @@ describe("HomePage", () => {
   });
 
   it("renders without crashing", () => {
-    // AppShell's user-footer checks /api/auth/session on mount.
-    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ account: null })));
+    // AppShell's user-footer checks /api/auth/session on mount, and (since
+    // ChatShell wires in ChatHistorySidebar) HomePageContent now also fires
+    // /api/chat/sessions on mount -- route by URL so each gets its own
+    // Response instance instead of racing to read one shared body twice.
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/chat/sessions") {
+        return Promise.resolve(new Response(JSON.stringify([]), { status: 401 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({ account: null })));
+    });
     render(
       <LocaleProvider initialLocale="de">
         <JurisdictionProvider initialJurisdiction="DE">
@@ -40,7 +48,12 @@ describe("HomePage", () => {
   });
 
   it("renders exactly one <main> landmark (Finding 2: SidebarInset already renders one; page content must not nest a second)", () => {
-    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ account: null })));
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/chat/sessions") {
+        return Promise.resolve(new Response(JSON.stringify([]), { status: 401 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({ account: null })));
+    });
     render(
       <LocaleProvider initialLocale="de">
         <JurisdictionProvider initialJurisdiction="DE">
@@ -53,6 +66,7 @@ describe("HomePage", () => {
 
   // The old AppHeader's "Verlauf" link to /chats is gone now that HomePage is
   // wrapped in AppShell: its sidebar deliberately renders only Chat and
-  // Suche (see app-shell.test.tsx), and /chats itself is slated for
-  // retirement once the chat page is rebuilt with a nested history sidebar.
+  // Suche (see app-shell.test.tsx). The standalone /chats route itself has
+  // since been retired -- the chat page was rebuilt with a nested history
+  // sidebar (see ChatShell/ChatHistorySidebar) that replaces it.
 });

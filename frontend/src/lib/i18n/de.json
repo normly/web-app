@@ -7,8 +7,9 @@
     "sendButton": "Senden",
     "inputPlaceholder": "Frage stellen…",
     "loading": "Antwort wird geladen…",
-    "historyLink": "Verlauf",
-    "citationSource": "Quelle"
+    "citationSource": "Quelle",
+    "copyButtonLabel": "Antwort kopieren",
+    "copiedLabel": "Kopiert"
   },
   "auth": {
     "loginTab": "Anmelden",
@@ -32,9 +33,13 @@
     "resetInvalidToken": "Dieser Link ist ungültig oder abgelaufen."
   },
   "history": {
-    "title": "Chat-Verlauf",
     "empty": "Noch keine Chats vorhanden.",
-    "loginRequired": "Melde dich an, um deinen Chat-Verlauf zu sehen."
+    "loginRequired": "Melde dich an, um deinen Chat-Verlauf zu sehen.",
+    "newChatButton": "Neuer Chat",
+    "bucketToday": "Heute",
+    "bucketYesterday": "Gestern",
+    "bucketLast7Days": "Vor 7 Tagen",
+    "bucketOlder": "Älter"
   },
   "nav": {
     "chat": "Chat",
@@ -45,7 +50,8 @@
     "documentDetailTitle": "Dokument",
     "toggleSidebar": "Seitenleiste umschalten",
     "sidebarTitle": "Seitenleiste",
-    "sidebarDescription": "Zeigt die mobile Seitenleiste an."
+    "sidebarDescription": "Zeigt die mobile Seitenleiste an.",
+    "toggleChatHistory": "Chatverlauf umschalten"
   },
   "search": {
     "navLink": "Suche",

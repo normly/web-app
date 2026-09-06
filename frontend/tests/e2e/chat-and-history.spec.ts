@@ -36,7 +36,10 @@ test.describe("registration, login, and chat history", () => {
     await page.getByRole("button", { name: "Konto erstellen" }).click();
     await expect(page.getByRole("dialog")).not.toBeVisible();
 
-    await page.goto("/chats");
+    // /chats was retired -- the chat history sidebar is now nested in the
+    // chat page itself (see ChatShell/ChatHistorySidebar), always visible
+    // on desktop by default.
+    await page.goto("/");
     await expect(page.getByText("Noch keine Chats vorhanden.")).toBeVisible();
   });
 });

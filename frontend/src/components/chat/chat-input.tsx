@@ -5,7 +5,8 @@
 "use client";
 
 import * as React from "react";
-import { Input } from "@/components/ui/input";
+import { ArrowUp } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n/provider";
 
@@ -27,19 +28,29 @@ export function ChatInput({
   };
 
   return (
-    <div className="flex gap-2">
-      <Input
+    <div className="flex items-end gap-2 rounded-lg border bg-background p-2">
+      <Textarea
         value={value}
         onChange={(event) => setValue(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === "Enter") submit();
+          if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            submit();
+          }
         }}
         placeholder={t("chat.inputPlaceholder")}
         disabled={disabled}
         aria-label={t("chat.inputPlaceholder")}
+        className="min-h-[60px] resize-none border-0 shadow-none focus-visible:ring-0"
       />
-      <Button onClick={submit} disabled={disabled}>
-        {t("chat.sendButton")}
+      <Button
+        onClick={submit}
+        disabled={disabled}
+        size="icon"
+        className="shrink-0"
+        aria-label={t("chat.sendButton")}
+      >
+        <ArrowUp className="h-4 w-4" />
       </Button>
     </div>
   );

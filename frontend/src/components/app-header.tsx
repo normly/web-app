@@ -17,17 +17,15 @@ import { useTranslation } from "@/lib/i18n/provider";
 
 // getInstanceConfig() reads process.env, which is only meaningful on the
 // server (and isn't inlined for the client, since these aren't NEXT_PUBLIC_
-// variables -- see lib/config.ts). Callers (page.tsx, chats/page.tsx) read
-// it server-side and pass the result down as plain props instead of this
-// component reading env vars itself.
+// variables -- see lib/config.ts). Callers (page.tsx) read it server-side
+// and pass the result down as plain props instead of this component
+// reading env vars itself.
 export function AppHeader({
   instanceName,
   logoPath,
-  showHistoryLink = true,
 }: {
   instanceName: string;
   logoPath: string | null;
-  showHistoryLink?: boolean;
 }) {
   const { t } = useTranslation();
   const { account, refreshSession, logout } = useAccountSession();
@@ -43,11 +41,6 @@ export function AppHeader({
         <Link href="/search" className="text-sm underline">
           {t("search.navLink")}
         </Link>
-        {showHistoryLink && (
-          <Link href="/chats" className="text-sm underline">
-            {t("chat.historyLink")}
-          </Link>
-        )}
         <LocaleSwitcher />
         <JurisdictionSwitcher />
         <ModeToggle />
