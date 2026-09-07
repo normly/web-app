@@ -19,7 +19,7 @@ from normly_core.graph.postgres.repositories import (
     PostgresRightsRepository,
     PostgresSegmentRepository,
 )
-from normly_core.pipeline import identity, references
+from normly_core.pipeline import identity, references, work_assignment
 from normly_core.pipeline.domain import RawRecord, SourceAdapter
 from normly_core.pipeline.embeddings import MODEL_NAME, EmbeddingModel
 
@@ -91,12 +91,23 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
 
         if result.is_new:
             parsed = identity.parse_designation(record.raw_designation)
+            assignment = work_assignment.determine_work_assignment(record, document_repo)
+            if assignment.is_ambiguous:
+                identity_repo.enqueue_case(
+                    delivery_id=delivery.id,
+                    raw_designation=record.raw_designation,
+                    raw_issuer=record.raw_issuer,
+                    reason=assignment.reason,
+                )
+                delta.records_enqueued_for_review += 1
+                return delta
             document = document_repo.create_document(
                 origin_issuer=record.raw_issuer or "unknown",
                 origin_number=parsed.number,
                 edition=parsed.edition or "",
                 part=None,
                 delivery_id=delivery.id,
+                work_id=assignment.work_id,
             )
             delta.documents_created += 1
         else:
