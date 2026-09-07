@@ -46,6 +46,8 @@ from normly_core.graph.domain import (
     WorkCreatedVia,
     WorkSearchHit,
     WorkStatus,
+    WorkStructure,
+    WorkStructureEntry,
 )
 from normly_core.graph.postgres.orm import (
     AccountGoogleIdentityORM,
@@ -87,6 +89,14 @@ _SEMANTIC_CANDIDATE_POOL = 200
 # grouping over a capped candidate list. Revisit once there's a real corpus
 # to size this against.
 _TIER1_CANDIDATE_POOL = 10_000
+
+# Edge types that ever imply shared Work membership -- must match the same
+# three types the ingestion pipeline's work_assignment.py already treats as
+# Work-linking signals. REFERENCES/BASED_ON_LAW never belong here.
+_WORK_STRUCTURE_EDGE_TYPES = (EdgeType.REPLACES, EdgeType.WITHDRAWN_BY, EdgeType.ADOPTED_FROM)
+# The subset that forms an edition lineage chain (same-issuer succession),
+# as opposed to a national adoption.
+_EDITION_CHAIN_EDGE_TYPES = (EdgeType.REPLACES, EdgeType.WITHDRAWN_BY)
 
 
 def _escape_like(term: str) -> str:
@@ -848,6 +858,16 @@ def _active_edge_query(
     )
 
 
+def _work_structure_entry_to_domain(
+    document: DocumentORM, designation: str | None, status: str
+) -> WorkStructureEntry:
+    return WorkStructureEntry(
+        document_id=document.id, origin_issuer=document.origin_issuer,
+        origin_number=document.origin_number, edition=document.edition,
+        designation=designation, status=status,
+    )
+
+
 class PostgresEdgeRepository:
     def __init__(self, session: Session):
         self._session = session
@@ -1067,6 +1087,114 @@ class PostgresEdgeRepository:
             .order_by(EdgeORM.id)
         ).scalars()
         return [_edge_to_domain(row) for row in rows]
+
+    def get_work_structure_for_jurisdiction(
+        self, document_id: uuid.UUID, jurisdiction: str
+    ) -> WorkStructure | None:
+        viewed = self._session.execute(
+            select(DocumentORM)
+            .join(RightsClassificationORM, RightsClassificationORM.document_id == DocumentORM.id)
+            .where(
+                DocumentORM.id == document_id,
+                RightsClassificationORM.jurisdiction == jurisdiction,
+                RightsClassificationORM.may_process.is_(True),
+                RightsClassificationORM.revoked_at.is_(None),
+            )
+        ).scalar_one_or_none()
+        if viewed is None:
+            return None
+
+        work_documents = list(self._session.execute(
+            select(DocumentORM)
+            .join(RightsClassificationORM, RightsClassificationORM.document_id == DocumentORM.id)
+            .where(
+                DocumentORM.work_id == viewed.work_id,
+                RightsClassificationORM.jurisdiction == jurisdiction,
+                RightsClassificationORM.may_process.is_(True),
+                RightsClassificationORM.revoked_at.is_(None),
+            )
+            .order_by(DocumentORM.id)
+        ).scalars())
+        document_ids = [d.id for d in work_documents]
+
+        # `document_id` alone in its (visible) Work -- no other member to
+        # form a chain or an adoption with, so both lists are empty rather
+        # than a single-entry `editions` containing just itself.
+        if len(work_documents) <= 1:
+            return WorkStructure(work_id=viewed.work_id, editions=[], national_adoptions=[])
+
+        # One-time, bounded traversal over THIS Work's own documents/edges
+        # only -- not a pattern for wider application code (ADR-006 keeps
+        # graph queries shallow); bounded by the Work grouping itself.
+        # layer == FREE matches the same filter list_free_layer_incoming_
+        # edges_for_jurisdiction already applies to these same edge types
+        # for GET .../validity -- pre-existing behavior, kept consistent
+        # here rather than resolved differently for a new endpoint.
+        edges = list(self._session.execute(
+            select(EdgeORM)
+            .where(
+                EdgeORM.edge_type.in_(_WORK_STRUCTURE_EDGE_TYPES),
+                EdgeORM.from_document_id.in_(document_ids),
+                EdgeORM.to_document_id.in_(document_ids),
+                EdgeORM.revoked_at.is_(None),
+                EdgeORM.layer == Layer.FREE,
+            )
+        ).scalars())
+
+        parent = {d.id: d.id for d in work_documents}
+
+        def find(x: uuid.UUID) -> uuid.UUID:
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+
+        def union(a: uuid.UUID, b: uuid.UUID) -> None:
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                parent[ra] = rb
+
+        for edge in edges:
+            if edge.edge_type in _EDITION_CHAIN_EDGE_TYPES:
+                union(edge.from_document_id, edge.to_document_id)
+
+        edition_root = find(document_id)
+        edition_ids = {d.id for d in work_documents if find(d.id) == edition_root}
+
+        replaced_ids = {e.to_document_id for e in edges if e.edge_type == EdgeType.REPLACES}
+        withdrawn_ids = {e.to_document_id for e in edges if e.edge_type == EdgeType.WITHDRAWN_BY}
+
+        def status_for(doc_id: uuid.UUID) -> str:
+            if doc_id in withdrawn_ids:
+                return "withdrawn"
+            if doc_id in replaced_ids:
+                return "replaced"
+            return "valid"
+
+        designations_by_document = dict(self._session.execute(
+            select(DocumentDesignationORM.document_id, DocumentDesignationORM.designation)
+            .where(
+                DocumentDesignationORM.document_id.in_(document_ids),
+                DocumentDesignationORM.is_primary.is_(True),
+            )
+        ).all())
+
+        editions = [
+            _work_structure_entry_to_domain(
+                d, designations_by_document.get(d.id), status_for(d.id)
+            )
+            for d in work_documents if d.id in edition_ids
+        ]
+        national_adoptions = [
+            _work_structure_entry_to_domain(
+                d, designations_by_document.get(d.id), status_for(d.id)
+            )
+            for d in work_documents if d.id not in edition_ids
+        ]
+
+        return WorkStructure(
+            work_id=viewed.work_id, editions=editions, national_adoptions=national_adoptions,
+        )
 
 
 def _segment_to_domain(orm: SegmentORM) -> Segment:

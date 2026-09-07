@@ -142,6 +142,23 @@ class RightsClassification:
     revoked_at: datetime | None
 
 
+@dataclass(frozen=True)
+class WorkStructureEntry:
+    document_id: uuid.UUID
+    origin_issuer: str
+    origin_number: str
+    edition: str
+    designation: str | None
+    status: str
+
+
+@dataclass(frozen=True)
+class WorkStructure:
+    work_id: uuid.UUID
+    editions: list[WorkStructureEntry]
+    national_adoptions: list[WorkStructureEntry]
+
+
 class SourceRepository(Protocol):
     def create_source(
         self,
@@ -435,6 +452,34 @@ class EdgeRepository(Protocol):
         require the export flag.
 
         Caller in this repository: GET /v1/export.
+        """
+        ...
+
+    def get_work_structure_for_jurisdiction(
+        self, document_id: uuid.UUID, jurisdiction: str
+    ) -> WorkStructure | None:
+        """
+        None if `document_id` is not visible in `jurisdiction` (same gate as
+        get_document_for_jurisdiction). Otherwise: every Document sharing this
+        document's work_id and visible in this jurisdiction, split into two
+        lists by edge type among a BOUNDED set (this Work's documents and the
+        edges between them only -- not an unbounded graph traversal, matches
+        ADR-006's "graph queries stay shallow"):
+
+        `editions` -- every Work member connected to `document_id` via a path
+        of ONLY REPLACES/WITHDRAWN_BY edges (same-lineage chain, typically one
+        issuer), including `document_id` itself -- UNLESS `document_id` is
+        the only visible Work member, in which case both lists are empty
+        (nothing to list itself against).
+
+        `national_adoptions` -- every OTHER Work member (not in the editions
+        chain). Together the two lists cover every visible Work member
+        exactly once (or are both empty in the single-member case above).
+
+        Each entry's `status` is computed the same way GET .../validity
+        computes it for a single document: an entry with an incoming
+        REPLACES edge (within this bounded edge set) is "replaced", an
+        incoming WITHDRAWN_BY edge is "withdrawn", otherwise "valid".
         """
         ...
 
