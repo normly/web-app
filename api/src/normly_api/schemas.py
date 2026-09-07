@@ -56,6 +56,30 @@ class WorkSearchResponse(BaseModel):
     total: int
 
 
+class WorkStructureEntryResponse(BaseModel):
+    document_id: uuid.UUID
+    origin_issuer: str
+    origin_number: str
+    edition: str
+    designation: str | None
+    status: Literal["valid", "replaced", "withdrawn"]
+
+
+class WorkStructureResponse(BaseModel):
+    work_id: uuid.UUID
+    editions: list[WorkStructureEntryResponse]
+    national_adoptions: list[WorkStructureEntryResponse]
+
+
+class RightsClassificationResponse(BaseModel):
+    jurisdiction: str
+    may_process: bool
+    may_index_fulltext: bool
+    may_cite_passages: bool
+    may_export_free: bool
+    legal_basis_reference: str
+
+
 class EdgeResponse(BaseModel):
     edge_type: str
     from_document_id: uuid.UUID
