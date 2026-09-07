@@ -17,6 +17,7 @@ class WorkAssignmentResult:
     work_id: uuid.UUID | None
     is_ambiguous: bool
     reason: str | None
+    candidate_work_ids: frozenset[uuid.UUID] | None = None
 
 
 def determine_work_assignment(
@@ -43,7 +44,12 @@ def determine_work_assignment(
         candidate_work_ids.add(target.work_id)
 
     if len(candidate_work_ids) > 1:
-        return WorkAssignmentResult(work_id=None, is_ambiguous=True, reason="conflicting_work_signal")
+        return WorkAssignmentResult(
+            work_id=None,
+            is_ambiguous=True,
+            reason="conflicting_work_signal",
+            candidate_work_ids=frozenset(candidate_work_ids),
+        )
     if len(candidate_work_ids) == 1:
         return WorkAssignmentResult(work_id=next(iter(candidate_work_ids)), is_ambiguous=False, reason=None)
     return WorkAssignmentResult(work_id=None, is_ambiguous=False, reason=None)

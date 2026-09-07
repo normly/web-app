@@ -124,3 +124,4 @@ def test_conflicting_work_linking_signals_are_ambiguous(db_session):
 
     assert result.is_ambiguous is True
     assert result.reason == "conflicting_work_signal"
+    assert result.candidate_work_ids == frozenset({first.work_id, second.work_id})

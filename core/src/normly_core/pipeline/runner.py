@@ -93,23 +93,37 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
             parsed = identity.parse_designation(record.raw_designation)
             assignment = work_assignment.determine_work_assignment(record, document_repo)
             if assignment.is_ambiguous:
-                identity_repo.enqueue_case(
+                # A conflicting Work signal must not silently drop the
+                # document: create it with its own fresh Work (like the
+                # no-signal case) and flag the conflict as a work_merge case
+                # for a curator to resolve later, instead of enqueueing an
+                # unactionable case and never writing the document at all.
+                document = document_repo.create_document(
+                    origin_issuer=record.raw_issuer or "unknown",
+                    origin_number=parsed.number,
+                    edition=parsed.edition or "",
+                    part=None,
                     delivery_id=delivery.id,
-                    raw_designation=record.raw_designation,
-                    raw_issuer=record.raw_issuer,
+                    work_id=None,
+                )
+                delta.documents_created += 1
+                target_work_id = min(assignment.candidate_work_ids, key=str)
+                identity_repo.enqueue_work_merge_case(
+                    delivery_id=delivery.id,
+                    source_work_id=document.work_id,
+                    target_work_id=target_work_id,
                     reason=assignment.reason,
                 )
-                delta.records_enqueued_for_review += 1
-                return delta
-            document = document_repo.create_document(
-                origin_issuer=record.raw_issuer or "unknown",
-                origin_number=parsed.number,
-                edition=parsed.edition or "",
-                part=None,
-                delivery_id=delivery.id,
-                work_id=assignment.work_id,
-            )
-            delta.documents_created += 1
+            else:
+                document = document_repo.create_document(
+                    origin_issuer=record.raw_issuer or "unknown",
+                    origin_number=parsed.number,
+                    edition=parsed.edition or "",
+                    part=None,
+                    delivery_id=delivery.id,
+                    work_id=assignment.work_id,
+                )
+                delta.documents_created += 1
         else:
             document = document_repo.get_document_unchecked(result.document_id)
 
