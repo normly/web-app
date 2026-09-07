@@ -19,7 +19,7 @@ from normly_core.graph.postgres.repositories import (
     PostgresRightsRepository,
     PostgresSegmentRepository,
 )
-from normly_core.pipeline import identity, references
+from normly_core.pipeline import identity, references, work_assignment
 from normly_core.pipeline.domain import RawRecord, SourceAdapter
 from normly_core.pipeline.embeddings import MODEL_NAME, EmbeddingModel
 
@@ -91,14 +91,39 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
 
         if result.is_new:
             parsed = identity.parse_designation(record.raw_designation)
-            document = document_repo.create_document(
-                origin_issuer=record.raw_issuer or "unknown",
-                origin_number=parsed.number,
-                edition=parsed.edition or "",
-                part=None,
-                delivery_id=delivery.id,
-            )
-            delta.documents_created += 1
+            assignment = work_assignment.determine_work_assignment(record, document_repo)
+            if assignment.is_ambiguous:
+                # A conflicting Work signal must not silently drop the
+                # document: create it with its own fresh Work (like the
+                # no-signal case) and flag the conflict as a work_merge case
+                # for a curator to resolve later, instead of enqueueing an
+                # unactionable case and never writing the document at all.
+                document = document_repo.create_document(
+                    origin_issuer=record.raw_issuer or "unknown",
+                    origin_number=parsed.number,
+                    edition=parsed.edition or "",
+                    part=None,
+                    delivery_id=delivery.id,
+                    work_id=None,
+                )
+                delta.documents_created += 1
+                target_work_id = min(assignment.candidate_work_ids, key=str)
+                identity_repo.enqueue_work_merge_case(
+                    delivery_id=delivery.id,
+                    source_work_id=document.work_id,
+                    target_work_id=target_work_id,
+                    reason=assignment.reason,
+                )
+            else:
+                document = document_repo.create_document(
+                    origin_issuer=record.raw_issuer or "unknown",
+                    origin_number=parsed.number,
+                    edition=parsed.edition or "",
+                    part=None,
+                    delivery_id=delivery.id,
+                    work_id=assignment.work_id,
+                )
+                delta.documents_created += 1
         else:
             document = document_repo.get_document_unchecked(result.document_id)
 

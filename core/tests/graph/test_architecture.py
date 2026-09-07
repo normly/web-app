@@ -70,6 +70,10 @@ JURISDICTION_EXEMPT_READS = {
     "SourceRepository.get_source",
     # Delivery bookkeeping: what lineage and revocation are anchored on.
     "DeliveryRepository.get_delivery",
+    # Work is a logical identity spanning document editions/national
+    # adoptions -- lifecycle bookkeeping (status, merge target), not
+    # rights-gated document content.
+    "WorkRepository.get_work",
     # Review-queue listing for staff, not rights-gated content.
     "IdentityResolutionRepository.list_pending_cases",
     # Account identity and session/token lookups: authentication state, not

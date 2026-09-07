@@ -15,10 +15,13 @@ from normly_core.graph.domain import (
     ChatAnswerType,
     ChatMessageRole,
     EdgeType,
+    IdentityResolutionCaseType,
     IdentityResolutionStatus,
     LegalBasisCategory,
     Layer,
     TdmOptOutResult,
+    WorkCreatedVia,
+    WorkStatus,
 )
 
 
@@ -111,6 +114,9 @@ class DocumentORM(Base):
     origin_number: Mapped[str]
     edition: Mapped[str]
     part: Mapped[str | None]
+    work_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("work.id"), nullable=False
+    )
     created_via_delivery_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), sa.ForeignKey("delivery.id"), nullable=False
     )
@@ -159,6 +165,39 @@ class DocumentTitleORM(Base):
 
     __table_args__ = (
         sa.UniqueConstraint("document_id", "language", "title", name="uq_title_document_language_title"),
+    )
+
+
+class WorkORM(Base):
+    __tablename__ = "work"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    status: Mapped[WorkStatus] = mapped_column(
+        sa.Enum(
+            WorkStatus,
+            name="work_status",
+            native_enum=False,
+            create_constraint=True,
+            values_callable=_enum_values,
+        ),
+        default=WorkStatus.ACTIVE,
+    )
+    merged_into_work_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("work.id")
+    )
+    created_via: Mapped[WorkCreatedVia] = mapped_column(
+        sa.Enum(
+            WorkCreatedVia,
+            name="work_created_via",
+            native_enum=False,
+            create_constraint=True,
+            values_callable=_enum_values,
+        )
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
     )
 
 
@@ -306,7 +345,17 @@ class IdentityResolutionCaseORM(Base):
     delivery_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), sa.ForeignKey("delivery.id"), nullable=False
     )
-    raw_designation: Mapped[str]
+    case_type: Mapped[IdentityResolutionCaseType] = mapped_column(
+        sa.Enum(
+            IdentityResolutionCaseType,
+            name="identity_resolution_case_type",
+            native_enum=False,
+            values_callable=_enum_values,
+            create_constraint=True,
+        ),
+        default=IdentityResolutionCaseType.NEW_DOCUMENT,
+    )
+    raw_designation: Mapped[str | None]
     raw_issuer: Mapped[str | None]
     reason: Mapped[str]
     status: Mapped[IdentityResolutionStatus] = mapped_column(
@@ -321,6 +370,12 @@ class IdentityResolutionCaseORM(Base):
     )
     resolved_document_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), sa.ForeignKey("document.id")
+    )
+    source_work_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("work.id")
+    )
+    target_work_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("work.id")
     )
     resolved_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     resolved_by: Mapped[str | None]

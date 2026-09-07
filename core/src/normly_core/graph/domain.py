@@ -89,6 +89,7 @@ class Document:
     origin_number: str
     edition: str
     part: str | None
+    work_id: uuid.UUID
     created_via_delivery_id: uuid.UUID
     created_at: datetime
 
@@ -209,7 +210,16 @@ class DocumentRepository(Protocol):
         edition: str,
         part: str | None,
         delivery_id: uuid.UUID,
-    ) -> Document: ...
+        work_id: uuid.UUID | None = None,
+    ) -> Document:
+        """
+        `work_id` is the pipeline's explicit assignment when an ingestion
+        signal (REPLACES/WITHDRAWN_BY/ADOPTED_FROM to a known document)
+        resolved one -- see `normly_core.pipeline.work_assignment`. Omitted,
+        the repository creates a fresh 1:1 Work for this document, which is
+        the correct default whenever nothing links it to an existing one.
+        """
+        ...
 
     def add_designation(
         self,
@@ -479,21 +489,70 @@ class EmbeddingRepository(Protocol):
         ...
 
 
+class WorkStatus(str, Enum):
+    ACTIVE = "active"
+    MERGED = "merged"
+
+
+class WorkCreatedVia(str, Enum):
+    AUTO_MATCHED = "auto_matched"
+    MANUAL = "manual"
+
+
+@dataclass(frozen=True)
+class Work:
+    id: uuid.UUID
+    status: WorkStatus
+    merged_into_work_id: uuid.UUID | None
+    created_via: WorkCreatedVia
+    created_at: datetime
+
+
+class WorkRepository(Protocol):
+    def create_work(self, *, created_via: WorkCreatedVia) -> Work: ...
+
+    def get_work(self, work_id: uuid.UUID) -> Work | None:
+        """
+        Look up a Work by id. If it has been merged into another Work
+        (`status == MERGED`), returns the target Work it was merged into
+        instead -- callers never see a retired Work as if it were current.
+        """
+        ...
+
+
+class ContradictoryWorkMergeError(Exception):
+    def __init__(self, source_work_id: uuid.UUID, target_work_id: uuid.UUID):
+        self.source_work_id = source_work_id
+        self.target_work_id = target_work_id
+        super().__init__(
+            f"cannot merge work {source_work_id} into {target_work_id}: "
+            "same work, or target is not active"
+        )
+
+
 class IdentityResolutionStatus(str, Enum):
     PENDING = "pending"
     RESOLVED = "resolved"
     REJECTED = "rejected"
 
 
+class IdentityResolutionCaseType(str, Enum):
+    NEW_DOCUMENT = "new_document"
+    WORK_MERGE = "work_merge"
+
+
 @dataclass(frozen=True)
 class IdentityResolutionCase:
     id: uuid.UUID
     delivery_id: uuid.UUID
-    raw_designation: str
+    case_type: IdentityResolutionCaseType
+    raw_designation: str | None
     raw_issuer: str | None
     reason: str
     status: IdentityResolutionStatus
     resolved_document_id: uuid.UUID | None
+    source_work_id: uuid.UUID | None
+    target_work_id: uuid.UUID | None
     resolved_at: datetime | None
     resolved_by: str | None
     created_at: datetime
@@ -509,11 +568,32 @@ class IdentityResolutionRepository(Protocol):
         reason: str,
     ) -> IdentityResolutionCase: ...
 
+    def enqueue_work_merge_case(
+        self,
+        *,
+        delivery_id: uuid.UUID,
+        source_work_id: uuid.UUID,
+        target_work_id: uuid.UUID,
+        reason: str,
+    ) -> IdentityResolutionCase: ...
+
     def list_pending_cases(self) -> list[IdentityResolutionCase]: ...
 
     def resolve_case(
         self, case_id: uuid.UUID, *, resolved_document_id: uuid.UUID, resolved_by: str
     ) -> IdentityResolutionCase: ...
+
+    def resolve_work_merge_case(
+        self, case_id: uuid.UUID, *, resolved_by: str
+    ) -> IdentityResolutionCase:
+        """
+        Reassign every Document.work_id from the case's source_work_id to its
+        target_work_id, mark the source Work MERGED, and mark the case
+        RESOLVED. Raises ContradictoryWorkMergeError -- writing nothing -- if
+        source_work_id == target_work_id or the target Work is not ACTIVE
+        (already merged elsewhere).
+        """
+        ...
 
     def reject_case(
         self, case_id: uuid.UUID, *, resolved_by: str
