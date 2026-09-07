@@ -3,7 +3,14 @@
 
 from __future__ import annotations
 
+from sqlalchemy.orm import Session
+
 from normly_core.graph.domain import DocumentDesignation, DocumentTitle
+from normly_core.graph.postgres.repositories import (
+    PostgresDocumentEmbeddingRepository,
+    PostgresDocumentRepository,
+)
+from normly_core.pipeline.embeddings import MODEL_NAME, EmbeddingModel
 
 
 def build_document_embedding_text(
@@ -25,3 +32,36 @@ def build_document_embedding_text(
     if not titles:
         return primary_designation.designation
     return f"{primary_designation.designation} — {titles[0].title}"
+
+
+def backfill_document_embeddings(session: Session) -> int:
+    """
+    Create a DocumentEmbedding for every Document that doesn't have one yet
+    for the current model. Idempotent: a document that already has one is
+    left untouched here -- re-embedding an existing document only happens
+    through re-ingestion (runner.py), which is the only place a document's
+    designation/title can actually change.
+    """
+    document_repo = PostgresDocumentRepository(session)
+    embedding_repo = PostgresDocumentEmbeddingRepository(session)
+    embedding_model: EmbeddingModel | None = None
+    created = 0
+
+    for document in embedding_repo.list_documents_without_embedding(MODEL_NAME):
+        text = build_document_embedding_text(
+            document_repo.list_designations(document.id), document_repo.list_titles(document.id)
+        )
+        if text is None:
+            continue
+
+        if embedding_model is None:
+            embedding_model = EmbeddingModel()
+        embedding_repo.upsert_document_embedding(
+            document_id=document.id,
+            delivery_id=document.created_via_delivery_id,
+            model_name=MODEL_NAME,
+            vector=embedding_model.embed(text),
+        )
+        created += 1
+
+    return created

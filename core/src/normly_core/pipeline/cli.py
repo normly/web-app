@@ -15,6 +15,7 @@ from normly_core.graph.postgres.repositories import PostgresSourceRepository
 from normly_core.pipeline.adapters.baua import BauaAdapter
 from normly_core.pipeline.adapters.dguv import DguvAdapter
 from normly_core.pipeline.adapters.eur_lex import EurLexAdapter
+from normly_core.pipeline.document_embedding import backfill_document_embeddings
 from normly_core.pipeline.domain import SourceAdapter
 from normly_core.pipeline.runner import run_adapter
 from normly_core.pipeline.sources import resolve_source
@@ -53,6 +54,8 @@ def main(argv: list[str] | None = None) -> int:
         help="local directory containing the source's raw files",
     )
 
+    subparsers.add_parser("backfill-document-embeddings")
+
     args = parser.parse_args(argv)
 
     database_url = os.environ.get("NORMLY_DATABASE_URL")
@@ -63,20 +66,25 @@ def main(argv: list[str] | None = None) -> int:
     engine = create_engine(database_url)
     try:
         with Session(engine) as session:
-            adapter = build_adapter(args.source, directory=args.directory, session=session)
-            summary = run_adapter(adapter, session)
-            session.commit()
+            if args.command == "ingest":
+                adapter = build_adapter(args.source, directory=args.directory, session=session)
+                summary = run_adapter(adapter, session)
+                session.commit()
+                print(
+                    f"processed={summary.records_processed} skipped={summary.records_skipped} "
+                    f"failed={summary.records_failed} "
+                    f"documents_created={summary.documents_created} "
+                    f"segments_created={summary.segments_created} "
+                    f"embeddings_created={summary.embeddings_created} "
+                    f"enqueued_for_review={summary.records_enqueued_for_review}"
+                )
+            elif args.command == "backfill-document-embeddings":
+                created = backfill_document_embeddings(session)
+                session.commit()
+                print(f"document_embeddings_created={created}")
     finally:
         engine.dispose()
 
-    print(
-        f"processed={summary.records_processed} skipped={summary.records_skipped} "
-        f"failed={summary.records_failed} "
-        f"documents_created={summary.documents_created} "
-        f"segments_created={summary.segments_created} "
-        f"embeddings_created={summary.embeddings_created} "
-        f"enqueued_for_review={summary.records_enqueued_for_review}"
-    )
     return 0
 
 
