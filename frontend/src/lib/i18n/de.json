@@ -95,6 +95,16 @@
     "replaced": "Ersetzt",
     "withdrawn": "Zurückgezogen"
   },
+  "documentDetail": {
+    "editionsHeading": "Editionshistorie",
+    "adoptionsHeading": "Nationale Fassungen",
+    "referencesHeading": "Referenzen",
+    "rightsHeading": "Rechteklassifikation",
+    "mayProcess": "Verarbeitung erlaubt",
+    "mayIndexFulltext": "Volltext indexierbar",
+    "mayCitePassages": "Zitierfähig",
+    "mayExportFree": "Freier Export erlaubt"
+  },
   "account": {
     "pageTitle": "Konto",
     "loginRequired": "Melde dich an, um dein Konto zu verwalten.",

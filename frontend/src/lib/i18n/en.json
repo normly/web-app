@@ -95,6 +95,16 @@
     "replaced": "Replaced",
     "withdrawn": "Withdrawn"
   },
+  "documentDetail": {
+    "editionsHeading": "Edition history",
+    "adoptionsHeading": "National adoptions",
+    "referencesHeading": "References",
+    "rightsHeading": "Rights classification",
+    "mayProcess": "Processing permitted",
+    "mayIndexFulltext": "Full text indexable",
+    "mayCitePassages": "Citable",
+    "mayExportFree": "Free export permitted"
+  },
   "account": {
     "pageTitle": "Account",
     "loginRequired": "Log in to manage your account.",
