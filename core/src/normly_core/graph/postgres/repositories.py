@@ -44,6 +44,7 @@ from normly_core.graph.domain import (
     WithdrawnDeliveryError,
     Work,
     WorkCreatedVia,
+    WorkSearchHit,
     WorkStatus,
 )
 from normly_core.graph.postgres.orm import (
@@ -68,6 +69,13 @@ from normly_core.graph.postgres.orm import (
     SourceORM,
     WorkORM,
 )
+
+
+# How many nearest-neighbour candidates Tier 2 (semantic) pulls per search --
+# not a page size. search_works_for_jurisdiction groups these (plus Tier 1's
+# exact matches) down to one hit per Work before paginating, so this bounds
+# the expensive ANN query rather than the number of Works actually returned.
+_SEMANTIC_CANDIDATE_POOL = 200
 
 
 def _escape_like(term: str) -> str:
@@ -601,6 +609,71 @@ class PostgresDocumentRepository:
             base.order_by(DocumentORM.id).limit(limit).offset(offset)
         ).scalars()
         return [_document_to_domain(row) for row in rows], total
+
+    def search_works_for_jurisdiction(
+        self, jurisdiction: str, *, q: str | None = None, issuer: str | None = None,
+        query_vector: list[float] | None = None, embedding_model_name: str | None = None,
+        limit: int = 20, offset: int = 0,
+    ) -> tuple[list[WorkSearchHit], int]:
+        tier1_documents, _ = self.search_documents_for_jurisdiction(
+            jurisdiction, q=q, issuer=issuer, limit=_SEMANTIC_CANDIDATE_POOL, offset=0,
+        )
+        ordered_documents = list(tier1_documents)
+        seen_document_ids = {document.id for document in ordered_documents}
+
+        if query_vector is not None and embedding_model_name is not None:
+            rows = self._session.execute(
+                select(DocumentORM)
+                .join(
+                    RightsClassificationORM,
+                    RightsClassificationORM.document_id == DocumentORM.id,
+                )
+                .join(
+                    DocumentEmbeddingORM,
+                    DocumentEmbeddingORM.document_id == DocumentORM.id,
+                )
+                .where(
+                    RightsClassificationORM.jurisdiction == jurisdiction,
+                    RightsClassificationORM.may_process.is_(True),
+                    RightsClassificationORM.revoked_at.is_(None),
+                    DocumentEmbeddingORM.model_name == embedding_model_name,
+                )
+                .order_by(DocumentEmbeddingORM.vector.cosine_distance(query_vector))
+                .limit(_SEMANTIC_CANDIDATE_POOL)
+            ).scalars()
+            for row in rows:
+                if row.id in seen_document_ids:
+                    continue
+                seen_document_ids.add(row.id)
+                ordered_documents.append(_document_to_domain(row))
+
+        seen_work_ids: set[uuid.UUID] = set()
+        grouped: list[Document] = []
+        for document in ordered_documents:
+            if document.work_id in seen_work_ids:
+                continue
+            seen_work_ids.add(document.work_id)
+            grouped.append(document)
+
+        total = len(grouped)
+        page = grouped[offset:offset + limit]
+        if not page:
+            return [], total
+
+        edition_counts = dict(
+            self._session.execute(
+                select(DocumentORM.work_id, sa.func.count())
+                .where(DocumentORM.work_id.in_([document.work_id for document in page]))
+                .group_by(DocumentORM.work_id)
+            ).all()
+        )
+        return [
+            WorkSearchHit(
+                work_id=document.work_id, best_match=document,
+                other_editions_count=edition_counts[document.work_id] - 1,
+            )
+            for document in page
+        ], total
 
 
 def _work_to_domain(orm: WorkORM) -> Work:

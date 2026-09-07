@@ -257,6 +257,29 @@ class DocumentRepository(Protocol):
         """
         ...
 
+    def search_works_for_jurisdiction(
+        self, jurisdiction: str, *, q: str | None = None, issuer: str | None = None,
+        query_vector: list[float] | None = None, embedding_model_name: str | None = None,
+        limit: int = 20, offset: int = 0,
+    ) -> tuple[list[WorkSearchHit], int]:
+        """
+        Hybrid, Work-grouped search: exact ILIKE matches on designation/title
+        (Tier 1, via search_documents_for_jurisdiction) rank first, then
+        documents ranked by cosine distance to `query_vector` (Tier 2) fill
+        the rest. Both tiers are deduplicated by work_id -- exactly one hit
+        per Work, led by its best-ranked Document. `total` counts distinct
+        Works matched, not raw document rows.
+
+        `query_vector` must already be computed (via
+        `EmbeddingModel.embed_query`) by the caller -- this repository never
+        calls the embedding model itself. `embedding_model_name` is required
+        whenever `query_vector` is given (mixing vectors from different
+        models in one ORDER BY compares distances from unrelated vector
+        spaces); if either is omitted, Tier 2 is skipped and this behaves as
+        Tier-1-only, Work-grouped search.
+        """
+        ...
+
     def list_exportable_documents_for_jurisdiction(self, jurisdiction: str) -> list[Document]:
         """
         Stricter than `list_documents_for_jurisdiction`: additionally requires
@@ -527,6 +550,13 @@ class DocumentEmbeddingRepository(Protocol):
         caller, it only decides what the backfill still has to do.
         """
         ...
+
+
+@dataclass(frozen=True)
+class WorkSearchHit:
+    work_id: uuid.UUID
+    best_match: Document
+    other_editions_count: int
 
 
 class WorkStatus(str, Enum):
