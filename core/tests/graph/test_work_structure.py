@@ -197,3 +197,140 @@ def test_a_sibling_not_visible_in_the_jurisdiction_is_excluded(db_session):
 
     all_ids = {e.document_id for e in structure.editions + structure.national_adoptions}
     assert hidden_doc.id not in all_ids
+
+
+def test_editions_are_sorted_chronologically_by_edition_not_document_id(db_session):
+    delivery = _make_delivery(db_session, "sha256:work-structure-order")
+    work = PostgresWorkRepository(db_session).create_work(created_via=WorkCreatedVia.AUTO_MATCHED)
+    doc_2010 = _make_visible_document(
+        db_session, delivery, issuer="DIN", number="EN ISO 9001", edition="2010",
+        work_id=work.id, designation="EN ISO 9001:2010",
+    )
+    doc_2015 = _make_visible_document(
+        db_session, delivery, issuer="DIN", number="EN ISO 9001", edition="2015",
+        work_id=work.id, designation="EN ISO 9001:2015",
+    )
+    doc_2018 = _make_visible_document(
+        db_session, delivery, issuer="DIN", number="EN ISO 9001", edition="2018",
+        work_id=work.id, designation="EN ISO 9001:2018",
+    )
+    edge_repo = PostgresEdgeRepository(db_session)
+    # Insert edges in an order deliberately different from the expected
+    # chronological sort, so ordering by DocumentORM.id (a random UUID)
+    # would scramble the result while ordering by edition would not.
+    edge_repo.create_edge(
+        from_document_id=doc_2018.id, to_document_id=doc_2015.id, edge_type=EdgeType.REPLACES,
+        jurisdiction=None, layer=Layer.FREE, delivery_id=delivery.id,
+    )
+    edge_repo.create_edge(
+        from_document_id=doc_2015.id, to_document_id=doc_2010.id, edge_type=EdgeType.REPLACES,
+        jurisdiction=None, layer=Layer.FREE, delivery_id=delivery.id,
+    )
+
+    structure = edge_repo.get_work_structure_for_jurisdiction(doc_2018.id, "DE")
+
+    assert [e.edition for e in structure.editions] == ["2010", "2015", "2018"]
+
+
+def test_an_edge_scoped_to_another_jurisdiction_is_ignored(db_session):
+    delivery = _make_delivery(db_session, "sha256:work-structure-jurisdiction-edge")
+    work = PostgresWorkRepository(db_session).create_work(created_via=WorkCreatedVia.AUTO_MATCHED)
+    doc_2015 = _make_visible_document(
+        db_session, delivery, issuer="DIN", number="EN ISO 9001", edition="2015",
+        work_id=work.id, designation="EN ISO 9001:2015",
+    )
+    doc_2018 = _make_visible_document(
+        db_session, delivery, issuer="DIN", number="EN ISO 9001", edition="2018",
+        work_id=work.id, designation="EN ISO 9001:2018",
+    )
+    doc_notice = _make_visible_document(
+        db_session, delivery, issuer="DIN", number="Bekanntmachung", edition="2020",
+        work_id=work.id, designation="Bekanntmachung 2020",
+    )
+    edge_repo = PostgresEdgeRepository(db_session)
+    # Real, always-visible chain edge: 2018 replaces 2015.
+    edge_repo.create_edge(
+        from_document_id=doc_2018.id, to_document_id=doc_2015.id, edge_type=EdgeType.REPLACES,
+        jurisdiction=None, layer=Layer.FREE, delivery_id=delivery.id,
+    )
+    # This edge is scoped to FR, but the structure below is queried for DE.
+    # If the jurisdiction filter is missing, this WITHDRAWN_BY edge would
+    # incorrectly (a) mark doc_2018 as "withdrawn" and (b) union doc_notice
+    # into doc_2018's edition partition. Neither must happen for a DE query.
+    edge_repo.create_edge(
+        from_document_id=doc_notice.id, to_document_id=doc_2018.id,
+        edge_type=EdgeType.WITHDRAWN_BY, jurisdiction="FR", layer=Layer.FREE,
+        delivery_id=delivery.id,
+    )
+
+    structure = edge_repo.get_work_structure_for_jurisdiction(doc_2018.id, "DE")
+
+    statuses = {e.document_id: e.status for e in structure.editions}
+    assert statuses[doc_2018.id] == "valid"
+    assert statuses[doc_2015.id] == "replaced"
+    edition_ids = {e.document_id for e in structure.editions}
+    assert doc_notice.id not in edition_ids
+
+
+def test_a_document_with_only_an_adopted_from_sibling_has_no_self_referential_editions(
+    db_session,
+):
+    delivery = _make_delivery(db_session, "sha256:work-structure-adopted-only")
+    work = PostgresWorkRepository(db_session).create_work(created_via=WorkCreatedVia.AUTO_MATCHED)
+    din_doc = _make_visible_document(
+        db_session, delivery, issuer="DIN", number="EN ISO 9001", edition="2018",
+        work_id=work.id, designation="EN ISO 9001:2018",
+    )
+    bs_doc = _make_visible_document(
+        db_session, delivery, issuer="BS", number="EN ISO 9001", edition="2018",
+        work_id=work.id, designation="BS EN ISO 9001:2018",
+    )
+    edge_repo = PostgresEdgeRepository(db_session)
+    # ONLY an ADOPTED_FROM edge -- no REPLACES/WITHDRAWN_BY at all, so
+    # din_doc has no edition-chain sibling and must not appear as a
+    # self-referential 1-entry `editions` list.
+    edge_repo.create_edge(
+        from_document_id=bs_doc.id, to_document_id=din_doc.id, edge_type=EdgeType.ADOPTED_FROM,
+        jurisdiction=None, layer=Layer.FREE, delivery_id=delivery.id,
+    )
+
+    structure = edge_repo.get_work_structure_for_jurisdiction(din_doc.id, "DE")
+
+    assert structure.editions == []
+    adoption_ids = {e.document_id for e in structure.national_adoptions}
+    assert adoption_ids == {din_doc.id, bs_doc.id}
+
+
+def test_a_document_with_both_replaces_and_withdrawn_by_reports_replaced(db_session):
+    delivery = _make_delivery(db_session, "sha256:work-structure-both-edges")
+    work = PostgresWorkRepository(db_session).create_work(created_via=WorkCreatedVia.AUTO_MATCHED)
+    old_doc = _make_visible_document(
+        db_session, delivery, issuer="DGUV", number="Vorschrift 1", edition="2013",
+        work_id=work.id, designation="DGUV Vorschrift 1:2013",
+    )
+    new_doc = _make_visible_document(
+        db_session, delivery, issuer="DGUV", number="Vorschrift 1", edition="2020",
+        work_id=work.id, designation="DGUV Vorschrift 1:2020",
+    )
+    notice_doc = _make_visible_document(
+        db_session, delivery, issuer="DGUV", number="Bekanntmachung", edition="2021",
+        work_id=work.id, designation="Bekanntmachung 2021",
+    )
+    edge_repo = PostgresEdgeRepository(db_session)
+    # old_doc has BOTH an incoming REPLACES edge and an incoming
+    # WITHDRAWN_BY edge -- /validity checks replaced_by before withdrawn_by,
+    # so status_for() must match that order and report "replaced".
+    edge_repo.create_edge(
+        from_document_id=new_doc.id, to_document_id=old_doc.id, edge_type=EdgeType.REPLACES,
+        jurisdiction=None, layer=Layer.FREE, delivery_id=delivery.id,
+    )
+    edge_repo.create_edge(
+        from_document_id=notice_doc.id, to_document_id=old_doc.id,
+        edge_type=EdgeType.WITHDRAWN_BY, jurisdiction=None, layer=Layer.FREE,
+        delivery_id=delivery.id,
+    )
+
+    structure = edge_repo.get_work_structure_for_jurisdiction(old_doc.id, "DE")
+
+    statuses = {e.document_id: e.status for e in structure.editions}
+    assert statuses[old_doc.id] == "replaced"

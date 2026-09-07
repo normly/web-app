@@ -1113,7 +1113,7 @@ class PostgresEdgeRepository:
                 RightsClassificationORM.may_process.is_(True),
                 RightsClassificationORM.revoked_at.is_(None),
             )
-            .order_by(DocumentORM.id)
+            .order_by(DocumentORM.edition, DocumentORM.id)
         ).scalars())
         document_ids = [d.id for d in work_documents]
 
@@ -1126,10 +1126,11 @@ class PostgresEdgeRepository:
         # One-time, bounded traversal over THIS Work's own documents/edges
         # only -- not a pattern for wider application code (ADR-006 keeps
         # graph queries shallow); bounded by the Work grouping itself.
-        # layer == FREE matches the same filter list_free_layer_incoming_
-        # edges_for_jurisdiction already applies to these same edge types
-        # for GET .../validity -- pre-existing behavior, kept consistent
-        # here rather than resolved differently for a new endpoint.
+        # layer == FREE plus the jurisdiction OR-clause matches the same
+        # filters list_free_layer_incoming_edges_for_jurisdiction already
+        # applies to these same edge types for GET .../validity --
+        # pre-existing behavior, kept consistent here rather than resolved
+        # differently for a new endpoint.
         edges = list(self._session.execute(
             select(EdgeORM)
             .where(
@@ -1138,6 +1139,7 @@ class PostgresEdgeRepository:
                 EdgeORM.to_document_id.in_(document_ids),
                 EdgeORM.revoked_at.is_(None),
                 EdgeORM.layer == Layer.FREE,
+                sa.or_(EdgeORM.jurisdiction.is_(None), EdgeORM.jurisdiction == jurisdiction),
             )
         ).scalars())
 
@@ -1160,15 +1162,22 @@ class PostgresEdgeRepository:
 
         edition_root = find(document_id)
         edition_ids = {d.id for d in work_documents if find(d.id) == edition_root}
+        # `document_id`'s only Work sibling(s) came in via ADOPTED_FROM, with
+        # no REPLACES/WITHDRAWN_BY edge to form an edition chain -- same
+        # rationale as the whole-Work case above, applied at the partition
+        # level: no other member to form a chain with, so `editions` is
+        # empty rather than a single-entry list containing just itself.
+        if len(edition_ids) <= 1:
+            edition_ids = set()
 
         replaced_ids = {e.to_document_id for e in edges if e.edge_type == EdgeType.REPLACES}
         withdrawn_ids = {e.to_document_id for e in edges if e.edge_type == EdgeType.WITHDRAWN_BY}
 
         def status_for(doc_id: uuid.UUID) -> str:
-            if doc_id in withdrawn_ids:
-                return "withdrawn"
             if doc_id in replaced_ids:
                 return "replaced"
+            if doc_id in withdrawn_ids:
+                return "withdrawn"
             return "valid"
 
         designations_by_document = dict(self._session.execute(
