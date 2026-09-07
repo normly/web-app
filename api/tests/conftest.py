@@ -80,7 +80,7 @@ def db_session(migrated_engine):
 
 
 @pytest.fixture()
-def client(db_url, monkeypatch, db_session, fake_embedding_model):
+def client(db_url, monkeypatch, db_session):
     """
     A TestClient whose requests are served from this test's own db_session
     connection (via a dependency override), so data set up through db_session
@@ -100,25 +100,28 @@ def client(db_url, monkeypatch, db_session, fake_embedding_model):
     limit. Tests that are *about* rate limiting pop this override to exercise
     the real dependency -- see tests/test_rate_limit.py.
 
-    get_embedding_model is overridden to the fake_embedding_model fixture by
-    default, for the same reason: the real EmbeddingModel is a real,
-    multi-hundred-MB model, and the app's own lifespan still loads it once at
-    startup (see main.py) regardless of this override -- without this,
-    nothing about request handling would be slow, but tests that want to
-    exercise the real model still can by popping this override. Using the
-    fixture instance (not a fresh _FakeEmbeddingModel()) means a test that
-    calls fake_embedding_model.embed_query(...) directly gets the exact same
-    vector the running app will compute for the same text.
+    EmbeddingModel is monkeypatched to _FakeEmbeddingModel *before* create_app()
+    runs, for the same reason as the two overrides above, but a dependency
+    override cannot do the job here: the real EmbeddingModel is constructed
+    once, eagerly, inside lifespan() (app.state.embedding_model =
+    EmbeddingModel(), see main.py) -- by the time a Depends()-based override
+    would run, the real, multi-hundred-MB model has already been loaded, so
+    overriding get_embedding_model can only ever hide that cost from request
+    handlers, not avoid paying it. Patching the class main.py looks up at
+    call time makes lifespan() itself construct a _FakeEmbeddingModel, so the
+    expensive load never happens. Tests that want to exercise the real model
+    still can, by undoing this patch (e.g. monkeypatch.undo() or a local
+    monkeypatch.setattr back to the real class) before calling client.
     """
     monkeypatch.setenv("NORMLY_DATABASE_URL", db_url)
-    from normly_api.dependencies import get_embedding_model, get_session
+    monkeypatch.setattr("normly_api.main.EmbeddingModel", _FakeEmbeddingModel)
+    from normly_api.dependencies import get_session
     from normly_api.main import create_app
     from normly_api.rate_limit import enforce_rate_limit
 
     app = create_app()
     app.dependency_overrides[get_session] = lambda: db_session
     app.dependency_overrides[enforce_rate_limit] = lambda: None
-    app.dependency_overrides[get_embedding_model] = lambda: fake_embedding_model
 
     with TestClient(app) as test_client:
         yield test_client
