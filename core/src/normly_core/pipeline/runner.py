@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from normly_core.graph.domain import Delivery
 from normly_core.graph.postgres.repositories import (
     PostgresDeliveryRepository,
+    PostgresDocumentEmbeddingRepository,
     PostgresDocumentRepository,
     PostgresEdgeRepository,
     PostgresEmbeddingRepository,
@@ -19,7 +20,7 @@ from normly_core.graph.postgres.repositories import (
     PostgresRightsRepository,
     PostgresSegmentRepository,
 )
-from normly_core.pipeline import identity, references, work_assignment
+from normly_core.pipeline import document_embedding, identity, references, work_assignment
 from normly_core.pipeline.domain import RawRecord, SourceAdapter
 from normly_core.pipeline.embeddings import MODEL_NAME, EmbeddingModel
 
@@ -50,6 +51,7 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
     edge_repo = PostgresEdgeRepository(session)
     segment_repo = PostgresSegmentRepository(session)
     embedding_repo = PostgresEmbeddingRepository(session)
+    document_embedding_repo = PostgresDocumentEmbeddingRepository(session)
     identity_repo = PostgresIdentityResolutionRepository(session)
     embedding_model: EmbeddingModel | None = None
 
@@ -143,6 +145,19 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
                 language=language,
                 title=record.raw_title,
                 delivery_id=delivery.id,
+            )
+
+        embedding_text = document_embedding.build_document_embedding_text(
+            document_repo.list_designations(document.id), document_repo.list_titles(document.id)
+        )
+        if embedding_text is not None:
+            if embedding_model is None:
+                embedding_model = EmbeddingModel()
+            document_embedding_repo.upsert_document_embedding(
+                document_id=document.id,
+                delivery_id=delivery.id,
+                model_name=MODEL_NAME,
+                vector=embedding_model.embed(embedding_text),
             )
 
         rights_repo.classify(

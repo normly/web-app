@@ -463,18 +463,26 @@ class PostgresDocumentRepository:
         return _title_to_domain(orm)
 
     def list_designations(self, document_id: uuid.UUID) -> list[DocumentDesignation]:
+        # Ordered by the ingestion time of the delivery each row came from,
+        # not by id: id is a random uuid4, so sorting on it is not sorting on
+        # anything -- callers (e.g. "the primary designation" tie-breaking, or
+        # document_embedding.build_document_embedding_text's "first title")
+        # need a stable, meaningful order, and ingested_at is the one
+        # deterministic signal every row carries via its delivery.
         rows = self._session.execute(
             select(DocumentDesignationORM)
+            .join(DeliveryORM, DeliveryORM.id == DocumentDesignationORM.delivery_id)
             .where(DocumentDesignationORM.document_id == document_id)
-            .order_by(DocumentDesignationORM.id)
+            .order_by(DeliveryORM.ingested_at, DocumentDesignationORM.id)
         ).scalars()
         return [_designation_to_domain(row) for row in rows]
 
     def list_titles(self, document_id: uuid.UUID) -> list[DocumentTitle]:
         rows = self._session.execute(
             select(DocumentTitleORM)
+            .join(DeliveryORM, DeliveryORM.id == DocumentTitleORM.delivery_id)
             .where(DocumentTitleORM.document_id == document_id)
-            .order_by(DocumentTitleORM.id)
+            .order_by(DeliveryORM.ingested_at, DocumentTitleORM.id)
         ).scalars()
         return [_title_to_domain(row) for row in rows]
 
