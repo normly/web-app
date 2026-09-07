@@ -489,6 +489,46 @@ class EmbeddingRepository(Protocol):
         ...
 
 
+@dataclass(frozen=True)
+class DocumentEmbedding:
+    id: uuid.UUID
+    document_id: uuid.UUID
+    model_name: str
+    vector: list[float]
+    delivery_id: uuid.UUID
+    created_at: datetime
+
+
+class DocumentEmbeddingRepository(Protocol):
+    """
+    The write surface for per-Document search embeddings.
+
+    Unlike `EmbeddingRepository.add_embedding` (segment-scoped, create-if-
+    absent -- segment text never changes, so no update is ever needed),
+    `upsert_document_embedding` always (re)writes the vector: a Document's
+    primary designation/title can change across re-ingestion, so the
+    embedding must track it rather than freeze on the first value ever seen.
+    """
+
+    def upsert_document_embedding(
+        self,
+        *,
+        document_id: uuid.UUID,
+        delivery_id: uuid.UUID,
+        model_name: str,
+        vector: list[float],
+    ) -> DocumentEmbedding: ...
+
+    def list_documents_without_embedding(self, model_name: str) -> list[Document]:
+        """
+        Every Document with no DocumentEmbedding row for `model_name` yet.
+        Pipeline/administrative method (used by the `backfill-document-
+        embeddings` CLI command) -- nothing here is served to a public
+        caller, it only decides what the backfill still has to do.
+        """
+        ...
+
+
 class WorkStatus(str, Enum):
     ACTIVE = "active"
     MERGED = "merged"

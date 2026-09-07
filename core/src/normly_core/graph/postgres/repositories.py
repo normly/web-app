@@ -25,6 +25,7 @@ from normly_core.graph.domain import (
     Delivery,
     Document,
     DocumentDesignation,
+    DocumentEmbedding,
     DocumentTitle,
     Edge,
     EdgeType,
@@ -56,6 +57,7 @@ from normly_core.graph.postgres.orm import (
     DeliveryORM,
     DocumentORM,
     DocumentDesignationORM,
+    DocumentEmbeddingORM,
     DocumentTitleORM,
     EdgeORM,
     EmbeddingORM,
@@ -270,6 +272,11 @@ class PostgresDeliveryRepository:
         )
         self._session.execute(
             sa.delete(EmbeddingORM).where(EmbeddingORM.delivery_id == delivery_id)
+        )
+        self._session.execute(
+            sa.delete(DocumentEmbeddingORM).where(
+                DocumentEmbeddingORM.delivery_id == delivery_id
+            )
         )
         self._session.execute(
             sa.update(IdentityResolutionCaseORM)
@@ -1128,6 +1135,58 @@ class PostgresEmbeddingRepository:
             )
         ).scalar_one_or_none()
         return _embedding_to_domain(orm) if orm else None
+
+
+def _document_embedding_to_domain(orm: DocumentEmbeddingORM) -> DocumentEmbedding:
+    return DocumentEmbedding(
+        id=orm.id,
+        document_id=orm.document_id,
+        model_name=orm.model_name,
+        vector=list(orm.vector),
+        delivery_id=orm.delivery_id,
+        created_at=orm.created_at,
+    )
+
+
+class PostgresDocumentEmbeddingRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def upsert_document_embedding(
+        self, *, document_id: uuid.UUID, delivery_id: uuid.UUID, model_name: str,
+        vector: list[float],
+    ) -> DocumentEmbedding:
+        _require_active_delivery(self._session, delivery_id)
+        stmt = (
+            pg_insert(DocumentEmbeddingORM)
+            .values(
+                id=uuid.uuid4(), document_id=document_id, delivery_id=delivery_id,
+                model_name=model_name, vector=vector,
+            )
+            .on_conflict_do_update(
+                index_elements=[DocumentEmbeddingORM.document_id, DocumentEmbeddingORM.model_name],
+                set_={"vector": vector, "delivery_id": delivery_id},
+            )
+            .returning(DocumentEmbeddingORM)
+        )
+        orm = self._session.execute(stmt).scalar_one()
+        self._session.flush()
+        return _document_embedding_to_domain(orm)
+
+    def list_documents_without_embedding(self, model_name: str) -> list[Document]:
+        rows = self._session.execute(
+            select(DocumentORM)
+            .where(
+                ~sa.exists(
+                    select(DocumentEmbeddingORM.id).where(
+                        DocumentEmbeddingORM.document_id == DocumentORM.id,
+                        DocumentEmbeddingORM.model_name == model_name,
+                    )
+                )
+            )
+            .order_by(DocumentORM.id)
+        ).scalars()
+        return [_document_to_domain(row) for row in rows]
 
 
 def _identity_case_to_domain(orm: IdentityResolutionCaseORM) -> IdentityResolutionCase:
