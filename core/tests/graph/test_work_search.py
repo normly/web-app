@@ -165,3 +165,65 @@ def test_a_document_not_classified_for_the_jurisdiction_is_excluded(db_session):
 
     assert total == 0
     assert hits == []
+
+
+def test_tier1_is_not_truncated_by_the_semantic_candidate_pool(db_session):
+    # Regression test: Tier 1 must not share _SEMANTIC_CANDIDATE_POOL (200)
+    # with Tier 2's ANN cap -- otherwise `total` undercounts and offsets past
+    # 200 silently return nothing, even though 201 documents genuinely match.
+    delivery = _make_delivery(db_session, "sha256:work-search-tier1-not-capped")
+    match_count = 201
+    for n in range(match_count):
+        _make_visible_document(
+            db_session, delivery, issuer="DGUV", designation=f"DGUV Vorschrift {n}",
+        )
+    doc_repo = PostgresDocumentRepository(db_session)
+
+    hits, total = doc_repo.search_works_for_jurisdiction(
+        "DE", q="Vorschrift", limit=10, offset=match_count - 1,
+    )
+
+    assert total == match_count
+    assert len(hits) == 1
+
+
+def test_semantic_tier_respects_the_issuer_filter(db_session):
+    delivery = _make_delivery(db_session, "sha256:work-search-tier2-issuer")
+    din_document = _make_visible_document(db_session, delivery, issuer="DIN", designation="DIN 4102")
+    dguv_document = _make_visible_document(
+        db_session, delivery, issuer="DGUV", designation="DGUV Vorschrift 38",
+    )
+    PostgresDocumentEmbeddingRepository(db_session).upsert_document_embedding(
+        document_id=din_document.id, delivery_id=delivery.id, model_name="test-model",
+        vector=[1.0] + [0.0] * 1023,
+    )
+    PostgresDocumentEmbeddingRepository(db_session).upsert_document_embedding(
+        document_id=dguv_document.id, delivery_id=delivery.id, model_name="test-model",
+        vector=[1.0] + [0.0] * 1023,
+    )
+    doc_repo = PostgresDocumentRepository(db_session)
+
+    hits, total = doc_repo.search_works_for_jurisdiction(
+        "DE", issuer="DIN", query_vector=[1.0] + [0.0] * 1023, embedding_model_name="test-model",
+    )
+
+    assert total == 1
+    assert hits[0].best_match.id == din_document.id
+
+
+def test_other_editions_count_excludes_a_sibling_classified_for_a_different_jurisdiction(db_session):
+    delivery = _make_delivery(db_session, "sha256:work-search-edition-count-gate")
+    work = PostgresWorkRepository(db_session).create_work(created_via=WorkCreatedVia.AUTO_MATCHED)
+    _make_visible_document(
+        db_session, delivery, issuer="DIN", designation="EN ISO 9001:2018", work_id=work.id,
+    )
+    _make_visible_document(
+        db_session, delivery, issuer="BS", designation="EN ISO 9001:2018 UK", work_id=work.id,
+        jurisdiction="FR",
+    )
+    doc_repo = PostgresDocumentRepository(db_session)
+
+    hits, total = doc_repo.search_works_for_jurisdiction("DE", q="ISO 9001")
+
+    assert total == 1
+    assert hits[0].other_editions_count == 0

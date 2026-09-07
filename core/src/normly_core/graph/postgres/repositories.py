@@ -77,6 +77,14 @@ from normly_core.graph.postgres.orm import (
 # the expensive ANN query rather than the number of Works actually returned.
 _SEMANTIC_CANDIDATE_POOL = 200
 
+# Effectively-unbounded cap on Tier 1's (exact-match) candidate set within
+# search_works_for_jurisdiction -- a correctness cap, not a page size. Unlike
+# _SEMANTIC_CANDIDATE_POOL, which genuinely bounds an expensive ANN search,
+# this exists only so the query has *some* limit; at this system's realistic
+# scale no single exact-match search ever comes close to matching 10,000
+# documents, so nothing is actually truncated here.
+_TIER1_CANDIDATE_POOL = 10_000
+
 
 def _escape_like(term: str) -> str:
     """
@@ -616,13 +624,13 @@ class PostgresDocumentRepository:
         limit: int = 20, offset: int = 0,
     ) -> tuple[list[WorkSearchHit], int]:
         tier1_documents, _ = self.search_documents_for_jurisdiction(
-            jurisdiction, q=q, issuer=issuer, limit=_SEMANTIC_CANDIDATE_POOL, offset=0,
+            jurisdiction, q=q, issuer=issuer, limit=_TIER1_CANDIDATE_POOL, offset=0,
         )
         ordered_documents = list(tier1_documents)
         seen_document_ids = {document.id for document in ordered_documents}
 
         if query_vector is not None and embedding_model_name is not None:
-            rows = self._session.execute(
+            tier2_query = (
                 select(DocumentORM)
                 .join(
                     RightsClassificationORM,
@@ -638,8 +646,25 @@ class PostgresDocumentRepository:
                     RightsClassificationORM.revoked_at.is_(None),
                     DocumentEmbeddingORM.model_name == embedding_model_name,
                 )
-                .order_by(DocumentEmbeddingORM.vector.cosine_distance(query_vector))
-                .limit(_SEMANTIC_CANDIDATE_POOL)
+            )
+            if issuer is not None:
+                # Mirrors search_documents_for_jurisdiction's own issuer
+                # handling. Unlike that method, no distinct() is needed here:
+                # a document with several designations from the same issuer
+                # can produce duplicate rows from this join, but the
+                # "if row.id in seen_document_ids" check below already
+                # collapses those back to a single entry -- and unlike Tier
+                # 1's plain equality ORDER BY DocumentORM.id, this query
+                # orders by a cosine-distance expression that isn't in the
+                # select list, which Postgres's SELECT DISTINCT disallows.
+                tier2_query = tier2_query.join(
+                    DocumentDesignationORM,
+                    DocumentDesignationORM.document_id == DocumentORM.id,
+                ).where(DocumentDesignationORM.issuer == issuer)
+            rows = self._session.execute(
+                tier2_query.order_by(
+                    DocumentEmbeddingORM.vector.cosine_distance(query_vector)
+                ).limit(_SEMANTIC_CANDIDATE_POOL)
             ).scalars()
             for row in rows:
                 if row.id in seen_document_ids:
@@ -663,7 +688,16 @@ class PostgresDocumentRepository:
         edition_counts = dict(
             self._session.execute(
                 select(DocumentORM.work_id, sa.func.count())
-                .where(DocumentORM.work_id.in_([document.work_id for document in page]))
+                .join(
+                    RightsClassificationORM,
+                    RightsClassificationORM.document_id == DocumentORM.id,
+                )
+                .where(
+                    DocumentORM.work_id.in_([document.work_id for document in page]),
+                    RightsClassificationORM.jurisdiction == jurisdiction,
+                    RightsClassificationORM.may_process.is_(True),
+                    RightsClassificationORM.revoked_at.is_(None),
+                )
                 .group_by(DocumentORM.work_id)
             ).all()
         )
