@@ -21,6 +21,7 @@ from normly_core.graph.domain import (
     ChatMessageCitation,
     ChatMessageRole,
     ChatSession,
+    ContradictoryWorkMergeError,
     Delivery,
     Document,
     DocumentDesignation,
@@ -31,6 +32,7 @@ from normly_core.graph.domain import (
     EmailAlreadyRegisteredError,
     GoogleIdentityAlreadyLinkedError,
     IdentityResolutionCase,
+    IdentityResolutionCaseType,
     IdentityResolutionStatus,
     LegalBasisCategory,
     Layer,
@@ -1132,11 +1134,14 @@ def _identity_case_to_domain(orm: IdentityResolutionCaseORM) -> IdentityResoluti
     return IdentityResolutionCase(
         id=orm.id,
         delivery_id=orm.delivery_id,
+        case_type=orm.case_type,
         raw_designation=orm.raw_designation,
         raw_issuer=orm.raw_issuer,
         reason=orm.reason,
         status=orm.status,
         resolved_document_id=orm.resolved_document_id,
+        source_work_id=orm.source_work_id,
+        target_work_id=orm.target_work_id,
         resolved_at=orm.resolved_at,
         resolved_by=orm.resolved_by,
         created_at=orm.created_at,
@@ -1168,6 +1173,26 @@ class PostgresIdentityResolutionRepository:
         self._session.flush()
         return _identity_case_to_domain(orm)
 
+    def enqueue_work_merge_case(
+        self, *, delivery_id: uuid.UUID, source_work_id: uuid.UUID,
+        target_work_id: uuid.UUID, reason: str,
+    ) -> IdentityResolutionCase:
+        _require_active_delivery(self._session, delivery_id)
+        orm = IdentityResolutionCaseORM(
+            id=uuid.uuid4(),
+            delivery_id=delivery_id,
+            case_type=IdentityResolutionCaseType.WORK_MERGE,
+            raw_designation=None,
+            raw_issuer=None,
+            reason=reason,
+            status=IdentityResolutionStatus.PENDING,
+            source_work_id=source_work_id,
+            target_work_id=target_work_id,
+        )
+        self._session.add(orm)
+        self._session.flush()
+        return _identity_case_to_domain(orm)
+
     def list_pending_cases(self) -> list[IdentityResolutionCase]:
         rows = self._session.execute(
             select(IdentityResolutionCaseORM)
@@ -1182,6 +1207,29 @@ class PostgresIdentityResolutionRepository:
         orm = self._session.get(IdentityResolutionCaseORM, case_id)
         orm.status = IdentityResolutionStatus.RESOLVED
         orm.resolved_document_id = resolved_document_id
+        orm.resolved_by = resolved_by
+        orm.resolved_at = datetime.now(orm.created_at.tzinfo)
+        self._session.flush()
+        return _identity_case_to_domain(orm)
+
+    def resolve_work_merge_case(
+        self, case_id: uuid.UUID, *, resolved_by: str
+    ) -> IdentityResolutionCase:
+        orm = self._session.get(IdentityResolutionCaseORM, case_id)
+        source_work = self._session.get(WorkORM, orm.source_work_id)
+        target_work = self._session.get(WorkORM, orm.target_work_id)
+        if orm.source_work_id == orm.target_work_id or target_work.status != WorkStatus.ACTIVE:
+            raise ContradictoryWorkMergeError(orm.source_work_id, orm.target_work_id)
+
+        self._session.execute(
+            sa.update(DocumentORM)
+            .where(DocumentORM.work_id == orm.source_work_id)
+            .values(work_id=orm.target_work_id)
+        )
+        source_work.status = WorkStatus.MERGED
+        source_work.merged_into_work_id = orm.target_work_id
+
+        orm.status = IdentityResolutionStatus.RESOLVED
         orm.resolved_by = resolved_by
         orm.resolved_at = datetime.now(orm.created_at.tzinfo)
         self._session.flush()

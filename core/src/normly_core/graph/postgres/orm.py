@@ -15,6 +15,7 @@ from normly_core.graph.domain import (
     ChatAnswerType,
     ChatMessageRole,
     EdgeType,
+    IdentityResolutionCaseType,
     IdentityResolutionStatus,
     LegalBasisCategory,
     Layer,
@@ -344,7 +345,17 @@ class IdentityResolutionCaseORM(Base):
     delivery_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), sa.ForeignKey("delivery.id"), nullable=False
     )
-    raw_designation: Mapped[str]
+    case_type: Mapped[IdentityResolutionCaseType] = mapped_column(
+        sa.Enum(
+            IdentityResolutionCaseType,
+            name="identity_resolution_case_type",
+            native_enum=False,
+            values_callable=_enum_values,
+            create_constraint=True,
+        ),
+        default=IdentityResolutionCaseType.NEW_DOCUMENT,
+    )
+    raw_designation: Mapped[str | None]
     raw_issuer: Mapped[str | None]
     reason: Mapped[str]
     status: Mapped[IdentityResolutionStatus] = mapped_column(
@@ -359,6 +370,12 @@ class IdentityResolutionCaseORM(Base):
     )
     resolved_document_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), sa.ForeignKey("document.id")
+    )
+    source_work_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("work.id")
+    )
+    target_work_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("work.id")
     )
     resolved_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     resolved_by: Mapped[str | None]

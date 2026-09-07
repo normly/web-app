@@ -536,15 +536,23 @@ class IdentityResolutionStatus(str, Enum):
     REJECTED = "rejected"
 
 
+class IdentityResolutionCaseType(str, Enum):
+    NEW_DOCUMENT = "new_document"
+    WORK_MERGE = "work_merge"
+
+
 @dataclass(frozen=True)
 class IdentityResolutionCase:
     id: uuid.UUID
     delivery_id: uuid.UUID
-    raw_designation: str
+    case_type: IdentityResolutionCaseType
+    raw_designation: str | None
     raw_issuer: str | None
     reason: str
     status: IdentityResolutionStatus
     resolved_document_id: uuid.UUID | None
+    source_work_id: uuid.UUID | None
+    target_work_id: uuid.UUID | None
     resolved_at: datetime | None
     resolved_by: str | None
     created_at: datetime
@@ -560,11 +568,32 @@ class IdentityResolutionRepository(Protocol):
         reason: str,
     ) -> IdentityResolutionCase: ...
 
+    def enqueue_work_merge_case(
+        self,
+        *,
+        delivery_id: uuid.UUID,
+        source_work_id: uuid.UUID,
+        target_work_id: uuid.UUID,
+        reason: str,
+    ) -> IdentityResolutionCase: ...
+
     def list_pending_cases(self) -> list[IdentityResolutionCase]: ...
 
     def resolve_case(
         self, case_id: uuid.UUID, *, resolved_document_id: uuid.UUID, resolved_by: str
     ) -> IdentityResolutionCase: ...
+
+    def resolve_work_merge_case(
+        self, case_id: uuid.UUID, *, resolved_by: str
+    ) -> IdentityResolutionCase:
+        """
+        Reassign every Document.work_id from the case's source_work_id to its
+        target_work_id, mark the source Work MERGED, and mark the case
+        RESOLVED. Raises ContradictoryWorkMergeError -- writing nothing -- if
+        source_work_id == target_work_id or the target Work is not ACTIVE
+        (already merged elsewhere).
+        """
+        ...
 
     def reject_case(
         self, case_id: uuid.UUID, *, resolved_by: str
