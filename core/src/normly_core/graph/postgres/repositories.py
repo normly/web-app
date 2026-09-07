@@ -77,12 +77,15 @@ from normly_core.graph.postgres.orm import (
 # the expensive ANN query rather than the number of Works actually returned.
 _SEMANTIC_CANDIDATE_POOL = 200
 
-# Effectively-unbounded cap on Tier 1's (exact-match) candidate set within
-# search_works_for_jurisdiction -- a correctness cap, not a page size. Unlike
-# _SEMANTIC_CANDIDATE_POOL, which genuinely bounds an expensive ANN search,
-# this exists only so the query has *some* limit; at this system's realistic
-# scale no single exact-match search ever comes close to matching 10,000
-# documents, so nothing is actually truncated here.
+# How many Tier 1 (exact-match) candidates search_works_for_jurisdiction pulls
+# before Work-deduplication -- large enough that no realistic TEXT query (q is
+# not None) is ever actually truncated. This is NOT true for q=None (the
+# "browse everything in the jurisdiction" case, including this endpoint's
+# default): as the corpus grows, that request can genuinely exceed this cap,
+# silently truncating `total` and deep pagination. Known limitation, not fixed
+# here -- a real fix needs a SQL-side GROUP BY work_id rather than Python-side
+# grouping over a capped candidate list. Revisit once there's a real corpus
+# to size this against.
 _TIER1_CANDIDATE_POOL = 10_000
 
 
@@ -625,6 +628,17 @@ class PostgresDocumentRepository:
     ) -> tuple[list[WorkSearchHit], int]:
         tier1_documents, _ = self.search_documents_for_jurisdiction(
             jurisdiction, q=q, issuer=issuer, limit=_TIER1_CANDIDATE_POOL, offset=0,
+        )
+        # search_documents_for_jurisdiction orders by DocumentORM.id (a random
+        # uuid4) -- fine for that method's own contract, but meaningless as a
+        # tie-break for "which edition of a Work represents it in search
+        # results." Re-sort by created_at (newest first) here, locally, so
+        # Work-deduplication below picks the most recently created document as
+        # best_match, not an arbitrary one. Scoped to this method only --
+        # does not change search_documents_for_jurisdiction itself or any of
+        # its other callers/tests.
+        tier1_documents = sorted(
+            tier1_documents, key=lambda document: document.created_at, reverse=True
         )
         ordered_documents = list(tier1_documents)
         seen_document_ids = {document.id for document in ordered_documents}

@@ -4,7 +4,10 @@
 import uuid
 from datetime import date, datetime, timezone
 
+from sqlalchemy import select
+
 from normly_core.graph.domain import DocumentDesignation, DocumentTitle, LegalBasisCategory
+from normly_core.graph.postgres.orm import DocumentEmbeddingORM
 from normly_core.graph.postgres.repositories import (
     PostgresDeliveryRepository,
     PostgresDocumentEmbeddingRepository,
@@ -113,6 +116,39 @@ def test_backfill_is_idempotent(db_session):
     second_run_created = backfill_document_embeddings(db_session)
 
     assert second_run_created == 0
+
+
+def test_backfill_attributes_lineage_to_the_designations_delivery_not_the_documents_creation_delivery(
+    db_session,
+):
+    # The document is created (empty, no designation) by one delivery, and
+    # only gets its primary designation -- the text actually embedded --
+    # from a second, later, different delivery. Per "Abstammung mitführen"
+    # the embedding's delivery_id must point at the delivery that produced
+    # the content it derives from (the designation), not the one that
+    # happened to first create the Document row.
+    creation_delivery = _make_delivery_for_backfill(db_session, "sha256:backfill-lineage-creation")
+    designation_delivery = _make_delivery_for_backfill(
+        db_session, "sha256:backfill-lineage-designation"
+    )
+    doc_repo = PostgresDocumentRepository(db_session)
+    document = doc_repo.create_document(
+        origin_issuer="CEN", origin_number="EN ISO 50001", edition="2018", part=None,
+        delivery_id=creation_delivery.id,
+    )
+    doc_repo.add_designation(
+        document_id=document.id, issuer="CEN", designation="EN ISO 50001:2018", language="de",
+        edition=None, is_primary=True, delivery_id=designation_delivery.id,
+    )
+
+    created = backfill_document_embeddings(db_session)
+
+    assert created == 1
+    embedding = db_session.execute(
+        select(DocumentEmbeddingORM).where(DocumentEmbeddingORM.document_id == document.id)
+    ).scalar_one()
+    assert embedding.delivery_id == designation_delivery.id
+    assert embedding.delivery_id != creation_delivery.id
 
 
 def test_backfill_skips_a_document_with_no_primary_designation(db_session):

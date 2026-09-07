@@ -3,7 +3,10 @@
 
 from datetime import date, datetime, timezone
 
+import sqlalchemy as sa
+
 from normly_core.graph.domain import LegalBasisCategory, WorkCreatedVia
+from normly_core.graph.postgres.orm import DocumentORM
 from normly_core.graph.postgres.repositories import (
     PostgresDeliveryRepository,
     PostgresDocumentEmbeddingRepository,
@@ -209,6 +212,38 @@ def test_semantic_tier_respects_the_issuer_filter(db_session):
 
     assert total == 1
     assert hits[0].best_match.id == din_document.id
+
+
+def test_best_match_is_the_most_recently_created_document_in_a_work(db_session):
+    delivery = _make_delivery(db_session, "sha256:work-search-best-match-recency")
+    work = PostgresWorkRepository(db_session).create_work(created_via=WorkCreatedVia.AUTO_MATCHED)
+    older_document = _make_visible_document(
+        db_session, delivery, issuer="DIN", designation="EN ISO 9001:2008", work_id=work.id,
+    )
+    newer_document = _make_visible_document(
+        db_session, delivery, issuer="DIN", designation="EN ISO 9001:2018", work_id=work.id,
+    )
+    # DocumentORM.created_at is server_default=sa.func.now(), and Postgres's
+    # now() is transaction-scoped -- it returns the SAME value for every
+    # statement inside one transaction. db_session (see conftest.py) runs
+    # this whole test in a single outer transaction, so two back-to-back
+    # create_document() calls (with or without a time.sleep() between them)
+    # get an identical created_at here; sleeping would not help. Force one
+    # document explicitly older via a direct UPDATE instead, so the ordering
+    # under test is real rather than relying on timing Postgres won't honour.
+    db_session.execute(
+        sa.update(DocumentORM)
+        .where(DocumentORM.id == older_document.id)
+        .values(created_at=datetime(2020, 1, 1, tzinfo=timezone.utc))
+    )
+    db_session.flush()
+    doc_repo = PostgresDocumentRepository(db_session)
+
+    hits, total = doc_repo.search_works_for_jurisdiction("DE", q="ISO 9001")
+
+    assert total == 1
+    assert hits[0].work_id == work.id
+    assert hits[0].best_match.id == newer_document.id
 
 
 def test_other_editions_count_excludes_a_sibling_classified_for_a_different_jurisdiction(db_session):

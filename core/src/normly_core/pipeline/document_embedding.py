@@ -48,17 +48,29 @@ def backfill_document_embeddings(session: Session) -> int:
     created = 0
 
     for document in embedding_repo.list_documents_without_embedding(MODEL_NAME):
-        text = build_document_embedding_text(
-            document_repo.list_designations(document.id), document_repo.list_titles(document.id)
-        )
+        designations = document_repo.list_designations(document.id)
+        titles = document_repo.list_titles(document.id)
+        text = build_document_embedding_text(designations, titles)
         if text is None:
             continue
+
+        # build_document_embedding_text only returns non-None when a primary
+        # designation exists in `designations`, so this is guaranteed to find
+        # one. Its delivery_id -- not document.created_via_delivery_id -- is
+        # the delivery that actually produced the text just embedded: a
+        # document can be created empty by one delivery and get its first
+        # designation from a later, different delivery, and lineage must
+        # point at the latter. This also can't reference a withdrawn
+        # delivery: revoke_delivery's cascade deletes DocumentDesignationORM
+        # rows for its own delivery_id, so a designation only shows up here
+        # while its delivery is still active.
+        primary_designation = next(d for d in designations if d.is_primary)
 
         if embedding_model is None:
             embedding_model = EmbeddingModel()
         embedding_repo.upsert_document_embedding(
             document_id=document.id,
-            delivery_id=document.created_via_delivery_id,
+            delivery_id=primary_designation.delivery_id,
             model_name=MODEL_NAME,
             vector=embedding_model.embed(text),
         )
