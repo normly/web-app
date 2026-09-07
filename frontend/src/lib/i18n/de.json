@@ -80,7 +80,8 @@
     "previousPage": "Zurück",
     "nextPage": "Weiter",
     "rateLimited": "Zu viele Anfragen. Bitte melde dich an oder versuche es später erneut.",
-    "notFound": "Regelwerk nicht gefunden."
+    "notFound": "Regelwerk nicht gefunden.",
+    "otherEditions": "weitere Ausgabe(n)"
   },
   "edgeType": {
     "references": "Verweist auf",

@@ -12,15 +12,26 @@ import { Pagination } from "@/components/ui/pagination";
 import { useTranslation } from "@/lib/i18n/provider";
 import { useJurisdiction } from "@/lib/jurisdiction/provider";
 
+interface DesignationSummary {
+  designation: string;
+  is_primary: boolean;
+}
+
 interface DocumentSummary {
   id: string;
   origin_issuer: string;
   origin_number: string;
-  designations: { designation: string; is_primary: boolean }[];
+  designations: DesignationSummary[];
+}
+
+interface WorkSearchResult {
+  work_id: string;
+  best_match: DocumentSummary;
+  other_editions_count: number;
 }
 
 interface SearchResponse {
-  results: DocumentSummary[];
+  results: WorkSearchResult[];
   total: number;
 }
 
@@ -88,14 +99,19 @@ export function SearchPageContent() {
       {response !== null && response.results.length > 0 && (
         <>
           <ul className="flex flex-col gap-2">
-            {response.results.map((document) => {
+            {response.results.map(({ work_id, best_match, other_editions_count }) => {
               const primary =
-                document.designations.find((d) => d.is_primary) ?? document.designations[0];
+                best_match.designations.find((d) => d.is_primary) ?? best_match.designations[0];
               return (
-                <li key={document.id}>
-                  <Link href={`/documents/${document.id}`} className="underline">
-                    {primary?.designation ?? `${document.origin_issuer} ${document.origin_number}`}
+                <li key={work_id} className="flex items-center gap-2">
+                  <Link href={`/documents/${best_match.id}`} className="underline">
+                    {primary?.designation ?? `${best_match.origin_issuer} ${best_match.origin_number}`}
                   </Link>
+                  {other_editions_count > 0 && (
+                    <span className="text-sm text-muted-foreground">
+                      +{other_editions_count} {t("search.otherEditions")}
+                    </span>
+                  )}
                 </li>
               );
             })}

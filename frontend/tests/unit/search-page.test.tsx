@@ -31,9 +31,13 @@ describe("SearchPageContent", () => {
         JSON.stringify({
           results: [
             {
-              id: "11111111-1111-1111-1111-111111111111",
-              origin_issuer: "DGUV", origin_number: "Vorschrift 1",
-              designations: [{ designation: "DGUV Vorschrift 1", is_primary: true }],
+              work_id: "22222222-2222-2222-2222-222222222222",
+              best_match: {
+                id: "11111111-1111-1111-1111-111111111111",
+                origin_issuer: "DGUV", origin_number: "Vorschrift 1",
+                designations: [{ designation: "DGUV Vorschrift 1", is_primary: true }],
+              },
+              other_editions_count: 0,
             },
           ],
           total: 1,
@@ -53,6 +57,33 @@ describe("SearchPageContent", () => {
         "href", "/documents/11111111-1111-1111-1111-111111111111",
       ),
     );
+  });
+
+  it("shows an other-editions count when a Work has more than one matching edition", async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          results: [
+            {
+              work_id: "22222222-2222-2222-2222-222222222222",
+              best_match: {
+                id: "11111111-1111-1111-1111-111111111111",
+                origin_issuer: "DIN", origin_number: "EN ISO 9001",
+                designations: [{ designation: "EN ISO 9001:2018", is_primary: true }],
+              },
+              other_editions_count: 2,
+            },
+          ],
+          total: 1,
+        }),
+        { status: 200 },
+      ),
+    );
+
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Suchen" }));
+
+    await waitFor(() => expect(screen.getByText("+2 weitere Ausgabe(n)")).toBeInTheDocument());
   });
 
   it("shows an empty state when there are no results", async () => {
