@@ -128,8 +128,9 @@ describe("DocumentDetailContent", () => {
     expect(screen.getByText("Qualitätsmanagementsysteme")).toBeInTheDocument();
     // "Gültig" legitimately renders twice: the top validity badge and the
     // current edition's entry in the edition-history list share the exact
-    // same status label -- assert presence, not uniqueness.
-    expect(screen.getAllByText("Gültig").length).toBeGreaterThan(0);
+    // same status label -- scope to the top-level badge to keep this
+    // assertion's uniqueness+presence guarantee.
+    expect(within(screen.getByTestId("validity-badge")).getByText("Gültig")).toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByRole("link", { name: "DIN EN ISO 9001" })).toHaveAttribute(
         "href", `/documents/${EDGE_TARGET_ID}`,

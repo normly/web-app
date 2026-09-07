@@ -161,7 +161,10 @@ export function DocumentDetailContent({ documentId }: { documentId: string }) {
       </div>
 
       {validity && (
-        <Badge variant={validity.status === "valid" ? "default" : "outline"}>
+        <Badge
+          variant={validity.status === "valid" ? "default" : "outline"}
+          data-testid="validity-badge"
+        >
           {t(VALIDITY_KEYS[validity.status])}
         </Badge>
       )}
