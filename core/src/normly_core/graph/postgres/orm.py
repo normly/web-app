@@ -113,6 +113,9 @@ class DocumentORM(Base):
     origin_number: Mapped[str]
     edition: Mapped[str]
     part: Mapped[str | None]
+    work_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("work.id"), nullable=False
+    )
     created_via_delivery_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), sa.ForeignKey("delivery.id"), nullable=False
     )

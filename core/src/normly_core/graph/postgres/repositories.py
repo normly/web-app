@@ -291,6 +291,7 @@ def _document_to_domain(orm: DocumentORM) -> Document:
         origin_number=orm.origin_number,
         edition=orm.edition,
         part=orm.part,
+        work_id=orm.work_id,
         created_via_delivery_id=orm.created_via_delivery_id,
         created_at=orm.created_at,
     )
@@ -331,14 +332,21 @@ class PostgresDocumentRepository:
         edition: str,
         part: str | None,
         delivery_id: uuid.UUID,
+        work_id: uuid.UUID | None = None,
     ) -> Document:
         _require_active_delivery(self._session, delivery_id)
+        if work_id is None:
+            work = WorkORM(id=uuid.uuid4(), status=WorkStatus.ACTIVE, created_via=WorkCreatedVia.AUTO_MATCHED)
+            self._session.add(work)
+            self._session.flush()
+            work_id = work.id
         orm = DocumentORM(
             id=uuid.uuid4(),
             origin_issuer=origin_issuer,
             origin_number=origin_number,
             edition=edition,
             part=part,
+            work_id=work_id,
             created_via_delivery_id=delivery_id,
         )
         self._session.add(orm)

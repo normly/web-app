@@ -89,6 +89,7 @@ class Document:
     origin_number: str
     edition: str
     part: str | None
+    work_id: uuid.UUID
     created_via_delivery_id: uuid.UUID
     created_at: datetime
 
@@ -209,7 +210,16 @@ class DocumentRepository(Protocol):
         edition: str,
         part: str | None,
         delivery_id: uuid.UUID,
-    ) -> Document: ...
+        work_id: uuid.UUID | None = None,
+    ) -> Document:
+        """
+        `work_id` is the pipeline's explicit assignment when an ingestion
+        signal (REPLACES/WITHDRAWN_BY/ADOPTED_FROM to a known document)
+        resolved one -- see `normly_core.pipeline.work_assignment`. Omitted,
+        the repository creates a fresh 1:1 Work for this document, which is
+        the correct default whenever nothing links it to an existing one.
+        """
+        ...
 
     def add_designation(
         self,
