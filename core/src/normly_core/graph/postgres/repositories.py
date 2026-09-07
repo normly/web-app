@@ -1229,6 +1229,16 @@ class PostgresIdentityResolutionRepository:
         source_work.status = WorkStatus.MERGED
         source_work.merged_into_work_id = orm.target_work_id
 
+        # Keep every merge chain exactly one hop deep: any other Work that
+        # was already pointing at the source (from an earlier merge into it)
+        # must now point at the new target instead, or get_work()'s
+        # single-hop redirect would land on a Work that is itself retired.
+        self._session.execute(
+            sa.update(WorkORM)
+            .where(WorkORM.merged_into_work_id == orm.source_work_id)
+            .values(merged_into_work_id=orm.target_work_id)
+        )
+
         orm.status = IdentityResolutionStatus.RESOLVED
         orm.resolved_by = resolved_by
         orm.resolved_at = datetime.now(orm.created_at.tzinfo)

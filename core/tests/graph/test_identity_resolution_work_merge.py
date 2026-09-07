@@ -108,3 +108,26 @@ def test_resolve_work_merge_case_rejects_an_already_merged_target(db_session):
 
     with pytest.raises(ContradictoryWorkMergeError):
         repo.resolve_work_merge_case(second_merge.id, resolved_by="J. Weber")
+
+
+def test_a_second_merge_re_points_earlier_merges_to_keep_one_hop(db_session):
+    delivery = _make_delivery(db_session)
+    work_repo = PostgresWorkRepository(db_session)
+    repo = PostgresIdentityResolutionRepository(db_session)
+    a = work_repo.create_work(created_via=WorkCreatedVia.AUTO_MATCHED)
+    b = work_repo.create_work(created_via=WorkCreatedVia.AUTO_MATCHED)
+    c = work_repo.create_work(created_via=WorkCreatedVia.AUTO_MATCHED)
+
+    first_merge = repo.enqueue_work_merge_case(
+        delivery_id=delivery.id, source_work_id=a.id, target_work_id=b.id, reason="merge-a-into-b",
+    )
+    repo.resolve_work_merge_case(first_merge.id, resolved_by="J. Weber")
+
+    second_merge = repo.enqueue_work_merge_case(
+        delivery_id=delivery.id, source_work_id=b.id, target_work_id=c.id, reason="merge-b-into-c",
+    )
+    repo.resolve_work_merge_case(second_merge.id, resolved_by="J. Weber")
+
+    # A originally redirected to B, but B has since been merged into C -- A
+    # must now redirect all the way to C, the live Work, not to the retired B.
+    assert work_repo.get_work(a.id).id == c.id
