@@ -19,6 +19,8 @@ from normly_core.graph.domain import (
     LegalBasisCategory,
     Layer,
     TdmOptOutResult,
+    WorkCreatedVia,
+    WorkStatus,
 )
 
 
@@ -159,6 +161,39 @@ class DocumentTitleORM(Base):
 
     __table_args__ = (
         sa.UniqueConstraint("document_id", "language", "title", name="uq_title_document_language_title"),
+    )
+
+
+class WorkORM(Base):
+    __tablename__ = "work"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    status: Mapped[WorkStatus] = mapped_column(
+        sa.Enum(
+            WorkStatus,
+            name="work_status",
+            native_enum=False,
+            create_constraint=True,
+            values_callable=_enum_values,
+        ),
+        default=WorkStatus.ACTIVE,
+    )
+    merged_into_work_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("work.id")
+    )
+    created_via: Mapped[WorkCreatedVia] = mapped_column(
+        sa.Enum(
+            WorkCreatedVia,
+            name="work_created_via",
+            native_enum=False,
+            create_constraint=True,
+            values_callable=_enum_values,
+        )
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
     )
 
 

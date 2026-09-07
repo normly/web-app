@@ -479,6 +479,47 @@ class EmbeddingRepository(Protocol):
         ...
 
 
+class WorkStatus(str, Enum):
+    ACTIVE = "active"
+    MERGED = "merged"
+
+
+class WorkCreatedVia(str, Enum):
+    AUTO_MATCHED = "auto_matched"
+    MANUAL = "manual"
+
+
+@dataclass(frozen=True)
+class Work:
+    id: uuid.UUID
+    status: WorkStatus
+    merged_into_work_id: uuid.UUID | None
+    created_via: WorkCreatedVia
+    created_at: datetime
+
+
+class WorkRepository(Protocol):
+    def create_work(self, *, created_via: WorkCreatedVia) -> Work: ...
+
+    def get_work(self, work_id: uuid.UUID) -> Work | None:
+        """
+        Look up a Work by id. If it has been merged into another Work
+        (`status == MERGED`), returns the target Work it was merged into
+        instead -- callers never see a retired Work as if it were current.
+        """
+        ...
+
+
+class ContradictoryWorkMergeError(Exception):
+    def __init__(self, source_work_id: uuid.UUID, target_work_id: uuid.UUID):
+        self.source_work_id = source_work_id
+        self.target_work_id = target_work_id
+        super().__init__(
+            f"cannot merge work {source_work_id} into {target_work_id}: "
+            "same work, or target is not active"
+        )
+
+
 class IdentityResolutionStatus(str, Enum):
     PENDING = "pending"
     RESOLVED = "resolved"

@@ -39,6 +39,9 @@ from normly_core.graph.domain import (
     Source,
     TdmOptOutResult,
     WithdrawnDeliveryError,
+    Work,
+    WorkCreatedVia,
+    WorkStatus,
 )
 from normly_core.graph.postgres.orm import (
     AccountGoogleIdentityORM,
@@ -59,6 +62,7 @@ from normly_core.graph.postgres.orm import (
     RightsClassificationORM,
     SegmentORM,
     SourceORM,
+    WorkORM,
 )
 
 
@@ -572,6 +576,36 @@ class PostgresDocumentRepository:
             base.order_by(DocumentORM.id).limit(limit).offset(offset)
         ).scalars()
         return [_document_to_domain(row) for row in rows], total
+
+
+def _work_to_domain(orm: WorkORM) -> Work:
+    return Work(
+        id=orm.id,
+        status=orm.status,
+        merged_into_work_id=orm.merged_into_work_id,
+        created_via=orm.created_via,
+        created_at=orm.created_at,
+    )
+
+
+class PostgresWorkRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def create_work(self, *, created_via: WorkCreatedVia) -> Work:
+        orm = WorkORM(id=uuid.uuid4(), status=WorkStatus.ACTIVE, created_via=created_via)
+        self._session.add(orm)
+        self._session.flush()
+        self._session.refresh(orm)
+        return _work_to_domain(orm)
+
+    def get_work(self, work_id: uuid.UUID) -> Work | None:
+        orm = self._session.get(WorkORM, work_id)
+        if orm is None:
+            return None
+        if orm.status == WorkStatus.MERGED and orm.merged_into_work_id is not None:
+            orm = self._session.get(WorkORM, orm.merged_into_work_id)
+        return _work_to_domain(orm)
 
 
 def _rights_to_domain(orm: RightsClassificationORM) -> RightsClassification:
