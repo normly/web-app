@@ -336,6 +336,31 @@ class EmbeddingORM(Base):
     )
 
 
+class DocumentEmbeddingORM(Base):
+    __tablename__ = "document_embedding"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("document.id", ondelete="CASCADE"), nullable=False
+    )
+    model_name: Mapped[str]
+    vector: Mapped[list[float]] = mapped_column(Vector(1024))
+    delivery_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("delivery.id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
+
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "document_id", "model_name", name="uq_document_embedding_document_model"
+        ),
+    )
+
+
 class IdentityResolutionCaseORM(Base):
     __tablename__ = "identity_resolution_case"
 

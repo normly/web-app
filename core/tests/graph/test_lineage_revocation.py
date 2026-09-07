@@ -124,7 +124,7 @@ def test_revoke_delivery_covers_every_delivery_scoped_table():
     # or locked by revoke_delivery.
     expected_cascaded = {
         "edge", "rights_classification", "document_designation", "document_title",
-        "segment", "embedding",
+        "segment", "embedding", "document_embedding",
     }
     expected_rejected_in_place = {"identity_resolution_case"}
     expected_exempt = {"document"}

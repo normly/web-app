@@ -45,6 +45,17 @@ class DocumentSearchResponse(BaseModel):
     total: int
 
 
+class WorkSearchResultResponse(BaseModel):
+    work_id: uuid.UUID
+    best_match: DocumentResponse
+    other_editions_count: int
+
+
+class WorkSearchResponse(BaseModel):
+    results: list[WorkSearchResultResponse]
+    total: int
+
+
 class EdgeResponse(BaseModel):
     edge_type: str
     from_document_id: uuid.UUID

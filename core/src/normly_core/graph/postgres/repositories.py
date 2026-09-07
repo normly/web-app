@@ -25,6 +25,7 @@ from normly_core.graph.domain import (
     Delivery,
     Document,
     DocumentDesignation,
+    DocumentEmbedding,
     DocumentTitle,
     Edge,
     EdgeType,
@@ -43,6 +44,7 @@ from normly_core.graph.domain import (
     WithdrawnDeliveryError,
     Work,
     WorkCreatedVia,
+    WorkSearchHit,
     WorkStatus,
 )
 from normly_core.graph.postgres.orm import (
@@ -56,6 +58,7 @@ from normly_core.graph.postgres.orm import (
     DeliveryORM,
     DocumentORM,
     DocumentDesignationORM,
+    DocumentEmbeddingORM,
     DocumentTitleORM,
     EdgeORM,
     EmbeddingORM,
@@ -66,6 +69,24 @@ from normly_core.graph.postgres.orm import (
     SourceORM,
     WorkORM,
 )
+
+
+# How many nearest-neighbour candidates Tier 2 (semantic) pulls per search --
+# not a page size. search_works_for_jurisdiction groups these (plus Tier 1's
+# exact matches) down to one hit per Work before paginating, so this bounds
+# the expensive ANN query rather than the number of Works actually returned.
+_SEMANTIC_CANDIDATE_POOL = 200
+
+# How many Tier 1 (exact-match) candidates search_works_for_jurisdiction pulls
+# before Work-deduplication -- large enough that no realistic TEXT query (q is
+# not None) is ever actually truncated. This is NOT true for q=None (the
+# "browse everything in the jurisdiction" case, including this endpoint's
+# default): as the corpus grows, that request can genuinely exceed this cap,
+# silently truncating `total` and deep pagination. Known limitation, not fixed
+# here -- a real fix needs a SQL-side GROUP BY work_id rather than Python-side
+# grouping over a capped candidate list. Revisit once there's a real corpus
+# to size this against.
+_TIER1_CANDIDATE_POOL = 10_000
 
 
 def _escape_like(term: str) -> str:
@@ -272,6 +293,11 @@ class PostgresDeliveryRepository:
             sa.delete(EmbeddingORM).where(EmbeddingORM.delivery_id == delivery_id)
         )
         self._session.execute(
+            sa.delete(DocumentEmbeddingORM).where(
+                DocumentEmbeddingORM.delivery_id == delivery_id
+            )
+        )
+        self._session.execute(
             sa.update(IdentityResolutionCaseORM)
             .where(
                 IdentityResolutionCaseORM.delivery_id == delivery_id,
@@ -456,18 +482,26 @@ class PostgresDocumentRepository:
         return _title_to_domain(orm)
 
     def list_designations(self, document_id: uuid.UUID) -> list[DocumentDesignation]:
+        # Ordered by the ingestion time of the delivery each row came from,
+        # not by id: id is a random uuid4, so sorting on it is not sorting on
+        # anything -- callers (e.g. "the primary designation" tie-breaking, or
+        # document_embedding.build_document_embedding_text's "first title")
+        # need a stable, meaningful order, and ingested_at is the one
+        # deterministic signal every row carries via its delivery.
         rows = self._session.execute(
             select(DocumentDesignationORM)
+            .join(DeliveryORM, DeliveryORM.id == DocumentDesignationORM.delivery_id)
             .where(DocumentDesignationORM.document_id == document_id)
-            .order_by(DocumentDesignationORM.id)
+            .order_by(DeliveryORM.ingested_at, DocumentDesignationORM.id)
         ).scalars()
         return [_designation_to_domain(row) for row in rows]
 
     def list_titles(self, document_id: uuid.UUID) -> list[DocumentTitle]:
         rows = self._session.execute(
             select(DocumentTitleORM)
+            .join(DeliveryORM, DeliveryORM.id == DocumentTitleORM.delivery_id)
             .where(DocumentTitleORM.document_id == document_id)
-            .order_by(DocumentTitleORM.id)
+            .order_by(DeliveryORM.ingested_at, DocumentTitleORM.id)
         ).scalars()
         return [_title_to_domain(row) for row in rows]
 
@@ -586,6 +620,108 @@ class PostgresDocumentRepository:
             base.order_by(DocumentORM.id).limit(limit).offset(offset)
         ).scalars()
         return [_document_to_domain(row) for row in rows], total
+
+    def search_works_for_jurisdiction(
+        self, jurisdiction: str, *, q: str | None = None, issuer: str | None = None,
+        query_vector: list[float] | None = None, embedding_model_name: str | None = None,
+        limit: int = 20, offset: int = 0,
+    ) -> tuple[list[WorkSearchHit], int]:
+        tier1_documents, _ = self.search_documents_for_jurisdiction(
+            jurisdiction, q=q, issuer=issuer, limit=_TIER1_CANDIDATE_POOL, offset=0,
+        )
+        # search_documents_for_jurisdiction orders by DocumentORM.id (a random
+        # uuid4) -- fine for that method's own contract, but meaningless as a
+        # tie-break for "which edition of a Work represents it in search
+        # results." Re-sort by created_at (newest first) here, locally, so
+        # Work-deduplication below picks the most recently created document as
+        # best_match, not an arbitrary one. Scoped to this method only --
+        # does not change search_documents_for_jurisdiction itself or any of
+        # its other callers/tests.
+        tier1_documents = sorted(
+            tier1_documents, key=lambda document: document.created_at, reverse=True
+        )
+        ordered_documents = list(tier1_documents)
+        seen_document_ids = {document.id for document in ordered_documents}
+
+        if query_vector is not None and embedding_model_name is not None:
+            tier2_query = (
+                select(DocumentORM)
+                .join(
+                    RightsClassificationORM,
+                    RightsClassificationORM.document_id == DocumentORM.id,
+                )
+                .join(
+                    DocumentEmbeddingORM,
+                    DocumentEmbeddingORM.document_id == DocumentORM.id,
+                )
+                .where(
+                    RightsClassificationORM.jurisdiction == jurisdiction,
+                    RightsClassificationORM.may_process.is_(True),
+                    RightsClassificationORM.revoked_at.is_(None),
+                    DocumentEmbeddingORM.model_name == embedding_model_name,
+                )
+            )
+            if issuer is not None:
+                # Mirrors search_documents_for_jurisdiction's own issuer
+                # handling. Unlike that method, no distinct() is needed here:
+                # a document with several designations from the same issuer
+                # can produce duplicate rows from this join, but the
+                # "if row.id in seen_document_ids" check below already
+                # collapses those back to a single entry -- and unlike Tier
+                # 1's plain equality ORDER BY DocumentORM.id, this query
+                # orders by a cosine-distance expression that isn't in the
+                # select list, which Postgres's SELECT DISTINCT disallows.
+                tier2_query = tier2_query.join(
+                    DocumentDesignationORM,
+                    DocumentDesignationORM.document_id == DocumentORM.id,
+                ).where(DocumentDesignationORM.issuer == issuer)
+            rows = self._session.execute(
+                tier2_query.order_by(
+                    DocumentEmbeddingORM.vector.cosine_distance(query_vector)
+                ).limit(_SEMANTIC_CANDIDATE_POOL)
+            ).scalars()
+            for row in rows:
+                if row.id in seen_document_ids:
+                    continue
+                seen_document_ids.add(row.id)
+                ordered_documents.append(_document_to_domain(row))
+
+        seen_work_ids: set[uuid.UUID] = set()
+        grouped: list[Document] = []
+        for document in ordered_documents:
+            if document.work_id in seen_work_ids:
+                continue
+            seen_work_ids.add(document.work_id)
+            grouped.append(document)
+
+        total = len(grouped)
+        page = grouped[offset:offset + limit]
+        if not page:
+            return [], total
+
+        edition_counts = dict(
+            self._session.execute(
+                select(DocumentORM.work_id, sa.func.count())
+                .join(
+                    RightsClassificationORM,
+                    RightsClassificationORM.document_id == DocumentORM.id,
+                )
+                .where(
+                    DocumentORM.work_id.in_([document.work_id for document in page]),
+                    RightsClassificationORM.jurisdiction == jurisdiction,
+                    RightsClassificationORM.may_process.is_(True),
+                    RightsClassificationORM.revoked_at.is_(None),
+                )
+                .group_by(DocumentORM.work_id)
+            ).all()
+        )
+        return [
+            WorkSearchHit(
+                work_id=document.work_id, best_match=document,
+                other_editions_count=edition_counts[document.work_id] - 1,
+            )
+            for document in page
+        ], total
 
 
 def _work_to_domain(orm: WorkORM) -> Work:
@@ -1128,6 +1264,58 @@ class PostgresEmbeddingRepository:
             )
         ).scalar_one_or_none()
         return _embedding_to_domain(orm) if orm else None
+
+
+def _document_embedding_to_domain(orm: DocumentEmbeddingORM) -> DocumentEmbedding:
+    return DocumentEmbedding(
+        id=orm.id,
+        document_id=orm.document_id,
+        model_name=orm.model_name,
+        vector=list(orm.vector),
+        delivery_id=orm.delivery_id,
+        created_at=orm.created_at,
+    )
+
+
+class PostgresDocumentEmbeddingRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def upsert_document_embedding(
+        self, *, document_id: uuid.UUID, delivery_id: uuid.UUID, model_name: str,
+        vector: list[float],
+    ) -> DocumentEmbedding:
+        _require_active_delivery(self._session, delivery_id)
+        stmt = (
+            pg_insert(DocumentEmbeddingORM)
+            .values(
+                id=uuid.uuid4(), document_id=document_id, delivery_id=delivery_id,
+                model_name=model_name, vector=vector,
+            )
+            .on_conflict_do_update(
+                index_elements=[DocumentEmbeddingORM.document_id, DocumentEmbeddingORM.model_name],
+                set_={"vector": vector, "delivery_id": delivery_id},
+            )
+            .returning(DocumentEmbeddingORM)
+        )
+        orm = self._session.execute(stmt).scalar_one()
+        self._session.flush()
+        return _document_embedding_to_domain(orm)
+
+    def list_documents_without_embedding(self, model_name: str) -> list[Document]:
+        rows = self._session.execute(
+            select(DocumentORM)
+            .where(
+                ~sa.exists(
+                    select(DocumentEmbeddingORM.id).where(
+                        DocumentEmbeddingORM.document_id == DocumentORM.id,
+                        DocumentEmbeddingORM.model_name == model_name,
+                    )
+                )
+            )
+            .order_by(DocumentORM.id)
+        ).scalars()
+        return [_document_to_domain(row) for row in rows]
 
 
 def _identity_case_to_domain(orm: IdentityResolutionCaseORM) -> IdentityResolutionCase:

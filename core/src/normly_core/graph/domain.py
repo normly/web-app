@@ -257,6 +257,29 @@ class DocumentRepository(Protocol):
         """
         ...
 
+    def search_works_for_jurisdiction(
+        self, jurisdiction: str, *, q: str | None = None, issuer: str | None = None,
+        query_vector: list[float] | None = None, embedding_model_name: str | None = None,
+        limit: int = 20, offset: int = 0,
+    ) -> tuple[list[WorkSearchHit], int]:
+        """
+        Hybrid, Work-grouped search: exact ILIKE matches on designation/title
+        (Tier 1, via search_documents_for_jurisdiction) rank first, then
+        documents ranked by cosine distance to `query_vector` (Tier 2) fill
+        the rest. Both tiers are deduplicated by work_id -- exactly one hit
+        per Work, led by its best-ranked Document. `total` counts distinct
+        Works matched, not raw document rows.
+
+        `query_vector` must already be computed (via
+        `EmbeddingModel.embed_query`) by the caller -- this repository never
+        calls the embedding model itself. `embedding_model_name` is required
+        whenever `query_vector` is given (mixing vectors from different
+        models in one ORDER BY compares distances from unrelated vector
+        spaces); if either is omitted, Tier 2 is skipped and this behaves as
+        Tier-1-only, Work-grouped search.
+        """
+        ...
+
     def list_exportable_documents_for_jurisdiction(self, jurisdiction: str) -> list[Document]:
         """
         Stricter than `list_documents_for_jurisdiction`: additionally requires
@@ -487,6 +510,53 @@ class EmbeddingRepository(Protocol):
     ) -> tuple[Embedding, bool]:
         """Store one embedding; return it and whether this call created it."""
         ...
+
+
+@dataclass(frozen=True)
+class DocumentEmbedding:
+    id: uuid.UUID
+    document_id: uuid.UUID
+    model_name: str
+    vector: list[float]
+    delivery_id: uuid.UUID
+    created_at: datetime
+
+
+class DocumentEmbeddingRepository(Protocol):
+    """
+    The write surface for per-Document search embeddings.
+
+    Unlike `EmbeddingRepository.add_embedding` (segment-scoped, create-if-
+    absent -- segment text never changes, so no update is ever needed),
+    `upsert_document_embedding` always (re)writes the vector: a Document's
+    primary designation/title can change across re-ingestion, so the
+    embedding must track it rather than freeze on the first value ever seen.
+    """
+
+    def upsert_document_embedding(
+        self,
+        *,
+        document_id: uuid.UUID,
+        delivery_id: uuid.UUID,
+        model_name: str,
+        vector: list[float],
+    ) -> DocumentEmbedding: ...
+
+    def list_documents_without_embedding(self, model_name: str) -> list[Document]:
+        """
+        Every Document with no DocumentEmbedding row for `model_name` yet.
+        Pipeline/administrative method (used by the `backfill-document-
+        embeddings` CLI command) -- nothing here is served to a public
+        caller, it only decides what the backfill still has to do.
+        """
+        ...
+
+
+@dataclass(frozen=True)
+class WorkSearchHit:
+    work_id: uuid.UUID
+    best_match: Document
+    other_editions_count: int
 
 
 class WorkStatus(str, Enum):

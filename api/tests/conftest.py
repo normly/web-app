@@ -16,6 +16,29 @@ API_DIR = Path(__file__).parents[1]
 CORE_DIR = API_DIR.parent / "core"
 
 
+class _FakeEmbeddingModel:
+    """
+    A cheap, deterministic stand-in for the real (multi-hundred-MB)
+    EmbeddingModel, used as the `client` fixture's default so ordinary API
+    tests don't pay the real model's load cost -- mirrors how
+    `enforce_rate_limit` is overridden to a no-op by default in this same
+    fixture, for the same reason (tests that aren't ABOUT the real thing
+    shouldn't pay for it). Tests that need to embed a query the same way the
+    app will (e.g. to pre-compute a matching DocumentEmbedding) request the
+    `fake_embedding_model` fixture below directly instead of the real model.
+    """
+
+    def embed_query(self, text: str) -> list[float]:
+        vector = [0.0] * 1024
+        vector[hash(text) % 1024] = 1.0
+        return vector
+
+
+@pytest.fixture()
+def fake_embedding_model() -> _FakeEmbeddingModel:
+    return _FakeEmbeddingModel()
+
+
 @pytest.fixture(scope="session")
 def postgres_container():
     with PostgresContainer("pgvector/pgvector:pg16", driver="psycopg") as container:
@@ -76,8 +99,22 @@ def client(db_url, monkeypatch, db_session):
     real-world minute and start 429-ing unrelated tests once it crossed the
     limit. Tests that are *about* rate limiting pop this override to exercise
     the real dependency -- see tests/test_rate_limit.py.
+
+    EmbeddingModel is monkeypatched to _FakeEmbeddingModel *before* create_app()
+    runs, for the same reason as the two overrides above, but a dependency
+    override cannot do the job here: the real EmbeddingModel is constructed
+    once, eagerly, inside lifespan() (app.state.embedding_model =
+    EmbeddingModel(), see main.py) -- by the time a Depends()-based override
+    would run, the real, multi-hundred-MB model has already been loaded, so
+    overriding get_embedding_model can only ever hide that cost from request
+    handlers, not avoid paying it. Patching the class main.py looks up at
+    call time makes lifespan() itself construct a _FakeEmbeddingModel, so the
+    expensive load never happens. Tests that want to exercise the real model
+    still can, by undoing this patch (e.g. monkeypatch.undo() or a local
+    monkeypatch.setattr back to the real class) before calling client.
     """
     monkeypatch.setenv("NORMLY_DATABASE_URL", db_url)
+    monkeypatch.setattr("normly_api.main.EmbeddingModel", _FakeEmbeddingModel)
     from normly_api.dependencies import get_session
     from normly_api.main import create_app
     from normly_api.rate_limit import enforce_rate_limit

@@ -2,6 +2,7 @@
 # Copyright (C) 2026 normly contributors
 
 import os
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,11 @@ import sqlalchemy as sa
 
 from normly_core.graph.domain import LegalBasisCategory
 from normly_core.graph.postgres.orm import DocumentDesignationORM, SourceORM
+from normly_core.graph.postgres.repositories import (
+    PostgresDeliveryRepository,
+    PostgresDocumentRepository,
+    PostgresSourceRepository,
+)
 from normly_core.pipeline.cli import build_adapter, main
 
 FIXTURE_DIR = Path(__file__).parents[1] / "fixtures"
@@ -18,6 +24,7 @@ FIXTURE_DIR = Path(__file__).parents[1] / "fixtures"
 # transactional `db_session` fixture, nothing rolls its writes back, so the
 # fixture that lets it commit has to clean up after itself.
 _WRITTEN_TABLES = (
+    "document_embedding",
     "embedding",
     "segment",
     "edge",
@@ -199,3 +206,34 @@ def test_main_reports_a_missing_database_url(monkeypatch, capsys):
 
     assert exit_code == 1
     assert "NORMLY_DATABASE_URL" in capsys.readouterr().err
+
+
+def test_backfill_document_embeddings_command_creates_embeddings(committed_db, capsys):
+    from sqlalchemy.orm import Session
+
+    with Session(committed_db) as session:
+        source = PostgresSourceRepository(session).create_source(
+            publisher="EUR-Lex", retrieval_path="https://single-market-economy.ec.europa.eu",
+            legal_basis_category=LegalBasisCategory.A, jurisdiction="EU",
+            reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        )
+        delivery = PostgresDeliveryRepository(session).record_delivery(
+            source_id=source.id, content_hash="sha256:cli-backfill",
+            ingested_at=datetime.now(timezone.utc),
+        )
+        doc_repo = PostgresDocumentRepository(session)
+        document = doc_repo.create_document(
+            origin_issuer="CEN", origin_number="EN ISO 9001", edition="2018", part=None,
+            delivery_id=delivery.id,
+        )
+        doc_repo.add_designation(
+            document_id=document.id, issuer="CEN", designation="EN ISO 9001:2018", language="de",
+            edition=None, is_primary=True, delivery_id=delivery.id,
+        )
+        session.commit()
+
+    exit_code = main(["backfill-document-embeddings"])
+
+    assert exit_code == 0
+    output = capsys.readouterr().out
+    assert "document_embeddings_created=1" in output

@@ -121,13 +121,102 @@ def test_list_results_are_ordered_deterministically(db_session):
 
     exported = doc_repo.list_documents_for_jurisdiction("DE")
     edges = edge_repo.list_edges_for_jurisdiction(hub.id, "DE")
-    designations = doc_repo.list_designations(hub.id)
-    titles = doc_repo.list_titles(hub.id)
 
-    for rows in (exported, edges, designations, titles):
+    # These two are genuinely ordered by id (see the repository methods) --
+    # ascending-id is their real, intended contract, unrelated to how
+    # designations/titles are ordered below.
+    for rows in (exported, edges):
         assert len(rows) > 1
         assert [row.id for row in rows] == sorted(row.id for row in rows)
 
     assert [d.id for d in doc_repo.list_documents_for_jurisdiction("DE")] == [
         d.id for d in exported
     ]
+
+    # designations/titles are ordered by the ingesting delivery's
+    # ingested_at, not by id (a random uuid4 -- see
+    # PostgresDocumentRepository.list_designations/list_titles). All rows in
+    # this fixture share one delivery, so their ingested_at values tie and
+    # id merely breaks the tie; asserting ascending id here would therefore
+    # pass by the same coincidence the ordering fix replaced, not because
+    # ascending id is the actual contract. What genuinely holds regardless
+    # of that tie is determinism: the same query returns the same sequence
+    # every time. The (ingested_at, id) contract itself, exercised where id
+    # order and ingested_at order disagree, is locked in by
+    # test_designations_and_titles_are_ordered_by_delivery_ingestion_time
+    # below.
+    designations = doc_repo.list_designations(hub.id)
+    titles = doc_repo.list_titles(hub.id)
+    for rows in (designations, titles):
+        assert len(rows) > 1
+    assert [d.id for d in doc_repo.list_designations(hub.id)] == [d.id for d in designations]
+    assert [t.id for t in doc_repo.list_titles(hub.id)] == [t.id for t in titles]
+
+
+def test_designations_and_titles_are_ordered_by_delivery_ingestion_time(db_session):
+    """
+    list_designations/list_titles order by the ingesting delivery's
+    ingested_at, not by the row's own id -- a random uuid4 that carries no
+    temporal meaning. Built so id order and ingested_at order disagree: the
+    older delivery's rows are added second, after the newer delivery's rows.
+    A regression back to `ORDER BY id` would not reliably fail this test
+    (uuid4 has no relationship to insertion order either way), but it would
+    not reliably pass it either -- unlike the fixture above, this one does
+    not let a coincidence stand in for the contract.
+    """
+    source = PostgresSourceRepository(db_session).create_source(
+        publisher="EUR-Lex",
+        retrieval_path="https://eur-lex.europa.eu/oj/direct-access.html",
+        legal_basis_category=LegalBasisCategory.A,
+        jurisdiction="EU",
+        reviewed_at=date(2026, 1, 15),
+        responsible_person="J. Weber",
+    )
+    delivery_repo = PostgresDeliveryRepository(db_session)
+    doc_repo = PostgresDocumentRepository(db_session)
+
+    older_delivery = delivery_repo.record_delivery(
+        source_id=source.id, content_hash="sha256:older-delivery",
+        ingested_at=datetime(2020, 1, 1, tzinfo=timezone.utc),
+    )
+    newer_delivery = delivery_repo.record_delivery(
+        source_id=source.id, content_hash="sha256:newer-delivery",
+        ingested_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+    )
+
+    document = doc_repo.create_document(
+        origin_issuer="BAuA", origin_number="TRGS 900", edition="2026", part=None,
+        delivery_id=older_delivery.id,
+    )
+
+    # Added via the newer delivery FIRST, so an id-based order and an
+    # ingested_at-based order would disagree about which comes first.
+    newer_designation = doc_repo.add_designation(
+        document_id=document.id, issuer="NEW", designation="NEW DESIGNATION",
+        language="de", edition=None, is_primary=False, delivery_id=newer_delivery.id,
+    )
+    older_designation = doc_repo.add_designation(
+        document_id=document.id, issuer="OLD", designation="OLD DESIGNATION",
+        language="de", edition=None, is_primary=False, delivery_id=older_delivery.id,
+    )
+    newer_title = doc_repo.add_title(
+        document_id=document.id, language="en", title="Newer title",
+        delivery_id=newer_delivery.id,
+    )
+    older_title = doc_repo.add_title(
+        document_id=document.id, language="de", title="Older title",
+        delivery_id=older_delivery.id,
+    )
+
+    designations = doc_repo.list_designations(document.id)
+    titles = doc_repo.list_titles(document.id)
+
+    assert [d.id for d in designations] == [older_designation.id, newer_designation.id]
+    assert [t.id for t in titles] == [older_title.id, newer_title.id]
+
+    # Same query, called again -- confirms the order is a property of the
+    # query itself, not an artifact of one particular execution.
+    assert [d.id for d in doc_repo.list_designations(document.id)] == [
+        d.id for d in designations
+    ]
+    assert [t.id for t in doc_repo.list_titles(document.id)] == [t.id for t in titles]

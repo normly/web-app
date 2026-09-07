@@ -76,6 +76,9 @@ JURISDICTION_EXEMPT_READS = {
     "WorkRepository.get_work",
     # Review-queue listing for staff, not rights-gated content.
     "IdentityResolutionRepository.list_pending_cases",
+    # Backfill bookkeeping for the embeddings pipeline -- decides what still
+    # needs an embedding, serves no document content to a public caller.
+    "DocumentEmbeddingRepository.list_documents_without_embedding",
     # Account identity and session/token lookups: authentication state, not
     # rights-gated document content. Accounts are not jurisdiction-scoped.
     "AccountRepository.get_account_by_id",

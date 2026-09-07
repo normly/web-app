@@ -7,10 +7,11 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from normly_core.graph.postgres.repositories import PostgresDocumentRepository
+from normly_core.pipeline.embeddings import MODEL_NAME, EmbeddingModel
 
-from normly_api.dependencies import get_session
+from normly_api.dependencies import get_embedding_model, get_session
 from normly_api.routers.documents import document_to_response
-from normly_api.schemas import DocumentSearchResponse
+from normly_api.schemas import WorkSearchResponse, WorkSearchResultResponse
 
 search_router = APIRouter(prefix="/v1/documents", tags=["search"])
 
@@ -18,7 +19,7 @@ _DEFAULT_LIMIT = 20
 _MAX_LIMIT = 100
 
 
-@search_router.get("/search", response_model=DocumentSearchResponse)
+@search_router.get("/search", response_model=WorkSearchResponse)
 def search_documents_endpoint(
     jurisdiction: str, q: str | None = None, issuer: str | None = None,
     # Declarative bounds rather than a manual min() clamp: the clamp only
@@ -30,11 +31,23 @@ def search_documents_endpoint(
     limit: int = Query(_DEFAULT_LIMIT, ge=1, le=_MAX_LIMIT),
     offset: int = Query(0, ge=0),
     session: Session = Depends(get_session),
-) -> DocumentSearchResponse:
+    embedding_model: EmbeddingModel = Depends(get_embedding_model),
+) -> WorkSearchResponse:
+    query_vector = embedding_model.embed_query(q) if q is not None else None
     doc_repo = PostgresDocumentRepository(session)
-    documents, total = doc_repo.search_documents_for_jurisdiction(
-        jurisdiction, q=q, issuer=issuer, limit=limit, offset=offset,
+    hits, total = doc_repo.search_works_for_jurisdiction(
+        jurisdiction, q=q, issuer=issuer, query_vector=query_vector,
+        embedding_model_name=MODEL_NAME if query_vector is not None else None,
+        limit=limit, offset=offset,
     )
-    return DocumentSearchResponse(
-        results=[document_to_response(d, session) for d in documents], total=total,
+    return WorkSearchResponse(
+        results=[
+            WorkSearchResultResponse(
+                work_id=hit.work_id,
+                best_match=document_to_response(hit.best_match, session),
+                other_editions_count=hit.other_editions_count,
+            )
+            for hit in hits
+        ],
+        total=total,
     )
