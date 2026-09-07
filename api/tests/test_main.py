@@ -9,3 +9,7 @@ def test_openapi_schema_is_served_and_licensed_apache_2_0(client):
     assert response.status_code == 200
     schema = response.json()
     assert schema["info"]["license"]["name"] == "Apache-2.0"
+
+
+def test_embedding_model_is_loaded_once_at_startup(client):
+    assert client.app.state.embedding_model is not None

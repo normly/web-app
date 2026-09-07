@@ -10,6 +10,8 @@ from typing import AsyncIterator
 from fastapi import Depends, FastAPI
 from sqlalchemy import create_engine
 
+from normly_core.pipeline.embeddings import EmbeddingModel
+
 from normly_api.errors import COMMON_ERROR_RESPONSES, register_exception_handlers
 from normly_api.rate_limit import enforce_rate_limit
 from normly_api.routers.documents import documents_router
@@ -24,6 +26,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     database_url = os.environ["NORMLY_DATABASE_URL"]
     engine = create_engine(database_url)
     app.state.engine = engine
+
+    # Loaded once at startup, not per-request: the same real,
+    # multi-hundred-MB model the ingestion pipeline and chat/ use -- reusing
+    # the single already-established EmbeddingModel class, not a second one.
+    app.state.embedding_model = EmbeddingModel()
+
     try:
         yield
     finally:
