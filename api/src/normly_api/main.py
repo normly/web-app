@@ -17,8 +17,10 @@ from normly_api.rate_limit import enforce_rate_limit
 from normly_api.routers.documents import documents_router
 from normly_api.routers.edges import edges_router
 from normly_api.routers.export import export_router
+from normly_api.routers.rights import rights_router
 from normly_api.routers.search import search_router
 from normly_api.routers.validity import validity_router
+from normly_api.routers.work import work_router
 
 
 @asynccontextmanager
@@ -75,6 +77,14 @@ def create_app() -> FastAPI:
     )
     app.include_router(
         edges_router, responses=COMMON_ERROR_RESPONSES,
+        dependencies=[Depends(enforce_rate_limit)],
+    )
+    app.include_router(
+        work_router, responses=COMMON_ERROR_RESPONSES,
+        dependencies=[Depends(enforce_rate_limit)],
+    )
+    app.include_router(
+        rights_router, responses=COMMON_ERROR_RESPONSES,
         dependencies=[Depends(enforce_rate_limit)],
     )
     app.include_router(
