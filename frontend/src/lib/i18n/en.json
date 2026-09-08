@@ -65,6 +65,7 @@
     "account": "Account",
     "notificationsLabel": "Notifications",
     "noNotifications": "No new notifications",
+    "notificationItemUnreadBadge": "New",
     "documentDetailTitle": "Document",
     "toggleSidebar": "Toggle sidebar",
     "sidebarTitle": "Sidebar",

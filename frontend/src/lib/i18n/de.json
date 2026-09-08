@@ -65,6 +65,7 @@
     "account": "Konto",
     "notificationsLabel": "Benachrichtigungen",
     "noNotifications": "Keine neuen Benachrichtigungen",
+    "notificationItemUnreadBadge": "Neu",
     "documentDetailTitle": "Dokument",
     "toggleSidebar": "Seitenleiste umschalten",
     "sidebarTitle": "Seitenleiste",

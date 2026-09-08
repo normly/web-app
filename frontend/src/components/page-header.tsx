@@ -13,7 +13,14 @@ import { ModeToggle } from "@/components/mode-toggle";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useTranslation } from "@/lib/i18n/provider";
+import { useNotifications } from "@/lib/use-notifications";
 import type { TranslationKey } from "@/lib/i18n/dictionary-keys";
+
+const TRIGGER_TYPE_KEYS: Record<string, TranslationKey> = {
+  new_edition: "edgeType.replaces",
+  national_adoption: "edgeType.adopted_from",
+  rights_change: "documentDetail.rightsHeading",
+};
 
 export function PageHeader({
   titleKey,
@@ -23,6 +30,7 @@ export function PageHeader({
   subtitleKey?: TranslationKey;
 }) {
   const { t } = useTranslation();
+  const { notifications, markRead } = useNotifications();
 
   return (
     <header className="flex items-center justify-between gap-4 border-b p-4">
@@ -44,7 +52,27 @@ export function PageHeader({
             </Button>
           </PopoverTrigger>
           <PopoverContent align="end">
-            <p className="text-sm text-muted-foreground">{t("nav.noNotifications")}</p>
+            {notifications.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("nav.noNotifications")}</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {notifications.map((notification) => (
+                  <li key={notification.id}>
+                    <button
+                      type="button"
+                      data-testid={`notification-${notification.id}`}
+                      onClick={() => markRead(notification.id)}
+                      className="flex w-full items-center justify-between gap-2 rounded-md p-2 text-left text-sm hover:bg-muted"
+                    >
+                      <span>{t(TRIGGER_TYPE_KEYS[notification.triggerType] ?? "nav.notificationsLabel")}</span>
+                      {notification.readAt === null && (
+                        <span className="text-xs text-primary">{t("nav.notificationItemUnreadBadge")}</span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </PopoverContent>
         </Popover>
       </div>
