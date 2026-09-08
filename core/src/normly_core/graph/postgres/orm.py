@@ -583,6 +583,36 @@ class NotificationORM(Base):
     )
 
 
+class RightsNotificationBaselineORM(Base):
+    __tablename__ = "rights_notification_baseline"
+
+    # Pure internal bookkeeping for the notify-watchers RIGHTS_CHANGE
+    # detector: the last-known rights state an account's watch has already
+    # been diffed against, keyed by the same tuple that identifies a
+    # RIGHTS_CHANGE notification. Deliberately NOT the Notification table --
+    # a row here is never shown to a user, never emailed, and never joined
+    # into anything user-facing. Same upsert-via-merge shape as
+    # RightsClassificationORM: one row per key tuple, no separate surrogate
+    # id.
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("account.id"), primary_key=True
+    )
+    work_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("work.id"), primary_key=True
+    )
+    trigger_document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("document.id"), primary_key=True
+    )
+    trigger_jurisdiction: Mapped[str] = mapped_column(primary_key=True)
+    may_process: Mapped[bool]
+    may_index_fulltext: Mapped[bool]
+    may_cite_passages: Mapped[bool]
+    may_export_free: Mapped[bool]
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
+
+
 class ChatSessionORM(Base):
     __tablename__ = "chat_session"
 

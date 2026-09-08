@@ -97,52 +97,6 @@ def test_find_by_trigger_edge_returns_none_when_absent(db_session):
     ) is None
 
 
-def test_find_latest_rights_notification_picks_the_most_recent(db_session):
-    account = _make_account(db_session, "notif-rights@example.de")
-    work = _make_work(db_session)
-    delivery = _make_delivery(db_session, content_hash="sha256:notif-rights-fixture")
-    document = _make_document(db_session, delivery.id)
-    repo = PostgresNotificationRepository(db_session)
-
-    # Create one with may_process=True
-    older = repo.create(
-        account_id=account.id, work_id=work.id, trigger_type=NotificationTriggerType.RIGHTS_CHANGE,
-        trigger_edge_id=None, trigger_document_id=document.id, trigger_jurisdiction="DE",
-        may_process=True, may_index_fulltext=True, may_cite_passages=True, may_export_free=False,
-        emailed_at=None,
-    )
-    # NotificationORM.created_at is server_default=sa.func.now(), and
-    # Postgres's now() is transaction-scoped -- it returns the SAME value
-    # for every statement inside one transaction. db_session (see
-    # conftest.py) runs this whole test in a single outer transaction, so
-    # two back-to-back create() calls get an identical created_at here;
-    # sleeping would not help. Force `older` explicitly older via a direct
-    # UPDATE instead, matching the established pattern in
-    # test_delivery_find_and_document_find.py::test_find_by_designation_returns_the_newest_edition_when_none_is_specified.
-    db_session.execute(
-        sa.update(NotificationORM)
-        .where(NotificationORM.id == older.id)
-        .values(created_at=datetime(2020, 1, 1, tzinfo=timezone.utc))
-    )
-    db_session.flush()
-    # Create another with may_process=False (genuinely newer, with updated rights)
-    newer = repo.create(
-        account_id=account.id, work_id=work.id, trigger_type=NotificationTriggerType.RIGHTS_CHANGE,
-        trigger_edge_id=None, trigger_document_id=document.id, trigger_jurisdiction="DE",
-        may_process=False, may_index_fulltext=True, may_cite_passages=True, may_export_free=False,
-        emailed_at=None,
-    )
-    assert older.id != newer.id
-
-    latest = repo.find_latest_rights_notification(
-        account_id=account.id, work_id=work.id, trigger_document_id=document.id,
-        trigger_jurisdiction="DE",
-    )
-    assert latest is not None
-    assert latest.id == newer.id
-    assert latest.may_process is False
-
-
 def test_list_for_account_orders_newest_first(db_session):
     account = _make_account(db_session, "notif-list@example.de")
     work = _make_work(db_session)
@@ -164,10 +118,11 @@ def test_list_for_account_orders_newest_first(db_session):
         trigger_jurisdiction=None, may_process=None, may_index_fulltext=None,
         may_cite_passages=None, may_export_free=None, emailed_at=None,
     )
-    # See the comment in test_find_latest_rights_notification_picks_the_most_recent
-    # above: a time.sleep() here does not actually separate created_at values,
-    # because Postgres's now() is transaction-scoped and this whole test runs
-    # inside one outer transaction. Force `first` explicitly older instead.
+    # NotificationORM.created_at is server_default=sa.func.now(), and
+    # Postgres's now() is transaction-scoped -- it returns the SAME value
+    # for every statement inside one transaction, so a time.sleep() here
+    # would not actually separate created_at values. Force `first`
+    # explicitly older instead.
     db_session.execute(
         sa.update(NotificationORM)
         .where(NotificationORM.id == first.id)

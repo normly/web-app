@@ -20,6 +20,7 @@ from normly_core.graph.postgres.repositories import (
     PostgresDocumentRepository,
     PostgresEdgeRepository,
     PostgresNotificationRepository,
+    PostgresRightsNotificationBaselineRepository,
     PostgresRightsRepository,
     PostgresWatchlistRepository,
 )
@@ -51,6 +52,7 @@ def run_notify_watchers(session: Session, email_sender: EmailSender) -> NotifyWa
     document_repo = PostgresDocumentRepository(session)
     edge_repo = PostgresEdgeRepository(session)
     rights_repo = PostgresRightsRepository(session)
+    baseline_repo = PostgresRightsNotificationBaselineRepository(session)
 
     watches = watchlist_repo.list_all_watches()
     notifications_created = 0
@@ -89,42 +91,28 @@ def run_notify_watchers(session: Session, email_sender: EmailSender) -> NotifyWa
             for classification in rights_repo.list_classifications_for_document_unchecked(
                 document_id
             ):
-                previous = notification_repo.find_latest_rights_notification(
+                baseline = baseline_repo.get_baseline(
                     account_id=account.id, work_id=watch.work_id,
                     trigger_document_id=document_id,
                     trigger_jurisdiction=classification.jurisdiction,
                 )
-                if previous is None:
-                    # First-time observation, not a change: the user must not
-                    # be counted or emailed for rights state that predates
-                    # their watch. But rights_classification has no history
-                    # of its own (classify() upserts a single row per
-                    # (document_id, jurisdiction) via session.merge()), so
-                    # without persisting *something* here, a real change
-                    # later would be indistinguishable from another first
-                    # observation forever, since find_latest_rights_notification
-                    # would stay None on every run. Persist a silent baseline
-                    # snapshot -- via the Notification table, the only place
-                    # this state can live -- so a later genuine change has
-                    # something to diff against, but keep it out of the
-                    # summary counters and never email it.
-                    notification_repo.create(
+                if baseline is None:
+                    # First observation -- establish the baseline, no notification.
+                    baseline_repo.upsert_baseline(
                         account_id=account.id, work_id=watch.work_id,
-                        trigger_type=NotificationTriggerType.RIGHTS_CHANGE,
-                        trigger_edge_id=None, trigger_document_id=document_id,
+                        trigger_document_id=document_id,
                         trigger_jurisdiction=classification.jurisdiction,
                         may_process=classification.may_process,
                         may_index_fulltext=classification.may_index_fulltext,
                         may_cite_passages=classification.may_cite_passages,
                         may_export_free=classification.may_export_free,
-                        emailed_at=None,
                     )
                     continue
                 if (
-                    previous.may_process == classification.may_process
-                    and previous.may_index_fulltext == classification.may_index_fulltext
-                    and previous.may_cite_passages == classification.may_cite_passages
-                    and previous.may_export_free == classification.may_export_free
+                    baseline.may_process == classification.may_process
+                    and baseline.may_index_fulltext == classification.may_index_fulltext
+                    and baseline.may_cite_passages == classification.may_cite_passages
+                    and baseline.may_export_free == classification.may_export_free
                 ):
                     continue
                 notification = _create_and_maybe_email(
@@ -140,6 +128,19 @@ def run_notify_watchers(session: Session, email_sender: EmailSender) -> NotifyWa
                 notifications_created += 1
                 if notification.emailed_at is not None:
                     emails_sent += 1
+                # Advance the baseline to the now-current state, so a later
+                # reversion back to an earlier state is itself detected as a
+                # genuine change, not silently ignored because it matches
+                # the ORIGINAL baseline.
+                baseline_repo.upsert_baseline(
+                    account_id=account.id, work_id=watch.work_id,
+                    trigger_document_id=document_id,
+                    trigger_jurisdiction=classification.jurisdiction,
+                    may_process=classification.may_process,
+                    may_index_fulltext=classification.may_index_fulltext,
+                    may_cite_passages=classification.may_cite_passages,
+                    may_export_free=classification.may_export_free,
+                )
 
     return NotifyWatchersSummary(
         watches_scanned=len(watches), notifications_created=notifications_created,

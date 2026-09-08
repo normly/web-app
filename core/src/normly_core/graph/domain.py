@@ -738,23 +738,6 @@ class NotificationRepository(Protocol):
         """
         ...
 
-    def find_latest_rights_notification(
-        self,
-        *,
-        account_id: uuid.UUID,
-        work_id: uuid.UUID,
-        trigger_document_id: uuid.UUID,
-        trigger_jurisdiction: str,
-    ) -> Notification | None:
-        """
-        The most recent RIGHTS_CHANGE notification for this exact tuple, or
-        None if there has never been one. The notify-watchers job (Task 6)
-        diffs the document's current rights booleans against this row's
-        stored booleans -- None means "no prior observation," not "no
-        change," and must not itself produce a notification.
-        """
-        ...
-
     def list_for_account(self, account_id: uuid.UUID) -> list[Notification]:
         """Newest first -- the shape the in-app feed renders directly."""
         ...
@@ -769,6 +752,51 @@ class NotificationRepository(Protocol):
         marking another account's notification as read.
         """
         ...
+
+
+@dataclass(frozen=True)
+class RightsNotificationBaseline:
+    account_id: uuid.UUID
+    work_id: uuid.UUID
+    trigger_document_id: uuid.UUID
+    trigger_jurisdiction: str
+    may_process: bool
+    may_index_fulltext: bool
+    may_cite_passages: bool
+    may_export_free: bool
+    updated_at: datetime
+
+
+class RightsNotificationBaselineRepository(Protocol):
+    """
+    Pure internal bookkeeping for the notify-watchers RIGHTS_CHANGE detector:
+    the last rights state an account/work/document/jurisdiction tuple has
+    already been diffed against. Deliberately separate from
+    NotificationRepository -- a row here must never be exposed via any
+    HTTP-reachable method or joined into a user-facing feed.
+    """
+
+    def get_baseline(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        trigger_document_id: uuid.UUID,
+        trigger_jurisdiction: str,
+    ) -> RightsNotificationBaseline | None: ...
+
+    def upsert_baseline(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        trigger_document_id: uuid.UUID,
+        trigger_jurisdiction: str,
+        may_process: bool,
+        may_index_fulltext: bool,
+        may_cite_passages: bool,
+        may_export_free: bool,
+    ) -> RightsNotificationBaseline: ...
 
 
 class ContradictoryWorkMergeError(Exception):

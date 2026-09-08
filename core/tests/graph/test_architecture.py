@@ -95,6 +95,10 @@ JURISDICTION_EXEMPT_READS = {
     "WatchlistRepository.list_watches_for_account",
     "WatchlistRepository.list_all_watches",
     "NotificationRepository.list_for_account",
+    # Internal RIGHTS_CHANGE detector bookkeeping, keyed by
+    # trigger_jurisdiction (not "jurisdiction") -- never exposed via any
+    # HTTP-reachable method, serves no document content to a public caller.
+    "RightsNotificationBaselineRepository.get_baseline",
 }
 
 

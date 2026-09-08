@@ -41,6 +41,7 @@ from normly_core.graph.domain import (
     NotificationPreference,
     NotificationTriggerType,
     RightsClassification,
+    RightsNotificationBaseline,
     Segment,
     Source,
     TdmOptOutResult,
@@ -72,6 +73,7 @@ from normly_core.graph.postgres.orm import (
     NotificationORM,
     RateLimitBucketORM,
     RightsClassificationORM,
+    RightsNotificationBaselineORM,
     SegmentORM,
     SourceORM,
     WatchlistORM,
@@ -939,9 +941,8 @@ class PostgresNotificationRepository:
             # transaction start, so several notifications created inside one
             # transaction (e.g. multiple notify-watchers runs sharing a test
             # session) would otherwise all get an identical created_at and
-            # make list_for_account's/find_latest_rights_notification's
-            # `ORDER BY created_at DESC, id DESC` fall back to random UUID
-            # ordering for the tiebreak.
+            # make list_for_account's `ORDER BY created_at DESC, id DESC`
+            # fall back to random UUID ordering for the tiebreak.
             created_at=datetime.now(timezone.utc),
         )
         self._session.add(orm)
@@ -964,28 +965,6 @@ class PostgresNotificationRepository:
                 NotificationORM.trigger_type == trigger_type,
                 NotificationORM.trigger_edge_id == trigger_edge_id,
             )
-        ).scalar_one_or_none()
-        return _notification_to_domain(orm) if orm else None
-
-    def find_latest_rights_notification(
-        self,
-        *,
-        account_id: uuid.UUID,
-        work_id: uuid.UUID,
-        trigger_document_id: uuid.UUID,
-        trigger_jurisdiction: str,
-    ) -> Notification | None:
-        orm = self._session.execute(
-            select(NotificationORM)
-            .where(
-                NotificationORM.account_id == account_id,
-                NotificationORM.work_id == work_id,
-                NotificationORM.trigger_type == NotificationTriggerType.RIGHTS_CHANGE,
-                NotificationORM.trigger_document_id == trigger_document_id,
-                NotificationORM.trigger_jurisdiction == trigger_jurisdiction,
-            )
-            .order_by(NotificationORM.created_at.desc(), NotificationORM.id.desc())
-            .limit(1)
         ).scalar_one_or_none()
         return _notification_to_domain(orm) if orm else None
 
@@ -1081,6 +1060,67 @@ class PostgresRightsRepository:
             )
         ).scalars()
         return [_rights_to_domain(row) for row in rows]
+
+
+def _rights_notification_baseline_to_domain(
+    orm: RightsNotificationBaselineORM,
+) -> RightsNotificationBaseline:
+    return RightsNotificationBaseline(
+        account_id=orm.account_id,
+        work_id=orm.work_id,
+        trigger_document_id=orm.trigger_document_id,
+        trigger_jurisdiction=orm.trigger_jurisdiction,
+        may_process=orm.may_process,
+        may_index_fulltext=orm.may_index_fulltext,
+        may_cite_passages=orm.may_cite_passages,
+        may_export_free=orm.may_export_free,
+        updated_at=orm.updated_at,
+    )
+
+
+class PostgresRightsNotificationBaselineRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def get_baseline(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        trigger_document_id: uuid.UUID,
+        trigger_jurisdiction: str,
+    ) -> RightsNotificationBaseline | None:
+        orm = self._session.get(
+            RightsNotificationBaselineORM,
+            (account_id, work_id, trigger_document_id, trigger_jurisdiction),
+        )
+        return _rights_notification_baseline_to_domain(orm) if orm else None
+
+    def upsert_baseline(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        trigger_document_id: uuid.UUID,
+        trigger_jurisdiction: str,
+        may_process: bool,
+        may_index_fulltext: bool,
+        may_cite_passages: bool,
+        may_export_free: bool,
+    ) -> RightsNotificationBaseline:
+        orm = RightsNotificationBaselineORM(
+            account_id=account_id,
+            work_id=work_id,
+            trigger_document_id=trigger_document_id,
+            trigger_jurisdiction=trigger_jurisdiction,
+            may_process=may_process,
+            may_index_fulltext=may_index_fulltext,
+            may_cite_passages=may_cite_passages,
+            may_export_free=may_export_free,
+        )
+        merged = self._session.merge(orm)
+        self._session.flush()
+        return _rights_notification_baseline_to_domain(merged)
 
 
 def _edge_to_domain(orm: EdgeORM) -> Edge:

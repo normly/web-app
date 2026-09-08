@@ -18,6 +18,7 @@ from normly_core.graph.postgres.repositories import (
     PostgresDocumentRepository,
     PostgresEdgeRepository,
     PostgresNotificationRepository,
+    PostgresRightsNotificationBaselineRepository,
     PostgresRightsRepository,
     PostgresSourceRepository,
     PostgresWatchlistRepository,
@@ -209,10 +210,21 @@ def test_rights_change_is_not_flagged_on_first_observation_but_is_on_a_real_chan
     )
     PostgresWatchlistRepository(db_session).add_watch(account_id=account.id, work_id=document.work_id)
     db_session.flush()
+    baseline_repo = PostgresRightsNotificationBaselineRepository(db_session)
 
     sender = RecordingEmailSender()
     first_run = run_notify_watchers(db_session, sender)
     assert first_run.notifications_created == 0  # first observation, nothing to compare against
+    assert PostgresNotificationRepository(db_session).list_for_account(account.id) == []
+    # The first observation must still establish a baseline -- in the
+    # dedicated tracking table, NOT as a row in the user-facing Notification
+    # feed -- so a later genuine change has something to diff against.
+    baseline = baseline_repo.get_baseline(
+        account_id=account.id, work_id=document.work_id, trigger_document_id=document.id,
+        trigger_jurisdiction="DE",
+    )
+    assert baseline is not None
+    assert baseline.may_process is True
 
     # Re-classify with unchanged values -- a re-ingestion with the same
     # rights must NOT produce a notification (classified_at always moves,
@@ -220,11 +232,32 @@ def test_rights_change_is_not_flagged_on_first_observation_but_is_on_a_real_chan
     _classify(db_session, document.id, delivery.id, may_process=True)
     unchanged_run = run_notify_watchers(db_session, sender)
     assert unchanged_run.notifications_created == 0
+    assert PostgresNotificationRepository(db_session).list_for_account(account.id) == []
 
-    # A genuine change must produce exactly one notification.
+    # A genuine change must produce exactly one notification, and advance
+    # the baseline to the new (now-current) state.
     _classify(db_session, document.id, delivery.id, may_process=False)
     changed_run = run_notify_watchers(db_session, sender)
     assert changed_run.notifications_created == 1
     notifications = PostgresNotificationRepository(db_session).list_for_account(account.id)
+    assert len(notifications) == 1
     assert notifications[0].trigger_type == NotificationTriggerType.RIGHTS_CHANGE
     assert notifications[0].may_process is False
+    advanced_baseline = baseline_repo.get_baseline(
+        account_id=account.id, work_id=document.work_id, trigger_document_id=document.id,
+        trigger_jurisdiction="DE",
+    )
+    assert advanced_baseline is not None
+    assert advanced_baseline.may_process is False
+
+    # A reversion back to the ORIGINAL (may_process=True) state is itself a
+    # genuine change relative to the now-advanced baseline, and must also be
+    # detected -- this is the specific correctness property this baseline
+    # table restores: a frozen first-observation snapshot would have wrongly
+    # treated this as "back to normal, no notification".
+    _classify(db_session, document.id, delivery.id, may_process=True)
+    reverted_run = run_notify_watchers(db_session, sender)
+    assert reverted_run.notifications_created == 1
+    notifications = PostgresNotificationRepository(db_session).list_for_account(account.id)
+    assert len(notifications) == 2
+    assert {n.may_process for n in notifications} == {True, False}
