@@ -656,6 +656,35 @@ class WorkRepository(Protocol):
         ...
 
 
+@dataclass(frozen=True)
+class Watchlist:
+    id: uuid.UUID
+    account_id: uuid.UUID
+    work_id: uuid.UUID
+    created_at: datetime
+
+
+class WatchlistRepository(Protocol):
+    def add_watch(self, *, account_id: uuid.UUID, work_id: uuid.UUID) -> Watchlist:
+        """Idempotent: a second call for the same pair returns the existing row."""
+        ...
+
+    def remove_watch(self, *, account_id: uuid.UUID, work_id: uuid.UUID) -> None:
+        """Idempotent: no error if the pair is not currently watched."""
+        ...
+
+    def list_watches_for_account(self, account_id: uuid.UUID) -> list[Watchlist]: ...
+
+    def list_all_watches(self) -> list[Watchlist]:
+        """
+        Every watch, across every account -- unscoped. The only caller is the
+        notify-watchers CLI job (normly_core.notifications.detection), which
+        must see every account's watches in a single run. No HTTP endpoint
+        may call this.
+        """
+        ...
+
+
 class ContradictoryWorkMergeError(Exception):
     def __init__(self, source_work_id: uuid.UUID, target_work_id: uuid.UUID):
         self.source_work_id = source_work_id

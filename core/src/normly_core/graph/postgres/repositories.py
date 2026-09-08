@@ -42,6 +42,7 @@ from normly_core.graph.domain import (
     Segment,
     Source,
     TdmOptOutResult,
+    Watchlist,
     WithdrawnDeliveryError,
     Work,
     WorkCreatedVia,
@@ -824,6 +825,63 @@ class PostgresWorkRepository:
         if orm.status == WorkStatus.MERGED and orm.merged_into_work_id is not None:
             orm = self._session.get(WorkORM, orm.merged_into_work_id)
         return _work_to_domain(orm)
+
+
+def _watchlist_to_domain(orm: WatchlistORM) -> Watchlist:
+    return Watchlist(
+        id=orm.id, account_id=orm.account_id, work_id=orm.work_id, created_at=orm.created_at,
+    )
+
+
+class PostgresWatchlistRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def add_watch(self, *, account_id: uuid.UUID, work_id: uuid.UUID) -> Watchlist:
+        existing = self._existing(account_id, work_id)
+        if existing is not None:
+            return _watchlist_to_domain(existing)
+
+        orm = WatchlistORM(id=uuid.uuid4(), account_id=account_id, work_id=work_id)
+        try:
+            with self._session.begin_nested():
+                self._session.add(orm)
+                self._session.flush()
+        except IntegrityError:
+            existing = self._existing(account_id, work_id)
+            if existing is None:
+                raise
+            return _watchlist_to_domain(existing)
+        self._session.refresh(orm)
+        return _watchlist_to_domain(orm)
+
+    def remove_watch(self, *, account_id: uuid.UUID, work_id: uuid.UUID) -> None:
+        self._session.execute(
+            sa.delete(WatchlistORM).where(
+                WatchlistORM.account_id == account_id, WatchlistORM.work_id == work_id
+            )
+        )
+
+    def list_watches_for_account(self, account_id: uuid.UUID) -> list[Watchlist]:
+        rows = self._session.execute(
+            select(WatchlistORM)
+            .where(WatchlistORM.account_id == account_id)
+            .order_by(WatchlistORM.created_at, WatchlistORM.id)
+        ).scalars()
+        return [_watchlist_to_domain(row) for row in rows]
+
+    def list_all_watches(self) -> list[Watchlist]:
+        rows = self._session.execute(
+            select(WatchlistORM).order_by(WatchlistORM.id)
+        ).scalars()
+        return [_watchlist_to_domain(row) for row in rows]
+
+    def _existing(self, account_id: uuid.UUID, work_id: uuid.UUID) -> WatchlistORM | None:
+        return self._session.execute(
+            select(WatchlistORM).where(
+                WatchlistORM.account_id == account_id, WatchlistORM.work_id == work_id
+            )
+        ).scalar_one_or_none()
 
 
 def _rights_to_domain(orm: RightsClassificationORM) -> RightsClassification:
