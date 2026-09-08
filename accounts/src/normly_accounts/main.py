@@ -11,7 +11,7 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from sqlalchemy import create_engine
 
-from normly_accounts.email import RecordingEmailSender, SmtpEmailSender
+from normly_core.notifications.email import RecordingEmailSender, SmtpEmailSender
 from normly_accounts.errors import COMMON_ERROR_RESPONSES, register_exception_handlers
 from normly_accounts.routers.account_management import account_management_router
 from normly_accounts.routers.email_change import email_change_router

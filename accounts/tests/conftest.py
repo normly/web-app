@@ -12,7 +12,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from testcontainers.community.postgres import PostgresContainer
 
-from normly_accounts.email import RecordingEmailSender
+from normly_core.notifications.email import RecordingEmailSender
 
 ACCOUNTS_DIR = Path(__file__).parents[1]
 CORE_DIR = ACCOUNTS_DIR.parent / "core"

@@ -28,7 +28,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from normly_accounts.dependencies import get_email_sender
-from normly_accounts.email import RecordingEmailSender
+from normly_core.notifications.email import RecordingEmailSender
 from normly_accounts.main import create_app
 from normly_core.graph.postgres.repositories import PostgresAccountRepository
 

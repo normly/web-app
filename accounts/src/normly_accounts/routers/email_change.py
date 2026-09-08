@@ -19,7 +19,7 @@ from normly_core.graph.postgres.repositories import (
 )
 
 from normly_accounts.dependencies import get_current_account, get_email_sender, get_session
-from normly_accounts.email import EmailSender
+from normly_core.notifications.email import EmailSender
 from normly_accounts.schemas import EmailChangeRequest
 from normly_accounts.security import generate_token
 
