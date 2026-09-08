@@ -566,8 +566,10 @@ class PostgresDocumentRepository:
         ).scalars()
         return [_document_to_domain(row) for row in rows]
 
-    def find_by_designation(self, issuer: str, designation: str) -> Document | None:
-        orm = self._session.execute(
+    def find_by_designation(
+        self, issuer: str, designation: str, edition: str | None = None
+    ) -> Document | None:
+        query = (
             select(DocumentORM)
             .join(
                 DocumentDesignationORM,
@@ -577,7 +579,21 @@ class PostgresDocumentRepository:
                 DocumentDesignationORM.issuer == issuer,
                 DocumentDesignationORM.designation == designation,
             )
-        ).scalar_one_or_none()
+        )
+        if edition is not None:
+            query = query.where(DocumentDesignationORM.edition == edition)
+            orm = self._session.execute(query).scalar_one_or_none()
+        else:
+            # Without a specific edition, several DocumentDesignation rows can
+            # now legitimately share (issuer, designation) -- one per edition
+            # (see migration 0026). The caller gets the most recent one
+            # deterministically, rather than an ambiguous match; a
+            # single-edition designation (the common case today, and the
+            # only case for EUR-Lex/BAuA) still returns its one match exactly
+            # as before.
+            orm = self._session.execute(
+                query.order_by(DocumentORM.created_at.desc()).limit(1)
+            ).scalar_one_or_none()
         return _document_to_domain(orm) if orm else None
 
     def search_documents_for_jurisdiction(

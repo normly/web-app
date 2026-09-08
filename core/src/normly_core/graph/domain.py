@@ -311,7 +311,9 @@ class DocumentRepository(Protocol):
         """
         ...
 
-    def find_by_designation(self, issuer: str, designation: str) -> Document | None: ...
+    def find_by_designation(
+        self, issuer: str, designation: str, edition: str | None = None
+    ) -> Document | None: ...
 
 
 class RateLimitRepository(Protocol):
