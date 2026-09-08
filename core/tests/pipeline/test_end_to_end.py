@@ -69,6 +69,89 @@ def test_eur_lex_and_dguv_runs_populate_a_queryable_graph_with_correct_rights_as
     ]
 
 
+def test_eur_lex_replaces_edges_are_created_for_a_consolidating_successor(db_session):
+    """Real fixture data: EN ISO 12100:2010 consolidates three separately
+    ingested predecessors. Every REPLACES edge must be created regardless of
+    the Work-merge outcome -- create_edge() has no Work awareness. The
+    Work-assignment side is deliberately NOT asserted as a clean three-way
+    merge here: resolving three DIFFERENT pre-existing Works is the
+    documented, pre-existing "conflicting_work_signal" path (see this plan's
+    Global Constraints) -- asserted directly below instead."""
+    from normly_core.graph.domain import EdgeType
+    from normly_core.graph.postgres.repositories import (
+        PostgresEdgeRepository,
+        PostgresIdentityResolutionRepository,
+    )
+
+    eur_lex_source = _make_source(db_session, jurisdiction="EU")
+    eur_lex_adapter = EurLexAdapter(
+        directory=FIXTURE_DIR, source_id=eur_lex_source.id, legislation_reference="2006/42/EC",
+    )
+
+    run_adapter(eur_lex_adapter, db_session)
+
+    doc_repo = PostgresDocumentRepository(db_session)
+    edge_repo = PostgresEdgeRepository(db_session)
+    successor = doc_repo.find_by_designation("CEN", "EN ISO 12100:2010")
+    predecessors = [
+        doc_repo.find_by_designation(
+            "CEN", "EN ISO 12100-1:2003, EN ISO 12100-1:2003/A1:2009"
+        ),
+        doc_repo.find_by_designation(
+            "CEN", "EN ISO 12100-2:2003, EN ISO 12100-2:2003/A1:2009"
+        ),
+        doc_repo.find_by_designation("CEN", "EN ISO 14121-1:2007"),
+    ]
+    assert successor is not None
+    assert all(p is not None for p in predecessors)
+
+    outgoing = edge_repo.list_edges_for_jurisdiction(successor.id, "EU")
+    replaces_targets = {
+        e.to_document_id for e in outgoing if e.edge_type == EdgeType.REPLACES
+    }
+    assert replaces_targets == {p.id for p in predecessors}
+
+    # Ambiguous Work signal (three separate pre-existing Works): the
+    # successor keeps its own fresh Work rather than silently picking one,
+    # and exactly one work_merge case is queued for a curator -- the
+    # documented, pre-existing behavior this task's own code newly exercises
+    # for the first time on real data.
+    assert successor.work_id not in {p.work_id for p in predecessors}
+    identity_repo = PostgresIdentityResolutionRepository(db_session)
+    cases = identity_repo.list_pending_cases()
+    work_merge_cases = [c for c in cases if c.source_work_id == successor.work_id]
+    assert len(work_merge_cases) == 1
+    assert work_merge_cases[0].target_work_id in {p.work_id for p in predecessors}
+
+
+def test_eur_lex_does_not_create_a_replaces_edge_for_an_unresolvable_successor(db_session):
+    """EN 349:1993+A1:2008 was withdrawn in the real fixture data, but its
+    successor is not present in this corpus -- no REPLACES edge should
+    exist, and no reference_target_not_found case should be enqueued either
+    (Task 1 attaches no reference at all when the successor cannot be
+    resolved within the currently-parsed table data, per the spec's
+    "no rätselraten" rule -- this differs from the DGUV free-text case in
+    Task 2, which DOES attempt resolution and falls through to a curator
+    case when it fails)."""
+    from normly_core.graph.domain import EdgeType
+    from normly_core.graph.postgres.repositories import PostgresEdgeRepository
+
+    eur_lex_source = _make_source(db_session, jurisdiction="EU")
+    eur_lex_adapter = EurLexAdapter(
+        directory=FIXTURE_DIR, source_id=eur_lex_source.id, legislation_reference="2006/42/EC",
+    )
+
+    run_adapter(eur_lex_adapter, db_session)
+
+    doc_repo = PostgresDocumentRepository(db_session)
+    edge_repo = PostgresEdgeRepository(db_session)
+    withdrawn = doc_repo.find_by_designation("CEN", "EN 349:1993+A1:2008")
+    assert withdrawn is not None
+
+    incoming_or_outgoing = edge_repo.list_edges_for_jurisdiction(withdrawn.id, "EU")
+    assert all(e.edge_type != EdgeType.REPLACES for e in incoming_or_outgoing)
+
+
 def test_running_the_same_adapter_twice_skips_unchanged_records(db_session):
     dguv_source = _make_source(db_session, jurisdiction="DE")
     dguv_adapter = DguvAdapter(directory=FIXTURE_DIR, source_id=dguv_source.id)

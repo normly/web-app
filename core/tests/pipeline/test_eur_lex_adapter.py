@@ -39,8 +39,14 @@ def test_fetch_yields_standard_records_with_based_on_law_reference():
     assert first.raw_issuer == "CEN"
     assert "EN ISO 12100" in first.raw_designation
     assert first.full_text is None
-    assert len(first.raw_references) == 1
-    reference = first.raw_references[0]
+    # `first` (EN ISO 12100:2010, table order) also consolidates three
+    # withdrawn predecessors into REPLACES references -- see
+    # test_fetch_attaches_a_replaces_reference_per_matching_withdrawn_predecessor
+    # below -- so only the BASED_ON_LAW reference is asserted here, not the
+    # full reference count.
+    based_on_law = [r for r in first.raw_references if r.edge_type == EdgeType.BASED_ON_LAW]
+    assert len(based_on_law) == 1
+    reference = based_on_law[0]
     assert reference.target_issuer == "EU"
     assert reference.target_designation == "2006/42/EC"
     assert reference.edge_type == EdgeType.BASED_ON_LAW
@@ -135,6 +141,65 @@ def test_extract_structure_is_always_empty():
     records = list(adapter.fetch())
 
     assert adapter.extract_structure(records[1]) == []
+
+
+def test_fetch_attaches_a_replaces_reference_per_matching_withdrawn_predecessor():
+    """EN ISO 12100:2010's own 'OJ reference for publication' (column 6)
+    matches the 'OJ reference for withdrawal' (column 11) of three separate
+    rows in the real fixture -- it consolidated all three into one standard.
+    Each of those three withdrawn rows must turn into its own REPLACES
+    RawReference on the successor's record, in addition to the existing
+    BASED_ON_LAW reference."""
+    adapter = EurLexAdapter(
+        directory=FIXTURE_DIR, source_id=uuid.uuid4(), legislation_reference="2006/42/EC",
+    )
+
+    records = list(adapter.fetch())
+    successor = next(
+        r for r in records if r.raw_designation == "EN ISO 12100:2010"
+    )
+
+    based_on_law = [r for r in successor.raw_references if r.edge_type == EdgeType.BASED_ON_LAW]
+    replaces = [r for r in successor.raw_references if r.edge_type == EdgeType.REPLACES]
+    assert len(based_on_law) == 1
+    assert {r.target_designation for r in replaces} == {
+        "EN ISO 12100-1:2003, EN ISO 12100-1:2003/A1:2009",
+        "EN ISO 12100-2:2003, EN ISO 12100-2:2003/A1:2009",
+        "EN ISO 14121-1:2007",
+    }
+    assert all(r.target_issuer == "CEN" for r in replaces)
+
+
+def test_fetch_does_not_attach_a_replaces_reference_when_the_successor_is_absent():
+    """EN 349:1993+A1:2008 was withdrawn (real data), but no row in this
+    fixture carries its withdrawal OJ reference as its own publication OJ
+    reference -- its successor was never ingested. No REPLACES reference
+    should be fabricated; the record keeps only its BASED_ON_LAW reference."""
+    adapter = EurLexAdapter(
+        directory=FIXTURE_DIR, source_id=uuid.uuid4(), legislation_reference="2006/42/EC",
+    )
+
+    records = list(adapter.fetch())
+    withdrawn_without_successor = next(
+        r for r in records if r.raw_designation == "EN 349:1993+A1:2008"
+    )
+
+    assert len(withdrawn_without_successor.raw_references) == 1
+    assert withdrawn_without_successor.raw_references[0].edge_type == EdgeType.BASED_ON_LAW
+
+
+def test_fetch_does_not_attach_a_replaces_reference_for_a_never_withdrawn_standard():
+    adapter = EurLexAdapter(
+        directory=FIXTURE_DIR, source_id=uuid.uuid4(), legislation_reference="2006/42/EC",
+    )
+
+    records = list(adapter.fetch())
+    never_withdrawn = next(
+        r for r in records if r.raw_designation == "EN 547-1:1996+A1:2008"
+    )
+
+    assert len(never_withdrawn.raw_references) == 1
+    assert never_withdrawn.raw_references[0].edge_type == EdgeType.BASED_ON_LAW
 
 
 def test_classify_rights_denies_fulltext_but_allows_export():
