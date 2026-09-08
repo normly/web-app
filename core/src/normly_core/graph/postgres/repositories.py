@@ -934,6 +934,15 @@ class PostgresNotificationRepository:
             trigger_jurisdiction=trigger_jurisdiction, may_process=may_process,
             may_index_fulltext=may_index_fulltext, may_cite_passages=may_cite_passages,
             may_export_free=may_export_free, read_at=None, emailed_at=emailed_at,
+            # Set client-side rather than relying on the column's
+            # server_default=func.now(): Postgres freezes now() at
+            # transaction start, so several notifications created inside one
+            # transaction (e.g. multiple notify-watchers runs sharing a test
+            # session) would otherwise all get an identical created_at and
+            # make list_for_account's/find_latest_rights_notification's
+            # `ORDER BY created_at DESC, id DESC` fall back to random UUID
+            # ordering for the tiebreak.
+            created_at=datetime.now(timezone.utc),
         )
         self._session.add(orm)
         self._session.flush()

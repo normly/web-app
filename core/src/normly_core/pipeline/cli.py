@@ -12,6 +12,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from normly_core.graph.postgres.repositories import PostgresSourceRepository
+from normly_core.notifications.detection import run_notify_watchers
+from normly_core.notifications.email import RecordingEmailSender, SmtpEmailSender
 from normly_core.pipeline.adapters.baua import BauaAdapter
 from normly_core.pipeline.adapters.dguv import DguvAdapter
 from normly_core.pipeline.adapters.eur_lex import EurLexAdapter
@@ -56,6 +58,8 @@ def main(argv: list[str] | None = None) -> int:
 
     subparsers.add_parser("backfill-document-embeddings")
 
+    subparsers.add_parser("notify-watchers")
+
     args = parser.parse_args(argv)
 
     database_url = os.environ.get("NORMLY_DATABASE_URL")
@@ -82,6 +86,27 @@ def main(argv: list[str] | None = None) -> int:
                 created = backfill_document_embeddings(session)
                 session.commit()
                 print(f"document_embeddings_created={created}")
+            elif args.command == "notify-watchers":
+                smtp_host = os.environ.get("NORMLY_SMTP_HOST")
+                if smtp_host:
+                    email_sender = SmtpEmailSender(
+                        host=smtp_host,
+                        port=int(os.environ.get("NORMLY_SMTP_PORT", "587")),
+                        from_address=os.environ.get(
+                            "NORMLY_SMTP_FROM", "no-reply@normly.example"
+                        ),
+                        username=os.environ.get("NORMLY_SMTP_USERNAME"),
+                        password=os.environ.get("NORMLY_SMTP_PASSWORD"),
+                    )
+                else:
+                    email_sender = RecordingEmailSender()
+                summary = run_notify_watchers(session, email_sender)
+                session.commit()
+                print(
+                    f"watches_scanned={summary.watches_scanned} "
+                    f"notifications_created={summary.notifications_created} "
+                    f"emails_sent={summary.emails_sent}"
+                )
     finally:
         engine.dispose()
 

@@ -27,6 +27,8 @@ _WRITTEN_TABLES = (
     "document_embedding",
     "embedding",
     "segment",
+    "notification",
+    "watchlist",
     "edge",
     "rights_classification",
     "identity_resolution_case",
@@ -35,6 +37,7 @@ _WRITTEN_TABLES = (
     "document",
     "delivery",
     "source",
+    "account",
 )
 
 
@@ -237,3 +240,10 @@ def test_backfill_document_embeddings_command_creates_embeddings(committed_db, c
     assert exit_code == 0
     output = capsys.readouterr().out
     assert "document_embeddings_created=1" in output
+
+
+def test_main_notify_watchers_subcommand_runs_without_smtp_configured(committed_db, capsys):
+    exit_code = main(["notify-watchers"])
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert "watches_scanned=" in captured.out

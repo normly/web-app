@@ -1,0 +1,188 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 normly contributors
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+from datetime import datetime, timezone
+
+from sqlalchemy.orm import Session
+
+from normly_core.graph.domain import (
+    Account,
+    EdgeType,
+    NotificationPreference,
+    NotificationTriggerType,
+)
+from normly_core.graph.postgres.repositories import (
+    PostgresAccountRepository,
+    PostgresDocumentRepository,
+    PostgresEdgeRepository,
+    PostgresNotificationRepository,
+    PostgresRightsRepository,
+    PostgresWatchlistRepository,
+)
+from normly_core.notifications.email import EmailSender
+
+logger = logging.getLogger(__name__)
+
+_NEW_EDITION_EDGE_TYPES = (EdgeType.REPLACES, EdgeType.WITHDRAWN_BY)
+_NATIONAL_ADOPTION_EDGE_TYPES = (EdgeType.ADOPTED_FROM,)
+
+_EMAIL_SUBJECTS = {
+    NotificationTriggerType.NEW_EDITION: "Neue Ausgabe eines beobachteten Regelwerks",
+    NotificationTriggerType.NATIONAL_ADOPTION: "Neue nationale Fassung eines beobachteten Regelwerks",
+    NotificationTriggerType.RIGHTS_CHANGE: "Rechteänderung an einem beobachteten Regelwerk",
+}
+
+
+@dataclass(frozen=True)
+class NotifyWatchersSummary:
+    watches_scanned: int
+    notifications_created: int
+    emails_sent: int
+
+
+def run_notify_watchers(session: Session, email_sender: EmailSender) -> NotifyWatchersSummary:
+    watchlist_repo = PostgresWatchlistRepository(session)
+    notification_repo = PostgresNotificationRepository(session)
+    account_repo = PostgresAccountRepository(session)
+    document_repo = PostgresDocumentRepository(session)
+    edge_repo = PostgresEdgeRepository(session)
+    rights_repo = PostgresRightsRepository(session)
+
+    watches = watchlist_repo.list_all_watches()
+    notifications_created = 0
+    emails_sent = 0
+
+    for watch in watches:
+        account = account_repo.get_account_by_id(watch.account_id)
+        if account is None or account.notification_preference == NotificationPreference.NONE:
+            continue
+
+        documents = document_repo.list_documents_for_work_unchecked(watch.work_id)
+        document_ids = [document.id for document in documents]
+
+        for edge_types, trigger_type in (
+            (_NEW_EDITION_EDGE_TYPES, NotificationTriggerType.NEW_EDITION),
+            (_NATIONAL_ADOPTION_EDGE_TYPES, NotificationTriggerType.NATIONAL_ADOPTION),
+        ):
+            for edge in edge_repo.list_incoming_edges_for_work_unchecked(document_ids, edge_types):
+                if notification_repo.find_by_trigger_edge(
+                    account_id=account.id, work_id=watch.work_id,
+                    trigger_type=trigger_type, trigger_edge_id=edge.id,
+                ) is not None:
+                    continue
+                notification = _create_and_maybe_email(
+                    notification_repo, email_sender, account=account, work_id=watch.work_id,
+                    trigger_type=trigger_type, trigger_edge_id=edge.id,
+                    trigger_document_id=None, trigger_jurisdiction=None,
+                    may_process=None, may_index_fulltext=None,
+                    may_cite_passages=None, may_export_free=None,
+                )
+                notifications_created += 1
+                if notification.emailed_at is not None:
+                    emails_sent += 1
+
+        for document_id in document_ids:
+            for classification in rights_repo.list_classifications_for_document_unchecked(
+                document_id
+            ):
+                previous = notification_repo.find_latest_rights_notification(
+                    account_id=account.id, work_id=watch.work_id,
+                    trigger_document_id=document_id,
+                    trigger_jurisdiction=classification.jurisdiction,
+                )
+                if previous is None:
+                    # First-time observation, not a change: the user must not
+                    # be counted or emailed for rights state that predates
+                    # their watch. But rights_classification has no history
+                    # of its own (classify() upserts a single row per
+                    # (document_id, jurisdiction) via session.merge()), so
+                    # without persisting *something* here, a real change
+                    # later would be indistinguishable from another first
+                    # observation forever, since find_latest_rights_notification
+                    # would stay None on every run. Persist a silent baseline
+                    # snapshot -- via the Notification table, the only place
+                    # this state can live -- so a later genuine change has
+                    # something to diff against, but keep it out of the
+                    # summary counters and never email it.
+                    notification_repo.create(
+                        account_id=account.id, work_id=watch.work_id,
+                        trigger_type=NotificationTriggerType.RIGHTS_CHANGE,
+                        trigger_edge_id=None, trigger_document_id=document_id,
+                        trigger_jurisdiction=classification.jurisdiction,
+                        may_process=classification.may_process,
+                        may_index_fulltext=classification.may_index_fulltext,
+                        may_cite_passages=classification.may_cite_passages,
+                        may_export_free=classification.may_export_free,
+                        emailed_at=None,
+                    )
+                    continue
+                if (
+                    previous.may_process == classification.may_process
+                    and previous.may_index_fulltext == classification.may_index_fulltext
+                    and previous.may_cite_passages == classification.may_cite_passages
+                    and previous.may_export_free == classification.may_export_free
+                ):
+                    continue
+                notification = _create_and_maybe_email(
+                    notification_repo, email_sender, account=account, work_id=watch.work_id,
+                    trigger_type=NotificationTriggerType.RIGHTS_CHANGE, trigger_edge_id=None,
+                    trigger_document_id=document_id,
+                    trigger_jurisdiction=classification.jurisdiction,
+                    may_process=classification.may_process,
+                    may_index_fulltext=classification.may_index_fulltext,
+                    may_cite_passages=classification.may_cite_passages,
+                    may_export_free=classification.may_export_free,
+                )
+                notifications_created += 1
+                if notification.emailed_at is not None:
+                    emails_sent += 1
+
+    return NotifyWatchersSummary(
+        watches_scanned=len(watches), notifications_created=notifications_created,
+        emails_sent=emails_sent,
+    )
+
+
+def _create_and_maybe_email(
+    notification_repo: PostgresNotificationRepository,
+    email_sender: EmailSender,
+    *,
+    account: Account,
+    work_id,
+    trigger_type: NotificationTriggerType,
+    trigger_edge_id,
+    trigger_document_id,
+    trigger_jurisdiction: str | None,
+    may_process: bool | None,
+    may_index_fulltext: bool | None,
+    may_cite_passages: bool | None,
+    may_export_free: bool | None,
+):
+    emailed_at = None
+    if account.notification_preference in (
+        NotificationPreference.EMAIL, NotificationPreference.BOTH,
+    ):
+        try:
+            email_sender.send(
+                to=account.email, subject=_EMAIL_SUBJECTS[trigger_type],
+                body=(
+                    f"Ein von dir beobachtetes Regelwerk hat eine Änderung erfahren "
+                    f"({trigger_type.value}). Melde dich bei normly an, um die Details zu sehen."
+                ),
+            )
+            emailed_at = datetime.now(timezone.utc)
+        except Exception:
+            # Fail-soft, best-effort, no retry -- see Global Constraints.
+            logger.exception("notify-watchers email delivery failed for %s", account.email)
+
+    return notification_repo.create(
+        account_id=account.id, work_id=work_id, trigger_type=trigger_type,
+        trigger_edge_id=trigger_edge_id, trigger_document_id=trigger_document_id,
+        trigger_jurisdiction=trigger_jurisdiction, may_process=may_process,
+        may_index_fulltext=may_index_fulltext, may_cite_passages=may_cite_passages,
+        may_export_free=may_export_free, emailed_at=emailed_at,
+    )
