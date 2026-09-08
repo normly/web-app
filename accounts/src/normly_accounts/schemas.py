@@ -26,6 +26,7 @@ class LogoutRequest(BaseModel):
 class UpdateProfileRequest(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
+    notification_preference: str | None = None
 
 
 class AccountResponse(BaseModel):
@@ -36,6 +37,7 @@ class AccountResponse(BaseModel):
     last_name: str | None
     avatar_data_url: str | None
     has_password: bool
+    notification_preference: str
 
 
 class SessionResponse(BaseModel):

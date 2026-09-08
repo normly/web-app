@@ -153,3 +153,19 @@ def test_delete_avatar_clears_it(client, db_session):
 
     assert response.status_code == 200
     assert response.json()["avatar_data_url"] is None
+
+
+def test_update_notification_preference(client):
+    _, headers = _register_and_authorize(client)
+    response = client.patch(
+        "/v1/accounts/profile", json={"notification_preference": "email"}, headers=headers
+    )
+    assert response.status_code == 200
+    assert response.json()["notification_preference"] == "email"
+
+
+def test_updating_only_the_name_leaves_notification_preference_unchanged(client):
+    _, headers = _register_and_authorize(client)
+    client.patch("/v1/accounts/profile", json={"notification_preference": "both"}, headers=headers)
+    response = client.patch("/v1/accounts/profile", json={"first_name": "Jamie"}, headers=headers)
+    assert response.json()["notification_preference"] == "both"
