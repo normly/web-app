@@ -243,3 +243,23 @@ def test_classify_is_idempotent_and_updates_existing_classification(db_session):
         )
     ).scalars().all()
     assert len(rows) == 1
+
+
+def test_list_classifications_for_document_unchecked_returns_every_jurisdiction(db_session):
+    document, delivery = _make_document(db_session)
+    rights_repo = PostgresRightsRepository(db_session)
+    rights_repo.classify(
+        document_id=document.id, jurisdiction="DE", may_process=True, may_index_fulltext=True,
+        may_cite_passages=True, may_export_free=True, legal_basis_reference="§ 5 UrhG",
+        classified_at=datetime.now(timezone.utc), classified_by="pipeline",
+        delivery_id=delivery.id,
+    )
+    rights_repo.classify(
+        document_id=document.id, jurisdiction="AT", may_process=False, may_index_fulltext=False,
+        may_cite_passages=False, may_export_free=False, legal_basis_reference="n/a",
+        classified_at=datetime.now(timezone.utc), classified_by="pipeline",
+        delivery_id=delivery.id,
+    )
+
+    classifications = rights_repo.list_classifications_for_document_unchecked(document.id)
+    assert {c.jurisdiction for c in classifications} == {"DE", "AT"}

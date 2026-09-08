@@ -125,6 +125,7 @@ class Edge:
     layer: Layer
     delivery_id: uuid.UUID
     revoked_at: datetime | None
+    created_at: datetime
 
 
 @dataclass(frozen=True)
@@ -200,11 +201,13 @@ class DocumentRepository(Protocol):
     `rights_classification`; there is deliberately no method that returns
     documents unfiltered.
 
-    `PostgresDocumentRepository` additionally carries three ungated methods
+    `PostgresDocumentRepository` additionally carries four ungated methods
     that are **not** part of this Protocol and must not be treated as
     content-serving API: `get_document_unchecked` (existence check for
     pipeline and administrative use, e.g. proving a document node survived a
-    delivery revocation), `list_designations` and `list_titles` (identity
+    delivery revocation), `list_documents_for_work_unchecked` (every Document
+    for a Work, regardless of jurisdiction or rights classification —
+    notify-watchers, Task 6), `list_designations` and `list_titles` (identity
     resolution and pipeline metadata — designations are the identity of a node
     across national adoptions, independent of any rights question). They are
     internal implementation methods.

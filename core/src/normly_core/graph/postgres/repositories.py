@@ -402,6 +402,17 @@ class PostgresDocumentRepository:
         orm = self._session.get(DocumentORM, document_id)
         return _document_to_domain(orm) if orm else None
 
+    def list_documents_for_work_unchecked(self, work_id: uuid.UUID) -> list[Document]:
+        """
+        Every Document belonging to `work_id`, regardless of rights
+        classification or jurisdiction. Internal/administrative use only
+        (notify-watchers, Task 6) -- never callable from an HTTP endpoint.
+        """
+        rows = self._session.execute(
+            select(DocumentORM).where(DocumentORM.work_id == work_id)
+        ).scalars()
+        return [_document_to_domain(row) for row in rows]
+
     def add_designation(
         self,
         *,
@@ -1046,6 +1057,22 @@ class PostgresRightsRepository:
         orm = self._session.get(RightsClassificationORM, (document_id, jurisdiction))
         return _rights_to_domain(orm) if orm else None
 
+    def list_classifications_for_document_unchecked(
+        self, document_id: uuid.UUID
+    ) -> list[RightsClassification]:
+        """
+        Every classification row for `document_id`, one per jurisdiction ever
+        classified, regardless of revoked_at. Internal/administrative use
+        only (notify-watchers, Task 6) -- never callable from an HTTP
+        endpoint.
+        """
+        rows = self._session.execute(
+            select(RightsClassificationORM).where(
+                RightsClassificationORM.document_id == document_id
+            )
+        ).scalars()
+        return [_rights_to_domain(row) for row in rows]
+
 
 def _edge_to_domain(orm: EdgeORM) -> Edge:
     return Edge(
@@ -1057,6 +1084,7 @@ def _edge_to_domain(orm: EdgeORM) -> Edge:
         layer=orm.layer,
         delivery_id=orm.delivery_id,
         revoked_at=orm.revoked_at,
+        created_at=orm.created_at,
     )
 
 
@@ -1198,6 +1226,30 @@ class PostgresEdgeRepository:
                 target_rights.jurisdiction == jurisdiction,
                 target_rights.may_process.is_(True),
                 target_rights.revoked_at.is_(None),
+            )
+            .order_by(EdgeORM.id)
+        ).scalars()
+        return [_edge_to_domain(row) for row in rows]
+
+    def list_incoming_edges_for_work_unchecked(
+        self, document_ids: list[uuid.UUID], edge_types: tuple[EdgeType, ...]
+    ) -> list[Edge]:
+        """
+        Incoming, unrevoked edges of the given types whose to_document_id is
+        one of `document_ids` -- bounded to one Work's own documents, no
+        rights-gating and no layer filter. Internal/administrative use only
+        (notify-watchers, Task 6) -- never callable from an HTTP endpoint;
+        every public read path keeps using the *_for_jurisdiction methods
+        above.
+        """
+        if not document_ids:
+            return []
+        rows = self._session.execute(
+            select(EdgeORM)
+            .where(
+                EdgeORM.to_document_id.in_(document_ids),
+                EdgeORM.edge_type.in_(edge_types),
+                EdgeORM.revoked_at.is_(None),
             )
             .order_by(EdgeORM.id)
         ).scalars()
