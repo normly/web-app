@@ -8,12 +8,21 @@ from pathlib import Path
 import pytest
 import sqlalchemy as sa
 
-from normly_core.graph.domain import LegalBasisCategory
+from normly_core.graph.domain import (
+    EdgeType,
+    Layer,
+    LegalBasisCategory,
+    NotificationPreference,
+)
 from normly_core.graph.postgres.orm import DocumentDesignationORM, SourceORM
 from normly_core.graph.postgres.repositories import (
+    PostgresAccountRepository,
     PostgresDeliveryRepository,
     PostgresDocumentRepository,
+    PostgresEdgeRepository,
+    PostgresNotificationRepository,
     PostgresSourceRepository,
+    PostgresWatchlistRepository,
 )
 from normly_core.pipeline.cli import build_adapter, main
 
@@ -247,3 +256,66 @@ def test_main_notify_watchers_subcommand_runs_without_smtp_configured(committed_
     assert exit_code == 0
     captured = capsys.readouterr()
     assert "watches_scanned=" in captured.out
+
+
+def test_main_notify_watchers_without_smtp_configured_does_not_mark_emails_sent(
+    committed_db, capsys, monkeypatch
+):
+    """
+    Without NORMLY_SMTP_HOST, the CLI falls back to NullEmailSender, which
+    always raises -- caught by detection.py's existing fail-soft try/except,
+    so the run must still succeed (exit 0, no crash) but must NOT stamp
+    emailed_at, since no email was actually delivered anywhere. Stamping it
+    anyway (the old RecordingEmailSender fallback's bug) would silently fill
+    the database with notifications falsely marked "delivered."
+    """
+    monkeypatch.delenv("NORMLY_SMTP_HOST", raising=False)
+
+    from sqlalchemy.orm import Session
+
+    with Session(committed_db) as session:
+        source = PostgresSourceRepository(session).create_source(
+            publisher="DGUV", retrieval_path="https://publikationen.dguv.de",
+            legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
+            reviewed_at=date(2026, 1, 1), responsible_person="J. Weber",
+        )
+        delivery = PostgresDeliveryRepository(session).record_delivery(
+            source_id=source.id, content_hash="sha256:cli-null-email",
+            ingested_at=datetime.now(timezone.utc),
+        )
+        doc_repo = PostgresDocumentRepository(session)
+        old = doc_repo.create_document(
+            origin_issuer="DGUV", origin_number="cli-null-email", edition="2020", part=None,
+            delivery_id=delivery.id,
+        )
+        new = doc_repo.create_document(
+            origin_issuer="DGUV", origin_number="cli-null-email", edition="2026", part=None,
+            delivery_id=delivery.id, work_id=old.work_id,
+        )
+        PostgresEdgeRepository(session).create_edge(
+            from_document_id=new.id, to_document_id=old.id, edge_type=EdgeType.REPLACES,
+            jurisdiction=None, layer=Layer.FREE, delivery_id=delivery.id,
+        )
+        account = PostgresAccountRepository(session).create_account(
+            email="cli-null-email-watcher@example.de", password_hash=None
+        )
+        PostgresAccountRepository(session).update_notification_preference(
+            account.id, preference=NotificationPreference.EMAIL
+        )
+        PostgresWatchlistRepository(session).add_watch(
+            account_id=account.id, work_id=old.work_id
+        )
+        session.commit()
+        account_id = account.id
+
+    exit_code = main(["notify-watchers"])
+
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert "notifications_created=1" in captured.out
+    assert "emails_sent=0" in captured.out
+
+    with Session(committed_db) as session:
+        notifications = PostgresNotificationRepository(session).list_for_account(account_id)
+        assert len(notifications) == 1
+        assert notifications[0].emailed_at is None

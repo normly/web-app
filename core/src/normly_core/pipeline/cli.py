@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from normly_core.graph.postgres.repositories import PostgresSourceRepository
 from normly_core.notifications.detection import run_notify_watchers
-from normly_core.notifications.email import RecordingEmailSender, SmtpEmailSender
+from normly_core.notifications.email import NullEmailSender, SmtpEmailSender
 from normly_core.pipeline.adapters.baua import BauaAdapter
 from normly_core.pipeline.adapters.dguv import DguvAdapter
 from normly_core.pipeline.adapters.eur_lex import EurLexAdapter
@@ -99,7 +99,7 @@ def main(argv: list[str] | None = None) -> int:
                         password=os.environ.get("NORMLY_SMTP_PASSWORD"),
                     )
                 else:
-                    email_sender = RecordingEmailSender()
+                    email_sender = NullEmailSender()
                 summary = run_notify_watchers(session, email_sender)
                 session.commit()
                 print(

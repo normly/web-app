@@ -58,3 +58,23 @@ class RecordingEmailSender:
 
     def send(self, *, to: str, subject: str, body: str) -> None:
         self.sent.append({"to": to, "subject": subject, "body": body})
+
+
+@dataclass
+class NullEmailSender:
+    """
+    Fallback used when no SMTP relay is configured. Unlike RecordingEmailSender
+    (a deliberate test double that simulates success), this always raises --
+    it exists specifically so notify-watchers' fail-soft try/except leaves
+    `emailed_at` at None instead of stamping a real timestamp for mail that
+    was never sent. accounts/'s own lifespan() has no equivalent persisted
+    "was this delivered" column that anything relies on, so it keeps using
+    RecordingEmailSender for its own fallback -- this class is specific to
+    notify-watchers' need for emailed_at to be trustworthy stored data.
+    """
+
+    def send(self, *, to: str, subject: str, body: str) -> None:
+        raise RuntimeError(
+            "no SMTP relay configured -- set NORMLY_SMTP_HOST to send real "
+            "notification email"
+        )
