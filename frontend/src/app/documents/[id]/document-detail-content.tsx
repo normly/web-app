@@ -94,6 +94,7 @@ export function DocumentDetailContent({ documentId }: { documentId: string }) {
   const [notFound, setNotFound] = React.useState(false);
   const [isWatched, setIsWatched] = React.useState(false);
   const [isTogglingWatch, setIsTogglingWatch] = React.useState(false);
+  const [watchError, setWatchError] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -172,16 +173,30 @@ export function DocumentDetailContent({ documentId }: { documentId: string }) {
     setIsTogglingWatch(true);
     try {
       if (isWatched) {
-        await fetch(`/api/account/watchlist/${workStructure.work_id}`, { method: "DELETE" });
-        setIsWatched(false);
+        const response = await fetch(`/api/account/watchlist/${workStructure.work_id}`, {
+          method: "DELETE",
+        });
+        if (response.ok) {
+          setIsWatched(false);
+          setWatchError(false);
+        } else {
+          setWatchError(true);
+        }
       } else {
-        await fetch("/api/account/watchlist", {
+        const response = await fetch("/api/account/watchlist", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ workId: workStructure.work_id }),
         });
-        setIsWatched(true);
+        if (response.ok) {
+          setIsWatched(true);
+          setWatchError(false);
+        } else {
+          setWatchError(true);
+        }
       }
+    } catch {
+      setWatchError(true);
     } finally {
       setIsTogglingWatch(false);
     }
@@ -216,15 +231,20 @@ export function DocumentDetailContent({ documentId }: { documentId: string }) {
       )}
 
       {account && workStructure && (
-        <button
-          type="button"
-          onClick={toggleWatch}
-          disabled={isTogglingWatch}
-          aria-label={t(isWatched ? "documentDetail.removeFromWatchlist" : "documentDetail.addToWatchlist")}
-          data-testid="watchlist-toggle"
-        >
-          <Heart className={isWatched ? "h-5 w-5 fill-current" : "h-5 w-5"} />
-        </button>
+        <div className="flex flex-col gap-1">
+          <button
+            type="button"
+            onClick={toggleWatch}
+            disabled={isTogglingWatch}
+            aria-label={t(isWatched ? "documentDetail.removeFromWatchlist" : "documentDetail.addToWatchlist")}
+            data-testid="watchlist-toggle"
+          >
+            <Heart className={isWatched ? "h-5 w-5 fill-current" : "h-5 w-5"} />
+          </button>
+          {watchError && (
+            <p className="text-sm text-destructive">{t("documentDetail.watchlistToggleError")}</p>
+          )}
+        </div>
       )}
 
       <a

@@ -27,15 +27,27 @@ const REPLACED_EDITION_ID = "44444444-4444-4444-4444-444444444444";
 const NATIONAL_ADOPTION_ID = "55555555-5555-5555-5555-555555555555";
 
 function mockFetch(
-  overrides: { work?: object; rights?: object; account?: object | null; watchlist?: object[] } = {},
+  overrides: {
+    work?: object;
+    rights?: object;
+    account?: object | null;
+    watchlist?: object[];
+    watchlistToggleStatus?: number;
+  } = {},
 ) {
-  global.fetch = vi.fn().mockImplementation((url: string) => {
+  global.fetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
     if (url.includes("/api/auth/session")) {
       return Promise.resolve(
         new Response(JSON.stringify({ account: overrides.account ?? null }), { status: 200 }),
       );
     }
     if (url.includes("/api/account/watchlist")) {
+      const method = options?.method ?? "GET";
+      if (method !== "GET" && overrides.watchlistToggleStatus !== undefined) {
+        return Promise.resolve(
+          new Response(JSON.stringify({}), { status: overrides.watchlistToggleStatus }),
+        );
+      }
       return Promise.resolve(
         new Response(JSON.stringify(overrides.watchlist ?? []), { status: 200 }),
       );
@@ -270,6 +282,40 @@ describe("DocumentDetailContent", () => {
         `/api/account/watchlist/${WORK_ID}`,
         expect.objectContaining({ method: "DELETE" }),
       ),
+    );
+  });
+
+  it("keeps the previous heart state and shows an error when the add request fails", async () => {
+    mockFetch({
+      account: {
+        accountId: "acc-1", email: "a@example.de", firstName: null, lastName: null,
+        avatarDataUrl: null, hasPassword: true, notificationPreference: "none",
+      },
+      watchlist: [],
+      watchlistToggleStatus: 500,
+    });
+
+    renderDetail(DOCUMENT_ID);
+
+    const toggle = await screen.findByTestId("watchlist-toggle");
+    expect(toggle).toHaveAttribute("aria-label", "Zur Watchlist hinzufügen");
+
+    fireEvent.click(toggle);
+
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/account/watchlist",
+        expect.objectContaining({ method: "POST", body: JSON.stringify({ workId: WORK_ID }) }),
+      ),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("Aktion konnte nicht ausgeführt werden. Bitte versuche es erneut."),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("watchlist-toggle")).toHaveAttribute(
+      "aria-label", "Zur Watchlist hinzufügen",
     );
   });
 });

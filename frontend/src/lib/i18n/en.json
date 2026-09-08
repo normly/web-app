@@ -105,7 +105,8 @@
     "mayCitePassages": "Citable",
     "mayExportFree": "Free export permitted",
     "addToWatchlist": "Add to watchlist",
-    "removeFromWatchlist": "Remove from watchlist"
+    "removeFromWatchlist": "Remove from watchlist",
+    "watchlistToggleError": "The action could not be completed. Please try again."
   },
   "account": {
     "pageTitle": "Account",
