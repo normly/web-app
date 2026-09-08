@@ -183,3 +183,57 @@ def test_find_by_designation_without_edition_still_matches_a_single_edition_desi
 
     assert found is not None
     assert found.id == document.id
+
+
+def test_find_by_designation_without_edition_is_deterministic_on_a_created_at_tie(db_session):
+    """A genuine created_at tie is plausible in production (e.g. a bulk
+    backfill inserting multiple editions inside one transaction, where
+    Postgres's transaction-scoped now() gives them byte-identical
+    timestamps). Without a secondary sort key, ORDER BY created_at DESC
+    gives no guarantee which row comes back, and a different, physically
+    arbitrary row could be returned across runs. This asserts the query
+    instead reliably returns the same row every time, matching the
+    secondary sort key (id desc) -- not a claim about which edition is
+    semantically "newer"."""
+    source = PostgresSourceRepository(db_session).create_source(
+        publisher="DGUV", retrieval_path="https://publikationen.dguv.de",
+        legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
+        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+    )
+    delivery = PostgresDeliveryRepository(db_session).record_delivery(
+        source_id=source.id, content_hash="sha256:created-at-tie",
+        ingested_at=datetime.now(timezone.utc),
+    )
+    doc_repo = PostgresDocumentRepository(db_session)
+    first = doc_repo.create_document(
+        origin_issuer="DGUV", origin_number="DGUV Vorschrift 2", edition="2013-11-01",
+        part=None, delivery_id=delivery.id,
+    )
+    doc_repo.add_designation(
+        document_id=first.id, issuer="DGUV", designation="DGUV Vorschrift 2",
+        language="de", edition="2013-11-01", is_primary=True, delivery_id=delivery.id,
+    )
+    second = doc_repo.create_document(
+        origin_issuer="DGUV", origin_number="DGUV Vorschrift 2", edition="2022-06-01",
+        part=None, delivery_id=delivery.id,
+    )
+    doc_repo.add_designation(
+        document_id=second.id, issuer="DGUV", designation="DGUV Vorschrift 2",
+        language="de", edition="2022-06-01", is_primary=True, delivery_id=delivery.id,
+    )
+    # Force a genuine tie: both documents get the identical created_at,
+    # simulating what Postgres's transaction-scoped now() already does to
+    # any two documents created within one transaction (see the
+    # test_work_search.py precedent referenced elsewhere in this file).
+    db_session.execute(
+        sa.update(DocumentORM)
+        .where(DocumentORM.id.in_([first.id, second.id]))
+        .values(created_at=datetime(2024, 3, 1, tzinfo=timezone.utc))
+    )
+    db_session.flush()
+    expected = first if str(first.id) > str(second.id) else second
+
+    found = doc_repo.find_by_designation("DGUV", "DGUV Vorschrift 2")
+
+    assert found is not None
+    assert found.id == expected.id

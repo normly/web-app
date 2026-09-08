@@ -591,8 +591,18 @@ class PostgresDocumentRepository:
             # single-edition designation (the common case today, and the
             # only case for EUR-Lex/BAuA) still returns its one match exactly
             # as before.
+            #
+            # DocumentORM.id is a secondary sort key purely for reproducible
+            # tie-breaking, not semantic "newness" -- Postgres's now() is
+            # transaction-scoped, so two documents created in the same
+            # transaction (e.g. a bulk backfill) can get a byte-identical
+            # created_at. Without a secondary key, ORDER BY created_at DESC
+            # alone gives no guarantee which row comes back on a tie, and a
+            # different, physically arbitrary row could be returned across
+            # runs -- which matters here because downstream callers (e.g.
+            # REPLACES-edge creation) build graph edges on this result.
             orm = self._session.execute(
-                query.order_by(DocumentORM.created_at.desc()).limit(1)
+                query.order_by(DocumentORM.created_at.desc(), DocumentORM.id.desc()).limit(1)
             ).scalar_one_or_none()
         return _document_to_domain(orm) if orm else None
 
