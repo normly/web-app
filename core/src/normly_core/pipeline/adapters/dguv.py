@@ -15,7 +15,8 @@ from normly_core.pipeline.docling_extraction import (
     extract_document,
     report_skipped_source,
 )
-from normly_core.pipeline.domain import RawRecord, RawSection, RightsRule
+from normly_core.graph.domain import EdgeType
+from normly_core.pipeline.domain import RawRecord, RawReference, RawSection, RightsRule
 
 # A paragraph marker: "§ 1", "§ 12", occasionally "§ 2a" in German legal
 # numbering. Kept as one building block so the heading matcher below and the
@@ -108,6 +109,101 @@ _DESIGNATION_PATTERN = re.compile(
 _ISSUE_DATE_PREFIX = re.compile(
     r"^vom\s+(?:\d{1,2}\.\s*\d{1,2}\.\s*\d{4}|\d{1,2}\.\s*\w+\s+\d{4})\s*"
 )
+
+# The Inkrafttreten/Außerkrafttreten section's heading -- matched by
+# substring, case-insensitively, since the exact surrounding wording
+# ("Inkrafttreten/Außerkrafttreten" vs. a future publication phrasing it
+# slightly differently) is not itself the signal; "inkrafttreten" appearing
+# in a §-heading reliably is.
+_TAKES_EFFECT_HEADING = re.compile("inkrafttreten", re.IGNORECASE)
+
+# Isolates the clause naming whoever is being retired: "tritt ... außer
+# Kraft" is this section's one fixed phrase for it, regardless of how the
+# surrounding sentence is otherwise worded ("Gleichzeitig tritt ... außer
+# Kraft", "... tritt gleichzeitig außer Kraft", etc.) -- non-greedy so it
+# stops at the FIRST "außer Kraft" rather than swallowing the rest of the
+# section if the phrase repeats.
+_RETIRING_CLAUSE = re.compile(r"tritt\s+(.+?)\s+außer\s+Kraft", re.IGNORECASE | re.DOTALL)
+
+# A predecessor named by its own modern DGUV designation (rare today, common
+# once this system re-ingests a later edition of an already-known
+# Vorschrift/Regel/Information/Grundsatz) -- reuses _DESIGNATION_PATTERN's
+# own designation shape, unanchored so it can be found anywhere inside the
+# retiring clause rather than only at its start.
+_MODERN_PREDECESSOR = re.compile(
+    r"DGUV (?:Vorschrift \d+|(?:Regel|Information|Grundsatz) \d{3}-\d{3})"
+)
+
+# The far more common case: a predecessor from before the DGUV numbering
+# reform, named only by its free-text title in quotes ("„Bauarbeiten"" in a
+# real, professionally typeset PDF; a reportlab-generated test fixture's
+# Helvetica font cannot render „/" at all and collapses both to a plain "'"
+# -- _normalise_quotes() below unifies every quote-like character to "'"
+# before this pattern ever runs, so it only has to handle one form.
+_QUOTED_PREDECESSOR_TITLE = re.compile(r"'([^']+)'")
+
+# Every quote-like character this text might contain, normalised to a
+# single straight apostrophe before pattern-matching: German „low-high"
+# double quotes and their single-quote counterpart (‚...') as real PDFs set
+# them, plain typographic single quotes ('...'), and the plain ASCII quotes
+# a reportlab-generated fixture actually produces.
+_QUOTE_CHARACTERS = "„“‚‘’\"'"
+
+
+def _normalise_quotes(text: str) -> str:
+    for character in _QUOTE_CHARACTERS:
+        text = text.replace(character, "'")
+    return text
+
+
+def _extract_predecessor_reference(lines: list[str]) -> RawReference | None:
+    """Find the Inkrafttreten/Außerkrafttreten section within an already
+    logical-line-split document (see `_logical_lines`) and, if it names a
+    predecessor being retired, return the RawReference for it.
+
+    Mirrors extract_structure()'s own heading-boundary walk (a section runs
+    from its own heading line up to, but not including, the next heading
+    line) rather than diverging from it -- this has to run here, before
+    `RawRecord` is constructed, since `RawRecord` is frozen and
+    `extract_structure()` itself is only called later, separately, by the
+    runner.
+    """
+    section_body: list[str] = []
+    in_target_section = False
+    for line in lines:
+        if _HEADING_PATTERN.match(line):
+            if in_target_section:
+                break
+            in_target_section = bool(_TAKES_EFFECT_HEADING.search(line))
+            continue
+        if in_target_section:
+            section_body.append(line)
+
+    if not section_body:
+        return None
+
+    text = " ".join(section_body)
+    clause_match = _RETIRING_CLAUSE.search(text)
+    if clause_match is None:
+        return None
+    clause = clause_match.group(1)
+
+    modern_match = _MODERN_PREDECESSOR.search(clause)
+    if modern_match is not None:
+        return RawReference(
+            target_issuer="DGUV", target_designation=modern_match.group(0),
+            edge_type=EdgeType.REPLACES,
+        )
+
+    quoted_match = _QUOTED_PREDECESSOR_TITLE.search(_normalise_quotes(clause))
+    if quoted_match is not None:
+        return RawReference(
+            target_issuer="DGUV", target_designation=quoted_match.group(1),
+            edge_type=EdgeType.REPLACES,
+        )
+
+    return None
+
 
 # The adapter reads every file in the directory that carries its own prefix.
 # A bare "*.pdf" would be wrong: the directory may hold other sources' files —
@@ -382,6 +478,8 @@ class DguvAdapter:
             if text:
                 lines.extend(_logical_lines(text))
 
+        predecessor_reference = _extract_predecessor_reference(lines)
+
         first = lines[0] if lines else ""
         match = _DESIGNATION_PATTERN.match(first)
         if match:
@@ -400,6 +498,7 @@ class DguvAdapter:
             raw_title=title,
             full_text=full_text,
             language="de",
+            raw_references=[predecessor_reference] if predecessor_reference else [],
             fetched_at=datetime.now(timezone.utc),
         )
 
