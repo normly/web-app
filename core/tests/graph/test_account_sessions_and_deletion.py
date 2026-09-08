@@ -1,15 +1,22 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 normly contributors
 
+import uuid
 from datetime import datetime, timedelta, timezone
 
-from normly_core.graph.domain import AccountTokenPurpose, ChatMessageRole
-from normly_core.graph.postgres.orm import ChatMessageORM
+from normly_core.graph.domain import (
+    AccountTokenPurpose,
+    ChatMessageRole,
+    NotificationTriggerType,
+    WorkCreatedVia,
+)
+from normly_core.graph.postgres.orm import ChatMessageORM, NotificationORM, WatchlistORM
 from normly_core.graph.postgres.repositories import (
     PostgresAccountRepository,
     PostgresAccountSessionRepository,
     PostgresAccountTokenRepository,
     PostgresChatRepository,
+    PostgresWorkRepository,
 )
 
 
@@ -110,6 +117,37 @@ def test_delete_account_removes_sessions_and_tokens(db_session):
 
     assert session_repo.list_sessions_for_account(account.id) == []
     assert token_repo.consume_token("delete-me-token", AccountTokenPurpose.PASSWORD_RESET) is None
+
+
+def test_delete_account_removes_watchlist_and_notification_rows(db_session):
+    account_repo = PostgresAccountRepository(db_session)
+    work_repo = PostgresWorkRepository(db_session)
+    account = account_repo.create_account(email="watcher@example.de", password_hash=None)
+    work = work_repo.create_work(created_via=WorkCreatedVia.MANUAL)
+
+    db_session.add(WatchlistORM(id=uuid.uuid4(), account_id=account.id, work_id=work.id))
+    db_session.add(
+        NotificationORM(
+            id=uuid.uuid4(),
+            account_id=account.id,
+            work_id=work.id,
+            trigger_type=NotificationTriggerType.NEW_EDITION,
+            trigger_edge_id=None,
+            trigger_document_id=None,
+            trigger_jurisdiction=None,
+            may_process=None,
+            may_index_fulltext=None,
+            may_cite_passages=None,
+            may_export_free=None,
+            read_at=None,
+            emailed_at=None,
+        )
+    )
+    db_session.flush()
+
+    account_repo.delete_account(account.id)
+
+    assert account_repo.get_account_by_id(account.id) is None
 
 
 def test_delete_account_does_not_touch_another_accounts_data(db_session):

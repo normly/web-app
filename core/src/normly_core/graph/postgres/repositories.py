@@ -66,10 +66,12 @@ from normly_core.graph.postgres.orm import (
     EdgeORM,
     EmbeddingORM,
     IdentityResolutionCaseORM,
+    NotificationORM,
     RateLimitBucketORM,
     RightsClassificationORM,
     SegmentORM,
     SourceORM,
+    WatchlistORM,
     WorkORM,
 )
 
@@ -1775,6 +1777,12 @@ class PostgresAccountRepository:
             sa.delete(AccountGoogleIdentityORM).where(
                 AccountGoogleIdentityORM.account_id == account_id
             )
+        )
+        self._session.execute(
+            sa.delete(NotificationORM).where(NotificationORM.account_id == account_id)
+        )
+        self._session.execute(
+            sa.delete(WatchlistORM).where(WatchlistORM.account_id == account_id)
         )
         self._session.execute(sa.delete(AccountORM).where(AccountORM.id == account_id))
 
