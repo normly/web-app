@@ -25,6 +25,7 @@ from normly_accounts.routers.profile import profile_router
 from normly_accounts.routers.registration import registration_router
 from normly_accounts.routers.session import session_router
 from normly_accounts.routers.sessions import sessions_router
+from normly_accounts.routers.watchlist import watchlist_router
 
 
 @asynccontextmanager
@@ -81,6 +82,7 @@ def create_app() -> FastAPI:
     app.include_router(google_router, responses=COMMON_ERROR_RESPONSES)
     app.include_router(profile_router, responses=COMMON_ERROR_RESPONSES)
     app.include_router(account_management_router, responses=COMMON_ERROR_RESPONSES)
+    app.include_router(watchlist_router, responses=COMMON_ERROR_RESPONSES)
     return app
 
 

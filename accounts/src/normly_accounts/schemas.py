@@ -124,3 +124,12 @@ class ExportChatSession(BaseModel):
 class ExportResponse(BaseModel):
     account: ExportAccountFields
     chat_sessions: list[ExportChatSession]
+
+
+class AddWatchlistEntryRequest(BaseModel):
+    work_id: uuid.UUID
+
+
+class WatchlistEntryResponse(BaseModel):
+    work_id: uuid.UUID
+    created_at: datetime
