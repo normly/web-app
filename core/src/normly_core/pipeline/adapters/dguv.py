@@ -6,7 +6,7 @@ from __future__ import annotations
 import hashlib
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
@@ -107,8 +107,32 @@ _DESIGNATION_PATTERN = re.compile(
 # lower-case words", which would also let a verb through and readmit "DGUV
 # Vorschrift 1 gilt in Verbindung mit ArbSchG § 5 ..." as a title line.
 _ISSUE_DATE_PREFIX = re.compile(
-    r"^vom\s+(?:\d{1,2}\.\s*\d{1,2}\.\s*\d{4}|\d{1,2}\.\s*\w+\s+\d{4})\s*"
+    r"^vom\s+(?:(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})|(\d{1,2})\.\s*(\w+)\s+(\d{4}))\s*"
 )
+
+_GERMAN_MONTHS = {
+    "januar": 1, "februar": 2, "märz": 3, "april": 4, "mai": 5, "juni": 6,
+    "juli": 7, "august": 8, "september": 9, "oktober": 10, "november": 11,
+    "dezember": 12,
+}
+
+
+def _normalise_issue_date(match: re.Match[str]) -> str | None:
+    """ISO-normalise a matched `_ISSUE_DATE_PREFIX` issue date.
+
+    German month names are matched explicitly rather than via `%B`/locale,
+    since this deployment cannot assume a German locale is configured.
+    """
+    day, month, year = match.group(1), match.group(2), match.group(3)
+    if day is None:
+        day, month_name, year = match.group(4), match.group(5), match.group(6)
+        month = _GERMAN_MONTHS.get(month_name.lower())
+        if month is None:
+            return None
+    try:
+        return date(int(year), int(month), int(day)).isoformat()
+    except ValueError:
+        return None
 
 # The Inkrafttreten/Außerkrafttreten section's heading -- matched by
 # substring, case-insensitively, since the exact surrounding wording
@@ -482,9 +506,15 @@ class DguvAdapter:
 
         first = lines[0] if lines else ""
         match = _DESIGNATION_PATTERN.match(first)
+        edition: str | None = None
         if match:
             designation = match.group(1)
-            title = match.group(2).strip() or None
+            tail = match.group(2).strip()
+            date_match = _ISSUE_DATE_PREFIX.match(tail)
+            if date_match:
+                edition = _normalise_issue_date(date_match)
+                tail = _ISSUE_DATE_PREFIX.sub("", tail, count=1)
+            title = tail.strip() or None
         else:
             designation = first
             title = None
@@ -496,6 +526,7 @@ class DguvAdapter:
             raw_designation=designation,
             raw_issuer="DGUV",
             raw_title=title,
+            edition=edition,
             full_text=full_text,
             language="de",
             raw_references=[predecessor_reference] if predecessor_reference else [],
