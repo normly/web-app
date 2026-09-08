@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 normly contributors
 
-import time
 from datetime import date, datetime, timezone
+
+import sqlalchemy as sa
 
 from normly_core.graph.domain import (
     EdgeType,
@@ -11,6 +12,7 @@ from normly_core.graph.domain import (
     NotificationTriggerType,
     WorkCreatedVia,
 )
+from normly_core.graph.postgres.orm import NotificationORM
 from normly_core.graph.postgres.repositories import (
     PostgresAccountRepository,
     PostgresDeliveryRepository,
@@ -109,7 +111,21 @@ def test_find_latest_rights_notification_picks_the_most_recent(db_session):
         may_process=True, may_index_fulltext=True, may_cite_passages=True, may_export_free=False,
         emailed_at=None,
     )
-    # Create another with may_process=False (conceptually "newer" with updated rights)
+    # NotificationORM.created_at is server_default=sa.func.now(), and
+    # Postgres's now() is transaction-scoped -- it returns the SAME value
+    # for every statement inside one transaction. db_session (see
+    # conftest.py) runs this whole test in a single outer transaction, so
+    # two back-to-back create() calls get an identical created_at here;
+    # sleeping would not help. Force `older` explicitly older via a direct
+    # UPDATE instead, matching the established pattern in
+    # test_delivery_find_and_document_find.py::test_find_by_designation_returns_the_newest_edition_when_none_is_specified.
+    db_session.execute(
+        sa.update(NotificationORM)
+        .where(NotificationORM.id == older.id)
+        .values(created_at=datetime(2020, 1, 1, tzinfo=timezone.utc))
+    )
+    db_session.flush()
+    # Create another with may_process=False (genuinely newer, with updated rights)
     newer = repo.create(
         account_id=account.id, work_id=work.id, trigger_type=NotificationTriggerType.RIGHTS_CHANGE,
         trigger_edge_id=None, trigger_document_id=document.id, trigger_jurisdiction="DE",
@@ -118,19 +134,13 @@ def test_find_latest_rights_notification_picks_the_most_recent(db_session):
     )
     assert older.id != newer.id
 
-    # When created at same microsecond, id.desc() tiebreak: whichever has the highest ID numerically
-    # The query should use the tiebreak consistently, returning one or the other deterministically
     latest = repo.find_latest_rights_notification(
         account_id=account.id, work_id=work.id, trigger_document_id=document.id,
         trigger_jurisdiction="DE",
     )
-    # Verify the query returns a notification (deterministic due to id.desc() tiebreak)
     assert latest is not None
-    # If timestamps are equal, the query returns the one with highest ID; if newer has higher ID, it's returned
-    if latest.id == newer.id:
-        assert latest.may_process is False  # newer has this value
-    else:
-        assert latest.may_process is True  # older has this value (when older.id > newer.id numerically)
+    assert latest.id == newer.id
+    assert latest.may_process is False
 
 
 def test_list_for_account_orders_newest_first(db_session):
@@ -154,7 +164,16 @@ def test_list_for_account_orders_newest_first(db_session):
         trigger_jurisdiction=None, may_process=None, may_index_fulltext=None,
         may_cite_passages=None, may_export_free=None, emailed_at=None,
     )
-    time.sleep(1.01)  # ensure second has a distinctly different created_at timestamp
+    # See the comment in test_find_latest_rights_notification_picks_the_most_recent
+    # above: a time.sleep() here does not actually separate created_at values,
+    # because Postgres's now() is transaction-scoped and this whole test runs
+    # inside one outer transaction. Force `first` explicitly older instead.
+    db_session.execute(
+        sa.update(NotificationORM)
+        .where(NotificationORM.id == first.id)
+        .values(created_at=datetime(2020, 1, 1, tzinfo=timezone.utc))
+    )
+    db_session.flush()
     second = repo.create(
         account_id=account.id, work_id=work.id, trigger_type=NotificationTriggerType.NEW_EDITION,
         trigger_edge_id=edge2.id, trigger_document_id=None,
