@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 normly contributors
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LocaleProvider } from "@/lib/i18n/provider";
 import { JurisdictionProvider } from "@/lib/jurisdiction/provider";
@@ -26,8 +26,20 @@ const WORK_ID = "33333333-3333-3333-3333-333333333333";
 const REPLACED_EDITION_ID = "44444444-4444-4444-4444-444444444444";
 const NATIONAL_ADOPTION_ID = "55555555-5555-5555-5555-555555555555";
 
-function mockFetch(overrides: { work?: object; rights?: object } = {}) {
+function mockFetch(
+  overrides: { work?: object; rights?: object; account?: object | null; watchlist?: object[] } = {},
+) {
   global.fetch = vi.fn().mockImplementation((url: string) => {
+    if (url.includes("/api/auth/session")) {
+      return Promise.resolve(
+        new Response(JSON.stringify({ account: overrides.account ?? null }), { status: 200 }),
+      );
+    }
+    if (url.includes("/api/account/watchlist")) {
+      return Promise.resolve(
+        new Response(JSON.stringify(overrides.watchlist ?? []), { status: 200 }),
+      );
+    }
     if (url.includes(`/api/documents/${DOCUMENT_ID}/edges`)) {
       return Promise.resolve(
         new Response(
@@ -194,5 +206,70 @@ describe("DocumentDetailContent", () => {
     renderDetail(DOCUMENT_ID);
 
     await waitFor(() => expect(screen.getByText("§ 5 UrhG")).toBeInTheDocument());
+  });
+
+  it("shows no watchlist toggle for an anonymous visitor and never calls the watchlist API", async () => {
+    mockFetch();
+
+    renderDetail(DOCUMENT_ID);
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "EN ISO 9001:2018" })).toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId("watchlist-toggle")).not.toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalledWith(expect.stringContaining("/api/account/watchlist"));
+  });
+
+  it("shows an empty heart for a logged-in visitor who has not favorited this Work, and adds it on click", async () => {
+    mockFetch({
+      account: {
+        accountId: "acc-1", email: "a@example.de", firstName: null, lastName: null,
+        avatarDataUrl: null, hasPassword: true, notificationPreference: "none",
+      },
+      watchlist: [],
+    });
+
+    renderDetail(DOCUMENT_ID);
+
+    const toggle = await screen.findByTestId("watchlist-toggle");
+    expect(toggle).toHaveAttribute("aria-label", "Zur Watchlist hinzufügen");
+
+    fireEvent.click(toggle);
+
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/account/watchlist",
+        expect.objectContaining({ method: "POST", body: JSON.stringify({ workId: WORK_ID }) }),
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("watchlist-toggle")).toHaveAttribute(
+        "aria-label", "Von Watchlist entfernen",
+      ),
+    );
+  });
+
+  it("shows a filled heart for a logged-in visitor who already favorited this Work, and removes it on click", async () => {
+    mockFetch({
+      account: {
+        accountId: "acc-1", email: "a@example.de", firstName: null, lastName: null,
+        avatarDataUrl: null, hasPassword: true, notificationPreference: "none",
+      },
+      watchlist: [{ workId: WORK_ID, createdAt: "2026-01-01T00:00:00Z" }],
+    });
+
+    renderDetail(DOCUMENT_ID);
+
+    const toggle = await screen.findByTestId("watchlist-toggle");
+    await waitFor(() => expect(toggle).toHaveAttribute("aria-label", "Von Watchlist entfernen"));
+
+    fireEvent.click(toggle);
+
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith(
+        `/api/account/watchlist/${WORK_ID}`,
+        expect.objectContaining({ method: "DELETE" }),
+      ),
+    );
   });
 });

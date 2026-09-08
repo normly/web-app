@@ -103,7 +103,9 @@
     "mayProcess": "Processing permitted",
     "mayIndexFulltext": "Full text indexable",
     "mayCitePassages": "Citable",
-    "mayExportFree": "Free export permitted"
+    "mayExportFree": "Free export permitted",
+    "addToWatchlist": "Add to watchlist",
+    "removeFromWatchlist": "Remove from watchlist"
   },
   "account": {
     "pageTitle": "Account",
