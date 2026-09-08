@@ -144,7 +144,13 @@ class DocumentDesignationORM(Base):
     )
 
     __table_args__ = (
-        sa.UniqueConstraint("issuer", "designation", name="uq_designation_issuer_designation"),
+        sa.UniqueConstraint(
+            "issuer",
+            "designation",
+            "edition",
+            name="uq_designation_issuer_designation_edition",
+            postgresql_nulls_not_distinct=True,
+        ),
     )
 
 

@@ -25,6 +25,24 @@ def extract_references(
     layer = Layer.FREE if rule.may_export_free else Layer.COMMERCIAL
 
     for reference in record.raw_references:
+        if (
+            reference.target_issuer == record.raw_issuer
+            and reference.target_designation == record.raw_designation
+        ):
+            # A reference naming the record's OWN (issuer, designation) can
+            # only describe a same-lineage predecessor of a DIFFERENT
+            # edition (e.g. a DGUV re-edition's Inkrafttreten section naming
+            # its own designation with no edition qualifier) -- that lineage
+            # is already handled by identity.resolve()'s dedicated
+            # find_previous_edition lookup and the runner's own REPLACES-
+            # edge creation (see runner.py). Resolving it again here with an
+            # edition-blind find_by_designation would either resolve to the
+            # record's own just-created document (a spurious
+            # self_referential_reference case) or an unrelated
+            # same-designation document selected by insertion order --
+            # neither is useful, so this reference is skipped rather than
+            # acted on a second time through a less precise path.
+            continue
         target = document_repo.find_by_designation(
             reference.target_issuer, reference.target_designation
         )

@@ -409,11 +409,16 @@ class PostgresDocumentRepository:
     ) -> DocumentDesignation:
         _require_active_delivery(self._session, delivery_id)
         # The dedupe key includes document_id, even though
-        # uq_designation_issuer_designation is global. The constraint stays
-        # global on purpose: a designation identifies exactly one node
-        # worldwide ("ein Regelwerk = ein Knoten"). Filtering the pre-check on
-        # (issuer, designation) alone silently handed back another document's
-        # row; with document_id in the key the collision instead reaches the
+        # uq_designation_issuer_designation_edition scopes on (issuer,
+        # designation, edition) rather than document_id. That constraint
+        # deliberately still collapses to "one node worldwide" for a given
+        # (issuer, designation) when edition is NULL on both sides -- e.g.
+        # EUR-Lex, BAuA, and DGUV publications with no parseable issue date --
+        # but distinct editions of the same designation are meant to coexist
+        # as separate documents. Filtering the pre-check on (issuer,
+        # designation) alone would silently hand back another document's row
+        # (whether a same-edition duplicate or a different edition entirely);
+        # with document_id in the key, a genuine collision instead reaches the
         # constraint and surfaces as an IntegrityError — an identity-resolution
         # error, which is what it is.
         existing = self._session.execute(
@@ -566,8 +571,10 @@ class PostgresDocumentRepository:
         ).scalars()
         return [_document_to_domain(row) for row in rows]
 
-    def find_by_designation(self, issuer: str, designation: str) -> Document | None:
-        orm = self._session.execute(
+    def find_by_designation(
+        self, issuer: str, designation: str, edition: str | None = None
+    ) -> Document | None:
+        query = (
             select(DocumentORM)
             .join(
                 DocumentDesignationORM,
@@ -577,6 +584,58 @@ class PostgresDocumentRepository:
                 DocumentDesignationORM.issuer == issuer,
                 DocumentDesignationORM.designation == designation,
             )
+        )
+        if edition is not None:
+            query = query.where(DocumentDesignationORM.edition == edition)
+            orm = self._session.execute(query).scalar_one_or_none()
+        else:
+            # Without a specific edition, several DocumentDesignation rows can
+            # now legitimately share (issuer, designation) -- one per edition
+            # (see migration 0026). The caller gets the most recent one
+            # deterministically, rather than an ambiguous match; a
+            # single-edition designation (the common case today, and the
+            # only case for EUR-Lex/BAuA) still returns its one match exactly
+            # as before.
+            #
+            # DocumentORM.id is a secondary sort key purely for reproducible
+            # tie-breaking, not semantic "newness" -- Postgres's now() is
+            # transaction-scoped, so two documents created in the same
+            # transaction (e.g. a bulk backfill) can get a byte-identical
+            # created_at. Without a secondary key, ORDER BY created_at DESC
+            # alone gives no guarantee which row comes back on a tie, and a
+            # different, physically arbitrary row could be returned across
+            # runs -- which matters here because downstream callers (e.g.
+            # REPLACES-edge creation) build graph edges on this result.
+            orm = self._session.execute(
+                query.order_by(DocumentORM.created_at.desc(), DocumentORM.id.desc()).limit(1)
+            ).scalar_one_or_none()
+        return _document_to_domain(orm) if orm else None
+
+    def find_previous_edition(
+        self, issuer: str, designation: str, before_edition: str
+    ) -> Document | None:
+        # Unlike find_by_designation's edition-less fallback (which answers
+        # "most recently INSERTED"), this answers "the greatest edition
+        # value strictly less than before_edition" -- the actual predecessor
+        # in edition order, regardless of ingestion order. Out-of-order
+        # ingestion (e.g. a 2013 archive arriving after its 2022 successor
+        # is already known) or same-transaction batches (where created_at
+        # ties are common) must not produce an inverted or nondeterministic
+        # REPLACES edge -- see the final-review finding this method fixes.
+        orm = self._session.execute(
+            select(DocumentORM)
+            .join(
+                DocumentDesignationORM,
+                DocumentDesignationORM.document_id == DocumentORM.id,
+            )
+            .where(
+                DocumentDesignationORM.issuer == issuer,
+                DocumentDesignationORM.designation == designation,
+                DocumentDesignationORM.edition.is_not(None),
+                DocumentDesignationORM.edition < before_edition,
+            )
+            .order_by(DocumentDesignationORM.edition.desc())
+            .limit(1)
         ).scalar_one_or_none()
         return _document_to_domain(orm) if orm else None
 

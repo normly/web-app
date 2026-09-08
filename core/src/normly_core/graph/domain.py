@@ -311,7 +311,28 @@ class DocumentRepository(Protocol):
         """
         ...
 
-    def find_by_designation(self, issuer: str, designation: str) -> Document | None: ...
+    def find_by_designation(
+        self, issuer: str, designation: str, edition: str | None = None
+    ) -> Document | None: ...
+
+    def find_previous_edition(
+        self, issuer: str, designation: str, before_edition: str
+    ) -> Document | None:
+        """
+        The edition immediately preceding `before_edition` for this
+        (issuer, designation) -- the greatest `edition` value strictly less
+        than `before_edition` among that designation's other documents, or
+        None if none exists (including when `before_edition` is itself the
+        oldest known edition).
+
+        Unlike `find_by_designation`'s edition-less fallback (which answers
+        "most recently INSERTED"), this answers "the true predecessor in
+        edition order" -- out-of-order ingestion (an older archive edition
+        arriving after its newer successor is already known) or same-
+        transaction batches (where created_at ties are common) must not
+        produce an inverted or nondeterministic REPLACES edge.
+        """
+        ...
 
 
 class RateLimitRepository(Protocol):

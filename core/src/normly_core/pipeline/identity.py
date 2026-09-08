@@ -45,6 +45,32 @@ def resolve(record: RawRecord, document_repo: DocumentRepository) -> IdentityRes
         )
 
     if record.raw_issuer is not None:
+        if record.edition is not None:
+            exact = document_repo.find_by_designation(
+                record.raw_issuer, record.raw_designation, edition=record.edition
+            )
+            if exact is not None:
+                return IdentityResolution(
+                    document_id=exact.id, is_new=False, is_ambiguous=False, reason=None
+                )
+            # Same designation, but not this exact edition -- find the
+            # edition immediately preceding record.edition (not merely "an
+            # earlier edition" by insertion time), to distinguish "new
+            # edition of a known Regelwerk" from "genuinely first
+            # appearance." find_previous_edition looks strictly backward in
+            # edition order, so a record whose own edition is actually the
+            # OLDEST known (e.g. an archive edition arriving after its
+            # successor was already ingested) correctly gets
+            # previous_edition_document_id=None here rather than a wrong,
+            # inverted match against a later edition.
+            previous = document_repo.find_previous_edition(
+                record.raw_issuer, record.raw_designation, before_edition=record.edition
+            )
+            return IdentityResolution(
+                document_id=None, is_new=True, is_ambiguous=False, reason=None,
+                previous_edition_document_id=previous.id if previous else None,
+            )
+
         existing = document_repo.find_by_designation(record.raw_issuer, record.raw_designation)
         if existing is not None:
             return IdentityResolution(

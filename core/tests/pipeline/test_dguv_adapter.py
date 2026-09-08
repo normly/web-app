@@ -78,6 +78,46 @@ def _write_publication_pdf_with_sections(path, designation: str, title: str, sec
     pdf.save()
 
 
+def test_fetch_captures_the_issue_date_as_edition(tmp_path):
+    _write_publication_pdf(
+        tmp_path / "dguv_vorschrift_1.pdf",
+        "DGUV Vorschrift 1",
+        "vom 1. November 2013 Grundsätze der Prävention",
+    )
+
+    records = list(DguvAdapter(directory=tmp_path, source_id=uuid.uuid4()).fetch())
+
+    assert len(records) == 1
+    assert records[0].edition == "2013-11-01"
+    assert records[0].raw_title == "Grundsätze der Prävention"
+
+
+def test_fetch_captures_a_numeric_issue_date_as_edition(tmp_path):
+    _write_publication_pdf(
+        tmp_path / "dguv_vorschrift_2.pdf",
+        "DGUV Vorschrift 2",
+        "vom 1.6.2022 Betriebsärzte und Fachkräfte für Arbeitssicherheit",
+    )
+
+    records = list(DguvAdapter(directory=tmp_path, source_id=uuid.uuid4()).fetch())
+
+    assert len(records) == 1
+    assert records[0].edition == "2022-06-01"
+    assert records[0].raw_title == "Betriebsärzte und Fachkräfte für Arbeitssicherheit"
+
+
+def test_fetch_leaves_edition_none_when_no_issue_date_is_present(tmp_path):
+    _write_publication_pdf(
+        tmp_path / "dguv_vorschrift_3.pdf", "DGUV Vorschrift 3", "Erste Hilfe"
+    )
+
+    records = list(DguvAdapter(directory=tmp_path, source_id=uuid.uuid4()).fetch())
+
+    assert len(records) == 1
+    assert records[0].edition is None
+    assert records[0].raw_title == "Erste Hilfe"
+
+
 def test_fetch_attaches_a_replaces_reference_for_a_modern_designation_predecessor(tmp_path):
     _write_publication_pdf_with_sections(
         tmp_path / "dguv_vorschrift_2.pdf",

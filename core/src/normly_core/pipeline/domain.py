@@ -32,6 +32,14 @@ class RawRecord:
     raw_designation: str
     raw_issuer: str | None
     raw_title: str | None
+    # kw_only: a plain trailing default here would follow `raw_title` but
+    # precede `full_text`, which has none -- dataclasses reject a default
+    # argument followed by a non-default one. kw_only removes `edition` from
+    # that positional ordering check entirely, so it can keep its natural
+    # place next to the other designation-adjacent fields while every
+    # existing call site (which already uses keyword arguments exclusively)
+    # stays unaffected.
+    edition: str | None = field(default=None, kw_only=True)
     full_text: str | None
     # The language of this record's designation, title and text. `None` leaves
     # the choice to the runner, which falls back to German.
@@ -56,6 +64,7 @@ class IdentityResolution:
     is_new: bool
     is_ambiguous: bool
     reason: str | None
+    previous_edition_document_id: uuid.UUID | None = None
 
 
 class SourceAdapter(Protocol):

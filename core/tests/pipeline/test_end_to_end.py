@@ -290,3 +290,141 @@ def test_dguv_free_text_predecessor_falls_through_to_the_existing_unresolved_cas
     ]
     assert len(unresolved) == 1
     assert unresolved[0].raw_issuer == "DGUV"
+
+
+def test_dguv_new_edition_is_recognised_shares_the_work_and_gets_a_replaces_edge(
+    db_session, tmp_path
+):
+    from normly_core.graph.domain import EdgeType
+    from normly_core.graph.postgres.repositories import PostgresEdgeRepository
+    from pipeline.test_dguv_adapter import _write_publication_pdf
+
+    dguv_source = _make_source(db_session, jurisdiction="DE")
+    doc_repo = PostgresDocumentRepository(db_session)
+    edge_repo = PostgresEdgeRepository(db_session)
+
+    _write_publication_pdf(
+        tmp_path / "dguv_vorschrift_1_2013.pdf", "DGUV Vorschrift 1",
+        "vom 1. November 2013 Grundsätze der Prävention",
+    )
+    run_adapter(DguvAdapter(directory=tmp_path, source_id=dguv_source.id), db_session)
+    old_document = doc_repo.find_by_designation(
+        "DGUV", "DGUV Vorschrift 1", edition="2013-11-01"
+    )
+    assert old_document is not None
+    (tmp_path / "dguv_vorschrift_1_2013.pdf").unlink()
+
+    _write_publication_pdf(
+        tmp_path / "dguv_vorschrift_1_2022.pdf", "DGUV Vorschrift 1",
+        "vom 1.6.2022 Grundsätze der Prävention",
+    )
+    run_adapter(DguvAdapter(directory=tmp_path, source_id=dguv_source.id), db_session)
+    new_document = doc_repo.find_by_designation(
+        "DGUV", "DGUV Vorschrift 1", edition="2022-06-01"
+    )
+    assert new_document is not None
+    assert new_document.id != old_document.id
+
+    assert new_document.work_id == old_document.work_id
+
+    outgoing = edge_repo.list_edges_for_jurisdiction(new_document.id, "DE")
+    assert any(
+        e.edge_type == EdgeType.REPLACES and e.to_document_id == old_document.id
+        for e in outgoing
+    )
+
+
+def test_dguv_edition_lineage_and_inkrafttreten_predecessor_mechanisms_do_not_double_up(
+    db_session, tmp_path
+):
+    """Reproduces the review's Important finding scenario: a new DGUV edition
+    shares its predecessor's exact designation (so Task 4's edition-lineage
+    mechanism in identity.resolve()/runner.py fires) AND its own
+    Inkrafttreten/Außerkrafttreten section names that SAME bare designation
+    as the document it retires (so the pre-existing Inkrafttreten-based
+    mechanism in references.py would ALSO try to fire). Before the fix,
+    references.py's edition-blind find_by_designation lookup for that
+    self-naming reference would nondeterministically resolve to either the
+    record's own just-created document (tripping the self_referential_
+    reference guard -- a false curator case) or some other row picked by
+    insertion order -- across repeated runs of the identical input. After
+    the fix, extract_references() skips a reference naming the record's own
+    (issuer, designation) outright, leaving Task 4's own mechanism as the
+    sole source of the REPLACES edge.
+
+    Run 3 times (fresh designation per iteration to keep runs independent
+    within one db_session/transaction) rather than once: the review's own
+    reproduction of the nondeterministic case needed multiple runs to catch
+    it, so a single green iteration would not be evidence the nondeterminism
+    is actually gone.
+    """
+    from normly_core.graph.domain import EdgeType
+    from normly_core.graph.postgres.repositories import (
+        PostgresEdgeRepository,
+        PostgresIdentityResolutionRepository,
+    )
+    from pipeline.test_dguv_adapter import _write_publication_pdf, _write_publication_pdf_with_sections
+
+    dguv_source = _make_source(db_session, jurisdiction="DE")
+    doc_repo = PostgresDocumentRepository(db_session)
+    edge_repo = PostgresEdgeRepository(db_session)
+    identity_repo = PostgresIdentityResolutionRepository(db_session)
+
+    # Designations 3-5 (not 1, already used by other tests in this module's
+    # session-shared style, and not an arbitrary range -- empirically
+    # confirmed stable across repeated Docling extraction runs before being
+    # chosen here; some other designation numbers were observed to make
+    # Docling's layout model intermittently drop the "vom ..." issue-date
+    # line from its own text extraction, unrelated to this fix).
+    for i, designation in enumerate(["DGUV Vorschrift 3", "DGUV Vorschrift 4", "DGUV Vorschrift 5"]):
+        old_path = tmp_path / f"dguv_{i}_old.pdf"
+        new_path = tmp_path / f"dguv_{i}_new.pdf"
+
+        _write_publication_pdf(
+            old_path, designation, "vom 1. November 2013 Grundsätze der Prävention",
+        )
+        run_adapter(DguvAdapter(directory=tmp_path, source_id=dguv_source.id), db_session)
+        old_document = doc_repo.find_by_designation(
+            "DGUV", designation, edition="2013-11-01"
+        )
+        assert old_document is not None
+        old_path.unlink()
+
+        _write_publication_pdf_with_sections(
+            new_path, designation, "vom 1.6.2022 Grundsätze der Prävention",
+            [
+                (
+                    "§ 13 Inkrafttreten/Außerkrafttreten",
+                    "Diese Unfallverhuetungsvorschrift tritt am 1. Juni 2022 in Kraft. "
+                    f"Gleichzeitig tritt die {designation} vom 1. November 2013 außer Kraft.",
+                ),
+            ],
+        )
+        run_adapter(DguvAdapter(directory=tmp_path, source_id=dguv_source.id), db_session)
+        new_path.unlink()
+        new_document = doc_repo.find_by_designation(
+            "DGUV", designation, edition="2022-06-01"
+        )
+        assert new_document is not None
+        assert new_document.id != old_document.id
+        assert new_document.work_id == old_document.work_id
+
+        outgoing = edge_repo.list_edges_for_jurisdiction(new_document.id, "DE")
+        replaces_edges = [
+            e for e in outgoing
+            if e.edge_type == EdgeType.REPLACES and e.to_document_id == old_document.id
+        ]
+        assert len(replaces_edges) == 1, (
+            f"iteration {i}: expected exactly one REPLACES edge "
+            f"{new_document.id} -> {old_document.id}, found {len(replaces_edges)}"
+        )
+
+        pending = identity_repo.list_pending_cases()
+        false_self_referential_cases = [
+            c for c in pending
+            if c.reason == "self_referential_reference" and c.raw_designation == designation
+        ]
+        assert false_self_referential_cases == [], (
+            f"iteration {i}: unexpected self_referential_reference case(s) for "
+            f"{designation!r}: {false_self_referential_cases}"
+        )
