@@ -37,7 +37,9 @@ from normly_core.graph.domain import (
     IdentityResolutionStatus,
     LegalBasisCategory,
     Layer,
+    Notification,
     NotificationPreference,
+    NotificationTriggerType,
     RightsClassification,
     Segment,
     Source,
@@ -882,6 +884,108 @@ class PostgresWatchlistRepository:
                 WatchlistORM.account_id == account_id, WatchlistORM.work_id == work_id
             )
         ).scalar_one_or_none()
+
+
+def _notification_to_domain(orm: NotificationORM) -> Notification:
+    return Notification(
+        id=orm.id, account_id=orm.account_id, work_id=orm.work_id,
+        trigger_type=orm.trigger_type, trigger_edge_id=orm.trigger_edge_id,
+        trigger_document_id=orm.trigger_document_id,
+        trigger_jurisdiction=orm.trigger_jurisdiction,
+        may_process=orm.may_process, may_index_fulltext=orm.may_index_fulltext,
+        may_cite_passages=orm.may_cite_passages, may_export_free=orm.may_export_free,
+        created_at=orm.created_at, read_at=orm.read_at, emailed_at=orm.emailed_at,
+    )
+
+
+class PostgresNotificationRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def create(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        trigger_type: NotificationTriggerType,
+        trigger_edge_id: uuid.UUID | None,
+        trigger_document_id: uuid.UUID | None,
+        trigger_jurisdiction: str | None,
+        may_process: bool | None,
+        may_index_fulltext: bool | None,
+        may_cite_passages: bool | None,
+        may_export_free: bool | None,
+        emailed_at: datetime | None,
+    ) -> Notification:
+        orm = NotificationORM(
+            id=uuid.uuid4(), account_id=account_id, work_id=work_id, trigger_type=trigger_type,
+            trigger_edge_id=trigger_edge_id, trigger_document_id=trigger_document_id,
+            trigger_jurisdiction=trigger_jurisdiction, may_process=may_process,
+            may_index_fulltext=may_index_fulltext, may_cite_passages=may_cite_passages,
+            may_export_free=may_export_free, read_at=None, emailed_at=emailed_at,
+        )
+        self._session.add(orm)
+        self._session.flush()
+        self._session.refresh(orm)
+        return _notification_to_domain(orm)
+
+    def find_by_trigger_edge(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        trigger_type: NotificationTriggerType,
+        trigger_edge_id: uuid.UUID,
+    ) -> Notification | None:
+        orm = self._session.execute(
+            select(NotificationORM).where(
+                NotificationORM.account_id == account_id,
+                NotificationORM.work_id == work_id,
+                NotificationORM.trigger_type == trigger_type,
+                NotificationORM.trigger_edge_id == trigger_edge_id,
+            )
+        ).scalar_one_or_none()
+        return _notification_to_domain(orm) if orm else None
+
+    def find_latest_rights_notification(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        trigger_document_id: uuid.UUID,
+        trigger_jurisdiction: str,
+    ) -> Notification | None:
+        orm = self._session.execute(
+            select(NotificationORM)
+            .where(
+                NotificationORM.account_id == account_id,
+                NotificationORM.work_id == work_id,
+                NotificationORM.trigger_type == NotificationTriggerType.RIGHTS_CHANGE,
+                NotificationORM.trigger_document_id == trigger_document_id,
+                NotificationORM.trigger_jurisdiction == trigger_jurisdiction,
+            )
+            .order_by(NotificationORM.created_at.desc(), NotificationORM.id.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+        return _notification_to_domain(orm) if orm else None
+
+    def list_for_account(self, account_id: uuid.UUID) -> list[Notification]:
+        rows = self._session.execute(
+            select(NotificationORM)
+            .where(NotificationORM.account_id == account_id)
+            .order_by(NotificationORM.created_at.desc(), NotificationORM.id.desc())
+        ).scalars()
+        return [_notification_to_domain(row) for row in rows]
+
+    def mark_read(
+        self, notification_id: uuid.UUID, *, account_id: uuid.UUID, read_at: datetime
+    ) -> bool:
+        result = self._session.execute(
+            sa.update(NotificationORM)
+            .where(NotificationORM.id == notification_id, NotificationORM.account_id == account_id)
+            .values(read_at=read_at)
+        )
+        return result.rowcount > 0
 
 
 def _rights_to_domain(orm: RightsClassificationORM) -> RightsClassification:

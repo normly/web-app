@@ -685,6 +685,89 @@ class WatchlistRepository(Protocol):
         ...
 
 
+@dataclass(frozen=True)
+class Notification:
+    id: uuid.UUID
+    account_id: uuid.UUID
+    work_id: uuid.UUID
+    trigger_type: NotificationTriggerType
+    trigger_edge_id: uuid.UUID | None
+    trigger_document_id: uuid.UUID | None
+    trigger_jurisdiction: str | None
+    may_process: bool | None
+    may_index_fulltext: bool | None
+    may_cite_passages: bool | None
+    may_export_free: bool | None
+    created_at: datetime
+    read_at: datetime | None
+    emailed_at: datetime | None
+
+
+class NotificationRepository(Protocol):
+    def create(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        trigger_type: NotificationTriggerType,
+        trigger_edge_id: uuid.UUID | None,
+        trigger_document_id: uuid.UUID | None,
+        trigger_jurisdiction: str | None,
+        may_process: bool | None,
+        may_index_fulltext: bool | None,
+        may_cite_passages: bool | None,
+        may_export_free: bool | None,
+        emailed_at: datetime | None,
+    ) -> Notification: ...
+
+    def find_by_trigger_edge(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        trigger_type: NotificationTriggerType,
+        trigger_edge_id: uuid.UUID,
+    ) -> Notification | None:
+        """
+        The NEW_EDITION/NATIONAL_ADOPTION dedup check: has this exact edge
+        already produced a notification for this account/work? The
+        notify-watchers job (Task 6) calls this before creating one.
+        """
+        ...
+
+    def find_latest_rights_notification(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        trigger_document_id: uuid.UUID,
+        trigger_jurisdiction: str,
+    ) -> Notification | None:
+        """
+        The most recent RIGHTS_CHANGE notification for this exact tuple, or
+        None if there has never been one. The notify-watchers job (Task 6)
+        diffs the document's current rights booleans against this row's
+        stored booleans -- None means "no prior observation," not "no
+        change," and must not itself produce a notification.
+        """
+        ...
+
+    def list_for_account(self, account_id: uuid.UUID) -> list[Notification]:
+        """Newest first -- the shape the in-app feed renders directly."""
+        ...
+
+    def mark_read(
+        self, notification_id: uuid.UUID, *, account_id: uuid.UUID, read_at: datetime
+    ) -> bool:
+        """
+        Sets read_at only when the row belongs to account_id. Returns True if
+        a row was updated, False for a missing id or one owned by a
+        different account -- the only thing stopping one account from
+        marking another account's notification as read.
+        """
+        ...
+
+
 class ContradictoryWorkMergeError(Exception):
     def __init__(self, source_work_id: uuid.UUID, target_work_id: uuid.UUID):
         self.source_work_id = source_work_id
