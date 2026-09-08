@@ -133,3 +133,13 @@ class AddWatchlistEntryRequest(BaseModel):
 class WatchlistEntryResponse(BaseModel):
     work_id: uuid.UUID
     created_at: datetime
+
+
+class NotificationResponse(BaseModel):
+    id: uuid.UUID
+    work_id: uuid.UUID
+    trigger_type: str
+    trigger_document_id: uuid.UUID | None
+    trigger_jurisdiction: str | None
+    created_at: datetime
+    read_at: datetime | None
