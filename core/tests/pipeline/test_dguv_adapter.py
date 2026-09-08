@@ -44,6 +44,142 @@ def _write_publication_pdf(path, designation: str, title: str) -> None:
     pdf.save()
 
 
+def _write_publication_pdf_with_sections(path, designation: str, title: str, sections: list[tuple[str, str]]) -> None:
+    """Like `_write_publication_pdf`, but with an arbitrary list of
+    (heading, body) sections instead of the fixed single `§ 1
+    Geltungsbereich`. `heading` must already include its `§ N` marker,
+    e.g. `"§ 13 Inkrafttreten/Außerkrafttreten"`.
+
+    `body` is word-wrapped before being drawn: `canvas.drawString` never
+    wraps on its own, and this task's own Inkrafttreten/Außerkrafttreten
+    body sentences run well past the page's printable width (confirmed
+    empirically -- an unwrapped long line gets silently clipped mid-word
+    by Docling's extraction, since it never appears in the rendered page).
+    Wrapping at word boundaries and drawing each wrapped line separately
+    keeps every word inside the page; `_logical_lines()` already merges
+    such continuation lines back into one logical line (see
+    `_write_continuous_publication_pdf`, which relies on the same
+    Docling behaviour for its own multi-line body text).
+    """
+    import textwrap
+
+    from reportlab.pdfgen import canvas
+
+    pdf = canvas.Canvas(str(path))
+    lines = [designation, title, ""]
+    for heading, body in sections:
+        lines.append(heading)
+        lines.extend(textwrap.wrap(body, width=70) or [body])
+        lines.append("")
+    y = 800
+    for line in lines:
+        pdf.drawString(72, y, line)
+        y -= 20
+    pdf.save()
+
+
+def test_fetch_attaches_a_replaces_reference_for_a_modern_designation_predecessor(tmp_path):
+    _write_publication_pdf_with_sections(
+        tmp_path / "dguv_vorschrift_2.pdf",
+        "DGUV Vorschrift 2",
+        "Betriebsärzte und Fachkräfte für Arbeitssicherheit",
+        [
+            (
+                "§ 13 Inkrafttreten/Außerkrafttreten",
+                "Diese Unfallverhuetungsvorschrift tritt am 1. Dezember 2025 in Kraft. "
+                "Gleichzeitig tritt die DGUV Vorschrift 2 vom 1. Januar 2011 außer Kraft.",
+            ),
+        ],
+    )
+
+    records = list(DguvAdapter(directory=tmp_path, source_id=uuid.uuid4()).fetch())
+
+    assert len(records) == 1
+    references = records[0].raw_references
+    assert len(references) == 1
+    assert references[0].target_issuer == "DGUV"
+    assert references[0].target_designation == "DGUV Vorschrift 2"
+    from normly_core.graph.domain import EdgeType
+    assert references[0].edge_type == EdgeType.REPLACES
+
+
+def test_fetch_attaches_a_replaces_reference_for_a_free_text_title_predecessor(tmp_path):
+    # The successor's OWN title is deliberately two words ("Bauarbeiten
+    # allgemein"), not the single word "Bauarbeiten" the real-world
+    # predecessor is quoted under in the body text below: verified directly
+    # against this project's own Docling extraction that with a single-word
+    # title, the entire designation+title block gets excluded from
+    # `document.iterate_items()`'s default iteration (not merely the title
+    # being misclassified as a page header -- the mechanism is less precisely
+    # characterized than that; what's confirmed is that `_fetch_file`'s
+    # `lines[0]` ends up holding the "§ 13 Inkrafttreten/Außerkrafttreten"
+    # heading text instead of the designation when this happens), so
+    # `raw_designation` comes out wrong. A two-word title avoids this. This
+    # is a fixture-generation quirk of this specific synthetic PDF layout,
+    # unrelated to the predecessor-detection regexes under test.
+    _write_publication_pdf_with_sections(
+        tmp_path / "dguv_vorschrift_38.pdf",
+        "DGUV Vorschrift 38",
+        "Bauarbeiten allgemein",
+        [
+            (
+                "§ 13 Inkrafttreten/Außerkrafttreten",
+                "Diese Unfallverhuetungsvorschrift tritt am ersten Tag des auf die "
+                "Veroeffentlichung folgenden Monats in Kraft. Gleichzeitig tritt die "
+                "Unfallverhuetungsvorschrift 'Bauarbeiten' vom September 1976 in der "
+                "Fassung vom Januar 1997 außer Kraft.",
+            ),
+        ],
+    )
+
+    records = list(DguvAdapter(directory=tmp_path, source_id=uuid.uuid4()).fetch())
+
+    assert len(records) == 1
+    assert records[0].raw_designation == "DGUV Vorschrift 38"
+    references = records[0].raw_references
+    assert len(references) == 1
+    assert references[0].target_issuer == "DGUV"
+    assert references[0].target_designation == "Bauarbeiten"
+    from normly_core.graph.domain import EdgeType
+    assert references[0].edge_type == EdgeType.REPLACES
+
+
+def test_fetch_attaches_no_reference_when_there_is_no_inkrafttreten_section(tmp_path):
+    """A first edition, or any Vorschrift whose PDF simply lacks this
+    section, must not error and must not fabricate a reference."""
+    _write_publication_pdf(
+        tmp_path / "dguv_vorschrift_1.pdf", "DGUV Vorschrift 1", "Grundsätze der Prävention"
+    )
+
+    records = list(DguvAdapter(directory=tmp_path, source_id=uuid.uuid4()).fetch())
+
+    assert len(records) == 1
+    assert records[0].raw_references == []
+
+
+def test_fetch_attaches_no_reference_when_the_section_names_no_predecessor(tmp_path):
+    """An Inkrafttreten/Außerkrafttreten section can exist and simply not
+    retire anything (a genuine first edition still states when it takes
+    effect) -- no 'tritt ... außer Kraft' clause means no match, not an
+    error."""
+    _write_publication_pdf_with_sections(
+        tmp_path / "dguv_vorschrift_5.pdf",
+        "DGUV Vorschrift 5",
+        "Erste Hilfe",
+        [
+            (
+                "§ 9 Inkrafttreten/Außerkrafttreten",
+                "Diese Unfallverhuetungsvorschrift tritt am 1. Januar 2026 in Kraft.",
+            ),
+        ],
+    )
+
+    records = list(DguvAdapter(directory=tmp_path, source_id=uuid.uuid4()).fetch())
+
+    assert len(records) == 1
+    assert records[0].raw_references == []
+
+
 def test_fetch_processes_every_matching_file_in_the_directory(tmp_path):
     """`--directory` means the directory, not one hardcoded filename in it."""
     _write_publication_pdf(

@@ -34,6 +34,16 @@ from normly_core.pipeline.domain import (
 _COLUMN_ESO = 1
 _COLUMN_STANDARD_REFERENCE = 2
 _COLUMN_TITLE = 3
+# "OJ reference for publication in OJ" -- a standard's own first-publication
+# reference. "OJ reference for withdrawal from OJ" -- set once the standard
+# is superseded, carrying the SAME OJ reference as whichever later row's own
+# column 6 announced its successor (both are announced in one OJ notice).
+# Verified against the real fixture PDF's Docling table extraction: EN ISO
+# 12100-1/-2:2003 and EN ISO 14121-1:2007 each carry 'OJ C 110 -
+# 08/04/2011' in column 11; EN ISO 12100:2010 (their consolidating
+# successor) carries that exact string in column 6.
+_COLUMN_OJ_PUBLICATION = 6
+_COLUMN_OJ_WITHDRAWAL = 11
 
 # The adapter reads every file in the directory that carries its own prefix.
 # A bare "*.pdf" would be wrong: the directory may hold other sources' files —
@@ -87,39 +97,108 @@ class EurLexAdapter:
             fetched_at=now,
         )
 
+        # Pass 1: index every withdrawn row by the OJ reference that
+        # announced its withdrawal, across ALL tables -- a successor can
+        # land on a different page/table than the standard(s) it replaces.
+        # A single OJ notice commonly retires more than one standard at
+        # once (a consolidating successor), so each key maps to a LIST.
+        withdrawal_index: dict[str, list[tuple[str, str]]] = {}
+        for table in document.tables:
+            for row in table.data.grid:
+                if len(row) <= _COLUMN_OJ_WITHDRAWAL:
+                    continue
+                eso_cell = row[_COLUMN_ESO]
+                designation_cell = row[_COLUMN_STANDARD_REFERENCE]
+                withdrawal_cell = row[_COLUMN_OJ_WITHDRAWAL]
+                eso = (eso_cell.text if eso_cell else "").strip()
+                designation = (designation_cell.text if designation_cell else "").strip()
+                withdrawal_ref = (withdrawal_cell.text if withdrawal_cell else "").strip()
+                if not eso or not designation or eso.startswith("ESO"):
+                    continue
+                if not withdrawal_ref or withdrawal_ref == "-":
+                    continue
+                withdrawal_index.setdefault(withdrawal_ref, []).append((designation, eso))
+
+        # Pass 2: build every record's data -- but do not yield yet. A
+        # RawRecord that carries a REPLACES reference must not be yielded
+        # before the record it names: extract_references() resolves each
+        # reference's target with an immediate document lookup and no later
+        # retry (see references.py), so a successor processed ahead of its
+        # own predecessor(s) would find nothing there yet and silently lose
+        # the edge to a "reference_target_not_found" case instead. Table
+        # order alone doesn't guarantee this -- in the real fixture the
+        # consolidating successor's table (table 0) precedes the table
+        # holding the predecessors it replaces (table 1).
+        pending: dict[str, tuple[str, str, list[RawReference]]] = {}
         seen_designations: set[str] = set()
         for table in document.tables:
             for row in table.data.grid:
-                if len(row) <= _COLUMN_TITLE:
+                if len(row) <= _COLUMN_OJ_WITHDRAWAL:
                     continue
                 eso_cell = row[_COLUMN_ESO]
                 designation_cell = row[_COLUMN_STANDARD_REFERENCE]
                 title_cell = row[_COLUMN_TITLE]
+                publication_cell = row[_COLUMN_OJ_PUBLICATION]
                 eso = (eso_cell.text if eso_cell else "").strip()
                 designation = (designation_cell.text if designation_cell else "").strip()
                 title = (title_cell.text if title_cell else "").strip()
+                publication_ref = (publication_cell.text if publication_cell else "").strip()
                 if not eso or not designation or eso.startswith("ESO"):
                     continue
                 if designation in seen_designations:
                     continue
                 seen_designations.add(designation)
-                yield RawRecord(
-                    source_id=self.source_id,
-                    content_hash=f"{content_hash}:{designation}",
-                    raw_designation=designation,
-                    raw_issuer=eso,
-                    raw_title=title or None,
-                    full_text=None,
-                    language="en",
-                    raw_references=[
-                        RawReference(
-                            target_issuer="EU",
-                            target_designation=self.legislation_reference,
-                            edge_type=EdgeType.BASED_ON_LAW,
+
+                references = [
+                    RawReference(
+                        target_issuer="EU",
+                        target_designation=self.legislation_reference,
+                        edge_type=EdgeType.BASED_ON_LAW,
+                    )
+                ]
+                if publication_ref and publication_ref != "-":
+                    for old_designation, old_eso in withdrawal_index.get(publication_ref, []):
+                        references.append(
+                            RawReference(
+                                target_issuer=old_eso,
+                                target_designation=old_designation,
+                                edge_type=EdgeType.REPLACES,
+                            )
                         )
-                    ],
-                    fetched_at=now,
-                )
+
+                pending[designation] = (eso, title, references)
+
+        # Order the yields so every REPLACES target is created first: a
+        # record with no REPLACES reference of its own can never depend on
+        # another pending record, so all such records (predecessors,
+        # never-withdrawn standards, and the legal act's referenced
+        # standards in general) go out before any consolidating successor
+        # that names them. This fixture's consolidation is one level deep
+        # (a successor never itself gets replaced within the same run), so
+        # this two-group split is sufficient -- not a general topological
+        # sort over arbitrarily chained withdrawals.
+        without_replaces = [
+            designation
+            for designation, (_, _, references) in pending.items()
+            if not any(r.edge_type == EdgeType.REPLACES for r in references)
+        ]
+        with_replaces = [
+            designation for designation in pending if designation not in without_replaces
+        ]
+
+        for designation in [*without_replaces, *with_replaces]:
+            eso, title, references = pending[designation]
+            yield RawRecord(
+                source_id=self.source_id,
+                content_hash=f"{content_hash}:{designation}",
+                raw_designation=designation,
+                raw_issuer=eso,
+                raw_title=title or None,
+                full_text=None,
+                language="en",
+                raw_references=references,
+                fetched_at=now,
+            )
 
     def extract_structure(self, record: RawRecord) -> list[RawSection]:
         return []
