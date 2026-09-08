@@ -290,3 +290,45 @@ def test_dguv_free_text_predecessor_falls_through_to_the_existing_unresolved_cas
     ]
     assert len(unresolved) == 1
     assert unresolved[0].raw_issuer == "DGUV"
+
+
+def test_dguv_new_edition_is_recognised_shares_the_work_and_gets_a_replaces_edge(
+    db_session, tmp_path
+):
+    from normly_core.graph.domain import EdgeType
+    from normly_core.graph.postgres.repositories import PostgresEdgeRepository
+    from pipeline.test_dguv_adapter import _write_publication_pdf
+
+    dguv_source = _make_source(db_session, jurisdiction="DE")
+    doc_repo = PostgresDocumentRepository(db_session)
+    edge_repo = PostgresEdgeRepository(db_session)
+
+    _write_publication_pdf(
+        tmp_path / "dguv_vorschrift_1_2013.pdf", "DGUV Vorschrift 1",
+        "vom 1. November 2013 Grundsätze der Prävention",
+    )
+    run_adapter(DguvAdapter(directory=tmp_path, source_id=dguv_source.id), db_session)
+    old_document = doc_repo.find_by_designation(
+        "DGUV", "DGUV Vorschrift 1", edition="2013-11-01"
+    )
+    assert old_document is not None
+    (tmp_path / "dguv_vorschrift_1_2013.pdf").unlink()
+
+    _write_publication_pdf(
+        tmp_path / "dguv_vorschrift_1_2022.pdf", "DGUV Vorschrift 1",
+        "vom 1.6.2022 Grundsätze der Prävention",
+    )
+    run_adapter(DguvAdapter(directory=tmp_path, source_id=dguv_source.id), db_session)
+    new_document = doc_repo.find_by_designation(
+        "DGUV", "DGUV Vorschrift 1", edition="2022-06-01"
+    )
+    assert new_document is not None
+    assert new_document.id != old_document.id
+
+    assert new_document.work_id == old_document.work_id
+
+    outgoing = edge_repo.list_edges_for_jurisdiction(new_document.id, "DE")
+    assert any(
+        e.edge_type == EdgeType.REPLACES and e.to_document_id == old_document.id
+        for e in outgoing
+    )

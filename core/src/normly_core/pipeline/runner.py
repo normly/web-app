@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from normly_core.graph.domain import Delivery
+from normly_core.graph.domain import Delivery, EdgeType, Layer
 from normly_core.graph.postgres.repositories import (
     PostgresDeliveryRepository,
     PostgresDocumentEmbeddingRepository,
@@ -93,39 +93,74 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
 
         if result.is_new:
             parsed = identity.parse_designation(record.raw_designation)
-            assignment = work_assignment.determine_work_assignment(record, document_repo)
-            if assignment.is_ambiguous:
-                # A conflicting Work signal must not silently drop the
-                # document: create it with its own fresh Work (like the
-                # no-signal case) and flag the conflict as a work_merge case
-                # for a curator to resolve later, instead of enqueueing an
-                # unactionable case and never writing the document at all.
+            if result.previous_edition_document_id is not None:
+                # A new edition of an already-known designation: the edition
+                # lineage IS the Work-linking signal here, more directly than
+                # anything work_assignment.determine_work_assignment could
+                # infer from raw_references -- reuse the predecessor's Work
+                # outright and record the real REPLACES edge between the two
+                # editions. This runs independently of, and in addition to,
+                # any REPLACES reference the adapter's own Inkrafttreten-
+                # section parsing may separately find for a differently-
+                # designated predecessor; create_edge's own dedup logic
+                # already covers the (rare) case where both mechanisms name
+                # the same pair.
+                previous_document = document_repo.get_document_unchecked(
+                    result.previous_edition_document_id
+                )
                 document = document_repo.create_document(
                     origin_issuer=record.raw_issuer or "unknown",
                     origin_number=parsed.number,
-                    edition=parsed.edition or "",
+                    edition=parsed.edition or record.edition or "",
                     part=None,
                     delivery_id=delivery.id,
-                    work_id=None,
+                    work_id=previous_document.work_id,
                 )
                 delta.documents_created += 1
-                target_work_id = min(assignment.candidate_work_ids, key=str)
-                identity_repo.enqueue_work_merge_case(
+                layer = Layer.FREE if rule.may_export_free else Layer.COMMERCIAL
+                edge_repo.create_edge(
+                    from_document_id=document.id,
+                    to_document_id=previous_document.id,
+                    edge_type=EdgeType.REPLACES,
+                    jurisdiction=None,
+                    layer=layer,
                     delivery_id=delivery.id,
-                    source_work_id=document.work_id,
-                    target_work_id=target_work_id,
-                    reason=assignment.reason,
                 )
             else:
-                document = document_repo.create_document(
-                    origin_issuer=record.raw_issuer or "unknown",
-                    origin_number=parsed.number,
-                    edition=parsed.edition or "",
-                    part=None,
-                    delivery_id=delivery.id,
-                    work_id=assignment.work_id,
-                )
-                delta.documents_created += 1
+                assignment = work_assignment.determine_work_assignment(record, document_repo)
+                if assignment.is_ambiguous:
+                    # A conflicting Work signal must not silently drop the
+                    # document: create it with its own fresh Work (like the
+                    # no-signal case) and flag the conflict as a work_merge
+                    # case for a curator to resolve later, instead of
+                    # enqueueing an unactionable case and never writing the
+                    # document at all.
+                    document = document_repo.create_document(
+                        origin_issuer=record.raw_issuer or "unknown",
+                        origin_number=parsed.number,
+                        edition=parsed.edition or record.edition or "",
+                        part=None,
+                        delivery_id=delivery.id,
+                        work_id=None,
+                    )
+                    delta.documents_created += 1
+                    target_work_id = min(assignment.candidate_work_ids, key=str)
+                    identity_repo.enqueue_work_merge_case(
+                        delivery_id=delivery.id,
+                        source_work_id=document.work_id,
+                        target_work_id=target_work_id,
+                        reason=assignment.reason,
+                    )
+                else:
+                    document = document_repo.create_document(
+                        origin_issuer=record.raw_issuer or "unknown",
+                        origin_number=parsed.number,
+                        edition=parsed.edition or record.edition or "",
+                        part=None,
+                        delivery_id=delivery.id,
+                        work_id=assignment.work_id,
+                    )
+                    delta.documents_created += 1
         else:
             document = document_repo.get_document_unchecked(result.document_id)
 
@@ -135,7 +170,7 @@ def run_adapter(adapter: SourceAdapter, session: Session) -> RunSummary:
                 issuer=record.raw_issuer,
                 designation=record.raw_designation,
                 language=language,
-                edition=None,
+                edition=record.edition,
                 is_primary=True,
                 delivery_id=delivery.id,
             )

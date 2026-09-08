@@ -409,11 +409,16 @@ class PostgresDocumentRepository:
     ) -> DocumentDesignation:
         _require_active_delivery(self._session, delivery_id)
         # The dedupe key includes document_id, even though
-        # uq_designation_issuer_designation is global. The constraint stays
-        # global on purpose: a designation identifies exactly one node
-        # worldwide ("ein Regelwerk = ein Knoten"). Filtering the pre-check on
-        # (issuer, designation) alone silently handed back another document's
-        # row; with document_id in the key the collision instead reaches the
+        # uq_designation_issuer_designation_edition scopes on (issuer,
+        # designation, edition) rather than document_id. That constraint
+        # deliberately still collapses to "one node worldwide" for a given
+        # (issuer, designation) when edition is NULL on both sides -- e.g.
+        # EUR-Lex, BAuA, and DGUV publications with no parseable issue date --
+        # but distinct editions of the same designation are meant to coexist
+        # as separate documents. Filtering the pre-check on (issuer,
+        # designation) alone would silently hand back another document's row
+        # (whether a same-edition duplicate or a different edition entirely);
+        # with document_id in the key, a genuine collision instead reaches the
         # constraint and surfaces as an IntegrityError — an identity-resolution
         # error, which is what it is.
         existing = self._session.execute(

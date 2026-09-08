@@ -64,6 +64,7 @@ class IdentityResolution:
     is_new: bool
     is_ambiguous: bool
     reason: str | None
+    previous_edition_document_id: uuid.UUID | None = None
 
 
 class SourceAdapter(Protocol):
