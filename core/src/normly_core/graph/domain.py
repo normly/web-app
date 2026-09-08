@@ -811,6 +811,19 @@ class ChatRepository(Protocol):
     ) -> ChatMessageCitation: ...
 
 
+class NotificationPreference(str, Enum):
+    NONE = "none"
+    IN_APP = "in_app"
+    EMAIL = "email"
+    BOTH = "both"
+
+
+class NotificationTriggerType(str, Enum):
+    NEW_EDITION = "new_edition"
+    NATIONAL_ADOPTION = "national_adoption"
+    RIGHTS_CHANGE = "rights_change"
+
+
 @dataclass(frozen=True)
 class Account:
     id: uuid.UUID
@@ -822,6 +835,7 @@ class Account:
     last_name: str | None
     avatar_image: bytes | None
     avatar_content_type: str | None
+    notification_preference: NotificationPreference
 
 
 @dataclass(frozen=True)
@@ -876,6 +890,10 @@ class AccountRepository(Protocol):
 
     def update_profile_names(
         self, account_id: uuid.UUID, *, first_name: str | None, last_name: str | None
+    ) -> None: ...
+
+    def update_notification_preference(
+        self, account_id: uuid.UUID, *, preference: NotificationPreference
     ) -> None: ...
 
     def set_avatar(

@@ -37,6 +37,7 @@ from normly_core.graph.domain import (
     IdentityResolutionStatus,
     LegalBasisCategory,
     Layer,
+    NotificationPreference,
     RightsClassification,
     Segment,
     Source,
@@ -1644,6 +1645,7 @@ def _account_to_domain(orm: AccountORM) -> Account:
         email_verified_at=orm.email_verified_at, created_at=orm.created_at,
         first_name=orm.first_name, last_name=orm.last_name,
         avatar_image=orm.avatar_image, avatar_content_type=orm.avatar_content_type,
+        notification_preference=orm.notification_preference,
     )
 
 
@@ -1710,6 +1712,15 @@ class PostgresAccountRepository:
             sa.update(AccountORM)
             .where(AccountORM.id == account_id)
             .values(first_name=first_name, last_name=last_name)
+        )
+
+    def update_notification_preference(
+        self, account_id: uuid.UUID, *, preference: NotificationPreference
+    ) -> None:
+        self._session.execute(
+            sa.update(AccountORM)
+            .where(AccountORM.id == account_id)
+            .values(notification_preference=preference)
         )
 
     def set_avatar(
