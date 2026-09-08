@@ -237,3 +237,84 @@ def test_find_by_designation_without_edition_is_deterministic_on_a_created_at_ti
 
     assert found is not None
     assert found.id == expected.id
+
+
+def _make_dguv_edition(db_session, delivery_id, *, designation: str, edition: str):
+    doc_repo = PostgresDocumentRepository(db_session)
+    document = doc_repo.create_document(
+        origin_issuer="DGUV", origin_number=designation, edition=edition,
+        part=None, delivery_id=delivery_id,
+    )
+    doc_repo.add_designation(
+        document_id=document.id, issuer="DGUV", designation=designation,
+        language="de", edition=edition, is_primary=True, delivery_id=delivery_id,
+    )
+    return document
+
+
+def test_find_previous_edition_skips_over_a_non_adjacent_edition(db_session):
+    """With 2013/2019/2022 all present, before_edition=2022 must return 2019
+    (the immediately preceding edition), not 2013 -- proving the lookup
+    orders by edition value, not by insertion order or created_at."""
+    source = PostgresSourceRepository(db_session).create_source(
+        publisher="DGUV", retrieval_path="https://publikationen.dguv.de",
+        legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
+        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+    )
+    delivery = PostgresDeliveryRepository(db_session).record_delivery(
+        source_id=source.id, content_hash="sha256:previous-edition-skip",
+        ingested_at=datetime.now(timezone.utc),
+    )
+    doc_repo = PostgresDocumentRepository(db_session)
+    edition_2013 = _make_dguv_edition(
+        db_session, delivery.id, designation="DGUV Vorschrift 3", edition="2013-11-01"
+    )
+    edition_2019 = _make_dguv_edition(
+        db_session, delivery.id, designation="DGUV Vorschrift 3", edition="2019-01-01"
+    )
+    _make_dguv_edition(
+        db_session, delivery.id, designation="DGUV Vorschrift 3", edition="2022-06-01"
+    )
+
+    found = doc_repo.find_previous_edition(
+        "DGUV", "DGUV Vorschrift 3", before_edition="2022-06-01"
+    )
+
+    assert found is not None
+    assert found.id == edition_2019.id
+    assert found.id != edition_2013.id
+
+
+def test_find_previous_edition_returns_none_for_the_oldest_known_edition(db_session):
+    """The out-of-order-archive-arrival case: before_edition is the OLDEST
+    edition present, so there is no predecessor -- must return None, never
+    fall back to some other unrelated document (e.g. a later edition)."""
+    source = PostgresSourceRepository(db_session).create_source(
+        publisher="DGUV", retrieval_path="https://publikationen.dguv.de",
+        legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
+        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+    )
+    delivery = PostgresDeliveryRepository(db_session).record_delivery(
+        source_id=source.id, content_hash="sha256:previous-edition-oldest",
+        ingested_at=datetime.now(timezone.utc),
+    )
+    doc_repo = PostgresDocumentRepository(db_session)
+    _make_dguv_edition(
+        db_session, delivery.id, designation="DGUV Vorschrift 4", edition="2022-06-01"
+    )
+
+    found = doc_repo.find_previous_edition(
+        "DGUV", "DGUV Vorschrift 4", before_edition="2013-11-01"
+    )
+
+    assert found is None
+
+
+def test_find_previous_edition_returns_none_when_no_other_edition_exists(db_session):
+    doc_repo = PostgresDocumentRepository(db_session)
+
+    found = doc_repo.find_previous_edition(
+        "DGUV", "DGUV Vorschrift 5", before_edition="2026-01-01"
+    )
+
+    assert found is None

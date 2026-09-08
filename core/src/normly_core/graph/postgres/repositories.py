@@ -611,6 +611,34 @@ class PostgresDocumentRepository:
             ).scalar_one_or_none()
         return _document_to_domain(orm) if orm else None
 
+    def find_previous_edition(
+        self, issuer: str, designation: str, before_edition: str
+    ) -> Document | None:
+        # Unlike find_by_designation's edition-less fallback (which answers
+        # "most recently INSERTED"), this answers "the greatest edition
+        # value strictly less than before_edition" -- the actual predecessor
+        # in edition order, regardless of ingestion order. Out-of-order
+        # ingestion (e.g. a 2013 archive arriving after its 2022 successor
+        # is already known) or same-transaction batches (where created_at
+        # ties are common) must not produce an inverted or nondeterministic
+        # REPLACES edge -- see the final-review finding this method fixes.
+        orm = self._session.execute(
+            select(DocumentORM)
+            .join(
+                DocumentDesignationORM,
+                DocumentDesignationORM.document_id == DocumentORM.id,
+            )
+            .where(
+                DocumentDesignationORM.issuer == issuer,
+                DocumentDesignationORM.designation == designation,
+                DocumentDesignationORM.edition.is_not(None),
+                DocumentDesignationORM.edition < before_edition,
+            )
+            .order_by(DocumentDesignationORM.edition.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+        return _document_to_domain(orm) if orm else None
+
     def search_documents_for_jurisdiction(
         self, jurisdiction: str, *, q: str | None = None, issuer: str | None = None,
         limit: int = 20, offset: int = 0,
