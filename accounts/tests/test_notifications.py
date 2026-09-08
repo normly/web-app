@@ -57,6 +57,15 @@ def test_mark_notification_read_for_a_missing_id_returns_404(client):
     assert response.status_code == 404
 
 
+def test_mark_notification_read_for_another_accounts_notification_returns_404(client, db_session):
+    account_id_1, headers_1 = _register_and_authorize(client, email="account1@example.de")
+    _, headers_2 = _register_and_authorize(client, email="account2@example.de")
+    notification = _make_notification(db_session, account_id_1)
+
+    response = client.patch(f"/v1/accounts/notifications/{notification.id}", headers=headers_2)
+    assert response.status_code == 404
+
+
 def test_notification_endpoints_require_authentication(client):
     response = client.get("/v1/accounts/notifications")
     assert response.status_code == 401
