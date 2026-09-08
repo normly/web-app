@@ -36,6 +36,22 @@ def extract_references(
                 reason="reference_target_not_found",
             )
             continue
+        if target.id == document_id:
+            # A reference target resolving to the record's own document means
+            # identity resolution treated a re-edition as an update to itself
+            # (e.g. a DGUV re-edition sharing its predecessor's exact
+            # designation, since that adapter never sets an `edition` value)
+            # rather than as a new document — this must not become a
+            # self-referential graph edge, which would be picked up by
+            # rights-gated read paths (e.g. the public `/validity` endpoint)
+            # and produce nonsensical "document replaced by itself" answers.
+            identity_repo.enqueue_case(
+                delivery_id=delivery_id,
+                raw_designation=reference.target_designation,
+                raw_issuer=reference.target_issuer,
+                reason="self_referential_reference",
+            )
+            continue
         edge_repo.create_edge(
             from_document_id=document_id,
             to_document_id=target.id,

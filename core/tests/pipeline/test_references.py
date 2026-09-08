@@ -140,3 +140,45 @@ def test_extract_references_enqueues_case_when_target_missing(db_session):
 
     pending = identity_repo.list_pending_cases()
     assert any(c.reason == "reference_target_not_found" for c in pending)
+
+
+def test_extract_references_enqueues_case_instead_of_a_self_referential_edge(db_session):
+    # Simulates a DGUV re-edition sharing its predecessor's exact designation
+    # string: identity.resolve() treats the ingestion as an update to the SAME
+    # existing document, so the REPLACES reference this adapter attaches ends
+    # up resolving, via find_by_designation, to the record's own document.
+    from sqlalchemy import select
+
+    from normly_core.graph.postgres.orm import EdgeORM
+
+    doc_repo, delivery, standard = _setup(db_session)
+    doc_repo.add_designation(
+        document_id=standard.id, issuer="CEN", designation="EN ISO 12100:2010", language="en",
+        edition=None, is_primary=True, delivery_id=delivery.id,
+    )
+    edge_repo = PostgresEdgeRepository(db_session)
+    identity_repo = PostgresIdentityResolutionRepository(db_session)
+    record = RawRecord(
+        source_id=uuid.uuid4(), content_hash="sha256:ref-self-referential",
+        raw_designation="EN ISO 12100:2010", raw_issuer="CEN", raw_title=None, full_text=None,
+        raw_references=[
+            RawReference(
+                target_issuer="CEN", target_designation="EN ISO 12100:2010",
+                edge_type=EdgeType.REPLACES,
+            )
+        ],
+    )
+
+    extract_references(
+        record, standard.id, delivery.id, doc_repo, edge_repo, identity_repo, _rule()
+    )
+
+    self_loop = db_session.execute(
+        select(EdgeORM).where(
+            EdgeORM.from_document_id == standard.id, EdgeORM.to_document_id == standard.id
+        )
+    ).scalar_one_or_none()
+    assert self_loop is None
+
+    pending = identity_repo.list_pending_cases()
+    assert any(c.reason == "self_referential_reference" for c in pending)

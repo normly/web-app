@@ -107,14 +107,16 @@ def test_fetch_attaches_a_replaces_reference_for_a_free_text_title_predecessor(t
     # The successor's OWN title is deliberately two words ("Bauarbeiten
     # allgemein"), not the single word "Bauarbeiten" the real-world
     # predecessor is quoted under in the body text below: verified directly
-    # against this project's own Docling extraction that a lone,
-    # single-word title/designation block near the top of an otherwise
-    # short reportlab-generated page gets misclassified as a page header
-    # (ContentLayer.FURNITURE) and dropped from `document.iterate_items()`'s
-    # default body-only iteration entirely -- a two-word title does not
-    # trigger this. This is a fixture-generation quirk of this specific
-    # synthetic PDF layout, unrelated to the predecessor-detection regexes
-    # under test.
+    # against this project's own Docling extraction that with a single-word
+    # title, the entire designation+title block gets excluded from
+    # `document.iterate_items()`'s default iteration (not merely the title
+    # being misclassified as a page header -- the mechanism is less precisely
+    # characterized than that; what's confirmed is that `_fetch_file`'s
+    # `lines[0]` ends up holding the "§ 13 Inkrafttreten/Außerkrafttreten"
+    # heading text instead of the designation when this happens), so
+    # `raw_designation` comes out wrong. A two-word title avoids this. This
+    # is a fixture-generation quirk of this specific synthetic PDF layout,
+    # unrelated to the predecessor-detection regexes under test.
     _write_publication_pdf_with_sections(
         tmp_path / "dguv_vorschrift_38.pdf",
         "DGUV Vorschrift 38",

@@ -242,8 +242,10 @@ def test_dguv_free_text_predecessor_falls_through_to_the_existing_unresolved_cas
     word "Bauarbeiten" the real-world predecessor is quoted under below --
     see the matching comment in test_dguv_adapter.py's own version of this
     fixture for why a lone single-word title/designation block gets
-    misclassified as a page header (and silently dropped) by Docling for
-    this specific synthetic PDF layout."""
+    excluded entirely from Docling's default iteration (not merely
+    misclassified as a page header) for this specific synthetic PDF
+    layout, leaving `_fetch_file`'s `lines[0]` holding the next heading
+    instead of the designation."""
     from normly_core.graph.domain import EdgeType
     from normly_core.graph.postgres.repositories import (
         PostgresEdgeRepository,
