@@ -47,9 +47,11 @@ def update_profile(
     account_repo = PostgresAccountRepository(session)
     account_repo.update_profile_names(account.id, first_name=first_name, last_name=last_name)
     if "notification_preference" in fields_set and payload.notification_preference is not None:
-        account_repo.update_notification_preference(
-            account.id, preference=NotificationPreference(payload.notification_preference)
-        )
+        try:
+            preference = NotificationPreference(payload.notification_preference)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="invalid notification_preference")
+        account_repo.update_notification_preference(account.id, preference=preference)
     updated = account_repo.get_account_by_id(account.id)
     return _account_response(updated)
 
