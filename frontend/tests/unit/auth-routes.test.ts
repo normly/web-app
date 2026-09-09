@@ -104,6 +104,46 @@ describe("auth Route Handlers", () => {
     expect(body.account).toEqual({ accountId: "1", email: "a@example.de" });
   });
 
+  it("session check forwards the stored notification preference", async () => {
+    // This route is the ONLY source of account state on initial page load,
+    // and mapAccountSummary receives the backend body untyped -- so a field
+    // missing from the backend's session response silently arrives as
+    // undefined instead of failing the build.
+    vi.stubEnv("NORMLY_API_BASE_URL", "http://api.internal");
+    vi.stubEnv("NORMLY_ACCOUNTS_BASE_URL", "http://accounts.internal");
+    vi.stubEnv("NORMLY_CHAT_BASE_URL", "http://chat.internal");
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          account_id: "1",
+          email: "a@example.de",
+          first_name: "Ada",
+          last_name: "Lovelace",
+          avatar_data_url: null,
+          has_password: true,
+          notification_preference: "both",
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const request = new NextRequest("http://localhost/api/auth/session", {
+      headers: { cookie: "normly_account_session=acct-tok" },
+    });
+    const response = await session(request);
+    const body = await response.json();
+
+    expect(body.account).toEqual({
+      accountId: "1",
+      email: "a@example.de",
+      firstName: "Ada",
+      lastName: "Lovelace",
+      avatarDataUrl: null,
+      hasPassword: true,
+      notificationPreference: "both",
+    });
+  });
+
   it("session check clears the stale cookie when the backend rejects the token", async () => {
     vi.stubEnv("NORMLY_API_BASE_URL", "http://api.internal");
     vi.stubEnv("NORMLY_ACCOUNTS_BASE_URL", "http://accounts.internal");

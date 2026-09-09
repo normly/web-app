@@ -19,6 +19,8 @@ from normly_core.graph.domain import (
     IdentityResolutionStatus,
     LegalBasisCategory,
     Layer,
+    NotificationPreference,
+    NotificationTriggerType,
     TdmOptOutResult,
     WorkCreatedVia,
     WorkStatus,
@@ -431,6 +433,18 @@ class AccountORM(Base):
     last_name: Mapped[str | None]
     avatar_image: Mapped[bytes | None] = mapped_column(sa.LargeBinary)
     avatar_content_type: Mapped[str | None]
+    notification_preference: Mapped[NotificationPreference] = mapped_column(
+        sa.Enum(
+            NotificationPreference,
+            name="notification_preference",
+            native_enum=False,
+            create_constraint=True,
+            values_callable=_enum_values,
+        ),
+        nullable=False,
+        default=NotificationPreference.NONE,
+        server_default=NotificationPreference.NONE.value,
+    )
 
     __table_args__ = (sa.UniqueConstraint("email", name="uq_account_email"),)
 
@@ -499,6 +513,103 @@ class AccountTokenORM(Base):
             "(account_id IS NULL) != (email IS NULL)",
             name="ck_account_token_account_or_email",
         ),
+    )
+
+
+class WatchlistORM(Base):
+    __tablename__ = "watchlist"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("account.id"), nullable=False
+    )
+    work_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("work.id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
+
+    __table_args__ = (
+        sa.UniqueConstraint("account_id", "work_id", name="uq_watchlist_account_work"),
+    )
+
+
+class NotificationORM(Base):
+    __tablename__ = "notification"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("account.id"), nullable=False
+    )
+    work_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("work.id"), nullable=False
+    )
+    trigger_type: Mapped[NotificationTriggerType] = mapped_column(
+        sa.Enum(
+            NotificationTriggerType,
+            name="notification_trigger_type",
+            native_enum=False,
+            create_constraint=True,
+            values_callable=_enum_values,
+        )
+    )
+    trigger_edge_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("edge.id")
+    )
+    trigger_document_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("document.id")
+    )
+    trigger_jurisdiction: Mapped[str | None]
+    may_process: Mapped[bool | None]
+    may_index_fulltext: Mapped[bool | None]
+    may_cite_passages: Mapped[bool | None]
+    may_export_free: Mapped[bool | None]
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
+    read_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    emailed_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "account_id", "work_id", "trigger_type", "trigger_edge_id",
+            name="uq_notification_account_work_trigger_edge",
+        ),
+    )
+
+
+class RightsNotificationBaselineORM(Base):
+    __tablename__ = "rights_notification_baseline"
+
+    # Pure internal bookkeeping for the notify-watchers RIGHTS_CHANGE
+    # detector: the last-known rights state an account's watch has already
+    # been diffed against, keyed by the same tuple that identifies a
+    # RIGHTS_CHANGE notification. Deliberately NOT the Notification table --
+    # a row here is never shown to a user, never emailed, and never joined
+    # into anything user-facing. Same upsert-via-merge shape as
+    # RightsClassificationORM: one row per key tuple, no separate surrogate
+    # id.
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("account.id"), primary_key=True
+    )
+    work_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("work.id"), primary_key=True
+    )
+    trigger_document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("document.id"), primary_key=True
+    )
+    trigger_jurisdiction: Mapped[str] = mapped_column(primary_key=True)
+    may_process: Mapped[bool]
+    may_index_fulltext: Mapped[bool]
+    may_cite_passages: Mapped[bool]
+    may_export_free: Mapped[bool]
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
     )
 
 

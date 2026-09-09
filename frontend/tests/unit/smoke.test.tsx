@@ -27,13 +27,20 @@ describe("HomePage", () => {
   });
 
   it("renders without crashing", () => {
-    // AppShell's user-footer checks /api/auth/session on mount, and (since
-    // ChatShell wires in ChatHistorySidebar) HomePageContent now also fires
-    // /api/chat/sessions on mount -- route by URL so each gets its own
-    // Response instance instead of racing to read one shared body twice.
+    // AppShell's user-footer checks /api/auth/session on mount, (since
+    // ChatShell wires in ChatHistorySidebar) HomePageContent also fires
+    // /api/chat/sessions on mount, and PageHeader's bell popover now fires
+    // /api/account/notifications on mount too -- route by URL so each gets
+    // its own Response instance instead of racing to read one shared body
+    // twice, and so /api/account/notifications gets an array (not the
+    // account-session shape) since useNotifications() calls .filter() on it
+    // unconditionally.
     global.fetch = vi.fn().mockImplementation((url: string) => {
       if (url === "/api/chat/sessions") {
         return Promise.resolve(new Response(JSON.stringify([]), { status: 401 }));
+      }
+      if (url === "/api/account/notifications") {
+        return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
       }
       return Promise.resolve(new Response(JSON.stringify({ account: null })));
     });
@@ -51,6 +58,9 @@ describe("HomePage", () => {
     global.fetch = vi.fn().mockImplementation((url: string) => {
       if (url === "/api/chat/sessions") {
         return Promise.resolve(new Response(JSON.stringify([]), { status: 401 }));
+      }
+      if (url === "/api/account/notifications") {
+        return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
       }
       return Promise.resolve(new Response(JSON.stringify({ account: null })));
     });

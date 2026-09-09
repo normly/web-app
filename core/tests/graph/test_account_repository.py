@@ -326,3 +326,16 @@ def test_link_google_identity_rejects_a_subject_already_linked_elsewhere(db_sess
         )
 
     assert google_repo.get_account_by_google_subject("sub-shared") == first_account
+
+
+def test_update_notification_preference(db_session):
+    from normly_core.graph.domain import NotificationPreference
+
+    account = PostgresAccountRepository(db_session).create_account(
+        email="watcher-pref@example.de", password_hash=None
+    )
+    PostgresAccountRepository(db_session).update_notification_preference(
+        account.id, preference=NotificationPreference.BOTH
+    )
+    updated = PostgresAccountRepository(db_session).get_account_by_id(account.id)
+    assert updated.notification_preference == NotificationPreference.BOTH

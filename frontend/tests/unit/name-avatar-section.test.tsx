@@ -12,7 +12,7 @@ const originalFetch = global.fetch;
 
 const account: AccountSummary = {
   accountId: "acc-1", email: "a@example.de", firstName: null, lastName: null,
-  avatarDataUrl: null, hasPassword: true,
+  avatarDataUrl: null, hasPassword: true, notificationPreference: "immediate",
 };
 
 describe("NameAvatarSection", () => {

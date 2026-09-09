@@ -7,6 +7,7 @@
 import * as React from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { NameAvatarSection } from "@/components/account/name-avatar-section";
+import { NotificationPreferenceSection } from "@/components/account/notification-preference-section";
 import { EmailSection } from "@/components/account/email-section";
 import { PasswordSection } from "@/components/account/password-section";
 import { SessionsSection } from "@/components/account/sessions-section";
@@ -17,10 +18,11 @@ import { cn } from "@/lib/utils";
 import type { AccountSummary } from "@/lib/account-response";
 import type { TranslationKey } from "@/lib/i18n/dictionary-keys";
 
-type SectionId = "profile" | "email" | "password" | "sessions" | "data";
+type SectionId = "profile" | "notifications" | "email" | "password" | "sessions" | "data";
 
 const SECTIONS: { id: SectionId; labelKey: TranslationKey }[] = [
   { id: "profile", labelKey: "account.nameAvatarTitle" },
+  { id: "notifications", labelKey: "account.notificationPreferenceTitle" },
   { id: "email", labelKey: "account.emailTitle" },
   { id: "password", labelKey: "account.passwordTitle" },
   { id: "sessions", labelKey: "account.sessionsTitle" },
@@ -77,6 +79,9 @@ export function ProfileOverlay({
             <div className="max-h-[60vh] min-w-0 flex-1 overflow-y-auto">
               {activeSection === "profile" && (
                 <NameAvatarSection account={account} onAccountUpdated={setAccount} />
+              )}
+              {activeSection === "notifications" && (
+                <NotificationPreferenceSection account={account} onAccountUpdated={setAccount} />
               )}
               {activeSection === "email" && <EmailSection account={account} />}
               {activeSection === "password" && <PasswordSection />}

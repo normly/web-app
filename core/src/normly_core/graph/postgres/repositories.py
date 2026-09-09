@@ -37,10 +37,15 @@ from normly_core.graph.domain import (
     IdentityResolutionStatus,
     LegalBasisCategory,
     Layer,
+    Notification,
+    NotificationPreference,
+    NotificationTriggerType,
     RightsClassification,
+    RightsNotificationBaseline,
     Segment,
     Source,
     TdmOptOutResult,
+    Watchlist,
     WithdrawnDeliveryError,
     Work,
     WorkCreatedVia,
@@ -65,10 +70,13 @@ from normly_core.graph.postgres.orm import (
     EdgeORM,
     EmbeddingORM,
     IdentityResolutionCaseORM,
+    NotificationORM,
     RateLimitBucketORM,
     RightsClassificationORM,
+    RightsNotificationBaselineORM,
     SegmentORM,
     SourceORM,
+    WatchlistORM,
     WorkORM,
 )
 
@@ -395,6 +403,17 @@ class PostgresDocumentRepository:
     def get_document_unchecked(self, document_id: uuid.UUID) -> Document | None:
         orm = self._session.get(DocumentORM, document_id)
         return _document_to_domain(orm) if orm else None
+
+    def list_documents_for_work_unchecked(self, work_id: uuid.UUID) -> list[Document]:
+        """
+        Every Document belonging to `work_id`, regardless of rights
+        classification or jurisdiction. Internal/administrative use only
+        (notify-watchers, Task 6) -- never callable from an HTTP endpoint.
+        """
+        rows = self._session.execute(
+            select(DocumentORM).where(DocumentORM.work_id == work_id)
+        ).scalars()
+        return [_document_to_domain(row) for row in rows]
 
     def add_designation(
         self,
@@ -823,6 +842,151 @@ class PostgresWorkRepository:
         return _work_to_domain(orm)
 
 
+def _watchlist_to_domain(orm: WatchlistORM) -> Watchlist:
+    return Watchlist(
+        id=orm.id, account_id=orm.account_id, work_id=orm.work_id, created_at=orm.created_at,
+    )
+
+
+class PostgresWatchlistRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def add_watch(self, *, account_id: uuid.UUID, work_id: uuid.UUID) -> Watchlist:
+        existing = self._existing(account_id, work_id)
+        if existing is not None:
+            return _watchlist_to_domain(existing)
+
+        orm = WatchlistORM(id=uuid.uuid4(), account_id=account_id, work_id=work_id)
+        try:
+            with self._session.begin_nested():
+                self._session.add(orm)
+                self._session.flush()
+        except IntegrityError:
+            existing = self._existing(account_id, work_id)
+            if existing is None:
+                raise
+            return _watchlist_to_domain(existing)
+        self._session.refresh(orm)
+        return _watchlist_to_domain(orm)
+
+    def remove_watch(self, *, account_id: uuid.UUID, work_id: uuid.UUID) -> None:
+        self._session.execute(
+            sa.delete(WatchlistORM).where(
+                WatchlistORM.account_id == account_id, WatchlistORM.work_id == work_id
+            )
+        )
+
+    def list_watches_for_account(self, account_id: uuid.UUID) -> list[Watchlist]:
+        rows = self._session.execute(
+            select(WatchlistORM)
+            .where(WatchlistORM.account_id == account_id)
+            .order_by(WatchlistORM.created_at, WatchlistORM.id)
+        ).scalars()
+        return [_watchlist_to_domain(row) for row in rows]
+
+    def list_all_watches(self) -> list[Watchlist]:
+        rows = self._session.execute(
+            select(WatchlistORM).order_by(WatchlistORM.id)
+        ).scalars()
+        return [_watchlist_to_domain(row) for row in rows]
+
+    def _existing(self, account_id: uuid.UUID, work_id: uuid.UUID) -> WatchlistORM | None:
+        return self._session.execute(
+            select(WatchlistORM).where(
+                WatchlistORM.account_id == account_id, WatchlistORM.work_id == work_id
+            )
+        ).scalar_one_or_none()
+
+
+def _notification_to_domain(orm: NotificationORM) -> Notification:
+    return Notification(
+        id=orm.id, account_id=orm.account_id, work_id=orm.work_id,
+        trigger_type=orm.trigger_type, trigger_edge_id=orm.trigger_edge_id,
+        trigger_document_id=orm.trigger_document_id,
+        trigger_jurisdiction=orm.trigger_jurisdiction,
+        may_process=orm.may_process, may_index_fulltext=orm.may_index_fulltext,
+        may_cite_passages=orm.may_cite_passages, may_export_free=orm.may_export_free,
+        created_at=orm.created_at, read_at=orm.read_at, emailed_at=orm.emailed_at,
+    )
+
+
+class PostgresNotificationRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def create(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        trigger_type: NotificationTriggerType,
+        trigger_edge_id: uuid.UUID | None,
+        trigger_document_id: uuid.UUID | None,
+        trigger_jurisdiction: str | None,
+        may_process: bool | None,
+        may_index_fulltext: bool | None,
+        may_cite_passages: bool | None,
+        may_export_free: bool | None,
+        emailed_at: datetime | None,
+    ) -> Notification:
+        orm = NotificationORM(
+            id=uuid.uuid4(), account_id=account_id, work_id=work_id, trigger_type=trigger_type,
+            trigger_edge_id=trigger_edge_id, trigger_document_id=trigger_document_id,
+            trigger_jurisdiction=trigger_jurisdiction, may_process=may_process,
+            may_index_fulltext=may_index_fulltext, may_cite_passages=may_cite_passages,
+            may_export_free=may_export_free, read_at=None, emailed_at=emailed_at,
+            # Set client-side rather than relying on the column's
+            # server_default=func.now(): Postgres freezes now() at
+            # transaction start, so several notifications created inside one
+            # transaction (e.g. multiple notify-watchers runs sharing a test
+            # session) would otherwise all get an identical created_at and
+            # make list_for_account's `ORDER BY created_at DESC, id DESC`
+            # fall back to random UUID ordering for the tiebreak.
+            created_at=datetime.now(timezone.utc),
+        )
+        self._session.add(orm)
+        self._session.flush()
+        self._session.refresh(orm)
+        return _notification_to_domain(orm)
+
+    def find_by_trigger_edge(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        trigger_type: NotificationTriggerType,
+        trigger_edge_id: uuid.UUID,
+    ) -> Notification | None:
+        orm = self._session.execute(
+            select(NotificationORM).where(
+                NotificationORM.account_id == account_id,
+                NotificationORM.work_id == work_id,
+                NotificationORM.trigger_type == trigger_type,
+                NotificationORM.trigger_edge_id == trigger_edge_id,
+            )
+        ).scalar_one_or_none()
+        return _notification_to_domain(orm) if orm else None
+
+    def list_for_account(self, account_id: uuid.UUID) -> list[Notification]:
+        rows = self._session.execute(
+            select(NotificationORM)
+            .where(NotificationORM.account_id == account_id)
+            .order_by(NotificationORM.created_at.desc(), NotificationORM.id.desc())
+        ).scalars()
+        return [_notification_to_domain(row) for row in rows]
+
+    def mark_read(
+        self, notification_id: uuid.UUID, *, account_id: uuid.UUID, read_at: datetime
+    ) -> bool:
+        result = self._session.execute(
+            sa.update(NotificationORM)
+            .where(NotificationORM.id == notification_id, NotificationORM.account_id == account_id)
+            .values(read_at=read_at)
+        )
+        return result.rowcount > 0
+
+
 def _rights_to_domain(orm: RightsClassificationORM) -> RightsClassification:
     return RightsClassification(
         document_id=orm.document_id,
@@ -881,6 +1045,83 @@ class PostgresRightsRepository:
         orm = self._session.get(RightsClassificationORM, (document_id, jurisdiction))
         return _rights_to_domain(orm) if orm else None
 
+    def list_classifications_for_document_unchecked(
+        self, document_id: uuid.UUID
+    ) -> list[RightsClassification]:
+        """
+        Every classification row for `document_id`, one per jurisdiction ever
+        classified, regardless of revoked_at. Internal/administrative use
+        only (notify-watchers, Task 6) -- never callable from an HTTP
+        endpoint.
+        """
+        rows = self._session.execute(
+            select(RightsClassificationORM).where(
+                RightsClassificationORM.document_id == document_id
+            )
+        ).scalars()
+        return [_rights_to_domain(row) for row in rows]
+
+
+def _rights_notification_baseline_to_domain(
+    orm: RightsNotificationBaselineORM,
+) -> RightsNotificationBaseline:
+    return RightsNotificationBaseline(
+        account_id=orm.account_id,
+        work_id=orm.work_id,
+        trigger_document_id=orm.trigger_document_id,
+        trigger_jurisdiction=orm.trigger_jurisdiction,
+        may_process=orm.may_process,
+        may_index_fulltext=orm.may_index_fulltext,
+        may_cite_passages=orm.may_cite_passages,
+        may_export_free=orm.may_export_free,
+        updated_at=orm.updated_at,
+    )
+
+
+class PostgresRightsNotificationBaselineRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def get_baseline(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        trigger_document_id: uuid.UUID,
+        trigger_jurisdiction: str,
+    ) -> RightsNotificationBaseline | None:
+        orm = self._session.get(
+            RightsNotificationBaselineORM,
+            (account_id, work_id, trigger_document_id, trigger_jurisdiction),
+        )
+        return _rights_notification_baseline_to_domain(orm) if orm else None
+
+    def upsert_baseline(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        trigger_document_id: uuid.UUID,
+        trigger_jurisdiction: str,
+        may_process: bool,
+        may_index_fulltext: bool,
+        may_cite_passages: bool,
+        may_export_free: bool,
+    ) -> RightsNotificationBaseline:
+        orm = RightsNotificationBaselineORM(
+            account_id=account_id,
+            work_id=work_id,
+            trigger_document_id=trigger_document_id,
+            trigger_jurisdiction=trigger_jurisdiction,
+            may_process=may_process,
+            may_index_fulltext=may_index_fulltext,
+            may_cite_passages=may_cite_passages,
+            may_export_free=may_export_free,
+        )
+        merged = self._session.merge(orm)
+        self._session.flush()
+        return _rights_notification_baseline_to_domain(merged)
+
 
 def _edge_to_domain(orm: EdgeORM) -> Edge:
     return Edge(
@@ -892,6 +1133,7 @@ def _edge_to_domain(orm: EdgeORM) -> Edge:
         layer=orm.layer,
         delivery_id=orm.delivery_id,
         revoked_at=orm.revoked_at,
+        created_at=orm.created_at,
     )
 
 
@@ -1033,6 +1275,30 @@ class PostgresEdgeRepository:
                 target_rights.jurisdiction == jurisdiction,
                 target_rights.may_process.is_(True),
                 target_rights.revoked_at.is_(None),
+            )
+            .order_by(EdgeORM.id)
+        ).scalars()
+        return [_edge_to_domain(row) for row in rows]
+
+    def list_incoming_edges_for_work_unchecked(
+        self, document_ids: list[uuid.UUID], edge_types: tuple[EdgeType, ...]
+    ) -> list[Edge]:
+        """
+        Incoming, unrevoked edges of the given types whose to_document_id is
+        one of `document_ids` -- bounded to one Work's own documents, no
+        rights-gating and no layer filter. Internal/administrative use only
+        (notify-watchers, Task 6) -- never callable from an HTTP endpoint;
+        every public read path keeps using the *_for_jurisdiction methods
+        above.
+        """
+        if not document_ids:
+            return []
+        rows = self._session.execute(
+            select(EdgeORM)
+            .where(
+                EdgeORM.to_document_id.in_(document_ids),
+                EdgeORM.edge_type.in_(edge_types),
+                EdgeORM.revoked_at.is_(None),
             )
             .order_by(EdgeORM.id)
         ).scalars()
@@ -1644,6 +1910,7 @@ def _account_to_domain(orm: AccountORM) -> Account:
         email_verified_at=orm.email_verified_at, created_at=orm.created_at,
         first_name=orm.first_name, last_name=orm.last_name,
         avatar_image=orm.avatar_image, avatar_content_type=orm.avatar_content_type,
+        notification_preference=orm.notification_preference,
     )
 
 
@@ -1712,6 +1979,15 @@ class PostgresAccountRepository:
             .values(first_name=first_name, last_name=last_name)
         )
 
+    def update_notification_preference(
+        self, account_id: uuid.UUID, *, preference: NotificationPreference
+    ) -> None:
+        self._session.execute(
+            sa.update(AccountORM)
+            .where(AccountORM.id == account_id)
+            .values(notification_preference=preference)
+        )
+
     def set_avatar(
         self, account_id: uuid.UUID, *, avatar_image: bytes, avatar_content_type: str
     ) -> None:
@@ -1764,6 +2040,17 @@ class PostgresAccountRepository:
             sa.delete(AccountGoogleIdentityORM).where(
                 AccountGoogleIdentityORM.account_id == account_id
             )
+        )
+        self._session.execute(
+            sa.delete(NotificationORM).where(NotificationORM.account_id == account_id)
+        )
+        self._session.execute(
+            sa.delete(RightsNotificationBaselineORM).where(
+                RightsNotificationBaselineORM.account_id == account_id
+            )
+        )
+        self._session.execute(
+            sa.delete(WatchlistORM).where(WatchlistORM.account_id == account_id)
         )
         self._session.execute(sa.delete(AccountORM).where(AccountORM.id == account_id))
 

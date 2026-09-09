@@ -45,6 +45,60 @@ def _make_two_documents(db_session):
     return old, new, delivery
 
 
+def test_edge_created_at_is_exposed_on_the_domain_dataclass(db_session):
+    old, new, delivery = _make_two_documents(db_session)
+    edge = PostgresEdgeRepository(db_session).create_edge(
+        from_document_id=new.id, to_document_id=old.id, edge_type=EdgeType.REPLACES,
+        jurisdiction=None, layer=Layer.FREE, delivery_id=delivery.id,
+    )
+    assert edge.created_at is not None
+
+
+def test_list_incoming_edges_for_work_unchecked_is_bounded_to_the_given_documents(db_session):
+    old, new, delivery = _make_two_documents(db_session)
+    edge_repo = PostgresEdgeRepository(db_session)
+    replaces_edge = edge_repo.create_edge(
+        from_document_id=new.id, to_document_id=old.id, edge_type=EdgeType.REPLACES,
+        jurisdiction=None, layer=Layer.FREE, delivery_id=delivery.id,
+    )
+
+    unrelated_old, unrelated_new, unrelated_delivery = _make_two_documents(db_session)
+    edge_repo.create_edge(
+        from_document_id=unrelated_new.id, to_document_id=unrelated_old.id,
+        edge_type=EdgeType.REPLACES, jurisdiction=None, layer=Layer.FREE,
+        delivery_id=unrelated_delivery.id,
+    )
+
+    found = edge_repo.list_incoming_edges_for_work_unchecked([old.id, new.id], (EdgeType.REPLACES,))
+    assert [edge.id for edge in found] == [replaces_edge.id]
+
+
+def test_list_incoming_edges_for_work_unchecked_filters_by_edge_type(db_session):
+    old, new, delivery = _make_two_documents(db_session)
+    edge_repo = PostgresEdgeRepository(db_session)
+    edge_repo.create_edge(
+        from_document_id=new.id, to_document_id=old.id, edge_type=EdgeType.WITHDRAWN_BY,
+        jurisdiction=None, layer=Layer.FREE, delivery_id=delivery.id,
+    )
+
+    found = edge_repo.list_incoming_edges_for_work_unchecked([old.id, new.id], (EdgeType.REPLACES,))
+    assert found == []
+
+
+def test_list_incoming_edges_for_work_unchecked_excludes_revoked_edges(db_session):
+    old, new, delivery = _make_two_documents(db_session)
+    edge_repo = PostgresEdgeRepository(db_session)
+    edge_repo.create_edge(
+        from_document_id=new.id, to_document_id=old.id, edge_type=EdgeType.REPLACES,
+        jurisdiction=None, layer=Layer.FREE, delivery_id=delivery.id,
+    )
+
+    PostgresDeliveryRepository(db_session).revoke_delivery(delivery.id)
+
+    found = edge_repo.list_incoming_edges_for_work_unchecked([old.id, new.id], (EdgeType.REPLACES,))
+    assert found == []
+
+
 def test_create_edge(db_session):
     old, new, delivery = _make_two_documents(db_session)
     edge_repo = PostgresEdgeRepository(db_session)

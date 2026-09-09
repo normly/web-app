@@ -65,6 +65,7 @@
     "account": "Account",
     "notificationsLabel": "Notifications",
     "noNotifications": "No new notifications",
+    "notificationItemUnreadBadge": "New",
     "documentDetailTitle": "Document",
     "toggleSidebar": "Toggle sidebar",
     "sidebarTitle": "Sidebar",
@@ -103,7 +104,10 @@
     "mayProcess": "Processing permitted",
     "mayIndexFulltext": "Full text indexable",
     "mayCitePassages": "Citable",
-    "mayExportFree": "Free export permitted"
+    "mayExportFree": "Free export permitted",
+    "addToWatchlist": "Add to watchlist",
+    "removeFromWatchlist": "Remove from watchlist",
+    "watchlistToggleError": "The action could not be completed. Please try again."
   },
   "account": {
     "pageTitle": "Account",
@@ -116,6 +120,12 @@
     "lastNameLabel": "Last name",
     "saveNameButton": "Save",
     "saveNameError": "Could not save your name. Please try again.",
+    "notificationPreferenceTitle": "Notifications",
+    "notificationPreferenceNone": "No notifications",
+    "notificationPreferenceInApp": "In-app only",
+    "notificationPreferenceEmail": "Email only",
+    "notificationPreferenceBoth": "In-app and email",
+    "notificationPreferenceSaveError": "Could not save this setting. Please try again.",
     "emailTitle": "Email address",
     "currentEmailLabel": "Current email address",
     "newEmailLabel": "New email address",

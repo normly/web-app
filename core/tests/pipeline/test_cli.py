@@ -8,12 +8,21 @@ from pathlib import Path
 import pytest
 import sqlalchemy as sa
 
-from normly_core.graph.domain import LegalBasisCategory
-from normly_core.graph.postgres.orm import DocumentDesignationORM, SourceORM
+from normly_core.graph.domain import (
+    EdgeType,
+    Layer,
+    LegalBasisCategory,
+    NotificationPreference,
+)
+from normly_core.graph.postgres.orm import DocumentDesignationORM, SourceORM, WatchlistORM
 from normly_core.graph.postgres.repositories import (
+    PostgresAccountRepository,
     PostgresDeliveryRepository,
     PostgresDocumentRepository,
+    PostgresEdgeRepository,
+    PostgresNotificationRepository,
     PostgresSourceRepository,
+    PostgresWatchlistRepository,
 )
 from normly_core.pipeline.cli import build_adapter, main
 
@@ -27,6 +36,8 @@ _WRITTEN_TABLES = (
     "document_embedding",
     "embedding",
     "segment",
+    "notification",
+    "watchlist",
     "edge",
     "rights_classification",
     "identity_resolution_case",
@@ -35,6 +46,7 @@ _WRITTEN_TABLES = (
     "document",
     "delivery",
     "source",
+    "account",
 )
 
 
@@ -237,3 +249,163 @@ def test_backfill_document_embeddings_command_creates_embeddings(committed_db, c
     assert exit_code == 0
     output = capsys.readouterr().out
     assert "document_embeddings_created=1" in output
+
+
+def test_main_notify_watchers_subcommand_runs_without_smtp_configured(committed_db, capsys):
+    exit_code = main(["notify-watchers"])
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert "watches_scanned=" in captured.out
+
+
+def test_main_notify_watchers_without_smtp_configured_does_not_mark_emails_sent(
+    committed_db, capsys, monkeypatch
+):
+    """
+    Without NORMLY_SMTP_HOST, the CLI falls back to NullEmailSender, which
+    always raises -- caught by detection.py's existing fail-soft try/except,
+    so the run must still succeed (exit 0, no crash) but must NOT stamp
+    emailed_at, since no email was actually delivered anywhere. Stamping it
+    anyway (the old RecordingEmailSender fallback's bug) would silently fill
+    the database with notifications falsely marked "delivered."
+    """
+    monkeypatch.delenv("NORMLY_SMTP_HOST", raising=False)
+
+    from sqlalchemy.orm import Session
+
+    with Session(committed_db) as session:
+        source = PostgresSourceRepository(session).create_source(
+            publisher="DGUV", retrieval_path="https://publikationen.dguv.de",
+            legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
+            reviewed_at=date(2026, 1, 1), responsible_person="J. Weber",
+        )
+        delivery = PostgresDeliveryRepository(session).record_delivery(
+            source_id=source.id, content_hash="sha256:cli-null-email",
+            ingested_at=datetime.now(timezone.utc),
+        )
+        doc_repo = PostgresDocumentRepository(session)
+        old = doc_repo.create_document(
+            origin_issuer="DGUV", origin_number="cli-null-email", edition="2020", part=None,
+            delivery_id=delivery.id,
+        )
+        new = doc_repo.create_document(
+            origin_issuer="DGUV", origin_number="cli-null-email", edition="2026", part=None,
+            delivery_id=delivery.id, work_id=old.work_id,
+        )
+        PostgresEdgeRepository(session).create_edge(
+            from_document_id=new.id, to_document_id=old.id, edge_type=EdgeType.REPLACES,
+            jurisdiction=None, layer=Layer.FREE, delivery_id=delivery.id,
+        )
+        account = PostgresAccountRepository(session).create_account(
+            email="cli-null-email-watcher@example.de", password_hash=None
+        )
+        PostgresAccountRepository(session).update_notification_preference(
+            account.id, preference=NotificationPreference.EMAIL
+        )
+        watch = PostgresWatchlistRepository(session).add_watch(
+            account_id=account.id, work_id=old.work_id
+        )
+        # notify-watchers only reports edges created after the watch. The
+        # edge above was created in this same transaction, and Postgres's
+        # now() is transaction-scoped, so both rows carry an identical
+        # created_at -- which the strict "newer than the watch" rule treats
+        # as history. Backdate the watch to make the edge unambiguously
+        # newer, the ordering a real deployment gets for free.
+        session.execute(
+            sa.update(WatchlistORM)
+            .where(WatchlistORM.id == watch.id)
+            .values(created_at=datetime(2020, 1, 1, tzinfo=timezone.utc))
+        )
+        session.commit()
+        account_id = account.id
+
+    exit_code = main(["notify-watchers"])
+
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert "notifications_created=1" in captured.out
+    assert "emails_sent=0" in captured.out
+
+    with Session(committed_db) as session:
+        notifications = PostgresNotificationRepository(session).list_for_account(account_id)
+        assert len(notifications) == 1
+        assert notifications[0].emailed_at is None
+
+
+def test_notify_watchers_advisory_lock_is_exclusive_across_connections(migrated_engine):
+    """
+    The lock has to be real contention, not a same-session no-op: Postgres
+    advisory locks are re-entrant within one session, so only two separate
+    connections can show that a second notify-watchers invocation is actually
+    kept out while the first still holds the key.
+    """
+    from normly_core.pipeline.cli import _NOTIFY_WATCHERS_LOCK_KEY
+
+    acquire = sa.text("SELECT pg_try_advisory_lock(:key)")
+    release = sa.text("SELECT pg_advisory_unlock(:key)")
+    params = {"key": _NOTIFY_WATCHERS_LOCK_KEY}
+
+    first = migrated_engine.connect()
+    second = migrated_engine.connect()
+    try:
+        assert first.execute(acquire, params).scalar() is True
+        assert second.execute(acquire, params).scalar() is False
+
+        first.execute(release, params)
+        assert second.execute(acquire, params).scalar() is True
+        second.execute(release, params)
+    finally:
+        first.close()
+        second.close()
+
+
+def test_main_notify_watchers_exits_without_running_when_the_lock_is_held(
+    committed_db, capsys, migrated_engine
+):
+    """
+    The whole job runs in one transaction and commits only at the end, while
+    emails go out during the loop. An overlapping run that rolled back would
+    leave mail delivered with no Notification row to dedup against, mailing
+    the same change again later -- so a second invocation must exit instead
+    of racing.
+    """
+    from normly_core.pipeline.cli import _NOTIFY_WATCHERS_LOCK_KEY
+
+    holder = migrated_engine.connect()
+    try:
+        assert holder.execute(
+            sa.text("SELECT pg_try_advisory_lock(:key)"), {"key": _NOTIFY_WATCHERS_LOCK_KEY}
+        ).scalar() is True
+
+        exit_code = main(["notify-watchers"])
+
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "another run is already in progress" in captured.out
+        # The job never ran, so it never printed its summary line.
+        assert "watches_scanned=" not in captured.out
+    finally:
+        holder.execute(
+            sa.text("SELECT pg_advisory_unlock(:key)"), {"key": _NOTIFY_WATCHERS_LOCK_KEY}
+        )
+        holder.close()
+
+
+def test_main_notify_watchers_releases_the_lock_after_a_successful_run(
+    committed_db, capsys, migrated_engine
+):
+    assert main(["notify-watchers"]) == 0
+    assert "watches_scanned=" in capsys.readouterr().out
+
+    from normly_core.pipeline.cli import _NOTIFY_WATCHERS_LOCK_KEY
+
+    connection = migrated_engine.connect()
+    try:
+        assert connection.execute(
+            sa.text("SELECT pg_try_advisory_lock(:key)"), {"key": _NOTIFY_WATCHERS_LOCK_KEY}
+        ).scalar() is True
+        connection.execute(
+            sa.text("SELECT pg_advisory_unlock(:key)"), {"key": _NOTIFY_WATCHERS_LOCK_KEY}
+        )
+    finally:
+        connection.close()

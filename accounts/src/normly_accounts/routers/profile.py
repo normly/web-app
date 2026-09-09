@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from PIL import Image, UnidentifiedImageError
 from sqlalchemy.orm import Session
 
-from normly_core.graph.domain import Account
+from normly_core.graph.domain import Account, NotificationPreference
 from normly_core.graph.postgres.repositories import PostgresAccountRepository
 
 from normly_accounts.dependencies import get_current_account, get_session
@@ -30,6 +30,7 @@ def _account_response(account: Account) -> AccountResponse:
         first_name=account.first_name, last_name=account.last_name,
         avatar_data_url=avatar_data_url(account),
         has_password=account.password_hash is not None,
+        notification_preference=account.notification_preference.value,
     )
 
 
@@ -45,6 +46,12 @@ def update_profile(
 
     account_repo = PostgresAccountRepository(session)
     account_repo.update_profile_names(account.id, first_name=first_name, last_name=last_name)
+    if "notification_preference" in fields_set and payload.notification_preference is not None:
+        try:
+            preference = NotificationPreference(payload.notification_preference)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="invalid notification_preference")
+        account_repo.update_notification_preference(account.id, preference=preference)
     updated = account_repo.get_account_by_id(account.id)
     return _account_response(updated)
 

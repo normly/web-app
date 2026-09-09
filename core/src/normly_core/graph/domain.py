@@ -125,6 +125,7 @@ class Edge:
     layer: Layer
     delivery_id: uuid.UUID
     revoked_at: datetime | None
+    created_at: datetime
 
 
 @dataclass(frozen=True)
@@ -200,11 +201,13 @@ class DocumentRepository(Protocol):
     `rights_classification`; there is deliberately no method that returns
     documents unfiltered.
 
-    `PostgresDocumentRepository` additionally carries three ungated methods
+    `PostgresDocumentRepository` additionally carries four ungated methods
     that are **not** part of this Protocol and must not be treated as
     content-serving API: `get_document_unchecked` (existence check for
     pipeline and administrative use, e.g. proving a document node survived a
-    delivery revocation), `list_designations` and `list_titles` (identity
+    delivery revocation), `list_documents_for_work_unchecked` (every Document
+    for a Work, regardless of jurisdiction or rights classification —
+    notify-watchers, Task 6), `list_designations` and `list_titles` (identity
     resolution and pipeline metadata — designations are the identity of a node
     across national adoptions, independent of any rights question). They are
     internal implementation methods.
@@ -656,6 +659,146 @@ class WorkRepository(Protocol):
         ...
 
 
+@dataclass(frozen=True)
+class Watchlist:
+    id: uuid.UUID
+    account_id: uuid.UUID
+    work_id: uuid.UUID
+    created_at: datetime
+
+
+class WatchlistRepository(Protocol):
+    def add_watch(self, *, account_id: uuid.UUID, work_id: uuid.UUID) -> Watchlist:
+        """Idempotent: a second call for the same pair returns the existing row."""
+        ...
+
+    def remove_watch(self, *, account_id: uuid.UUID, work_id: uuid.UUID) -> None:
+        """Idempotent: no error if the pair is not currently watched."""
+        ...
+
+    def list_watches_for_account(self, account_id: uuid.UUID) -> list[Watchlist]: ...
+
+    def list_all_watches(self) -> list[Watchlist]:
+        """
+        Every watch, across every account -- unscoped. The only caller is the
+        notify-watchers CLI job (normly_core.notifications.detection), which
+        must see every account's watches in a single run. No HTTP endpoint
+        may call this.
+        """
+        ...
+
+
+@dataclass(frozen=True)
+class Notification:
+    id: uuid.UUID
+    account_id: uuid.UUID
+    work_id: uuid.UUID
+    trigger_type: NotificationTriggerType
+    trigger_edge_id: uuid.UUID | None
+    trigger_document_id: uuid.UUID | None
+    trigger_jurisdiction: str | None
+    may_process: bool | None
+    may_index_fulltext: bool | None
+    may_cite_passages: bool | None
+    may_export_free: bool | None
+    created_at: datetime
+    read_at: datetime | None
+    emailed_at: datetime | None
+
+
+class NotificationRepository(Protocol):
+    def create(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        trigger_type: NotificationTriggerType,
+        trigger_edge_id: uuid.UUID | None,
+        trigger_document_id: uuid.UUID | None,
+        trigger_jurisdiction: str | None,
+        may_process: bool | None,
+        may_index_fulltext: bool | None,
+        may_cite_passages: bool | None,
+        may_export_free: bool | None,
+        emailed_at: datetime | None,
+    ) -> Notification: ...
+
+    def find_by_trigger_edge(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        trigger_type: NotificationTriggerType,
+        trigger_edge_id: uuid.UUID,
+    ) -> Notification | None:
+        """
+        The NEW_EDITION/NATIONAL_ADOPTION dedup check: has this exact edge
+        already produced a notification for this account/work? The
+        notify-watchers job (Task 6) calls this before creating one.
+        """
+        ...
+
+    def list_for_account(self, account_id: uuid.UUID) -> list[Notification]:
+        """Newest first -- the shape the in-app feed renders directly."""
+        ...
+
+    def mark_read(
+        self, notification_id: uuid.UUID, *, account_id: uuid.UUID, read_at: datetime
+    ) -> bool:
+        """
+        Sets read_at only when the row belongs to account_id. Returns True if
+        a row was updated, False for a missing id or one owned by a
+        different account -- the only thing stopping one account from
+        marking another account's notification as read.
+        """
+        ...
+
+
+@dataclass(frozen=True)
+class RightsNotificationBaseline:
+    account_id: uuid.UUID
+    work_id: uuid.UUID
+    trigger_document_id: uuid.UUID
+    trigger_jurisdiction: str
+    may_process: bool
+    may_index_fulltext: bool
+    may_cite_passages: bool
+    may_export_free: bool
+    updated_at: datetime
+
+
+class RightsNotificationBaselineRepository(Protocol):
+    """
+    Pure internal bookkeeping for the notify-watchers RIGHTS_CHANGE detector:
+    the last rights state an account/work/document/jurisdiction tuple has
+    already been diffed against. Deliberately separate from
+    NotificationRepository -- a row here must never be exposed via any
+    HTTP-reachable method or joined into a user-facing feed.
+    """
+
+    def get_baseline(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        trigger_document_id: uuid.UUID,
+        trigger_jurisdiction: str,
+    ) -> RightsNotificationBaseline | None: ...
+
+    def upsert_baseline(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        trigger_document_id: uuid.UUID,
+        trigger_jurisdiction: str,
+        may_process: bool,
+        may_index_fulltext: bool,
+        may_cite_passages: bool,
+        may_export_free: bool,
+    ) -> RightsNotificationBaseline: ...
+
+
 class ContradictoryWorkMergeError(Exception):
     def __init__(self, source_work_id: uuid.UUID, target_work_id: uuid.UUID):
         self.source_work_id = source_work_id
@@ -811,6 +954,19 @@ class ChatRepository(Protocol):
     ) -> ChatMessageCitation: ...
 
 
+class NotificationPreference(str, Enum):
+    NONE = "none"
+    IN_APP = "in_app"
+    EMAIL = "email"
+    BOTH = "both"
+
+
+class NotificationTriggerType(str, Enum):
+    NEW_EDITION = "new_edition"
+    NATIONAL_ADOPTION = "national_adoption"
+    RIGHTS_CHANGE = "rights_change"
+
+
 @dataclass(frozen=True)
 class Account:
     id: uuid.UUID
@@ -822,6 +978,7 @@ class Account:
     last_name: str | None
     avatar_image: bytes | None
     avatar_content_type: str | None
+    notification_preference: NotificationPreference
 
 
 @dataclass(frozen=True)
@@ -876,6 +1033,10 @@ class AccountRepository(Protocol):
 
     def update_profile_names(
         self, account_id: uuid.UUID, *, first_name: str | None, last_name: str | None
+    ) -> None: ...
+
+    def update_notification_preference(
+        self, account_id: uuid.UUID, *, preference: NotificationPreference
     ) -> None: ...
 
     def set_avatar(

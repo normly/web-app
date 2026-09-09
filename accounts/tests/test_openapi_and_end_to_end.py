@@ -30,6 +30,10 @@ def test_openapi_schema_documents_every_v1_endpoint(client):
         "/v1/accounts/email/confirm",
         "/v1/accounts/me",
         "/v1/accounts/export",
+        "/v1/accounts/watchlist",
+        "/v1/accounts/watchlist/{work_id}",
+        "/v1/accounts/notifications",
+        "/v1/accounts/notifications/{notification_id}",
     }
     assert schema["info"]["license"]["name"] == "Apache-2.0"
 

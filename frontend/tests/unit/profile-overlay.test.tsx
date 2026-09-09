@@ -17,6 +17,7 @@ const ACCOUNT: AccountSummary = {
   lastName: null,
   avatarDataUrl: null,
   hasPassword: true,
+  notificationPreference: "immediate",
 };
 
 function renderOverlay(account: AccountSummary | null, open = true) {

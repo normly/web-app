@@ -65,6 +65,7 @@
     "account": "Konto",
     "notificationsLabel": "Benachrichtigungen",
     "noNotifications": "Keine neuen Benachrichtigungen",
+    "notificationItemUnreadBadge": "Neu",
     "documentDetailTitle": "Dokument",
     "toggleSidebar": "Seitenleiste umschalten",
     "sidebarTitle": "Seitenleiste",
@@ -103,7 +104,10 @@
     "mayProcess": "Verarbeitung erlaubt",
     "mayIndexFulltext": "Volltext indexierbar",
     "mayCitePassages": "Zitierfähig",
-    "mayExportFree": "Freier Export erlaubt"
+    "mayExportFree": "Freier Export erlaubt",
+    "addToWatchlist": "Zur Watchlist hinzufügen",
+    "removeFromWatchlist": "Von Watchlist entfernen",
+    "watchlistToggleError": "Aktion konnte nicht ausgeführt werden. Bitte versuche es erneut."
   },
   "account": {
     "pageTitle": "Konto",
@@ -116,6 +120,12 @@
     "lastNameLabel": "Nachname",
     "saveNameButton": "Speichern",
     "saveNameError": "Name konnte nicht gespeichert werden. Bitte versuche es erneut.",
+    "notificationPreferenceTitle": "Benachrichtigungen",
+    "notificationPreferenceNone": "Keine Benachrichtigungen",
+    "notificationPreferenceInApp": "Nur in der Software",
+    "notificationPreferenceEmail": "Nur per E-Mail",
+    "notificationPreferenceBoth": "Software und E-Mail",
+    "notificationPreferenceSaveError": "Einstellung konnte nicht gespeichert werden. Bitte versuche es erneut.",
     "emailTitle": "E-Mail-Adresse",
     "currentEmailLabel": "Aktuelle E-Mail-Adresse",
     "newEmailLabel": "Neue E-Mail-Adresse",

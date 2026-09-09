@@ -42,3 +42,22 @@ def test_create_and_get_document(db_session):
     fetched = repo.get_document_unchecked(document.id)
     assert fetched == document
     assert fetched.created_via_delivery_id == delivery.id
+
+
+def test_list_documents_for_work_unchecked_returns_every_document_regardless_of_jurisdiction(
+    db_session,
+):
+    delivery = _make_delivery(db_session)
+    doc_repo = PostgresDocumentRepository(db_session)
+    first = doc_repo.create_document(
+        origin_issuer="DGUV", origin_number="1", edition="2020", part=None,
+        delivery_id=delivery.id,
+    )
+    second = doc_repo.create_document(
+        origin_issuer="DGUV", origin_number="1", edition="2026", part=None,
+        delivery_id=delivery.id, work_id=first.work_id,
+    )
+    # No rights_classification row exists for either document -- a gated
+    # method would return nothing; the unchecked method must still see both.
+    documents = doc_repo.list_documents_for_work_unchecked(first.work_id)
+    assert {d.id for d in documents} == {first.id, second.id}

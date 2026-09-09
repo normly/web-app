@@ -6,10 +6,12 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { Heart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/dictionary-keys";
 import { useJurisdiction } from "@/lib/jurisdiction/provider";
+import { useAccountSession } from "@/lib/use-account-session";
 
 interface DocumentDetail {
   id: string;
@@ -83,12 +85,16 @@ function entryLabel(entry: WorkStructureEntry): string {
 export function DocumentDetailContent({ documentId }: { documentId: string }) {
   const { t } = useTranslation();
   const { jurisdiction } = useJurisdiction();
+  const { account } = useAccountSession();
   const [documentDetail, setDocumentDetail] = React.useState<DocumentDetail | null>(null);
   const [edges, setEdges] = React.useState<ResolvedEdge[]>([]);
   const [validity, setValidity] = React.useState<ValiditySummary | null>(null);
   const [workStructure, setWorkStructure] = React.useState<WorkStructure | null>(null);
   const [rights, setRights] = React.useState<RightsClassification | null>(null);
   const [notFound, setNotFound] = React.useState(false);
+  const [isWatched, setIsWatched] = React.useState(false);
+  const [isTogglingWatch, setIsTogglingWatch] = React.useState(false);
+  const [watchError, setWatchError] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -141,6 +147,61 @@ export function DocumentDetailContent({ documentId }: { documentId: string }) {
     };
   }, [documentId, jurisdiction]);
 
+  React.useEffect(() => {
+    if (!account || !workStructure) {
+      setIsWatched(false);
+      return;
+    }
+    let cancelled = false;
+    fetch("/api/account/watchlist")
+      .then((response) => (response.ok ? response.json() : []))
+      .then((entries: { workId: string }[]) => {
+        if (!cancelled) {
+          setIsWatched(entries.some((entry) => entry.workId === workStructure.work_id));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setIsWatched(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [account, workStructure]);
+
+  const toggleWatch = async () => {
+    if (!workStructure) return;
+    setIsTogglingWatch(true);
+    try {
+      if (isWatched) {
+        const response = await fetch(`/api/account/watchlist/${workStructure.work_id}`, {
+          method: "DELETE",
+        });
+        if (response.ok) {
+          setIsWatched(false);
+          setWatchError(false);
+        } else {
+          setWatchError(true);
+        }
+      } else {
+        const response = await fetch("/api/account/watchlist", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ workId: workStructure.work_id }),
+        });
+        if (response.ok) {
+          setIsWatched(true);
+          setWatchError(false);
+        } else {
+          setWatchError(true);
+        }
+      }
+    } catch {
+      setWatchError(true);
+    } finally {
+      setIsTogglingWatch(false);
+    }
+  };
+
   if (notFound) {
     return <p>{t("search.notFound")}</p>;
   }
@@ -167,6 +228,23 @@ export function DocumentDetailContent({ documentId }: { documentId: string }) {
         >
           {t(VALIDITY_KEYS[validity.status])}
         </Badge>
+      )}
+
+      {account && workStructure && (
+        <div className="flex flex-col gap-1">
+          <button
+            type="button"
+            onClick={toggleWatch}
+            disabled={isTogglingWatch}
+            aria-label={t(isWatched ? "documentDetail.removeFromWatchlist" : "documentDetail.addToWatchlist")}
+            data-testid="watchlist-toggle"
+          >
+            <Heart className={isWatched ? "h-5 w-5 fill-current" : "h-5 w-5"} />
+          </button>
+          {watchError && (
+            <p className="text-sm text-destructive">{t("documentDetail.watchlistToggleError")}</p>
+          )}
+        </div>
       )}
 
       <a

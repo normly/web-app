@@ -14,6 +14,7 @@ export interface AccountSummary {
   lastName: string | null;
   avatarDataUrl: string | null;
   hasPassword: boolean;
+  notificationPreference: string;
 }
 
 interface RawAccountFields {
@@ -21,6 +22,7 @@ interface RawAccountFields {
   last_name: string | null;
   avatar_data_url: string | null;
   has_password: boolean;
+  notification_preference: string;
 }
 
 export function mapAccountSummary(
@@ -29,5 +31,6 @@ export function mapAccountSummary(
   return {
     accountId, email, firstName: raw.first_name, lastName: raw.last_name,
     avatarDataUrl: raw.avatar_data_url, hasPassword: raw.has_password,
+    notificationPreference: raw.notification_preference,
   };
 }
