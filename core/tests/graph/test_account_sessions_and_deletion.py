@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from normly_core.graph.domain import (
     AccountTokenPurpose,
     ChatMessageRole,
+    LegalBasisCategory,
     NotificationTriggerType,
     WorkCreatedVia,
 )
@@ -16,6 +17,10 @@ from normly_core.graph.postgres.repositories import (
     PostgresAccountSessionRepository,
     PostgresAccountTokenRepository,
     PostgresChatRepository,
+    PostgresDeliveryRepository,
+    PostgresDocumentRepository,
+    PostgresRightsNotificationBaselineRepository,
+    PostgresSourceRepository,
     PostgresWorkRepository,
 )
 
@@ -124,6 +129,31 @@ def test_delete_account_removes_watchlist_and_notification_rows(db_session):
     work_repo = PostgresWorkRepository(db_session)
     account = account_repo.create_account(email="watcher@example.de", password_hash=None)
     work = work_repo.create_work(created_via=WorkCreatedVia.MANUAL)
+
+    # rights_notification_baseline is the third account-referencing table
+    # notify-watchers writes into, and it is created on the very first
+    # observation of any watched Work -- so an account that ever watched
+    # something will have one. Its FK to account declares no ON DELETE, so a
+    # delete_account that forgets it fails with an IntegrityError.
+    source = PostgresSourceRepository(db_session).create_source(
+        publisher="Test-Pub", retrieval_path="https://test.example.de",
+        legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
+        reviewed_at=datetime(2026, 1, 1, tzinfo=timezone.utc).date(),
+        responsible_person="Test User",
+    )
+    delivery = PostgresDeliveryRepository(db_session).record_delivery(
+        source_id=source.id, content_hash="sha256:delete-account-baseline",
+        ingested_at=datetime.now(timezone.utc),
+    )
+    document = PostgresDocumentRepository(db_session).create_document(
+        origin_issuer="Test", origin_number="TST-DEL", edition="2026", part=None,
+        delivery_id=delivery.id,
+    )
+    PostgresRightsNotificationBaselineRepository(db_session).upsert_baseline(
+        account_id=account.id, work_id=work.id, trigger_document_id=document.id,
+        trigger_jurisdiction="DE", may_process=True, may_index_fulltext=True,
+        may_cite_passages=True, may_export_free=False,
+    )
 
     db_session.add(WatchlistORM(id=uuid.uuid4(), account_id=account.id, work_id=work.id))
     db_session.add(

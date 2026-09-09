@@ -2045,6 +2045,11 @@ class PostgresAccountRepository:
             sa.delete(NotificationORM).where(NotificationORM.account_id == account_id)
         )
         self._session.execute(
+            sa.delete(RightsNotificationBaselineORM).where(
+                RightsNotificationBaselineORM.account_id == account_id
+            )
+        )
+        self._session.execute(
             sa.delete(WatchlistORM).where(WatchlistORM.account_id == account_id)
         )
         self._session.execute(sa.delete(AccountORM).where(AccountORM.id == account_id))
