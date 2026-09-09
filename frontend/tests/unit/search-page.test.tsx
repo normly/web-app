@@ -59,6 +59,36 @@ describe("SearchPageContent", () => {
     );
   });
 
+  it("renders results as a table with issuer and designation columns", async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          results: [
+            {
+              work_id: "22222222-2222-2222-2222-222222222222",
+              best_match: {
+                id: "11111111-1111-1111-1111-111111111111",
+                origin_issuer: "DGUV", origin_number: "Vorschrift 1",
+                designations: [{ designation: "DGUV Vorschrift 1", is_primary: true }],
+              },
+              other_editions_count: 0,
+            },
+          ],
+          total: 1,
+        }),
+        { status: 200 },
+      ),
+    );
+
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Suchen" }));
+
+    await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
+    expect(screen.getByRole("columnheader", { name: "Herausgeber" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Bezeichnung" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "DGUV" })).toBeInTheDocument();
+  });
+
   it("shows an other-editions count when a Work has more than one matching edition", async () => {
     global.fetch = vi.fn().mockResolvedValue(
       new Response(

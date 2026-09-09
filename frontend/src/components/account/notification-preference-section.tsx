@@ -5,16 +5,16 @@
 "use client";
 
 import * as React from "react";
+import { Switch } from "@/components/ui/switch";
 import { useTranslation } from "@/lib/i18n/provider";
 import type { AccountSummary } from "@/lib/account-response";
-import type { TranslationKey } from "@/lib/i18n/dictionary-keys";
 
-const OPTIONS: { value: string; labelKey: TranslationKey }[] = [
-  { value: "none", labelKey: "account.notificationPreferenceNone" },
-  { value: "in_app", labelKey: "account.notificationPreferenceInApp" },
-  { value: "email", labelKey: "account.notificationPreferenceEmail" },
-  { value: "both", labelKey: "account.notificationPreferenceBoth" },
-];
+function computePreference(isInApp: boolean, isEmail: boolean): string {
+  if (isInApp && isEmail) return "both";
+  if (isInApp) return "in_app";
+  if (isEmail) return "email";
+  return "none";
+}
 
 export function NotificationPreferenceSection({
   account, onAccountUpdated,
@@ -26,13 +26,16 @@ export function NotificationPreferenceSection({
   const [status, setStatus] = React.useState<"idle" | "error">("idle");
   const [isSaving, setIsSaving] = React.useState(false);
 
-  const save = async (value: string) => {
+  const isInApp = account.notificationPreference === "in_app" || account.notificationPreference === "both";
+  const isEmail = account.notificationPreference === "email" || account.notificationPreference === "both";
+
+  const save = async (nextIsInApp: boolean, nextIsEmail: boolean) => {
     setIsSaving(true);
     try {
       const response = await fetch("/api/account/profile", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ notification_preference: value }),
+        body: JSON.stringify({ notification_preference: computePreference(nextIsInApp, nextIsEmail) }),
       });
       if (response.ok) {
         setStatus("idle");
@@ -50,22 +53,31 @@ export function NotificationPreferenceSection({
   return (
     <section className="flex flex-col gap-4">
       <h2 className="text-lg font-semibold">{t("account.notificationPreferenceTitle")}</h2>
-      <div className="flex flex-col gap-2">
-        {OPTIONS.map((option) => (
-          <label key={option.value} className="flex items-center gap-2 text-sm">
-            <input
-              type="radio" name="notification_preference" value={option.value}
-              checked={account.notificationPreference === option.value}
-              onChange={() => save(option.value)}
-              // Without this, clicking between options faster than the
-              // PATCHes resolve lets them land out of order, leaving the UI
-              // showing a preference the server does not hold.
-              disabled={isSaving}
-              aria-label={t(option.labelKey)}
-            />
-            {t(option.labelKey)}
-          </label>
-        ))}
+      <div className="divide-y">
+        <div className="flex items-center justify-between gap-4 py-3">
+          <div className="space-y-0.5">
+            <p className="text-sm font-medium">{t("account.notificationChannelInAppTitle")}</p>
+            <p className="text-sm text-muted-foreground">{t("account.notificationChannelInAppDescription")}</p>
+          </div>
+          <Switch
+            aria-label={t("account.notificationChannelInAppTitle")}
+            checked={isInApp}
+            disabled={isSaving}
+            onCheckedChange={(checked) => save(checked, isEmail)}
+          />
+        </div>
+        <div className="flex items-center justify-between gap-4 py-3">
+          <div className="space-y-0.5">
+            <p className="text-sm font-medium">{t("account.notificationChannelEmailTitle")}</p>
+            <p className="text-sm text-muted-foreground">{t("account.notificationChannelEmailDescription")}</p>
+          </div>
+          <Switch
+            aria-label={t("account.notificationChannelEmailTitle")}
+            checked={isEmail}
+            disabled={isSaving}
+            onCheckedChange={(checked) => save(isInApp, checked)}
+          />
+        </div>
       </div>
       {status === "error" && (
         <p className="text-sm text-destructive">{t("account.notificationPreferenceSaveError")}</p>

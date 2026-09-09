@@ -82,7 +82,9 @@
     "nextPage": "Weiter",
     "rateLimited": "Zu viele Anfragen. Bitte melde dich an oder versuche es später erneut.",
     "notFound": "Regelwerk nicht gefunden.",
-    "otherEditions": "weitere Ausgabe(n)"
+    "otherEditions": "weitere Ausgabe(n)",
+    "issuerColumnHeading": "Herausgeber",
+    "designationColumnHeading": "Bezeichnung"
   },
   "edgeType": {
     "references": "Verweist auf",
@@ -121,10 +123,10 @@
     "saveNameButton": "Speichern",
     "saveNameError": "Name konnte nicht gespeichert werden. Bitte versuche es erneut.",
     "notificationPreferenceTitle": "Benachrichtigungen",
-    "notificationPreferenceNone": "Keine Benachrichtigungen",
-    "notificationPreferenceInApp": "Nur in der Software",
-    "notificationPreferenceEmail": "Nur per E-Mail",
-    "notificationPreferenceBoth": "Software und E-Mail",
+    "notificationChannelInAppTitle": "In der Software",
+    "notificationChannelInAppDescription": "Zeigt Änderungen im Glocken-Symbol an.",
+    "notificationChannelEmailTitle": "Per E-Mail",
+    "notificationChannelEmailDescription": "Sendet dir eine E-Mail bei Änderungen.",
     "notificationPreferenceSaveError": "Einstellung konnte nicht gespeichert werden. Bitte versuche es erneut.",
     "emailTitle": "E-Mail-Adresse",
     "currentEmailLabel": "Aktuelle E-Mail-Adresse",

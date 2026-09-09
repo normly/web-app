@@ -30,6 +30,7 @@ function mockFetch(
   overrides: {
     work?: object;
     rights?: object;
+    rightsStatus?: number;
     account?: object | null;
     watchlist?: object[];
     watchlistToggleStatus?: number;
@@ -98,6 +99,9 @@ function mockFetch(
       );
     }
     if (url.includes(`/api/documents/${DOCUMENT_ID}/rights`)) {
+      if (overrides.rightsStatus !== undefined) {
+        return Promise.resolve(new Response(JSON.stringify({}), { status: overrides.rightsStatus }));
+      }
       return Promise.resolve(
         new Response(
           JSON.stringify(
@@ -162,6 +166,17 @@ describe("DocumentDetailContent", () => {
     );
   });
 
+  it("labels the breadcrumb's back link 'Suche' and links it to /search", async () => {
+    mockFetch();
+
+    renderDetail(DOCUMENT_ID);
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "EN ISO 9001:2018" })).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("link", { name: "Suche" })).toHaveAttribute("href", "/search");
+  });
+
   it("shows a not-found message on a 404", async () => {
     global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({}), { status: 404 }));
 
@@ -220,6 +235,19 @@ describe("DocumentDetailContent", () => {
     await waitFor(() => expect(screen.getByText("§ 5 UrhG")).toBeInTheDocument());
   });
 
+  it("still shows the source link when the rights fetch fails", async () => {
+    mockFetch({ rightsStatus: 500 });
+
+    renderDetail(DOCUMENT_ID);
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "EN ISO 9001:2018" })).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("link", { name: "DIN" })).toHaveAttribute(
+      "href", "https://example.de",
+    );
+  });
+
   it("shows no watchlist toggle for an anonymous visitor and never calls the watchlist API", async () => {
     mockFetch();
 
@@ -259,6 +287,25 @@ describe("DocumentDetailContent", () => {
         "aria-label", "Von Watchlist entfernen",
       ),
     );
+  });
+
+  it("places the watchlist toggle next to the title, not in the rights sidebar", async () => {
+    mockFetch({
+      account: {
+        accountId: "acc-1", email: "a@example.de", firstName: null, lastName: null,
+        avatarDataUrl: null, hasPassword: true, notificationPreference: "none",
+      },
+      watchlist: [],
+    });
+
+    renderDetail(DOCUMENT_ID);
+
+    const heading = await screen.findByRole("heading", { name: "EN ISO 9001:2018" });
+    const toggle = await screen.findByTestId("watchlist-toggle");
+    // The heart must be a sibling of (or nested alongside) the title heading,
+    // inside the same header block -- not inside the sidebar that holds the
+    // rights checklist and the source link.
+    expect(heading.parentElement).toContainElement(toggle);
   });
 
   it("shows a filled heart for a logged-in visitor who already favorited this Work, and removes it on click", async () => {

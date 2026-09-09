@@ -82,7 +82,9 @@
     "nextPage": "Next",
     "rateLimited": "Too many requests. Please log in or try again later.",
     "notFound": "Document not found.",
-    "otherEditions": "more editions"
+    "otherEditions": "more editions",
+    "issuerColumnHeading": "Issuer",
+    "designationColumnHeading": "Designation"
   },
   "edgeType": {
     "references": "References",
@@ -121,10 +123,10 @@
     "saveNameButton": "Save",
     "saveNameError": "Could not save your name. Please try again.",
     "notificationPreferenceTitle": "Notifications",
-    "notificationPreferenceNone": "No notifications",
-    "notificationPreferenceInApp": "In-app only",
-    "notificationPreferenceEmail": "Email only",
-    "notificationPreferenceBoth": "In-app and email",
+    "notificationChannelInAppTitle": "In the app",
+    "notificationChannelInAppDescription": "Shows changes in the bell icon.",
+    "notificationChannelEmailTitle": "By email",
+    "notificationChannelEmailDescription": "Sends you an email when something changes.",
     "notificationPreferenceSaveError": "Could not save this setting. Please try again.",
     "emailTitle": "Email address",
     "currentEmailLabel": "Current email address",
