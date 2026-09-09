@@ -10,38 +10,95 @@ import type { AccountSummary } from "@/lib/account-response";
 
 const originalFetch = global.fetch;
 
-const account: AccountSummary = {
-  accountId: "acc-1", email: "a@example.de", firstName: null, lastName: null,
-  avatarDataUrl: null, hasPassword: true, notificationPreference: "none",
-};
+function makeAccount(notificationPreference: string): AccountSummary {
+  return {
+    accountId: "acc-1", email: "a@example.de", firstName: null, lastName: null,
+    avatarDataUrl: null, hasPassword: true, notificationPreference,
+  };
+}
 
 describe("NotificationPreferenceSection", () => {
   afterEach(() => {
     global.fetch = originalFetch;
   });
 
-  it("saves the selected preference", async () => {
+  it("shows both switches off when the preference is none", () => {
+    render(
+      <LocaleProvider initialLocale="de">
+        <NotificationPreferenceSection account={makeAccount("none")} onAccountUpdated={vi.fn()} />
+      </LocaleProvider>,
+    );
+    expect(screen.getByLabelText("In der Software")).not.toBeChecked();
+    expect(screen.getByLabelText("Per E-Mail")).not.toBeChecked();
+  });
+
+  it("shows only the in-app switch on when the preference is in_app", () => {
+    render(
+      <LocaleProvider initialLocale="de">
+        <NotificationPreferenceSection account={makeAccount("in_app")} onAccountUpdated={vi.fn()} />
+      </LocaleProvider>,
+    );
+    expect(screen.getByLabelText("In der Software")).toBeChecked();
+    expect(screen.getByLabelText("Per E-Mail")).not.toBeChecked();
+  });
+
+  it("shows only the email switch on when the preference is email", () => {
+    render(
+      <LocaleProvider initialLocale="de">
+        <NotificationPreferenceSection account={makeAccount("email")} onAccountUpdated={vi.fn()} />
+      </LocaleProvider>,
+    );
+    expect(screen.getByLabelText("In der Software")).not.toBeChecked();
+    expect(screen.getByLabelText("Per E-Mail")).toBeChecked();
+  });
+
+  it("shows both switches on when the preference is both", () => {
+    render(
+      <LocaleProvider initialLocale="de">
+        <NotificationPreferenceSection account={makeAccount("both")} onAccountUpdated={vi.fn()} />
+      </LocaleProvider>,
+    );
+    expect(screen.getByLabelText("In der Software")).toBeChecked();
+    expect(screen.getByLabelText("Per E-Mail")).toBeChecked();
+  });
+
+  it("turning the email switch on from in_app computes both", async () => {
     const onAccountUpdated = vi.fn();
     global.fetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ ...account, notificationPreference: "both" }), { status: 200 }),
+      new Response(JSON.stringify(makeAccount("both")), { status: 200 }),
     );
 
     render(
       <LocaleProvider initialLocale="de">
-        <NotificationPreferenceSection account={account} onAccountUpdated={onAccountUpdated} />
+        <NotificationPreferenceSection account={makeAccount("in_app")} onAccountUpdated={onAccountUpdated} />
       </LocaleProvider>,
     );
-    fireEvent.click(screen.getByLabelText("Software und E-Mail"));
+    fireEvent.click(screen.getByLabelText("Per E-Mail"));
 
     await waitFor(() => expect(onAccountUpdated).toHaveBeenCalled());
     const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(JSON.parse(init.body)).toEqual({ notification_preference: "both" });
   });
 
-  it("disables the options while a save is in flight", async () => {
-    // Without this guard, rapid clicking between options fires several
-    // PATCHes that can resolve out of order, leaving the UI showing a
-    // preference the server does not hold.
+  it("turning the in-app switch off from both computes email", async () => {
+    const onAccountUpdated = vi.fn();
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(makeAccount("email")), { status: 200 }),
+    );
+
+    render(
+      <LocaleProvider initialLocale="de">
+        <NotificationPreferenceSection account={makeAccount("both")} onAccountUpdated={onAccountUpdated} />
+      </LocaleProvider>,
+    );
+    fireEvent.click(screen.getByLabelText("In der Software"));
+
+    await waitFor(() => expect(onAccountUpdated).toHaveBeenCalled());
+    const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(JSON.parse(init.body)).toEqual({ notification_preference: "email" });
+  });
+
+  it("disables both switches while a save is in flight", async () => {
     let resolveFetch: ((response: Response) => void) | undefined;
     global.fetch = vi.fn().mockReturnValue(
       new Promise<Response>((resolve) => {
@@ -51,41 +108,39 @@ describe("NotificationPreferenceSection", () => {
 
     render(
       <LocaleProvider initialLocale="de">
-        <NotificationPreferenceSection account={account} onAccountUpdated={vi.fn()} />
+        <NotificationPreferenceSection account={makeAccount("none")} onAccountUpdated={vi.fn()} />
       </LocaleProvider>,
     );
-    fireEvent.click(screen.getByLabelText("Software und E-Mail"));
+    fireEvent.click(screen.getByLabelText("In der Software"));
 
-    await waitFor(() => expect(screen.getByLabelText("Nur in der Software")).toBeDisabled());
-    expect(screen.getByLabelText("Software und E-Mail")).toBeDisabled();
+    await waitFor(() => expect(screen.getByLabelText("In der Software")).toBeDisabled());
+    expect(screen.getByLabelText("Per E-Mail")).toBeDisabled();
 
-    resolveFetch!(
-      new Response(JSON.stringify({ ...account, notificationPreference: "both" }), {
-        status: 200,
-      }),
-    );
+    resolveFetch!(new Response(JSON.stringify(makeAccount("in_app")), { status: 200 }));
 
-    await waitFor(() =>
-      expect(screen.getByLabelText("Nur in der Software")).not.toBeDisabled(),
-    );
+    await waitFor(() => expect(screen.getByLabelText("In der Software")).not.toBeDisabled());
   });
 
-  it("shows an error message when saving fails", async () => {
+  it("reverts to the account's own state and shows an error when saving fails", async () => {
     global.fetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ detail: "something went wrong" }), { status: 500 }),
     );
 
     render(
       <LocaleProvider initialLocale="de">
-        <NotificationPreferenceSection account={account} onAccountUpdated={vi.fn()} />
+        <NotificationPreferenceSection account={makeAccount("none")} onAccountUpdated={vi.fn()} />
       </LocaleProvider>,
     );
-    fireEvent.click(screen.getByLabelText("Software und E-Mail"));
+    fireEvent.click(screen.getByLabelText("In der Software"));
 
     await waitFor(() =>
       expect(
         screen.getByText("Einstellung konnte nicht gespeichert werden. Bitte versuche es erneut."),
       ).toBeInTheDocument(),
     );
+    // account.notificationPreference is still "none" (the prop never changed,
+    // since onAccountUpdated is only called on a successful response) -- the
+    // switch must reflect that, not stay optimistically "on".
+    expect(screen.getByLabelText("In der Software")).not.toBeChecked();
   });
 });
