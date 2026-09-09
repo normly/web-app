@@ -111,6 +111,7 @@ class ExportAccountFields(BaseModel):
     first_name: str | None
     last_name: str | None
     avatar_data_url: str | None
+    notification_preference: str
 
 
 class ExportChatMessage(BaseModel):
@@ -127,9 +128,27 @@ class ExportChatSession(BaseModel):
     messages: list[ExportChatMessage]
 
 
+class ExportWatchlistEntry(BaseModel):
+    work_id: uuid.UUID
+    created_at: datetime
+
+
+class ExportNotification(BaseModel):
+    id: uuid.UUID
+    work_id: uuid.UUID
+    trigger_type: str
+    trigger_document_id: uuid.UUID | None
+    trigger_jurisdiction: str | None
+    created_at: datetime
+    read_at: datetime | None
+    emailed_at: datetime | None
+
+
 class ExportResponse(BaseModel):
     account: ExportAccountFields
     chat_sessions: list[ExportChatSession]
+    watchlist: list[ExportWatchlistEntry]
+    notifications: list[ExportNotification]
 
 
 class AddWatchlistEntryRequest(BaseModel):
