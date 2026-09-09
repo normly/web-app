@@ -22,11 +22,18 @@ def _override_google_client(app, profile: GoogleProfile) -> None:
     app.dependency_overrides[get_google_oauth_client] = lambda: _FakeGoogleOAuthClient(profile)
 
 
+def _set_state_cookie(client, state: str = "fake-state") -> None:
+    client.cookies.set("google_oauth_state", state)
+
+
 def test_google_login_redirects_to_googles_consent_screen(client):
     response = client.get("/v1/accounts/google/login", follow_redirects=False)
 
     assert response.status_code in (302, 307)
     assert "accounts.google.com" in response.headers["location"]
+    set_cookie = response.headers["set-cookie"]
+    assert "google_oauth_state=" in set_cookie
+    assert "HttpOnly" in set_cookie
 
 
 def test_google_callback_creates_a_new_account_for_an_unseen_subject(client):
@@ -35,6 +42,7 @@ def test_google_callback_creates_a_new_account_for_an_unseen_subject(client):
             subject_id="google-sub-1", email="newgoogle@example.de", email_verified=True
         )
     )
+    _set_state_cookie(client, "fake-state")
 
     response = client.get(
         "/v1/accounts/google/callback", params={"code": "fake-code", "state": "fake-state"}
@@ -55,6 +63,7 @@ def test_google_callback_links_to_an_existing_email_password_account(client):
         )
     )
 
+    _set_state_cookie(client, "fake-state")
     response = client.get(
         "/v1/accounts/google/callback", params={"code": "fake-code", "state": "fake-state"}
     )
@@ -65,6 +74,7 @@ def test_google_callback_links_to_an_existing_email_password_account(client):
     # A second callback with the same Google subject resolves to the SAME
     # account rather than raising a duplicate-email error -- proves the
     # link, not just a coincidental match.
+    _set_state_cookie(client, "fake-state")
     second = client.get(
         "/v1/accounts/google/callback", params={"code": "fake-code-2", "state": "fake-state"}
     )
@@ -77,9 +87,11 @@ def test_google_callback_reuses_the_account_for_a_returning_google_subject(clien
     )
     _override_google_client(client.app, profile)
 
+    _set_state_cookie(client, "state-1")
     first = client.get(
         "/v1/accounts/google/callback", params={"code": "code-1", "state": "state-1"}
     )
+    _set_state_cookie(client, "state-2")
     second = client.get(
         "/v1/accounts/google/callback", params={"code": "code-2", "state": "state-2"}
     )
@@ -103,6 +115,7 @@ def test_google_callback_refuses_to_link_an_unverified_email_to_an_existing_acco
             subject_id="attacker-sub", email="victim@example.de", email_verified=False
         )
     )
+    _set_state_cookie(client, "fake-state")
 
     response = client.get(
         "/v1/accounts/google/callback", params={"code": "fake-code", "state": "fake-state"}
@@ -123,6 +136,7 @@ def test_google_callback_still_creates_an_account_for_an_unverified_unknown_emai
             subject_id="unverified-sub", email="nobodyelse@example.de", email_verified=False
         )
     )
+    _set_state_cookie(client, "fake-state")
 
     response = client.get(
         "/v1/accounts/google/callback", params={"code": "fake-code", "state": "fake-state"}
@@ -136,8 +150,11 @@ def test_google_callback_returns_400_when_the_user_cancels_consent(client):
     """
     Cancelling on Google's consent screen redirects back with `?error=...`
     and no `code`. That is an ordinary outcome, not a malformed request --
-    it must be the spec's 400, not FastAPI's own 422.
+    it must be the spec's 400, not FastAPI's own 422. A valid state cookie
+    is set here too, so this test still genuinely exercises the
+    cancellation path rather than failing earlier on the state check.
     """
+    _set_state_cookie(client, "fake-state")
     response = client.get(
         "/v1/accounts/google/callback",
         params={"state": "fake-state", "error": "access_denied"},
@@ -170,6 +187,7 @@ def test_google_callback_returns_400_when_the_token_exchange_fails(client):
             )
 
     client.app.dependency_overrides[get_google_oauth_client] = _FailingGoogleOAuthClient
+    _set_state_cookie(client, "fake-state")
 
     response = client.get(
         "/v1/accounts/google/callback", params={"code": "expired", "state": "fake-state"}
@@ -193,6 +211,7 @@ def test_google_callback_is_409_when_the_account_already_has_another_google_iden
             subject_id="old-sub", email="relinked@example.de", email_verified=True
         )
     )
+    _set_state_cookie(client, "s1")
     first = client.get(
         "/v1/accounts/google/callback", params={"code": "c1", "state": "s1"}
     )
@@ -203,6 +222,7 @@ def test_google_callback_is_409_when_the_account_already_has_another_google_iden
             subject_id="new-sub", email="relinked@example.de", email_verified=True
         )
     )
+    _set_state_cookie(client, "s2")
     second = client.get(
         "/v1/accounts/google/callback", params={"code": "c2", "state": "s2"}
     )
@@ -216,3 +236,23 @@ def test_google_callback_is_409_when_the_account_already_has_another_google_iden
     assert PostgresAccountRepository(db_session).get_account_by_email(
         "relinked@example.de"
     ) is not None
+
+
+def test_google_callback_returns_400_when_state_cookie_is_missing(client):
+    response = client.get(
+        "/v1/accounts/google/callback", params={"code": "fake-code", "state": "fake-state"}
+    )
+
+    assert response.status_code == 400
+    assert "state" in response.json()["detail"].lower()
+
+
+def test_google_callback_returns_400_when_state_does_not_match_cookie(client):
+    _set_state_cookie(client, "cookie-value")
+
+    response = client.get(
+        "/v1/accounts/google/callback", params={"code": "fake-code", "state": "different-value"}
+    )
+
+    assert response.status_code == 400
+    assert "state" in response.json()["detail"].lower()

@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -25,6 +25,9 @@ from normly_accounts.security import generate_token
 
 google_router = APIRouter(prefix="/v1/accounts/google", tags=["google"])
 
+_STATE_COOKIE_NAME = "google_oauth_state"
+_STATE_COOKIE_MAX_AGE = 600
+
 
 def _redirect_uri() -> str:
     return os.environ.get(
@@ -38,15 +41,35 @@ def google_login(
 ) -> RedirectResponse:
     state = generate_token()
     url = google_client.build_authorization_url(_redirect_uri(), state)
-    return RedirectResponse(url, status_code=302)
+    response = RedirectResponse(url, status_code=302)
+    response.set_cookie(
+        _STATE_COOKIE_NAME,
+        state,
+        max_age=_STATE_COOKIE_MAX_AGE,
+        httponly=True,
+        samesite="lax",
+        secure=_redirect_uri().startswith("https://"),
+    )
+    return response
 
 
 @google_router.get("/callback", response_model=SessionResponse)
 def google_callback(
-    state: str, code: str | None = None, error: str | None = None,
+    response: Response,
+    state: str,
+    code: str | None = None,
+    error: str | None = None,
+    google_oauth_state: str | None = Cookie(default=None, alias=_STATE_COOKIE_NAME),
     session: Session = Depends(get_session),
     google_client: GoogleOAuthClient = Depends(get_google_oauth_client),
 ) -> SessionResponse:
+    # Always clear the one-time cookie -- it must never be reusable for a
+    # second callback, whether this one succeeds, fails, or the request never
+    # even reaches Google (missing/mismatched state below).
+    response.delete_cookie(_STATE_COOKIE_NAME)
+    if google_oauth_state is None or state != google_oauth_state:
+        raise HTTPException(status_code=400, detail="Google OAuth state mismatch")
+
     # Google redirects back here with EITHER `code` or `error` -- clicking
     # "Cancel" on the consent screen yields `?error=access_denied` and no
     # code. Declaring `code` as required would turn that ordinary outcome

@@ -125,6 +125,7 @@ def test_google_and_magic_link_can_resolve_to_the_same_account(client, db_sessio
             )
 
     client.app.dependency_overrides[get_google_oauth_client] = _FakeGoogleOAuthClient
+    client.cookies.set("google_oauth_state", "s")
 
     google_login = client.get(
         "/v1/accounts/google/callback", params={"code": "c", "state": "s"}
