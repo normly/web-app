@@ -24,8 +24,10 @@ export function NotificationPreferenceSection({
 }) {
   const { t } = useTranslation();
   const [status, setStatus] = React.useState<"idle" | "error">("idle");
+  const [isSaving, setIsSaving] = React.useState(false);
 
   const save = async (value: string) => {
+    setIsSaving(true);
     try {
       const response = await fetch("/api/account/profile", {
         method: "PATCH",
@@ -40,6 +42,8 @@ export function NotificationPreferenceSection({
       }
     } catch {
       setStatus("error");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -53,6 +57,10 @@ export function NotificationPreferenceSection({
               type="radio" name="notification_preference" value={option.value}
               checked={account.notificationPreference === option.value}
               onChange={() => save(option.value)}
+              // Without this, clicking between options faster than the
+              // PATCHes resolve lets them land out of order, leaving the UI
+              // showing a preference the server does not hold.
+              disabled={isSaving}
               aria-label={t(option.labelKey)}
             />
             {t(option.labelKey)}
