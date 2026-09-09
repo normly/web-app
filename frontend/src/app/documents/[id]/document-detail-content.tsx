@@ -17,7 +17,6 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/dictionary-keys";
@@ -375,7 +374,6 @@ export function DocumentDetailContent({ documentId }: { documentId: string }) {
                 </li>
               </ul>
               <p className="mt-3 text-xs text-muted-foreground">{rights.legal_basis_reference}</p>
-              <Separator className="my-4" />
             </div>
           )}
           <Button asChild size="sm" className="w-full">
