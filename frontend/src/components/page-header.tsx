@@ -76,7 +76,9 @@ export function PageHeader({
                       className="flex w-full items-start gap-2 rounded-md p-2 text-left text-sm hover:bg-muted"
                     >
                       {notification.readAt === null ? (
-                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary">
+                          <span className="sr-only">{t("nav.notificationItemUnreadBadge")}</span>
+                        </span>
                       ) : (
                         <span className="mt-1.5 h-1.5 w-1.5 shrink-0" />
                       )}

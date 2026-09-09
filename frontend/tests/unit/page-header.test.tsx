@@ -131,4 +131,24 @@ describe("PageHeader", () => {
     expect(within(item).getByText("Ersetzt")).toBeInTheDocument();
     expect(within(item).getByText(new Date("2026-01-15T00:00:00Z").toLocaleDateString("de"))).toBeInTheDocument();
   });
+
+  it("gives an unread notification a screen-reader-accessible 'Neu' label, not just a colored dot", async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            id: "n1", workId: "w1", triggerType: "new_edition", triggerDocumentId: null,
+            triggerJurisdiction: null, createdAt: "2026-01-15T00:00:00Z", readAt: null,
+          },
+        ]),
+        { status: 200 },
+      ),
+    );
+
+    renderPageHeader(<PageHeader titleKey="nav.chat" />);
+    fireEvent.click(screen.getByRole("button", { name: "Benachrichtigungen" }));
+    const item = await screen.findByTestId("notification-n1");
+
+    expect(within(item).getByText("Neu")).toBeInTheDocument();
+  });
 });
