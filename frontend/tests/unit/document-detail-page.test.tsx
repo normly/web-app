@@ -261,6 +261,25 @@ describe("DocumentDetailContent", () => {
     );
   });
 
+  it("places the watchlist toggle next to the title, not in the rights sidebar", async () => {
+    mockFetch({
+      account: {
+        accountId: "acc-1", email: "a@example.de", firstName: null, lastName: null,
+        avatarDataUrl: null, hasPassword: true, notificationPreference: "none",
+      },
+      watchlist: [],
+    });
+
+    renderDetail(DOCUMENT_ID);
+
+    const heading = await screen.findByRole("heading", { name: "EN ISO 9001:2018" });
+    const toggle = await screen.findByTestId("watchlist-toggle");
+    // The heart must be a sibling of (or nested alongside) the title heading,
+    // inside the same header block -- not inside the sidebar that holds the
+    // rights checklist and the source link.
+    expect(heading.parentElement).toContainElement(toggle);
+  });
+
   it("shows a filled heart for a logged-in visitor who already favorited this Work, and removes it on click", async () => {
     mockFetch({
       account: {

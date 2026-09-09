@@ -63,6 +63,7 @@
     "chat": "Chat",
     "search": "Search",
     "account": "Account",
+    "breadcrumbHome": "Home",
     "notificationsLabel": "Notifications",
     "noNotifications": "No new notifications",
     "notificationItemUnreadBadge": "New",

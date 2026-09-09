@@ -7,6 +7,17 @@
 import * as React from "react";
 import Link from "next/link";
 import { Heart } from "lucide-react";
+import { CircleCheck, CircleX } from "lucide-react";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/dictionary-keys";
@@ -215,14 +226,45 @@ export function DocumentDetailContent({ documentId }: { documentId: string }) {
   const primaryTitle = documentDetail.titles[0]?.title;
 
   return (
-    <div className="flex flex-col gap-4">
-      <div>
+    <div>
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/search">{t("nav.breadcrumbHome")}</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{primaryDesignation}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
+      <div className="mt-4 flex items-center gap-3">
         <h2 className="text-xl font-semibold">{primaryDesignation}</h2>
-        {primaryTitle && <p className="text-muted-foreground">{primaryTitle}</p>}
+        {account && workStructure && (
+          <div className="flex flex-col gap-1">
+            <button
+              type="button"
+              onClick={toggleWatch}
+              disabled={isTogglingWatch}
+              aria-label={t(isWatched ? "documentDetail.removeFromWatchlist" : "documentDetail.addToWatchlist")}
+              data-testid="watchlist-toggle"
+            >
+              <Heart className={isWatched ? "h-5 w-5 fill-current" : "h-5 w-5"} />
+            </button>
+          </div>
+        )}
       </div>
+      {watchError && (
+        <p className="mt-1 text-sm text-destructive">{t("documentDetail.watchlistToggleError")}</p>
+      )}
+      {primaryTitle && <p className="mt-1 text-muted-foreground">{primaryTitle}</p>}
 
       {validity && (
         <Badge
+          className="mt-3"
           variant={validity.status === "valid" ? "default" : "outline"}
           data-testid="validity-badge"
         >
@@ -230,96 +272,119 @@ export function DocumentDetailContent({ documentId }: { documentId: string }) {
         </Badge>
       )}
 
-      {account && workStructure && (
-        <div className="flex flex-col gap-1">
-          <button
-            type="button"
-            onClick={toggleWatch}
-            disabled={isTogglingWatch}
-            aria-label={t(isWatched ? "documentDetail.removeFromWatchlist" : "documentDetail.addToWatchlist")}
-            data-testid="watchlist-toggle"
-          >
-            <Heart className={isWatched ? "h-5 w-5 fill-current" : "h-5 w-5"} />
-          </button>
-          {watchError && (
-            <p className="text-sm text-destructive">{t("documentDetail.watchlistToggleError")}</p>
+      <div className="relative mt-8 grid gap-10 md:grid-cols-3">
+        <div className="flex flex-col gap-6 md:col-span-2">
+          {workStructure && workStructure.editions.length > 0 && (
+            <div>
+              <h3 className="font-medium">{t("documentDetail.editionsHeading")}</h3>
+              <ul className="mt-2 flex flex-col gap-2" data-testid="edition-history-list">
+                {workStructure.editions.map((entry) => (
+                  <li
+                    key={entry.document_id}
+                    className="flex items-center gap-2 rounded-md border p-2"
+                  >
+                    <Badge variant={entry.status === "valid" ? "default" : "outline"}>
+                      {t(VALIDITY_KEYS[entry.status])}
+                    </Badge>
+                    <Link href={`/documents/${entry.document_id}`} className="underline">
+                      {entryLabel(entry)}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {workStructure && workStructure.national_adoptions.length > 0 && (
+            <div>
+              <h3 className="font-medium">{t("documentDetail.adoptionsHeading")}</h3>
+              <ul className="mt-2 flex flex-col gap-2" data-testid="national-adoptions-list">
+                {workStructure.national_adoptions.map((entry) => (
+                  <li
+                    key={entry.document_id}
+                    className="flex items-center gap-2 rounded-md border p-2"
+                  >
+                    <Badge variant={entry.status === "valid" ? "default" : "outline"}>
+                      {t(VALIDITY_KEYS[entry.status])}
+                    </Badge>
+                    <Link href={`/documents/${entry.document_id}`} className="underline">
+                      {entryLabel(entry)}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {edges.length > 0 && (
+            <div>
+              <h3 className="font-medium">{t("documentDetail.referencesHeading")}</h3>
+              <ul className="mt-2 flex flex-col gap-2" data-testid="references-list">
+                {edges.map((edge) => (
+                  <li
+                    key={`${edge.edge_type}-${edge.to_document_id}`}
+                    className="flex items-center gap-2 rounded-md border p-2"
+                  >
+                    <Badge variant="muted">{t(EDGE_TYPE_KEYS[edge.edge_type] ?? "edgeType.references")}</Badge>
+                    <Link href={`/documents/${edge.to_document_id}`} className="underline">
+                      {edge.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
-      )}
 
-      <a
-        href={documentDetail.source.retrieval_path}
-        className="text-sm underline"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        {documentDetail.source.publisher}
-      </a>
-
-      {workStructure && workStructure.editions.length > 0 && (
-        <div>
-          <h3 className="font-medium">{t("documentDetail.editionsHeading")}</h3>
-          <ul className="flex flex-col gap-2" data-testid="edition-history-list">
-            {workStructure.editions.map((entry) => (
-              <li key={entry.document_id} className="flex items-center gap-2">
-                <Badge variant={entry.status === "valid" ? "default" : "outline"}>
-                  {t(VALIDITY_KEYS[entry.status])}
-                </Badge>
-                <Link href={`/documents/${entry.document_id}`} className="underline">
-                  {entryLabel(entry)}
-                </Link>
-              </li>
-            ))}
-          </ul>
+        <div className="h-fit md:sticky md:top-20">
+          {rights && (
+            <div className="rounded-lg border p-4">
+              <h3 className="mb-3 text-sm font-medium">{t("documentDetail.rightsHeading")}</h3>
+              <ul className="flex flex-col gap-2 text-sm">
+                <li className="flex items-center gap-2">
+                  {rights.may_process ? (
+                    <CircleCheck className="h-4 w-4 text-primary" />
+                  ) : (
+                    <CircleX className="h-4 w-4 text-muted-foreground" />
+                  )}
+                  {t("documentDetail.mayProcess")}
+                </li>
+                <li className="flex items-center gap-2">
+                  {rights.may_index_fulltext ? (
+                    <CircleCheck className="h-4 w-4 text-primary" />
+                  ) : (
+                    <CircleX className="h-4 w-4 text-muted-foreground" />
+                  )}
+                  {t("documentDetail.mayIndexFulltext")}
+                </li>
+                <li className="flex items-center gap-2">
+                  {rights.may_cite_passages ? (
+                    <CircleCheck className="h-4 w-4 text-primary" />
+                  ) : (
+                    <CircleX className="h-4 w-4 text-muted-foreground" />
+                  )}
+                  {t("documentDetail.mayCitePassages")}
+                </li>
+                <li className="flex items-center gap-2">
+                  {rights.may_export_free ? (
+                    <CircleCheck className="h-4 w-4 text-primary" />
+                  ) : (
+                    <CircleX className="h-4 w-4 text-muted-foreground" />
+                  )}
+                  {t("documentDetail.mayExportFree")}
+                </li>
+              </ul>
+              <p className="mt-3 text-xs text-muted-foreground">{rights.legal_basis_reference}</p>
+              <Separator className="my-4" />
+              <Button asChild size="sm" className="w-full">
+                <a href={documentDetail.source.retrieval_path} target="_blank" rel="noopener noreferrer">
+                  {documentDetail.source.publisher}
+                </a>
+              </Button>
+            </div>
+          )}
         </div>
-      )}
-
-      {workStructure && workStructure.national_adoptions.length > 0 && (
-        <div>
-          <h3 className="font-medium">{t("documentDetail.adoptionsHeading")}</h3>
-          <ul className="flex flex-col gap-2" data-testid="national-adoptions-list">
-            {workStructure.national_adoptions.map((entry) => (
-              <li key={entry.document_id} className="flex items-center gap-2">
-                <Badge variant={entry.status === "valid" ? "default" : "outline"}>
-                  {t(VALIDITY_KEYS[entry.status])}
-                </Badge>
-                <Link href={`/documents/${entry.document_id}`} className="underline">
-                  {entryLabel(entry)}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {edges.length > 0 && (
-        <div>
-          <h3 className="font-medium">{t("documentDetail.referencesHeading")}</h3>
-          <ul className="flex flex-col gap-2" data-testid="references-list">
-            {edges.map((edge) => (
-              <li key={`${edge.edge_type}-${edge.to_document_id}`} className="flex items-center gap-2">
-                <Badge variant="muted">{t(EDGE_TYPE_KEYS[edge.edge_type] ?? "edgeType.references")}</Badge>
-                <Link href={`/documents/${edge.to_document_id}`} className="underline">
-                  {edge.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {rights && (
-        <div>
-          <h3 className="font-medium">{t("documentDetail.rightsHeading")}</h3>
-          <ul className="flex flex-col gap-1 text-sm">
-            <li>{t("documentDetail.mayProcess")}: {rights.may_process ? "✓" : "✗"}</li>
-            <li>{t("documentDetail.mayIndexFulltext")}: {rights.may_index_fulltext ? "✓" : "✗"}</li>
-            <li>{t("documentDetail.mayCitePassages")}: {rights.may_cite_passages ? "✓" : "✗"}</li>
-            <li>{t("documentDetail.mayExportFree")}: {rights.may_export_free ? "✓" : "✗"}</li>
-            <li className="text-muted-foreground">{rights.legal_basis_reference}</li>
-          </ul>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
