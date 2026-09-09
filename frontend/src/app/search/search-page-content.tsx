@@ -9,6 +9,14 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useTranslation } from "@/lib/i18n/provider";
 import { useJurisdiction } from "@/lib/jurisdiction/provider";
 
@@ -98,24 +106,35 @@ export function SearchPageContent() {
 
       {response !== null && response.results.length > 0 && (
         <>
-          <ul className="flex flex-col gap-2">
-            {response.results.map(({ work_id, best_match, other_editions_count }) => {
-              const primary =
-                best_match.designations.find((d) => d.is_primary) ?? best_match.designations[0];
-              return (
-                <li key={work_id} className="flex items-center gap-2">
-                  <Link href={`/documents/${best_match.id}`} className="underline">
-                    {primary?.designation ?? `${best_match.origin_issuer} ${best_match.origin_number}`}
-                  </Link>
-                  {other_editions_count > 0 && (
-                    <span className="text-sm text-muted-foreground">
-                      +{other_editions_count} {t("search.otherEditions")}
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("search.issuerColumnHeading")}</TableHead>
+                <TableHead>{t("search.designationColumnHeading")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {response.results.map(({ work_id, best_match, other_editions_count }) => {
+                const primary =
+                  best_match.designations.find((d) => d.is_primary) ?? best_match.designations[0];
+                return (
+                  <TableRow key={work_id}>
+                    <TableCell>{best_match.origin_issuer}</TableCell>
+                    <TableCell>
+                      <Link href={`/documents/${best_match.id}`} className="underline">
+                        {primary?.designation ?? `${best_match.origin_issuer} ${best_match.origin_number}`}
+                      </Link>
+                      {other_editions_count > 0 && (
+                        <span className="ml-2 text-sm text-muted-foreground">
+                          +{other_editions_count} {t("search.otherEditions")}
+                        </span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
           <Pagination
             offset={offset}
             limit={PAGE_SIZE}

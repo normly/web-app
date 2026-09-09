@@ -83,7 +83,9 @@
     "nextPage": "Next",
     "rateLimited": "Too many requests. Please log in or try again later.",
     "notFound": "Document not found.",
-    "otherEditions": "more editions"
+    "otherEditions": "more editions",
+    "issuerColumnHeading": "Issuer",
+    "designationColumnHeading": "Description"
   },
   "edgeType": {
     "references": "References",

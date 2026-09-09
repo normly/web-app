@@ -83,7 +83,9 @@
     "nextPage": "Weiter",
     "rateLimited": "Zu viele Anfragen. Bitte melde dich an oder versuche es später erneut.",
     "notFound": "Regelwerk nicht gefunden.",
-    "otherEditions": "weitere Ausgabe(n)"
+    "otherEditions": "weitere Ausgabe(n)",
+    "issuerColumnHeading": "Herausgeber",
+    "designationColumnHeading": "Bezeichnung"
   },
   "edgeType": {
     "references": "Verweist auf",
