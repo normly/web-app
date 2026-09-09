@@ -166,6 +166,17 @@ describe("DocumentDetailContent", () => {
     );
   });
 
+  it("labels the breadcrumb's back link 'Suche' and links it to /search", async () => {
+    mockFetch();
+
+    renderDetail(DOCUMENT_ID);
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "EN ISO 9001:2018" })).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("link", { name: "Suche" })).toHaveAttribute("href", "/search");
+  });
+
   it("shows a not-found message on a 404", async () => {
     global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({}), { status: 404 }));
 

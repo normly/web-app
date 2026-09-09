@@ -231,7 +231,7 @@ export function DocumentDetailContent({ documentId }: { documentId: string }) {
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/search">{t("nav.breadcrumbHome")}</Link>
+              <Link href="/search">{t("nav.search")}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
