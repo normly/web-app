@@ -139,3 +139,33 @@ def test_export_includes_notifications(client, db_session):
     assert body["notifications"][0]["work_id"] == str(work.id)
     assert body["notifications"][0]["trigger_type"] == "new_edition"
     assert body["notifications"][0]["emailed_at"] is None
+
+
+def test_export_includes_notifications_even_for_email_preference_accounts(client, db_session):
+    # notifications.py's list_notifications hides notifications in the in-app
+    # feed once the account is EMAIL-only -- a display-only concern. The
+    # export must NOT apply that filter: a full personal-data export shows
+    # everything regardless of the account's current display preference.
+    headers = _register(client, email="emailprefexport@example.de")
+    account_id = client.get("/v1/accounts/session", headers=headers).json()["account_id"]
+    client.patch(
+        "/v1/accounts/profile", json={"notification_preference": "email"}, headers=headers
+    )
+    work = PostgresWorkRepository(db_session).create_work(created_via=WorkCreatedVia.MANUAL)
+    PostgresNotificationRepository(db_session).create(
+        account_id=uuid.UUID(account_id), work_id=work.id,
+        trigger_type=NotificationTriggerType.NEW_EDITION, trigger_edge_id=None,
+        trigger_document_id=None, trigger_jurisdiction=None, may_process=None,
+        may_index_fulltext=None, may_cite_passages=None, may_export_free=None,
+        emailed_at=None,
+    )
+    db_session.commit()
+
+    # Sanity check: the in-app feed does hide it, as designed.
+    assert client.get("/v1/accounts/notifications", headers=headers).json() == []
+
+    response = client.get("/v1/accounts/export", headers=headers)
+
+    body = response.json()
+    assert len(body["notifications"]) == 1
+    assert body["notifications"][0]["work_id"] == str(work.id)
