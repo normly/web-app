@@ -61,3 +61,19 @@ def test_remove_from_watchlist_when_not_watched_does_not_error(client):
 def test_watchlist_endpoints_require_authentication(client):
     response = client.get("/v1/accounts/watchlist")
     assert response.status_code == 401
+
+
+def test_add_to_watchlist_with_an_unknown_work_id_returns_400(client):
+    """
+    add_watch's IntegrityError handler only covers the "already watching this
+    pair" race: a genuine FK violation finds no existing row on its re-check
+    and re-raises, which without a handler here surfaces as a raw 500.
+    """
+    _, headers = _register_and_authorize(client, email="watchlist-unknown-work@example.de")
+
+    response = client.post(
+        "/v1/accounts/watchlist", json={"work_id": str(uuid.uuid4())}, headers=headers
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "work not found"

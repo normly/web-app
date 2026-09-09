@@ -6,7 +6,8 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from normly_core.graph.domain import Account
@@ -23,9 +24,18 @@ def add_watch(
     payload: AddWatchlistEntryRequest, account: Account = Depends(get_current_account),
     session: Session = Depends(get_session),
 ) -> WatchlistEntryResponse:
-    watch = PostgresWatchlistRepository(session).add_watch(
-        account_id=account.id, work_id=payload.work_id
-    )
+    # add_watch's own IntegrityError handler only resolves the "already
+    # watching this pair" race, which it answers by returning the existing
+    # row. A work_id that references no Work has no such row to find, so it
+    # re-raises -- and the application-wide infrastructure handler would
+    # dress that up as a 503, telling the caller the service is down when
+    # they simply sent an id that does not exist.
+    try:
+        watch = PostgresWatchlistRepository(session).add_watch(
+            account_id=account.id, work_id=payload.work_id
+        )
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="work not found")
     return WatchlistEntryResponse(work_id=watch.work_id, created_at=watch.created_at)
 
 
