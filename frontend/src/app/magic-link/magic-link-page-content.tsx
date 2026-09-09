@@ -15,8 +15,11 @@ function MagicLinkConfirm({ token }: { token: string }) {
   const router = useRouter();
   const { t } = useTranslation();
   const [status, setStatus] = React.useState<"confirming" | "error">("confirming");
+  const hasRunRef = React.useRef(false);
 
   React.useEffect(() => {
+    if (hasRunRef.current) return;
+    hasRunRef.current = true;
     let cancelled = false;
     fetch("/api/auth/magic-link/confirm", {
       method: "POST",

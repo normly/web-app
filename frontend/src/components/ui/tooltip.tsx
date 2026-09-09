@@ -1,5 +1,8 @@
 "use client"
 
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 normly contributors
+
 import * as React from "react"
 import * as TooltipPrimitive from "@radix-ui/react-tooltip"
 

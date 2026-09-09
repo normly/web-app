@@ -40,6 +40,7 @@ from normly_core.graph.domain import (
     Notification,
     NotificationPreference,
     NotificationTriggerType,
+    OAuthState,
     RightsClassification,
     RightsNotificationBaseline,
     Segment,
@@ -71,6 +72,7 @@ from normly_core.graph.postgres.orm import (
     EmbeddingORM,
     IdentityResolutionCaseORM,
     NotificationORM,
+    OAuthStateORM,
     RateLimitBucketORM,
     RightsClassificationORM,
     RightsNotificationBaselineORM,
@@ -2236,6 +2238,54 @@ class PostgresAccountTokenRepository:
         )
         orm = result.scalar_one_or_none()
         return _account_token_to_domain(orm) if orm else None
+
+
+def _oauth_state_to_domain(orm: OAuthStateORM) -> OAuthState:
+    return OAuthState(
+        id=orm.id, state=orm.state, created_at=orm.created_at,
+        expires_at=orm.expires_at, used_at=orm.used_at,
+    )
+
+
+class PostgresOAuthStateRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def create_state(
+        self, *, state: str, created_at: datetime, expires_at: datetime,
+    ) -> OAuthState:
+        orm = OAuthStateORM(
+            id=uuid.uuid4(), state=state, created_at=created_at,
+            expires_at=expires_at, used_at=None,
+        )
+        self._session.add(orm)
+        self._session.flush()
+        return _oauth_state_to_domain(orm)
+
+    def consume_state(self, state: str) -> OAuthState | None:
+        now = datetime.now(timezone.utc)
+        result = self._session.execute(
+            sa.update(OAuthStateORM)
+            .where(
+                OAuthStateORM.state == state,
+                OAuthStateORM.used_at.is_(None),
+                OAuthStateORM.expires_at > now,
+            )
+            .values(used_at=now)
+            .returning(OAuthStateORM)
+        )
+        orm = result.scalar_one_or_none()
+        return _oauth_state_to_domain(orm) if orm else None
+
+    def delete_states_before(self, cutoff: datetime) -> None:
+        # Without this the table grows one row per abandoned OAuth attempt
+        # forever. Mirrors PostgresRateLimitRepository.delete_buckets_before's
+        # opportunistic-cleanup idiom: called from create_state's own request
+        # path (see google.py), no scheduled job needed.
+        self._session.execute(
+            sa.delete(OAuthStateORM).where(OAuthStateORM.created_at < cutoff)
+        )
+        self._session.flush()
 
 
 def _chat_session_to_domain(orm: ChatSessionORM) -> ChatSession:

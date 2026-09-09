@@ -516,6 +516,24 @@ class AccountTokenORM(Base):
     )
 
 
+class OAuthStateORM(Base):
+    __tablename__ = "oauth_state"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    state: Mapped[str]
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
+    expires_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+
+    __table_args__ = (
+        sa.UniqueConstraint("state", name="uq_oauth_state_state"),
+    )
+
+
 class WatchlistORM(Base):
     __tablename__ = "watchlist"
 

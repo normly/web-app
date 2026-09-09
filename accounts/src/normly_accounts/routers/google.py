@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,6 +16,7 @@ from normly_core.graph.postgres.repositories import (
     GoogleIdentityAlreadyLinkedError,
     PostgresAccountGoogleIdentityRepository,
     PostgresAccountRepository,
+    PostgresOAuthStateRepository,
 )
 
 from normly_accounts.dependencies import get_google_oauth_client, get_session
@@ -25,6 +27,9 @@ from normly_accounts.security import generate_token
 
 google_router = APIRouter(prefix="/v1/accounts/google", tags=["google"])
 
+_STATE_TTL = timedelta(minutes=10)
+_STATE_RETENTION = timedelta(hours=1)
+
 
 def _redirect_uri() -> str:
     return os.environ.get(
@@ -34,19 +39,35 @@ def _redirect_uri() -> str:
 
 @google_router.get("/login")
 def google_login(
+    session: Session = Depends(get_session),
     google_client: GoogleOAuthClient = Depends(get_google_oauth_client),
 ) -> RedirectResponse:
     state = generate_token()
+    now = datetime.now(timezone.utc)
+    state_repo = PostgresOAuthStateRepository(session)
+    # Server-side, DB-backed state, not a cookie: Google redirects the
+    # browser back through this frontend's own BFF callback route (per
+    # NORMLY_GOOGLE_REDIRECT_URI's documented, mandatory convention -- see
+    # frontend/README.md), and that route's server-side fetch to this
+    # endpoint carries no browser cookies at all. Both endpoints instead
+    # share this same database.
+    state_repo.delete_states_before(now - _STATE_RETENTION)
+    state_repo.create_state(state=state, created_at=now, expires_at=now + _STATE_TTL)
     url = google_client.build_authorization_url(_redirect_uri(), state)
     return RedirectResponse(url, status_code=302)
 
 
 @google_router.get("/callback", response_model=SessionResponse)
 def google_callback(
-    state: str, code: str | None = None, error: str | None = None,
+    state: str,
+    code: str | None = None,
+    error: str | None = None,
     session: Session = Depends(get_session),
     google_client: GoogleOAuthClient = Depends(get_google_oauth_client),
 ) -> SessionResponse:
+    if PostgresOAuthStateRepository(session).consume_state(state) is None:
+        raise HTTPException(status_code=400, detail="Google OAuth state mismatch")
+
     # Google redirects back here with EITHER `code` or `error` -- clicking
     # "Cancel" on the consent screen yields `?error=access_denied` and no
     # code. Declaring `code` as required would turn that ordinary outcome

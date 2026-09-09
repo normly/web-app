@@ -66,6 +66,7 @@
     "notificationsLabel": "Notifications",
     "noNotifications": "No new notifications",
     "notificationItemUnreadBadge": "New",
+    "unreadNotificationsCountSuffix": "unread notifications",
     "documentDetailTitle": "Document",
     "toggleSidebar": "Toggle sidebar",
     "sidebarTitle": "Sidebar",

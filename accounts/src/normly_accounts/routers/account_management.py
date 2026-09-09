@@ -12,13 +12,15 @@ from normly_core.graph.postgres.repositories import (
     PostgresAccountGoogleIdentityRepository,
     PostgresAccountRepository,
     PostgresChatRepository,
+    PostgresNotificationRepository,
+    PostgresWatchlistRepository,
 )
 
 from normly_accounts.dependencies import get_current_account, get_session
 from normly_accounts.routers.login import avatar_data_url
 from normly_accounts.schemas import (
     DeleteAccountRequest, ExportAccountFields, ExportChatMessage, ExportChatSession,
-    ExportResponse,
+    ExportNotification, ExportResponse, ExportWatchlistEntry,
 )
 from normly_accounts.security import verify_password
 
@@ -77,12 +79,32 @@ def export_account_data(
             )
         )
 
+    watches = PostgresWatchlistRepository(session).list_watches_for_account(account.id)
+    # Every notification is included regardless of the account's current
+    # display preference -- EMAIL-preference accounts still see their in-app
+    # feed hidden (notifications.py's own concern), but a full personal-data
+    # export is not a display and must not apply that filter.
+    notifications = PostgresNotificationRepository(session).list_for_account(account.id)
+
     return ExportResponse(
         account=ExportAccountFields(
             email=account.email, created_at=account.created_at,
             email_verified=account.email_verified_at is not None, google_linked=google_linked,
             first_name=account.first_name, last_name=account.last_name,
             avatar_data_url=avatar_data_url(account),
+            notification_preference=account.notification_preference.value,
         ),
         chat_sessions=exported_sessions,
+        watchlist=[
+            ExportWatchlistEntry(work_id=w.work_id, created_at=w.created_at) for w in watches
+        ],
+        notifications=[
+            ExportNotification(
+                id=n.id, work_id=n.work_id, trigger_type=n.trigger_type.value,
+                trigger_document_id=n.trigger_document_id,
+                trigger_jurisdiction=n.trigger_jurisdiction, created_at=n.created_at,
+                read_at=n.read_at, emailed_at=n.emailed_at,
+            )
+            for n in notifications
+        ],
     )

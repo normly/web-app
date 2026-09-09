@@ -111,6 +111,79 @@ describe("PageHeader", () => {
     );
   });
 
+  it("shows an unread-count badge on the bell icon when there are unread notifications", async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            id: "n1", workId: "w1", triggerType: "new_edition", triggerDocumentId: null,
+            triggerJurisdiction: null, createdAt: "2026-01-15T00:00:00Z", readAt: null,
+          },
+          {
+            id: "n2", workId: "w2", triggerType: "new_edition", triggerDocumentId: null,
+            triggerJurisdiction: null, createdAt: "2026-01-14T00:00:00Z", readAt: "2026-01-15T00:00:00Z",
+          },
+        ]),
+        { status: 200 },
+      ),
+    );
+
+    renderPageHeader(<PageHeader titleKey="nav.chat" />);
+
+    expect(await screen.findByTestId("unread-badge")).toHaveTextContent("1");
+  });
+
+  it("announces the unread count to assistive tech, not just a visible number", async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            id: "n1", workId: "w1", triggerType: "new_edition", triggerDocumentId: null,
+            triggerJurisdiction: null, createdAt: "2026-01-15T00:00:00Z", readAt: null,
+          },
+          {
+            id: "n2", workId: "w2", triggerType: "new_edition", triggerDocumentId: null,
+            triggerJurisdiction: null, createdAt: "2026-01-14T00:00:00Z", readAt: null,
+          },
+        ]),
+        { status: 200 },
+      ),
+    );
+
+    renderPageHeader(<PageHeader titleKey="nav.chat" />);
+    const badge = await screen.findByTestId("unread-badge");
+
+    expect(within(badge).getByText("2 ungelesene Benachrichtigungen")).toBeInTheDocument();
+  });
+
+  it("caps the visible unread-count badge at '9+' instead of showing the raw count", async () => {
+    const manyUnread = Array.from({ length: 12 }, (_, i) => ({
+      id: `n${i}`, workId: `w${i}`, triggerType: "new_edition", triggerDocumentId: null,
+      triggerJurisdiction: null, createdAt: "2026-01-15T00:00:00Z", readAt: null,
+    }));
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(manyUnread), { status: 200 }),
+    );
+
+    renderPageHeader(<PageHeader titleKey="nav.chat" />);
+    const badge = await screen.findByTestId("unread-badge");
+
+    expect(badge).toHaveTextContent("9+");
+    // The raw count ("12") is exact-text-matched here, not substring-matched
+    // against the badge as a whole -- the sr-only span legitimately contains
+    // "12" as part of "12 ungelesene Benachrichtigungen", asserted below.
+    expect(within(badge).queryByText("12", { exact: true })).not.toBeInTheDocument();
+    expect(within(badge).getByText("12 ungelesene Benachrichtigungen")).toBeInTheDocument();
+  });
+
+  it("shows no unread-count badge when there are no unread notifications", async () => {
+    renderPageHeader(<PageHeader titleKey="nav.chat" />);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("unread-badge")).not.toBeInTheDocument();
+    });
+  });
+
   it("shows an icon and a formatted date on each notification row", async () => {
     global.fetch = vi.fn().mockResolvedValue(
       new Response(

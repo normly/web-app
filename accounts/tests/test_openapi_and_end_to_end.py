@@ -125,6 +125,15 @@ def test_google_and_magic_link_can_resolve_to_the_same_account(client, db_sessio
             )
 
     client.app.dependency_overrides[get_google_oauth_client] = _FakeGoogleOAuthClient
+    from datetime import datetime, timedelta, timezone
+
+    from normly_core.graph.postgres.repositories import PostgresOAuthStateRepository
+
+    now = datetime.now(timezone.utc)
+    PostgresOAuthStateRepository(db_session).create_state(
+        state="s", created_at=now, expires_at=now + timedelta(minutes=10)
+    )
+    db_session.commit()
 
     google_login = client.get(
         "/v1/accounts/google/callback", params={"code": "c", "state": "s"}

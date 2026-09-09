@@ -1008,6 +1008,22 @@ class AccountToken:
     email: str | None
 
 
+@dataclass(frozen=True)
+class OAuthState:
+    """
+    An anonymous, single-use CSRF-protection token for an OAuth `state`
+    parameter. Created before any account or email is known -- unlike
+    AccountToken, which always has exactly one of account_id/email, this
+    carries no identity at all. Exists purely to prove the browser that
+    completes the OAuth callback is the same one that started it.
+    """
+    id: uuid.UUID
+    state: str
+    created_at: datetime
+    expires_at: datetime
+    used_at: datetime | None
+
+
 class AccountRepository(Protocol):
     """
     Account identity — email/password accounts. Google-only accounts have
@@ -1132,3 +1148,21 @@ class AccountTokenRepository(Protocol):
     def consume_token(
         self, token: str, purpose: AccountTokenPurpose
     ) -> AccountToken | None: ...
+
+
+class OAuthStateRepository(Protocol):
+    """
+    consume_state MUST be a single atomic UPDATE ... WHERE used_at IS NULL
+    AND expires_at > now ... RETURNING statement, not a SELECT followed by a
+    separate UPDATE -- two concurrent callback requests with the same state
+    must not both succeed. Mirrors AccountTokenRepository.consume_token's
+    identical requirement and rationale.
+    """
+
+    def create_state(
+        self, *, state: str, created_at: datetime, expires_at: datetime
+    ) -> OAuthState: ...
+
+    def consume_state(self, state: str) -> OAuthState | None: ...
+
+    def delete_states_before(self, cutoff: datetime) -> None: ...

@@ -20,9 +20,12 @@ function VerifyEmailStatus() {
   const [resendEmail, setResendEmail] = React.useState("");
   const [resendSent, setResendSent] = React.useState(false);
   const [isResending, setIsResending] = React.useState(false);
+  const hasRunRef = React.useRef(false);
 
   React.useEffect(() => {
     if (!token) return;
+    if (hasRunRef.current) return;
+    hasRunRef.current = true;
     let cancelled = false;
     fetch(`/api/auth/verify-email?token=${encodeURIComponent(token)}`)
       .then((response) => {
