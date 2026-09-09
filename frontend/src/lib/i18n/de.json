@@ -66,6 +66,7 @@
     "notificationsLabel": "Benachrichtigungen",
     "noNotifications": "Keine neuen Benachrichtigungen",
     "notificationItemUnreadBadge": "Neu",
+    "unreadNotificationsCountSuffix": "ungelesene Benachrichtigungen",
     "documentDetailTitle": "Dokument",
     "toggleSidebar": "Seitenleiste umschalten",
     "sidebarTitle": "Seitenleiste",

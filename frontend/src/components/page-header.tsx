@@ -70,6 +70,9 @@ export function PageHeader({
                   data-testid="unread-badge"
                   className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground"
                 >
+                  <span className="sr-only">
+                    {`${unreadCount} ${t("nav.unreadNotificationsCountSuffix")}`}
+                  </span>
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}
