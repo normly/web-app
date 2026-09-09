@@ -14,7 +14,7 @@ from normly_core.graph.domain import (
     LegalBasisCategory,
     NotificationPreference,
 )
-from normly_core.graph.postgres.orm import DocumentDesignationORM, SourceORM
+from normly_core.graph.postgres.orm import DocumentDesignationORM, SourceORM, WatchlistORM
 from normly_core.graph.postgres.repositories import (
     PostgresAccountRepository,
     PostgresDeliveryRepository,
@@ -302,8 +302,19 @@ def test_main_notify_watchers_without_smtp_configured_does_not_mark_emails_sent(
         PostgresAccountRepository(session).update_notification_preference(
             account.id, preference=NotificationPreference.EMAIL
         )
-        PostgresWatchlistRepository(session).add_watch(
+        watch = PostgresWatchlistRepository(session).add_watch(
             account_id=account.id, work_id=old.work_id
+        )
+        # notify-watchers only reports edges created after the watch. The
+        # edge above was created in this same transaction, and Postgres's
+        # now() is transaction-scoped, so both rows carry an identical
+        # created_at -- which the strict "newer than the watch" rule treats
+        # as history. Backdate the watch to make the edge unambiguously
+        # newer, the ordering a real deployment gets for free.
+        session.execute(
+            sa.update(WatchlistORM)
+            .where(WatchlistORM.id == watch.id)
+            .values(created_at=datetime(2020, 1, 1, tzinfo=timezone.utc))
         )
         session.commit()
         account_id = account.id

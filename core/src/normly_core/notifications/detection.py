@@ -71,6 +71,15 @@ def run_notify_watchers(session: Session, email_sender: EmailSender) -> NotifyWa
             (_NATIONAL_ADOPTION_EDGE_TYPES, NotificationTriggerType.NATIONAL_ADOPTION),
         ):
             for edge in edge_repo.list_incoming_edges_for_work_unchecked(document_ids, edge_types):
+                # Only changes that happened AFTER the watch was added are
+                # news. Without this, marking a Work as a favorite backfills
+                # its entire edge history -- every past replacement and
+                # adoption, however old -- as fresh notifications on the very
+                # first scan, and mails all of them under EMAIL/BOTH. The
+                # rule is strict: an edge created at or before the moment of
+                # watching is history, not a change since watching.
+                if edge.created_at <= watch.created_at:
+                    continue
                 if notification_repo.find_by_trigger_edge(
                     account_id=account.id, work_id=watch.work_id,
                     trigger_type=trigger_type, trigger_edge_id=edge.id,
