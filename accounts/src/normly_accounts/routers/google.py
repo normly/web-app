@@ -5,9 +5,10 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime, timedelta, timezone
 
 import httpx
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -15,6 +16,7 @@ from normly_core.graph.postgres.repositories import (
     GoogleIdentityAlreadyLinkedError,
     PostgresAccountGoogleIdentityRepository,
     PostgresAccountRepository,
+    PostgresOAuthStateRepository,
 )
 
 from normly_accounts.dependencies import get_google_oauth_client, get_session
@@ -25,8 +27,8 @@ from normly_accounts.security import generate_token
 
 google_router = APIRouter(prefix="/v1/accounts/google", tags=["google"])
 
-_STATE_COOKIE_NAME = "google_oauth_state"
-_STATE_COOKIE_MAX_AGE = 600
+_STATE_TTL = timedelta(minutes=10)
+_STATE_RETENTION = timedelta(hours=1)
 
 
 def _redirect_uri() -> str:
@@ -37,37 +39,33 @@ def _redirect_uri() -> str:
 
 @google_router.get("/login")
 def google_login(
+    session: Session = Depends(get_session),
     google_client: GoogleOAuthClient = Depends(get_google_oauth_client),
 ) -> RedirectResponse:
     state = generate_token()
+    now = datetime.now(timezone.utc)
+    state_repo = PostgresOAuthStateRepository(session)
+    # Server-side, DB-backed state, not a cookie: Google redirects the
+    # browser back through this frontend's own BFF callback route (per
+    # NORMLY_GOOGLE_REDIRECT_URI's documented, mandatory convention -- see
+    # frontend/README.md), and that route's server-side fetch to this
+    # endpoint carries no browser cookies at all. Both endpoints instead
+    # share this same database.
+    state_repo.delete_states_before(now - _STATE_RETENTION)
+    state_repo.create_state(state=state, created_at=now, expires_at=now + _STATE_TTL)
     url = google_client.build_authorization_url(_redirect_uri(), state)
-    response = RedirectResponse(url, status_code=302)
-    response.set_cookie(
-        _STATE_COOKIE_NAME,
-        state,
-        max_age=_STATE_COOKIE_MAX_AGE,
-        httponly=True,
-        samesite="lax",
-        secure=_redirect_uri().startswith("https://"),
-    )
-    return response
+    return RedirectResponse(url, status_code=302)
 
 
 @google_router.get("/callback", response_model=SessionResponse)
 def google_callback(
-    response: Response,
     state: str,
     code: str | None = None,
     error: str | None = None,
-    google_oauth_state: str | None = Cookie(default=None, alias=_STATE_COOKIE_NAME),
     session: Session = Depends(get_session),
     google_client: GoogleOAuthClient = Depends(get_google_oauth_client),
 ) -> SessionResponse:
-    # Always clear the one-time cookie -- it must never be reusable for a
-    # second callback, whether this one succeeds, fails, or the request never
-    # even reaches Google (missing/mismatched state below).
-    response.delete_cookie(_STATE_COOKIE_NAME)
-    if google_oauth_state is None or state != google_oauth_state:
+    if PostgresOAuthStateRepository(session).consume_state(state) is None:
         raise HTTPException(status_code=400, detail="Google OAuth state mismatch")
 
     # Google redirects back here with EITHER `code` or `error` -- clicking
