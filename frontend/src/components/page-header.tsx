@@ -5,7 +5,7 @@
 "use client";
 
 import * as React from "react";
-import { Bell } from "lucide-react";
+import { Bell, FileDiff, Globe, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { JurisdictionSwitcher } from "@/components/jurisdiction-switcher";
 import { LocaleSwitcher } from "@/components/locale-switcher";
@@ -22,6 +22,17 @@ const TRIGGER_TYPE_KEYS: Record<string, TranslationKey> = {
   rights_change: "documentDetail.rightsHeading",
 };
 
+const TRIGGER_TYPE_ICONS: Record<string, typeof FileDiff> = {
+  new_edition: FileDiff,
+  national_adoption: Globe,
+  rights_change: Scale,
+};
+
+function TriggerTypeIcon({ triggerType, className }: { triggerType: string; className?: string }) {
+  const Icon = TRIGGER_TYPE_ICONS[triggerType] ?? Bell;
+  return <Icon className={className} />;
+}
+
 export function PageHeader({
   titleKey,
   subtitleKey,
@@ -29,7 +40,7 @@ export function PageHeader({
   titleKey: TranslationKey;
   subtitleKey?: TranslationKey;
 }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { notifications, markRead } = useNotifications();
 
   return (
@@ -55,19 +66,30 @@ export function PageHeader({
             {notifications.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t("nav.noNotifications")}</p>
             ) : (
-              <ul className="flex flex-col gap-2">
+              <ul className="flex flex-col gap-1">
                 {notifications.map((notification) => (
                   <li key={notification.id}>
                     <button
                       type="button"
                       data-testid={`notification-${notification.id}`}
                       onClick={() => markRead(notification.id)}
-                      className="flex w-full items-center justify-between gap-2 rounded-md p-2 text-left text-sm hover:bg-muted"
+                      className="flex w-full items-start gap-2 rounded-md p-2 text-left text-sm hover:bg-muted"
                     >
-                      <span>{t(TRIGGER_TYPE_KEYS[notification.triggerType] ?? "nav.notificationsLabel")}</span>
-                      {notification.readAt === null && (
-                        <span className="text-xs text-primary">{t("nav.notificationItemUnreadBadge")}</span>
+                      {notification.readAt === null ? (
+                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                      ) : (
+                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0" />
                       )}
+                      <TriggerTypeIcon
+                        triggerType={notification.triggerType}
+                        className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
+                      />
+                      <span className="flex flex-col">
+                        <span>{t(TRIGGER_TYPE_KEYS[notification.triggerType] ?? "nav.notificationsLabel")}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(notification.createdAt).toLocaleDateString(locale)}
+                        </span>
+                      </span>
                     </button>
                   </li>
                 ))}

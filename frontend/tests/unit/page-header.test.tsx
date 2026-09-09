@@ -3,7 +3,7 @@
 // Copyright (C) 2026 normly contributors
 
 import * as React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LocaleProvider } from "@/lib/i18n/provider";
 import { JurisdictionProvider } from "@/lib/jurisdiction/provider";
@@ -109,5 +109,26 @@ describe("PageHeader", () => {
         "/api/account/notifications/n1", expect.objectContaining({ method: "PATCH" }),
       ),
     );
+  });
+
+  it("shows an icon and a formatted date on each notification row", async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            id: "n1", workId: "w1", triggerType: "new_edition", triggerDocumentId: null,
+            triggerJurisdiction: null, createdAt: "2026-01-15T00:00:00Z", readAt: null,
+          },
+        ]),
+        { status: 200 },
+      ),
+    );
+
+    renderPageHeader(<PageHeader titleKey="nav.chat" />);
+    fireEvent.click(screen.getByRole("button", { name: "Benachrichtigungen" }));
+    const item = await screen.findByTestId("notification-n1");
+
+    expect(within(item).getByText("Ersetzt")).toBeInTheDocument();
+    expect(within(item).getByText(new Date("2026-01-15T00:00:00Z").toLocaleDateString("de"))).toBeInTheDocument();
   });
 });
