@@ -41,7 +41,7 @@ export function PageHeader({
   subtitleKey?: TranslationKey;
 }) {
   const { t, locale } = useTranslation();
-  const { notifications, markRead } = useNotifications();
+  const { notifications, unreadCount, markRead } = useNotifications();
 
   return (
     <header className="flex items-center justify-between gap-4 border-b p-4">
@@ -58,8 +58,21 @@ export function PageHeader({
         <ModeToggle />
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="icon" aria-label={t("nav.notificationsLabel")}>
+            <Button
+              variant="outline"
+              size="icon"
+              className="relative"
+              aria-label={t("nav.notificationsLabel")}
+            >
               <Bell className="h-4 w-4" />
+              {unreadCount > 0 && (
+                <span
+                  data-testid="unread-badge"
+                  className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground"
+                >
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
             </Button>
           </PopoverTrigger>
           <PopoverContent align="end">

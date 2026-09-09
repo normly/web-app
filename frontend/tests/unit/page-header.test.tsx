@@ -111,6 +111,36 @@ describe("PageHeader", () => {
     );
   });
 
+  it("shows an unread-count badge on the bell icon when there are unread notifications", async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            id: "n1", workId: "w1", triggerType: "new_edition", triggerDocumentId: null,
+            triggerJurisdiction: null, createdAt: "2026-01-15T00:00:00Z", readAt: null,
+          },
+          {
+            id: "n2", workId: "w2", triggerType: "new_edition", triggerDocumentId: null,
+            triggerJurisdiction: null, createdAt: "2026-01-14T00:00:00Z", readAt: "2026-01-15T00:00:00Z",
+          },
+        ]),
+        { status: 200 },
+      ),
+    );
+
+    renderPageHeader(<PageHeader titleKey="nav.chat" />);
+
+    expect(await screen.findByTestId("unread-badge")).toHaveTextContent("1");
+  });
+
+  it("shows no unread-count badge when there are no unread notifications", async () => {
+    renderPageHeader(<PageHeader titleKey="nav.chat" />);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("unread-badge")).not.toBeInTheDocument();
+    });
+  });
+
   it("shows an icon and a formatted date on each notification row", async () => {
     global.fetch = vi.fn().mockResolvedValue(
       new Response(
