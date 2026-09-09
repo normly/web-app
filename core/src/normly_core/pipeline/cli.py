@@ -8,6 +8,7 @@ import os
 import sys
 from pathlib import Path
 
+import sqlalchemy as sa
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -21,6 +22,17 @@ from normly_core.pipeline.document_embedding import backfill_document_embeddings
 from normly_core.pipeline.domain import SourceAdapter
 from normly_core.pipeline.runner import run_adapter
 from normly_core.pipeline.sources import resolve_source
+
+
+# Arbitrary but stable key for the Postgres session-level advisory lock that
+# serialises notify-watchers runs. The whole job runs in one transaction and
+# commits only at the end, while emails are sent during the loop -- so two
+# overlapping runs (a stuck one plus a fresh cron trigger) could deliver mail
+# whose Notification rows are then rolled back, and mail it all again on the
+# next run. The lock lives here rather than in detection.py: it is an
+# operational concurrency concern, and run_notify_watchers stays a pure,
+# lock-agnostic function.
+_NOTIFY_WATCHERS_LOCK_KEY = 8234701
 
 
 def build_adapter(source: str, *, directory: Path, session: Session) -> SourceAdapter:
@@ -100,7 +112,23 @@ def main(argv: list[str] | None = None) -> int:
                     )
                 else:
                     email_sender = NullEmailSender()
-                summary = run_notify_watchers(session, email_sender)
+                acquired = session.execute(
+                    sa.text("SELECT pg_try_advisory_lock(:key)"),
+                    {"key": _NOTIFY_WATCHERS_LOCK_KEY},
+                ).scalar()
+                if not acquired:
+                    # An expected, non-error condition: the previous run is
+                    # still going, and it will cover everything this one
+                    # would have. Exit 0 so a scheduler does not alert.
+                    print("notify-watchers: another run is already in progress, exiting")
+                    return 0
+                try:
+                    summary = run_notify_watchers(session, email_sender)
+                finally:
+                    session.execute(
+                        sa.text("SELECT pg_advisory_unlock(:key)"),
+                        {"key": _NOTIFY_WATCHERS_LOCK_KEY},
+                    )
                 session.commit()
                 print(
                     f"watches_scanned={summary.watches_scanned} "

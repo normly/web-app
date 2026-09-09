@@ -330,3 +330,82 @@ def test_main_notify_watchers_without_smtp_configured_does_not_mark_emails_sent(
         notifications = PostgresNotificationRepository(session).list_for_account(account_id)
         assert len(notifications) == 1
         assert notifications[0].emailed_at is None
+
+
+def test_notify_watchers_advisory_lock_is_exclusive_across_connections(migrated_engine):
+    """
+    The lock has to be real contention, not a same-session no-op: Postgres
+    advisory locks are re-entrant within one session, so only two separate
+    connections can show that a second notify-watchers invocation is actually
+    kept out while the first still holds the key.
+    """
+    from normly_core.pipeline.cli import _NOTIFY_WATCHERS_LOCK_KEY
+
+    acquire = sa.text("SELECT pg_try_advisory_lock(:key)")
+    release = sa.text("SELECT pg_advisory_unlock(:key)")
+    params = {"key": _NOTIFY_WATCHERS_LOCK_KEY}
+
+    first = migrated_engine.connect()
+    second = migrated_engine.connect()
+    try:
+        assert first.execute(acquire, params).scalar() is True
+        assert second.execute(acquire, params).scalar() is False
+
+        first.execute(release, params)
+        assert second.execute(acquire, params).scalar() is True
+        second.execute(release, params)
+    finally:
+        first.close()
+        second.close()
+
+
+def test_main_notify_watchers_exits_without_running_when_the_lock_is_held(
+    committed_db, capsys, migrated_engine
+):
+    """
+    The whole job runs in one transaction and commits only at the end, while
+    emails go out during the loop. An overlapping run that rolled back would
+    leave mail delivered with no Notification row to dedup against, mailing
+    the same change again later -- so a second invocation must exit instead
+    of racing.
+    """
+    from normly_core.pipeline.cli import _NOTIFY_WATCHERS_LOCK_KEY
+
+    holder = migrated_engine.connect()
+    try:
+        assert holder.execute(
+            sa.text("SELECT pg_try_advisory_lock(:key)"), {"key": _NOTIFY_WATCHERS_LOCK_KEY}
+        ).scalar() is True
+
+        exit_code = main(["notify-watchers"])
+
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "another run is already in progress" in captured.out
+        # The job never ran, so it never printed its summary line.
+        assert "watches_scanned=" not in captured.out
+    finally:
+        holder.execute(
+            sa.text("SELECT pg_advisory_unlock(:key)"), {"key": _NOTIFY_WATCHERS_LOCK_KEY}
+        )
+        holder.close()
+
+
+def test_main_notify_watchers_releases_the_lock_after_a_successful_run(
+    committed_db, capsys, migrated_engine
+):
+    assert main(["notify-watchers"]) == 0
+    assert "watches_scanned=" in capsys.readouterr().out
+
+    from normly_core.pipeline.cli import _NOTIFY_WATCHERS_LOCK_KEY
+
+    connection = migrated_engine.connect()
+    try:
+        assert connection.execute(
+            sa.text("SELECT pg_try_advisory_lock(:key)"), {"key": _NOTIFY_WATCHERS_LOCK_KEY}
+        ).scalar() is True
+        connection.execute(
+            sa.text("SELECT pg_advisory_unlock(:key)"), {"key": _NOTIFY_WATCHERS_LOCK_KEY}
+        )
+    finally:
+        connection.close()
