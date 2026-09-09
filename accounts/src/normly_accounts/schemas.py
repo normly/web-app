@@ -77,6 +77,10 @@ class SessionValidationResponse(BaseModel):
     last_name: str | None
     avatar_data_url: str | None
     has_password: bool
+    # This endpoint is the frontend's only source of account state on initial
+    # page load -- login returns no account data -- so every field the
+    # profile overlay renders has to be here, not only on AccountResponse.
+    notification_preference: str
 
 
 class SetPasswordRequest(BaseModel):

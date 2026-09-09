@@ -81,3 +81,30 @@ def test_the_session_token_never_travels_in_the_query_string(client):
     response = client.get("/v1/accounts/session", params={"session_token": token})
 
     assert response.status_code == 401
+
+
+def test_session_returns_the_stored_notification_preference(client):
+    """
+    GET /v1/accounts/session is the only source of account state on initial
+    page load -- login returns none. Without notification_preference here the
+    profile overlay's Notifications tab renders with nothing selected, no
+    matter what is actually stored.
+    """
+    register = client.post(
+        "/v1/accounts/register",
+        json={"email": "notifpref@example.de", "password": "correct horse battery staple"},
+    )
+    token = register.json()["session_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    assert client.get("/v1/accounts/session", headers=headers).json()[
+        "notification_preference"
+    ] == "none"
+
+    client.patch(
+        "/v1/accounts/profile", json={"notification_preference": "both"}, headers=headers
+    )
+
+    response = client.get("/v1/accounts/session", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["notification_preference"] == "both"
