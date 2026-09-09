@@ -69,3 +69,38 @@ def test_mark_notification_read_for_another_accounts_notification_returns_404(cl
 def test_notification_endpoints_require_authentication(client):
     response = client.get("/v1/accounts/notifications")
     assert response.status_code == 401
+
+
+def test_email_only_preference_hides_notifications_from_the_in_app_feed(client, db_session):
+    """
+    "Nur per E-Mail" has to be distinguishable from "beides": the rows are
+    still created (for dedup and for the mail itself), but the bell feed
+    hides them. The account's CURRENT preference governs the CURRENT display
+    -- no preference-at-creation-time is tracked per row.
+    """
+    account_id, headers = _register_and_authorize(client, email="email-only@example.de")
+    _make_notification(db_session, account_id)
+    assert len(client.get("/v1/accounts/notifications", headers=headers).json()) == 1
+
+    client.patch(
+        "/v1/accounts/profile", json={"notification_preference": "email"}, headers=headers
+    )
+
+    response = client.get("/v1/accounts/notifications", headers=headers)
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_switching_away_from_email_only_makes_notifications_visible_again(client, db_session):
+    account_id, headers = _register_and_authorize(client, email="email-then-both@example.de")
+    _make_notification(db_session, account_id)
+    client.patch(
+        "/v1/accounts/profile", json={"notification_preference": "email"}, headers=headers
+    )
+    assert client.get("/v1/accounts/notifications", headers=headers).json() == []
+
+    client.patch(
+        "/v1/accounts/profile", json={"notification_preference": "both"}, headers=headers
+    )
+
+    assert len(client.get("/v1/accounts/notifications", headers=headers).json()) == 1

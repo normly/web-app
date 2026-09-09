@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from normly_core.graph.domain import Account
+from normly_core.graph.domain import Account, NotificationPreference
 from normly_core.graph.postgres.repositories import PostgresNotificationRepository
 
 from normly_accounts.dependencies import get_current_account, get_session
@@ -33,6 +33,16 @@ def _notification_response(notification) -> NotificationResponse:
 def list_notifications(
     account: Account = Depends(get_current_account), session: Session = Depends(get_session),
 ) -> list[NotificationResponse]:
+    # "Nur per E-Mail" means exactly that: the rows are still created (the
+    # notification table is what makes notify-watchers' dedup and the mail
+    # itself work), but the in-app feed hides them -- otherwise EMAIL and
+    # BOTH would be indistinguishable in the UI. The account's CURRENT
+    # preference governs the CURRENT display, so switching away from EMAIL
+    # makes earlier notifications visible again; no preference-at-creation
+    # is tracked per row. mark_read needs no counterpart check: a client
+    # cannot discover a hidden notification's id to mark it read.
+    if account.notification_preference == NotificationPreference.EMAIL:
+        return []
     notifications = PostgresNotificationRepository(session).list_for_account(account.id)
     return [_notification_response(n) for n in notifications]
 
