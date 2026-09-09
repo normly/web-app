@@ -30,6 +30,7 @@ function mockFetch(
   overrides: {
     work?: object;
     rights?: object;
+    rightsStatus?: number;
     account?: object | null;
     watchlist?: object[];
     watchlistToggleStatus?: number;
@@ -98,6 +99,9 @@ function mockFetch(
       );
     }
     if (url.includes(`/api/documents/${DOCUMENT_ID}/rights`)) {
+      if (overrides.rightsStatus !== undefined) {
+        return Promise.resolve(new Response(JSON.stringify({}), { status: overrides.rightsStatus }));
+      }
       return Promise.resolve(
         new Response(
           JSON.stringify(
@@ -218,6 +222,19 @@ describe("DocumentDetailContent", () => {
     renderDetail(DOCUMENT_ID);
 
     await waitFor(() => expect(screen.getByText("§ 5 UrhG")).toBeInTheDocument());
+  });
+
+  it("still shows the source link when the rights fetch fails", async () => {
+    mockFetch({ rightsStatus: 500 });
+
+    renderDetail(DOCUMENT_ID);
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "EN ISO 9001:2018" })).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("link", { name: "DIN" })).toHaveAttribute(
+      "href", "https://example.de",
+    );
   });
 
   it("shows no watchlist toggle for an anonymous visitor and never calls the watchlist API", async () => {

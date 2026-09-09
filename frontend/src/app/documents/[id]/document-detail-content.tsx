@@ -376,13 +376,13 @@ export function DocumentDetailContent({ documentId }: { documentId: string }) {
               </ul>
               <p className="mt-3 text-xs text-muted-foreground">{rights.legal_basis_reference}</p>
               <Separator className="my-4" />
-              <Button asChild size="sm" className="w-full">
-                <a href={documentDetail.source.retrieval_path} target="_blank" rel="noopener noreferrer">
-                  {documentDetail.source.publisher}
-                </a>
-              </Button>
             </div>
           )}
+          <Button asChild size="sm" className="w-full">
+            <a href={documentDetail.source.retrieval_path} target="_blank" rel="noopener noreferrer">
+              {documentDetail.source.publisher}
+            </a>
+          </Button>
         </div>
       </div>
     </div>
