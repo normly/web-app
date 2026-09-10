@@ -6,13 +6,17 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import sqlalchemy as sa
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from normly_core.graph.postgres.repositories import PostgresSourceRepository
+from normly_core.graph.postgres.repositories import (
+    PostgresNotificationRepository,
+    PostgresSourceRepository,
+)
 from normly_core.notifications.detection import run_notify_watchers
 from normly_core.notifications.email import NullEmailSender, SmtpEmailSender
 from normly_core.pipeline.adapters.baua import BauaAdapter
@@ -33,6 +37,11 @@ from normly_core.pipeline.sources import resolve_source
 # operational concurrency concern, and run_notify_watchers stays a pure,
 # lock-agnostic function.
 _NOTIFY_WATCHERS_LOCK_KEY = 8234701
+
+# Starting point, not a carefully-derived number -- revisit once real usage
+# data exists. Only read notifications are ever eligible for cleanup; unread
+# ones are kept regardless of age (see delete_read_before).
+_NOTIFICATION_RETENTION_DAYS = 60
 
 
 def build_adapter(source: str, *, directory: Path, session: Session) -> SourceAdapter:
@@ -70,6 +79,8 @@ def main(argv: list[str] | None = None) -> int:
 
     subparsers.add_parser("backfill-document-embeddings")
 
+    subparsers.add_parser("cleanup-notifications")
+
     subparsers.add_parser("notify-watchers")
 
     args = parser.parse_args(argv)
@@ -98,6 +109,11 @@ def main(argv: list[str] | None = None) -> int:
                 created = backfill_document_embeddings(session)
                 session.commit()
                 print(f"document_embeddings_created={created}")
+            elif args.command == "cleanup-notifications":
+                cutoff = datetime.now(timezone.utc) - timedelta(days=_NOTIFICATION_RETENTION_DAYS)
+                deleted = PostgresNotificationRepository(session).delete_read_before(cutoff)
+                session.commit()
+                print(f"notifications_deleted={deleted}")
             elif args.command == "notify-watchers":
                 smtp_host = os.environ.get("NORMLY_SMTP_HOST")
                 if smtp_host:

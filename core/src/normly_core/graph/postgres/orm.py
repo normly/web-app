@@ -598,6 +598,13 @@ class NotificationORM(Base):
             "account_id", "work_id", "trigger_type", "trigger_edge_id",
             name="uq_notification_account_work_trigger_edge",
         ),
+        # The retention cleanup (delete_read_before) filters on created_at,
+        # via the cleanup-notifications command. Matches the index the
+        # 0030 migration already creates -- this just keeps the ORM's own
+        # metadata in agreement with it so a future autogenerate diff
+        # doesn't propose dropping it. Same pattern as
+        # RateLimitBucketORM.__table_args__'s ix_rate_limit_bucket_window_start.
+        sa.Index("ix_notification_created_at", "created_at"),
     )
 
 
@@ -636,6 +643,43 @@ class RightsNotificationBaselineORM(Base):
     # difference was detected.
     updated_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now()
+    )
+
+
+class NotifiedEdgeORM(Base):
+    __tablename__ = "notified_edge"
+
+    # Pure internal bookkeeping for the notify-watchers NEW_EDITION/
+    # NATIONAL_ADOPTION dedup check: has this edge already produced a
+    # notification for this account/work? Deliberately NOT the Notification
+    # table -- a row here is never shown to a user, never emailed, and
+    # never joined into anything user-facing, so cleanup-notifications'
+    # deletion of read Notification rows can never cause notify-watchers to
+    # treat an already-seen edge as new again. Same shape as
+    # RightsNotificationBaselineORM, but keyed by edge instead of by
+    # document/jurisdiction, and covering the two edge-triggered types
+    # instead of RIGHTS_CHANGE.
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("account.id"), primary_key=True
+    )
+    work_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("work.id"), primary_key=True
+    )
+    trigger_type: Mapped[NotificationTriggerType] = mapped_column(
+        sa.Enum(
+            NotificationTriggerType,
+            name="notification_trigger_type",
+            native_enum=False,
+            create_constraint=True,
+            values_callable=_enum_values,
+        ),
+        primary_key=True,
+    )
+    trigger_edge_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("edge.id"), primary_key=True
+    )
+    notified_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
     )
 
 
