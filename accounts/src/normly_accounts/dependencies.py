@@ -49,6 +49,7 @@ def get_current_account(
     session_repo.extend_session(
         account_session.id, datetime.now(timezone.utc) + _SESSION_LIFETIME
     )
+    session.commit()
 
     account = PostgresAccountRepository(session).get_account_by_id(account_session.account_id)
     return account

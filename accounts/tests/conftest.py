@@ -78,7 +78,7 @@ def client(db_url, monkeypatch, db_session, email_sender):
 
 
 @pytest.fixture()
-def real_client(db_url, monkeypatch, email_sender):
+def real_client(db_url, migrated_engine, monkeypatch, email_sender):
     # Unlike `client`, this does NOT override get_session -- the app builds
     # its own real Session against its own real engine, so get_session()'s
     # own session.commit() at dependency teardown genuinely runs. Use this
