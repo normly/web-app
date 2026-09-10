@@ -75,3 +75,23 @@ def client(db_url, monkeypatch, db_session, email_sender):
 
     with TestClient(app) as test_client:
         yield test_client
+
+
+@pytest.fixture()
+def real_client(db_url, monkeypatch, email_sender):
+    # Unlike `client`, this does NOT override get_session -- the app builds
+    # its own real Session against its own real engine, so get_session()'s
+    # own session.commit() at dependency teardown genuinely runs. Use this
+    # fixture only for tests that specifically need to prove a write is
+    # durable via an independent connection (see test_account_management.py
+    # and test_set_password.py for examples) -- everything else should keep
+    # using the faster, transactionally-isolated `client` fixture.
+    monkeypatch.setenv("NORMLY_DATABASE_URL", db_url)
+    from normly_accounts.dependencies import get_email_sender
+    from normly_accounts.main import create_app
+
+    app = create_app()
+    app.dependency_overrides[get_email_sender] = lambda: email_sender
+
+    with TestClient(app) as test_client:
+        yield test_client

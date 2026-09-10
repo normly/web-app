@@ -80,3 +80,37 @@ def test_set_password_requires_authorization(client):
         "/v1/accounts/password", json={"current_password": None, "new_password": "x"},
     )
     assert response.status_code == 401
+
+
+def test_changing_a_password_via_real_client_is_durable_across_independent_requests(real_client):
+    """
+    Uses `real_client` (not `client`) so get_session()'s own commit-at-
+    teardown genuinely runs against the real engine, and proves the change
+    is durable by logging in again in a SEPARATE request -- each request
+    through real_client gets its own freshly-constructed Session, not the
+    one shared db_session the default `client` fixture reuses. This does
+    NOT reproduce the original before-response-sent timing race (a
+    TestClient call runs the whole request lifecycle, including the
+    deferred commit, synchronously before this test function resumes) --
+    it proves the new password hash is really durable and independently
+    re-queryable, not merely visible within one shared, possibly-
+    uncommitted session (the bug the old delete-account test had).
+    """
+    register = real_client.post(
+        "/v1/accounts/register",
+        json={"email": "real-client-password@example.de", "password": "old secret"},
+    )
+    headers = {"Authorization": f"Bearer {register.json()['session_token']}"}
+
+    response = real_client.post(
+        "/v1/accounts/password",
+        json={"current_password": "old secret", "new_password": "new secret"},
+        headers=headers,
+    )
+    assert response.status_code == 200
+
+    login_check = real_client.post(
+        "/v1/accounts/login",
+        json={"email": "real-client-password@example.de", "password": "new secret"},
+    )
+    assert login_check.status_code == 200
