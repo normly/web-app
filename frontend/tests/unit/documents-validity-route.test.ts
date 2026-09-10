@@ -22,7 +22,7 @@ describe("GET /api/documents/[id]/validity", () => {
     const request = new NextRequest(
       "http://localhost/api/documents/abc/validity?jurisdiction=DE",
     );
-    const response = await GET(request, { params: { id: "abc" } });
+    const response = await GET(request, { params: Promise.resolve({ id: "abc" }) });
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -39,7 +39,7 @@ describe("GET /api/documents/[id]/validity", () => {
     const request = new NextRequest("http://localhost/api/documents/abc/validity", {
       headers: { cookie: "normly_anon_id=anon-123" },
     });
-    await GET(request, { params: { id: "abc" } });
+    await GET(request, { params: Promise.resolve({ id: "abc" }) });
 
     const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(init.headers["X-Normly-Anon-Id"]).toBe("anon-123");
