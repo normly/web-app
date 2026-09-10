@@ -20,6 +20,7 @@ from normly_core.graph.postgres.repositories import (
     PostgresDocumentRepository,
     PostgresEdgeRepository,
     PostgresNotificationRepository,
+    PostgresNotifiedEdgeRepository,
     PostgresRightsNotificationBaselineRepository,
     PostgresRightsRepository,
     PostgresWatchlistRepository,
@@ -48,6 +49,7 @@ class NotifyWatchersSummary:
 def run_notify_watchers(session: Session, email_sender: EmailSender) -> NotifyWatchersSummary:
     watchlist_repo = PostgresWatchlistRepository(session)
     notification_repo = PostgresNotificationRepository(session)
+    notified_edge_repo = PostgresNotifiedEdgeRepository(session)
     account_repo = PostgresAccountRepository(session)
     document_repo = PostgresDocumentRepository(session)
     edge_repo = PostgresEdgeRepository(session)
@@ -80,10 +82,10 @@ def run_notify_watchers(session: Session, email_sender: EmailSender) -> NotifyWa
                 # watching is history, not a change since watching.
                 if edge.created_at <= watch.created_at:
                     continue
-                if notification_repo.find_by_trigger_edge(
+                if notified_edge_repo.has_been_notified(
                     account_id=account.id, work_id=watch.work_id,
                     trigger_type=trigger_type, trigger_edge_id=edge.id,
-                ) is not None:
+                ):
                     continue
                 notification = _create_and_maybe_email(
                     notification_repo, email_sender, account=account, work_id=watch.work_id,
@@ -95,6 +97,10 @@ def run_notify_watchers(session: Session, email_sender: EmailSender) -> NotifyWa
                 notifications_created += 1
                 if notification.emailed_at is not None:
                     emails_sent += 1
+                notified_edge_repo.mark_notified(
+                    account_id=account.id, work_id=watch.work_id,
+                    trigger_type=trigger_type, trigger_edge_id=edge.id,
+                )
 
         for document_id in document_ids:
             for classification in rights_repo.list_classifications_for_document_unchecked(
