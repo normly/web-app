@@ -1,9 +1,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 normly contributors
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
+
+import sqlalchemy as sa
 
 from normly_core.graph.domain import LegalBasisCategory, WorkCreatedVia
+from normly_core.graph.postgres.orm import RightsNotificationBaselineORM
 from normly_core.graph.postgres.repositories import (
     PostgresAccountRepository,
     PostgresDeliveryRepository,
@@ -115,3 +118,44 @@ def test_upsert_baseline_updates_in_place_on_a_second_call(db_session):
         trigger_jurisdiction="DE",
     )
     assert same_key_via_get.may_process is False
+
+
+def test_upsert_baseline_updates_updated_at_on_a_second_upsert(db_session):
+    account = _make_account(db_session, "baseline-updated-at@example.de")
+    work = _make_work(db_session)
+    delivery = _make_delivery(db_session, content_hash="sha256:baseline-updated-at-fixture")
+    document = _make_document(db_session, delivery.id)
+    repo = PostgresRightsNotificationBaselineRepository(db_session)
+
+    repo.upsert_baseline(
+        account_id=account.id, work_id=work.id, trigger_document_id=document.id,
+        trigger_jurisdiction="DE", may_process=True, may_index_fulltext=True,
+        may_cite_passages=True, may_export_free=False,
+    )
+
+    # Postgres's now() is transaction-scoped -- force the first row's
+    # updated_at to an explicit, unambiguous OLDER value so a second upsert
+    # in this same test transaction produces a genuinely different value,
+    # not a coincidentally-identical one. Same idiom as
+    # test_detection.py's _set_created_at, adapted for this table's
+    # composite primary key.
+    old = datetime.now(timezone.utc) - timedelta(days=1)
+    db_session.execute(
+        sa.update(RightsNotificationBaselineORM)
+        .where(
+            RightsNotificationBaselineORM.account_id == account.id,
+            RightsNotificationBaselineORM.work_id == work.id,
+            RightsNotificationBaselineORM.trigger_document_id == document.id,
+            RightsNotificationBaselineORM.trigger_jurisdiction == "DE",
+        )
+        .values(updated_at=old)
+    )
+    db_session.flush()
+
+    second = repo.upsert_baseline(
+        account_id=account.id, work_id=work.id, trigger_document_id=document.id,
+        trigger_jurisdiction="DE", may_process=False, may_index_fulltext=True,
+        may_cite_passages=True, may_export_free=False,
+    )
+
+    assert second.updated_at > old

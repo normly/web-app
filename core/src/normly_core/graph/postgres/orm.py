@@ -627,7 +627,7 @@ class RightsNotificationBaselineORM(Base):
     may_cite_passages: Mapped[bool]
     may_export_free: Mapped[bool]
     updated_at: Mapped[datetime] = mapped_column(
-        sa.DateTime(timezone=True), server_default=sa.func.now()
+        sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now()
     )
 
 
