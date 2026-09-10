@@ -90,6 +90,15 @@ from normly_core.graph.postgres.orm import (
 # the expensive ANN query rather than the number of Works actually returned.
 _SEMANTIC_CANDIDATE_POOL = 200
 
+# Above this cosine distance (0 = identical, 2 = opposite), a Tier-2 match is
+# noise, not a result -- a fallback tier feeding a ranked list the user
+# visually scans can tolerate a borderline match; this cutoff exists so a
+# query with no genuinely close match returns nothing instead of the
+# nearest-available row regardless of how far it actually is. Starting
+# point, not derived from real-corpus measurement -- revisit once real
+# query logs exist to tune against.
+_DOCUMENT_SEARCH_MAX_COSINE_DISTANCE = 0.6
+
 # How many Tier 1 (exact-match) candidates search_works_for_jurisdiction pulls
 # before Work-deduplication -- large enough that no realistic TEXT query (q is
 # not None) is ever actually truncated. This is NOT true for q=None (the
@@ -764,6 +773,8 @@ class PostgresDocumentRepository:
                     RightsClassificationORM.may_process.is_(True),
                     RightsClassificationORM.revoked_at.is_(None),
                     DocumentEmbeddingORM.model_name == embedding_model_name,
+                    DocumentEmbeddingORM.vector.cosine_distance(query_vector)
+                    <= _DOCUMENT_SEARCH_MAX_COSINE_DISTANCE,
                 )
             )
             if issuer is not None:
@@ -1593,6 +1604,17 @@ def _segment_to_domain(orm: SegmentORM) -> Segment:
     )
 
 
+# Above this cosine distance (0 = identical, 2 = opposite), a chat-segment
+# match is not close enough to feed into an LLM-synthesized answer
+# presented as fact -- an irrelevant passage there produces a
+# wrong-sounding confident answer, which is worse than "no results" (the
+# caller already has a fallback path for an empty result). Lower than the
+# document-search threshold since a wrong citation is more costly than a
+# low-ranked search hit. Starting point, not derived from real-corpus
+# measurement -- revisit once real query logs exist to tune against.
+_CHAT_SEGMENT_MAX_COSINE_DISTANCE = 0.75
+
+
 class PostgresSegmentRepository:
     def __init__(self, session: Session):
         self._session = session
@@ -1693,6 +1715,8 @@ class PostgresSegmentRepository:
                 RightsClassificationORM.may_index_fulltext.is_(True),
                 RightsClassificationORM.revoked_at.is_(None),
                 EmbeddingORM.model_name == model_name,
+                EmbeddingORM.vector.cosine_distance(query_vector)
+                <= _CHAT_SEGMENT_MAX_COSINE_DISTANCE,
             )
             .order_by(EmbeddingORM.vector.cosine_distance(query_vector))
             .limit(limit)

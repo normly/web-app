@@ -68,6 +68,19 @@ def test_finds_the_closest_segment_first(db_session):
     assert [s.id for s in results] == [close.id]
 
 
+def test_excludes_a_segment_beyond_the_distance_threshold(db_session):
+    document, delivery = _make_classified_document(
+        db_session, jurisdiction="DE", may_process=True, may_index_fulltext=True,
+    )
+    _add_segment_with_embedding(
+        db_session, document, delivery, text="fern", vector=[0.0, 1.0] + [0.0] * 1022,
+    )
+
+    repo = PostgresSegmentRepository(db_session)
+    results = repo.find_similar_segments_for_jurisdiction([1.0] + [0.0] * 1023, "DE", _MODEL)
+    assert results == []
+
+
 def test_respects_the_rights_gate(db_session):
     document, delivery = _make_classified_document(
         db_session, jurisdiction="DE", may_process=True, may_index_fulltext=False,
