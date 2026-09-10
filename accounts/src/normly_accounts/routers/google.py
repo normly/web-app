@@ -53,6 +53,7 @@ def google_login(
     # share this same database.
     state_repo.delete_states_before(now - _STATE_RETENTION)
     state_repo.create_state(state=state, created_at=now, expires_at=now + _STATE_TTL)
+    session.commit()
     url = google_client.build_authorization_url(_redirect_uri(), state)
     return RedirectResponse(url, status_code=302)
 

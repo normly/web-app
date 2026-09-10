@@ -52,6 +52,7 @@ def update_profile(
         except ValueError:
             raise HTTPException(status_code=400, detail="invalid notification_preference")
         account_repo.update_notification_preference(account.id, preference=preference)
+    session.commit()
     updated = account_repo.get_account_by_id(account.id)
     return _account_response(updated)
 
@@ -97,6 +98,7 @@ def upload_avatar(
     account_repo.set_avatar(
         account.id, avatar_image=buffer.getvalue(), avatar_content_type="image/jpeg"
     )
+    session.commit()
     updated = account_repo.get_account_by_id(account.id)
     return _account_response(updated)
 
@@ -107,5 +109,6 @@ def delete_avatar(
 ) -> AccountResponse:
     account_repo = PostgresAccountRepository(session)
     account_repo.clear_avatar(account.id)
+    session.commit()
     updated = account_repo.get_account_by_id(account.id)
     return _account_response(updated)

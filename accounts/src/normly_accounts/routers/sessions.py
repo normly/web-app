@@ -50,4 +50,5 @@ def revoke_session(
     )
     if not revoked:
         raise HTTPException(status_code=404, detail="session not found")
+    session.commit()
     return {"status": "session_revoked"}

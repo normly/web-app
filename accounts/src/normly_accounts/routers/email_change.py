@@ -75,6 +75,7 @@ def request_email_change(
         )
     except Exception:
         logger.exception("email change confirmation delivery failed for %s", payload.new_email)
+    session.commit()
     return {"status": "confirmation_sent"}
 
 
@@ -103,4 +104,5 @@ def confirm_email_change(
         # and hit uq_account_email in update_email itself. Same response as
         # the pre-check, so the client sees one consistent 409 either way.
         raise HTTPException(status_code=409, detail="an account already exists for this email")
+    session.commit()
     return {"status": "email_changed"}

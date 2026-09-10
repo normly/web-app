@@ -43,6 +43,7 @@ def verify_email(token: str, session: Session = Depends(get_session)) -> dict:
     PostgresAccountRepository(session).mark_email_verified(
         consumed.account_id, datetime.now(timezone.utc)
     )
+    session.commit()
     return {"status": "email_verified"}
 
 
@@ -74,6 +75,7 @@ def resend_verification_email(
             # observability, same as those other routers -- but never the
             # token itself.
             logger.exception("verify-email resend delivery failed for %s", account.email)
+    session.commit()
     # Same response regardless of whether the account exists or is
     # already verified -- enumeration protection, same principle as
     # password-reset's own request endpoint.

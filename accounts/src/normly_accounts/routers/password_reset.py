@@ -64,6 +64,7 @@ def request_password_reset(
             # distinguishable by status code during an SMTP outage. Never
             # log the token itself.
             logger.exception("password reset email delivery failed for %s", account.email)
+    session.commit()
     # Same response whether or not the account exists -- enumeration
     # protection, same principle as login's generic 401.
     return {"status": "if_the_account_exists_an_email_was_sent"}
@@ -82,4 +83,5 @@ def confirm_password_reset(
     PostgresAccountRepository(session).set_password_hash(
         token.account_id, hash_password(payload.new_password)
     )
+    session.commit()
     return {"status": "password_changed"}

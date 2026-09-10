@@ -91,4 +91,5 @@ def login(payload: LoginRequest, session: Session = Depends(get_session)) -> Ses
 @login_router.post("/logout")
 def logout(payload: LogoutRequest, session: Session = Depends(get_session)) -> dict:
     PostgresAccountSessionRepository(session).revoke_session(payload.session_token)
+    session.commit()
     return {"status": "logged_out"}
