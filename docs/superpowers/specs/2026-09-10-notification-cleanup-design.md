@@ -126,3 +126,33 @@ mandate one.
   against a seeded database (following the existing `backfill-document-embeddings`
   CLI test's pattern, if one exists — otherwise following `notify-watchers`'s
   own CLI test), asserting the printed summary line and post-call row count.
+
+## Addendum: the `notified_edge` bookkeeping table
+
+The implementation's own final whole-branch review found that this design,
+as originally written above, was unsafe: `notify-watchers`
+(`core/src/normly_core/notifications/detection.py`) used the `notification`
+table itself as its only memory of "has this account already been notified
+about this specific edge?" for the `NEW_EDITION`/`NATIONAL_ADOPTION` trigger
+types. Once `delete_read_before` could delete a read notification, the next
+`notify-watchers` run lost that memory and re-created the notification —
+re-sending the email under an `EMAIL`/`BOTH` preference — for a change that
+had already been handled, every retention period, for as long as the watch
+existed.
+
+The `RIGHTS_CHANGE` trigger type was never at risk: it already has its own
+dedicated bookkeeping table, `rights_notification_baseline`, kept
+deliberately separate from `notification` for exactly this reason. The fix
+applies the same separation to the two edge-triggered types: a new,
+permanent table `notified_edge` (`core/src/normly_core/graph/postgres/orm.py`,
+migration `0030_create_notified_edge.py`) records `(account_id, work_id,
+trigger_type, trigger_edge_id)` the moment a notification is created, and
+`notify-watchers` checks that table — not `notification` — before deciding
+whether an edge is new. `notified_edge` rows are never touched by
+`delete_read_before` or `cleanup-notifications`; they are deleted only when
+the owning account itself is deleted (`PostgresAccountRepository.delete_account`),
+the same lifecycle `rights_notification_baseline` already follows.
+
+With this in place, `delete_read_before`'s eligibility rule above is
+unchanged and now safe for every trigger type: deleting a read, aged-out
+notification can no longer cause a duplicate.
