@@ -160,3 +160,84 @@ def test_mark_read_only_succeeds_for_the_owning_account(db_session):
     assert repo.mark_read(notification.id, account_id=other.id, read_at=now) is False
     assert repo.mark_read(notification.id, account_id=owner.id, read_at=now) is True
     assert repo.list_for_account(owner.id)[0].read_at is not None
+
+
+def test_delete_read_before_only_removes_read_notifications_older_than_cutoff(db_session):
+    account = _make_account(db_session, "notif-cleanup@example.de")
+    work = _make_work(db_session)
+    repo = PostgresNotificationRepository(db_session)
+
+    old_read = repo.create(
+        account_id=account.id, work_id=work.id, trigger_type=NotificationTriggerType.NEW_EDITION,
+        trigger_edge_id=None, trigger_document_id=None, trigger_jurisdiction=None,
+        may_process=None, may_index_fulltext=None, may_cite_passages=None, may_export_free=None,
+        emailed_at=None,
+    )
+    new_read = repo.create(
+        account_id=account.id, work_id=work.id,
+        trigger_type=NotificationTriggerType.NATIONAL_ADOPTION,
+        trigger_edge_id=None, trigger_document_id=None, trigger_jurisdiction=None,
+        may_process=None, may_index_fulltext=None, may_cite_passages=None, may_export_free=None,
+        emailed_at=None,
+    )
+    old_unread = repo.create(
+        account_id=account.id, work_id=work.id, trigger_type=NotificationTriggerType.RIGHTS_CHANGE,
+        trigger_edge_id=None, trigger_document_id=None, trigger_jurisdiction=None,
+        may_process=None, may_index_fulltext=None, may_cite_passages=None, may_export_free=None,
+        emailed_at=None,
+    )
+
+    # created_at is server_default=func.now(), frozen for the whole
+    # transaction -- backdate explicitly, same technique as
+    # test_list_for_account_orders_newest_first above.
+    db_session.execute(
+        sa.update(NotificationORM)
+        .where(NotificationORM.id.in_([old_read.id, old_unread.id]))
+        .values(created_at=datetime(2020, 1, 1, tzinfo=timezone.utc))
+    )
+    db_session.flush()
+
+    now = datetime.now(timezone.utc)
+    repo.mark_read(old_read.id, account_id=account.id, read_at=now)
+    repo.mark_read(new_read.id, account_id=account.id, read_at=now)
+    # old_unread stays unread.
+
+    deleted_count = repo.delete_read_before(datetime(2025, 1, 1, tzinfo=timezone.utc))
+
+    assert deleted_count == 1
+    remaining_ids = {n.id for n in repo.list_for_account(account.id)}
+    assert remaining_ids == {new_read.id, old_unread.id}
+
+
+def test_delete_read_before_returns_the_number_of_rows_deleted(db_session):
+    account = _make_account(db_session, "notif-cleanup-count@example.de")
+    work = _make_work(db_session)
+    repo = PostgresNotificationRepository(db_session)
+
+    first = repo.create(
+        account_id=account.id, work_id=work.id, trigger_type=NotificationTriggerType.NEW_EDITION,
+        trigger_edge_id=None, trigger_document_id=None, trigger_jurisdiction=None,
+        may_process=None, may_index_fulltext=None, may_cite_passages=None, may_export_free=None,
+        emailed_at=None,
+    )
+    second = repo.create(
+        account_id=account.id, work_id=work.id,
+        trigger_type=NotificationTriggerType.NATIONAL_ADOPTION,
+        trigger_edge_id=None, trigger_document_id=None, trigger_jurisdiction=None,
+        may_process=None, may_index_fulltext=None, may_cite_passages=None, may_export_free=None,
+        emailed_at=None,
+    )
+    db_session.execute(
+        sa.update(NotificationORM)
+        .where(NotificationORM.id.in_([first.id, second.id]))
+        .values(created_at=datetime(2020, 1, 1, tzinfo=timezone.utc))
+    )
+    db_session.flush()
+    now = datetime.now(timezone.utc)
+    repo.mark_read(first.id, account_id=account.id, read_at=now)
+    repo.mark_read(second.id, account_id=account.id, read_at=now)
+
+    deleted_count = repo.delete_read_before(datetime(2025, 1, 1, tzinfo=timezone.utc))
+
+    assert deleted_count == 2
+    assert repo.list_for_account(account.id) == []

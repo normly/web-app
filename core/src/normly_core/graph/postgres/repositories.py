@@ -1002,6 +1002,19 @@ class PostgresNotificationRepository:
         )
         return result.rowcount > 0
 
+    def delete_read_before(self, cutoff: datetime) -> int:
+        # Only read notifications are ever eligible -- an account that hasn't
+        # logged in for months must not lose notifications it hasn't seen yet,
+        # regardless of age. Mirrors PostgresRateLimitRepository's
+        # delete_buckets_before opportunistic-cleanup idiom.
+        result = self._session.execute(
+            sa.delete(NotificationORM).where(
+                NotificationORM.read_at.is_not(None),
+                NotificationORM.created_at < cutoff,
+            )
+        )
+        return result.rowcount
+
 
 def _rights_to_domain(orm: RightsClassificationORM) -> RightsClassification:
     return RightsClassification(
