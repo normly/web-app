@@ -807,6 +807,35 @@ class RightsNotificationBaselineRepository(Protocol):
     ) -> RightsNotificationBaseline: ...
 
 
+class NotifiedEdgeRepository(Protocol):
+    """
+    Pure internal bookkeeping for the notify-watchers NEW_EDITION/
+    NATIONAL_ADOPTION dedup check. Deliberately separate from
+    NotificationRepository so cleanup-notifications' deletion of read
+    Notification rows never causes a re-notification -- a row here must
+    never be exposed via any HTTP-reachable method or joined into a
+    user-facing feed.
+    """
+
+    def has_been_notified(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        trigger_type: NotificationTriggerType,
+        trigger_edge_id: uuid.UUID,
+    ) -> bool: ...
+
+    def mark_notified(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        trigger_type: NotificationTriggerType,
+        trigger_edge_id: uuid.UUID,
+    ) -> None: ...
+
+
 class ContradictoryWorkMergeError(Exception):
     def __init__(self, source_work_id: uuid.UUID, target_work_id: uuid.UUID):
         self.source_work_id = source_work_id

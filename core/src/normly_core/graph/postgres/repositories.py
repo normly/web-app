@@ -71,6 +71,7 @@ from normly_core.graph.postgres.orm import (
     EdgeORM,
     EmbeddingORM,
     IdentityResolutionCaseORM,
+    NotifiedEdgeORM,
     NotificationORM,
     OAuthStateORM,
     RateLimitBucketORM,
@@ -1150,6 +1151,39 @@ class PostgresRightsNotificationBaselineRepository:
         merged = self._session.merge(orm)
         self._session.flush()
         return _rights_notification_baseline_to_domain(merged)
+
+
+class PostgresNotifiedEdgeRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def has_been_notified(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        trigger_type: NotificationTriggerType,
+        trigger_edge_id: uuid.UUID,
+    ) -> bool:
+        return self._session.get(
+            NotifiedEdgeORM, (account_id, work_id, trigger_type, trigger_edge_id)
+        ) is not None
+
+    def mark_notified(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        trigger_type: NotificationTriggerType,
+        trigger_edge_id: uuid.UUID,
+    ) -> None:
+        self._session.merge(
+            NotifiedEdgeORM(
+                account_id=account_id, work_id=work_id,
+                trigger_type=trigger_type, trigger_edge_id=trigger_edge_id,
+            )
+        )
+        self._session.flush()
 
 
 def _edge_to_domain(orm: EdgeORM) -> Edge:
