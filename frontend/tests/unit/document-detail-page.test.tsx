@@ -2,11 +2,42 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 normly contributors
 
+import * as React from "react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LocaleProvider } from "@/lib/i18n/provider";
 import { JurisdictionProvider } from "@/lib/jurisdiction/provider";
 import { DocumentDetailContent } from "@/app/documents/[id]/document-detail-content";
+import DocumentDetailPage from "@/app/documents/[id]/page";
+
+// Walks the React element tree returned by an (unrendered) Server Component
+// to find a specific element type -- used below to verify DocumentDetailPage
+// actually awaits its Promise-typed `params` (Next 16+) rather than reading
+// `params.id` off the Promise synchronously, which would silently produce
+// `documentId={undefined}` at runtime despite type-checking fine (see
+// task-2-report.md for why `tsc`/`next build` don't catch this).
+function findElementOfType(
+  node: React.ReactNode,
+  type: unknown,
+): React.ReactElement | null {
+  if (!React.isValidElement(node)) {
+    return null;
+  }
+  if (node.type === type) {
+    return node;
+  }
+  const children = (node.props as { children?: React.ReactNode }).children;
+  if (Array.isArray(children)) {
+    for (const child of children) {
+      const found = findElementOfType(child, type);
+      if (found) {
+        return found;
+      }
+    }
+    return null;
+  }
+  return findElementOfType(children, type);
+}
 
 const originalFetch = global.fetch;
 
@@ -364,5 +395,18 @@ describe("DocumentDetailContent", () => {
     expect(screen.getByTestId("watchlist-toggle")).toHaveAttribute(
       "aria-label", "Zur Watchlist hinzufügen",
     );
+  });
+});
+
+describe("DocumentDetailPage", () => {
+  it("awaits the async route params and passes the resolved id to DocumentDetailContent", async () => {
+    const element = await DocumentDetailPage({
+      params: Promise.resolve({ id: "abc" }),
+    });
+
+    const contentElement = findElementOfType(element, DocumentDetailContent);
+
+    expect(contentElement).not.toBeNull();
+    expect((contentElement!.props as { documentId: string }).documentId).toBe("abc");
   });
 });
