@@ -17,12 +17,20 @@ async function openProfileOverlay(page: import("@playwright/test").Page) {
 async function registerAndOpenAccountPage(page: import("@playwright/test").Page) {
   const email = `e2e-account-${Date.now()}@example.de`;
   await page.goto("/");
-  await page.getByRole("button", { name: "Anmelden" }).click();
-  await page.getByRole("tab", { name: "Registrieren" }).click();
+  await page.getByRole("link", { name: "Anmelden" }).click();
+  await page.getByRole("link", { name: "Registrieren" }).click();
+  // /login and /signup share identical "E-Mail-Adresse"/"Passwort" field
+  // labels -- during the client-side transition between them, the old
+  // page's matching fields can still be attached when getByLabel() below
+  // resolves, so it may fill the stale /login form instead of the new
+  // /signup one. Wait for the URL to actually settle on /signup first.
+  await expect(page).toHaveURL("http://localhost:3000/signup");
   await page.getByLabel("E-Mail-Adresse").fill(email);
   await page.getByLabel("Passwort").fill("correct horse battery staple");
   await page.getByRole("button", { name: "Konto erstellen" }).click();
-  await expect(page.getByRole("dialog")).not.toBeVisible();
+  // RegisterForm's onSuccess navigates to "/" (no dialog to close anymore --
+  // /login and /signup are full pages, not a modal).
+  await expect(page).toHaveURL("http://localhost:3000/");
 
   await openProfileOverlay(page);
   return email;
@@ -30,10 +38,6 @@ async function registerAndOpenAccountPage(page: import("@playwright/test").Page)
 
 test.describe("account management", () => {
   test("a user can set their name and it persists across a reload", async ({ page }) => {
-    // AppHeader only ever displays the account's email next to the avatar
-    // (Task 10) -- first/last name are surfaced nowhere but this form
-    // itself, so persistence-after-reload is the correct thing to assert
-    // here, not visible text elsewhere on the page.
     await registerAndOpenAccountPage(page);
 
     await page.getByLabel("Vorname").fill("Jamie");
@@ -41,9 +45,6 @@ test.describe("account management", () => {
     await page.getByRole("button", { name: "Speichern" }).click();
 
     await page.reload();
-    // The overlay is client-only React state, not persisted across a
-    // reload -- the dialog is closed after reload even though the
-    // session cookie (and therefore the account itself) survives it.
     await openProfileOverlay(page);
     await expect(page.getByLabel("Vorname")).toHaveValue("Jamie");
   });
@@ -55,12 +56,6 @@ test.describe("account management", () => {
         "53de0000000c49444154789c63f8cfc0000003010100c9fe92ef0000000049454e44ae426082",
       "hex",
     );
-
-    // The file input is a descendant of a <label>Bild hochladen<input .../></label>
-    // -- Playwright's getByLabel() resolves this to the <input> itself
-    // (wrapping counts as association, same as a for=/id= pair), which is
-    // the element setInputFiles() requires; getByText() would instead
-    // return the label and fail with "not an HTMLInputElement".
     await page.getByLabel("Bild hochladen").setInputFiles({
       name: "avatar.png", mimeType: "image/png", buffer: png1x1,
     });
@@ -74,11 +69,6 @@ test.describe("account management", () => {
     const email = await registerAndOpenAccountPage(page);
     await page.getByRole("button", { name: "Passwort" }).click();
 
-    // registerAndOpenAccountPage() registers with a password, so the
-    // account already has a password_hash -- password.py's set_password
-    // requires and verifies the current password whenever one is set
-    // (see accounts/tests/test_set_password.py), so it must be filled in
-    // here too, not just the new password.
     await page.getByLabel("Aktuelles Passwort").fill("correct horse battery staple");
     await page.getByLabel("Neues Passwort").fill("a brand new secret");
     await page.getByRole("button", { name: "Passwort ändern" }).click();
@@ -86,11 +76,11 @@ test.describe("account management", () => {
 
     await page.request.post("/api/auth/logout");
     await page.goto("/");
-    await page.getByRole("button", { name: "Anmelden" }).click();
+    await page.getByRole("link", { name: "Anmelden" }).click();
     await page.getByLabel("E-Mail-Adresse").fill(email);
     await page.getByLabel("Passwort").fill("a brand new secret");
     await page.getByRole("button", { name: "Anmelden" }).click();
-    await expect(page.getByRole("dialog")).not.toBeVisible();
+    await expect(page).toHaveURL("http://localhost:3000/");
   });
 
   test("the current session is listed and cannot be revoked from itself", async ({ page }) => {
@@ -125,11 +115,6 @@ test.describe("account management", () => {
     await page.getByLabel("Passwort zur Bestätigung").fill("correct horse battery staple");
     await deleteButton.click();
 
-    // DeleteAccountSection reloads the page on success (Task 14) -- the
-    // reload re-fetches /api/auth/session, which now finds the cookie
-    // cleared. AppShell's NavUser falls back to the login trigger, and the
-    // overlay itself is gone (client-only state, reset by the reload), so
-    // assert on the logged-out sidebar state rather than the overlay text.
-    await expect(page.getByRole("button", { name: "Anmelden" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Anmelden" })).toBeVisible();
   });
 });
