@@ -85,7 +85,13 @@ def real_client(db_url, migrated_engine, monkeypatch, email_sender):
     # fixture only for tests that specifically need to prove a write is
     # durable via an independent connection (see test_account_management.py
     # and test_set_password.py for examples) -- everything else should keep
-    # using the faster, transactionally-isolated `client` fixture.
+    # using the faster, transactionally-isolated `client` fixture. Rows
+    # written through this fixture are genuinely committed and are never
+    # rolled back afterwards (unlike `client`, which rolls back via a
+    # savepoint after every test), so they persist for the rest of the
+    # pytest session -- tests using this fixture must pick collision-proof
+    # test data (e.g. a distinctive email) rather than reusing a value
+    # another test might also use.
     monkeypatch.setenv("NORMLY_DATABASE_URL", db_url)
     from normly_accounts.dependencies import get_email_sender
     from normly_accounts.main import create_app
