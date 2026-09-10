@@ -1608,10 +1608,13 @@ def _segment_to_domain(orm: SegmentORM) -> Segment:
 # match is not close enough to feed into an LLM-synthesized answer
 # presented as fact -- an irrelevant passage there produces a
 # wrong-sounding confident answer, which is worse than "no results" (the
-# caller already has a fallback path for an empty result). Lower than the
-# document-search threshold since a wrong citation is more costly than a
-# low-ranked search hit. Starting point, not derived from real-corpus
-# measurement -- revisit once real query logs exist to tune against.
+# caller already has a fallback path for an empty result). Set
+# independently from the document-search threshold, not derived from it --
+# the two serve different retrieval shapes (whole-document embeddings vs.
+# short segment embeddings), and are not intended to be compared as
+# "stricter" or "looser" than one another. Starting point, not derived
+# from real-corpus measurement -- revisit once real query logs exist to
+# tune against.
 _CHAT_SEGMENT_MAX_COSINE_DISTANCE = 0.75
 
 
