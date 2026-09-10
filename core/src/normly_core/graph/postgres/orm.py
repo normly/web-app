@@ -626,8 +626,16 @@ class RightsNotificationBaselineORM(Base):
     may_index_fulltext: Mapped[bool]
     may_cite_passages: Mapped[bool]
     may_export_free: Mapped[bool]
+    # SQLAlchemy's session.merge() + flush() only emits an UPDATE when at
+    # least one column value actually differs from what's stored -- if every
+    # merged value equals the existing row, no UPDATE runs and onupdate never
+    # fires. So this reflects "the last time the rights values actually
+    # changed", not "the last time upsert_baseline was called". Both current
+    # callers in notifications/detection.py already rely on that: one path is
+    # a first-time insert, the other only calls upsert_baseline after a real
+    # difference was detected.
     updated_at: Mapped[datetime] = mapped_column(
-        sa.DateTime(timezone=True), server_default=sa.func.now()
+        sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now()
     )
 
 

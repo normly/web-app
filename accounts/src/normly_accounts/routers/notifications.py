@@ -58,5 +58,6 @@ def mark_notification_read(
     )
     if not updated:
         raise HTTPException(status_code=404, detail="notification not found")
+    session.commit()
     notifications = repo.list_for_account(account.id)
     return _notification_response(next(n for n in notifications if n.id == notification_id))

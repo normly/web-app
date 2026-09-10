@@ -101,6 +101,14 @@ class DocumentDesignation:
     issuer: str
     designation: str
     language: str
+    # If an adapter sets this, it MUST be a lexicographically-sortable
+    # string whose sort order matches real chronological order (e.g.
+    # ISO-8601 "YYYY-MM-DD", the only format any adapter emits today --
+    # see the DGUV adapter's _normalise_issue_date()). This field is
+    # compared with a plain `<` in
+    # PostgresDocumentRepository.find_previous_edition (repositories.py) --
+    # a non-sortable format there would silently produce a wrong result,
+    # not an error.
     edition: str | None
     is_primary: bool
     delivery_id: uuid.UUID

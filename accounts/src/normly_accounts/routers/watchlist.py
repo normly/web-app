@@ -36,6 +36,7 @@ def add_watch(
         )
     except IntegrityError:
         raise HTTPException(status_code=400, detail="work not found")
+    session.commit()
     return WatchlistEntryResponse(work_id=watch.work_id, created_at=watch.created_at)
 
 
@@ -45,6 +46,7 @@ def remove_watch(
     session: Session = Depends(get_session),
 ) -> dict:
     PostgresWatchlistRepository(session).remove_watch(account_id=account.id, work_id=work_id)
+    session.commit()
     return {"status": "removed"}
 
 

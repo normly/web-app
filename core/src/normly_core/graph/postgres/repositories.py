@@ -643,6 +643,20 @@ class PostgresDocumentRepository:
         # is already known) or same-transaction batches (where created_at
         # ties are common) must not produce an inverted or nondeterministic
         # REPLACES edge -- see the final-review finding this method fixes.
+        #
+        # ASSUMPTION this method relies on: `edition` strings are
+        # lexicographically sortable in an order that matches their real
+        # chronological order (a plain `<` comparison, below). This is true
+        # today only because the sole producer of this field, the DGUV
+        # adapter's _normalise_issue_date() (core/src/normly_core/pipeline/
+        # adapters/dguv.py), always emits ISO-8601 `YYYY-MM-DD` strings,
+        # where lexicographic and chronological order coincide. Neither
+        # eur_lex.py nor baua.py ever sets `edition`. A future adapter that
+        # sets `edition` in a different, non-ISO-8601-sortable format would
+        # silently break this method's correctness -- no error would be
+        # raised, `find_previous_edition` would simply return the wrong
+        # document as "the predecessor." See also the matching note on
+        # DocumentDesignation.edition in domain.py.
         orm = self._session.execute(
             select(DocumentORM)
             .join(

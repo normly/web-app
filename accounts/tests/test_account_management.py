@@ -5,6 +5,8 @@
 import uuid
 from datetime import datetime, timezone
 
+from sqlalchemy.orm import Session
+
 from normly_core.graph.domain import ChatMessageRole, NotificationTriggerType, WorkCreatedVia
 from normly_core.graph.postgres.repositories import (
     PostgresAccountRepository, PostgresChatRepository, PostgresNotificationRepository,
@@ -42,21 +44,30 @@ def test_deleting_a_password_account_with_the_correct_password_succeeds(client):
     assert session_check.status_code == 401
 
 
-def test_deleting_an_account_commits_before_the_response_is_returned(client, db_session):
-    headers = _register(client, email="commit-check@example.de", password="correct horse")
-    account_id = client.get("/v1/accounts/session", headers=headers).json()["account_id"]
+def test_deleting_an_account_commits_before_the_response_is_returned(real_client, migrated_engine):
+    """
+    Proves the deleted row is gone via a genuinely independent second
+    connection (migrated_engine.connect(), not db_session) -- NOT that the
+    commit happens before the response is sent. A TestClient call runs the
+    whole request lifecycle, including get_session()'s own deferred commit,
+    synchronously before this test function resumes -- there is no window
+    for a second connection to race the response. What this DOES prove:
+    the row is really durable in Postgres, not merely visible because the
+    test and the app happened to share one uncommitted Session (the bug in
+    the old version of this test).
+    """
+    headers = _register(real_client, email="commit-check-2@example.de", password="correct horse")
+    account_id = real_client.get("/v1/accounts/session", headers=headers).json()["account_id"]
 
-    response = client.request(
+    response = real_client.request(
         "DELETE", "/v1/accounts/me", json={"password": "correct horse"}, headers=headers,
     )
-
     assert response.status_code == 200
-    # By the time the endpoint has returned, the deletion must already be
-    # durable -- not merely pending in get_session()'s deferred commit at
-    # request-teardown. Query the row back through the repository (same
-    # session used by the request via dependency override) to confirm it is
-    # actually gone, not just that the endpoint reported success.
-    account = PostgresAccountRepository(db_session).get_account_by_id(uuid.UUID(account_id))
+
+    with migrated_engine.connect() as connection:
+        account = PostgresAccountRepository(Session(bind=connection)).get_account_by_id(
+            uuid.UUID(account_id)
+        )
     assert account is None
 
 

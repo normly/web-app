@@ -72,6 +72,7 @@ def request_magic_link(
         # is decoupled (no retry mechanism yet, tracked as an accepted open
         # point). Never log the token itself.
         logger.exception("magic link email delivery failed for %s", payload.email)
+    session.commit()
     return {"status": "if_the_request_is_valid_an_email_was_sent"}
 
 

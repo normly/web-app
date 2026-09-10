@@ -33,4 +33,5 @@ def set_password(
     PostgresAccountRepository(session).set_password_hash(
         account.id, hash_password(payload.new_password)
     )
+    session.commit()
     return {"status": "password_set"}
