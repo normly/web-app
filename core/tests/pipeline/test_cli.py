@@ -13,8 +13,15 @@ from normly_core.graph.domain import (
     Layer,
     LegalBasisCategory,
     NotificationPreference,
+    NotificationTriggerType,
+    WorkCreatedVia,
 )
-from normly_core.graph.postgres.orm import DocumentDesignationORM, SourceORM, WatchlistORM
+from normly_core.graph.postgres.orm import (
+    DocumentDesignationORM,
+    NotificationORM,
+    SourceORM,
+    WatchlistORM,
+)
 from normly_core.graph.postgres.repositories import (
     PostgresAccountRepository,
     PostgresDeliveryRepository,
@@ -23,6 +30,7 @@ from normly_core.graph.postgres.repositories import (
     PostgresNotificationRepository,
     PostgresSourceRepository,
     PostgresWatchlistRepository,
+    PostgresWorkRepository,
 )
 from normly_core.pipeline.cli import build_adapter, main
 
@@ -409,3 +417,34 @@ def test_main_notify_watchers_releases_the_lock_after_a_successful_run(
         )
     finally:
         connection.close()
+
+
+def test_cleanup_notifications_command_deletes_old_read_notifications(committed_db, capsys):
+    from sqlalchemy.orm import Session
+
+    with Session(committed_db) as session:
+        account = PostgresAccountRepository(session).create_account(
+            email="cli-notif-cleanup@example.de", password_hash=None,
+        )
+        work = PostgresWorkRepository(session).create_work(created_via=WorkCreatedVia.MANUAL)
+        repo = PostgresNotificationRepository(session)
+        old_read = repo.create(
+            account_id=account.id, work_id=work.id,
+            trigger_type=NotificationTriggerType.NEW_EDITION,
+            trigger_edge_id=None, trigger_document_id=None, trigger_jurisdiction=None,
+            may_process=None, may_index_fulltext=None, may_cite_passages=None,
+            may_export_free=None, emailed_at=None,
+        )
+        session.execute(
+            sa.update(NotificationORM)
+            .where(NotificationORM.id == old_read.id)
+            .values(created_at=datetime(2020, 1, 1, tzinfo=timezone.utc))
+        )
+        repo.mark_read(old_read.id, account_id=account.id, read_at=datetime.now(timezone.utc))
+        session.commit()
+
+    exit_code = main(["cleanup-notifications"])
+
+    assert exit_code == 0
+    output = capsys.readouterr().out
+    assert "notifications_deleted=1" in output
