@@ -11,11 +11,9 @@ test("the chat page has no automatically detectable WCAG 2.1 AA violations", asy
   expect(results.violations).toEqual([]);
 });
 
-test("the login dialog is keyboard-operable", async ({ page }) => {
+test("the Anmelden link is keyboard-operable", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Anmelden" }).focus();
+  await page.getByRole("link", { name: "Anmelden" }).focus();
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).not.toBeVisible();
+  await expect(page).toHaveURL("http://localhost:3000/login");
 });
