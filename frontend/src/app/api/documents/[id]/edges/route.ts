@@ -7,11 +7,12 @@ import { rateLimitHeaders } from "@/lib/rate-limit-headers";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
+  const { id } = await params;
   const jurisdiction = request.nextUrl.searchParams.get("jurisdiction") ?? "DE";
   const backendResponse = await fetch(
-    `${getBackendUrls().api}/v1/documents/${encodeURIComponent(params.id)}/edges` +
+    `${getBackendUrls().api}/v1/documents/${encodeURIComponent(id)}/edges` +
       `?jurisdiction=${encodeURIComponent(jurisdiction)}`,
     { headers: rateLimitHeaders(request) },
   );

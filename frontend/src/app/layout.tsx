@@ -23,27 +23,27 @@ export function generateMetadata(): Metadata {
   };
 }
 
-function resolveInitialLocale(): Locale {
-  const cookieLocale = cookies().get("normly_locale")?.value;
+async function resolveInitialLocale(): Promise<Locale> {
+  const cookieLocale = (await cookies()).get("normly_locale")?.value;
   if (cookieLocale === "de" || cookieLocale === "en") {
     return cookieLocale;
   }
-  const acceptLanguage = headers().get("accept-language") ?? "";
+  const acceptLanguage = (await headers()).get("accept-language") ?? "";
   return acceptLanguage.toLowerCase().startsWith("en") ? "en" : "de";
 }
 
-function resolveInitialJurisdiction(): Jurisdiction {
-  const cookieJurisdiction = cookies().get("normly_jurisdiction")?.value;
+async function resolveInitialJurisdiction(): Promise<Jurisdiction> {
+  const cookieJurisdiction = (await cookies()).get("normly_jurisdiction")?.value;
   if ((JURISDICTIONS as readonly string[]).includes(cookieJurisdiction ?? "")) {
     return cookieJurisdiction as Jurisdiction;
   }
   return "DE";
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const config = getInstanceConfig();
-  const initialLocale = resolveInitialLocale();
-  const initialJurisdiction = resolveInitialJurisdiction();
+  const initialLocale = await resolveInitialLocale();
+  const initialJurisdiction = await resolveInitialJurisdiction();
   return (
     <html
       lang={initialLocale}

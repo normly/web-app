@@ -20,7 +20,7 @@ describe("GET /api/documents/[id]/edges", () => {
     const request = new NextRequest(
       "http://localhost/api/documents/abc/edges?jurisdiction=DE",
     );
-    const response = await GET(request, { params: { id: "abc" } });
+    const response = await GET(request, { params: Promise.resolve({ id: "abc" }) });
 
     expect(response.status).toBe(200);
     const [url] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
@@ -34,7 +34,7 @@ describe("GET /api/documents/[id]/edges", () => {
     const request = new NextRequest(
       "http://localhost/api/documents/..%2F..%2Fadmin/edges?jurisdiction=DE",
     );
-    await GET(request, { params: { id: "../../admin" } });
+    await GET(request, { params: Promise.resolve({ id: "../../admin" }) });
 
     const [url] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(url).not.toContain("/../../admin/");
@@ -47,7 +47,7 @@ describe("GET /api/documents/[id]/edges", () => {
     const request = new NextRequest("http://localhost/api/documents/abc/edges", {
       headers: { cookie: "normly_anon_id=anon-123" },
     });
-    await GET(request, { params: { id: "abc" } });
+    await GET(request, { params: Promise.resolve({ id: "abc" }) });
 
     const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(init.headers["X-Normly-Anon-Id"]).toBe("anon-123");

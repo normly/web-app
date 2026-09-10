@@ -7,13 +7,18 @@ import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/page-header";
 import { DocumentDetailContent } from "./document-detail-content";
 
-export default function DocumentDetailPage({ params }: { params: { id: string } }) {
+export default async function DocumentDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
   const config = getInstanceConfig();
   return (
     <AppShell instanceName={config.instanceName} logoPath={config.logoPath}>
       <PageHeader titleKey="nav.documentDetailTitle" />
       <div className="mx-auto max-w-5xl p-4">
-        <DocumentDetailContent documentId={params.id} />
+        <DocumentDetailContent documentId={id} />
       </div>
     </AppShell>
   );
