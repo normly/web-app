@@ -967,24 +967,6 @@ class PostgresNotificationRepository:
         self._session.refresh(orm)
         return _notification_to_domain(orm)
 
-    def find_by_trigger_edge(
-        self,
-        *,
-        account_id: uuid.UUID,
-        work_id: uuid.UUID,
-        trigger_type: NotificationTriggerType,
-        trigger_edge_id: uuid.UUID,
-    ) -> Notification | None:
-        orm = self._session.execute(
-            select(NotificationORM).where(
-                NotificationORM.account_id == account_id,
-                NotificationORM.work_id == work_id,
-                NotificationORM.trigger_type == trigger_type,
-                NotificationORM.trigger_edge_id == trigger_edge_id,
-            )
-        ).scalar_one_or_none()
-        return _notification_to_domain(orm) if orm else None
-
     def list_for_account(self, account_id: uuid.UUID) -> list[Notification]:
         rows = self._session.execute(
             select(NotificationORM)
@@ -1006,8 +988,12 @@ class PostgresNotificationRepository:
     def delete_read_before(self, cutoff: datetime) -> int:
         # Only read notifications are ever eligible -- an account that hasn't
         # logged in for months must not lose notifications it hasn't seen yet,
-        # regardless of age. Mirrors PostgresRateLimitRepository's
-        # delete_buckets_before opportunistic-cleanup idiom.
+        # regardless of age. Same shape as PostgresRateLimitRepository's
+        # delete_buckets_before, though that one returns None and runs
+        # opportunistically per-request; this one returns a count and runs
+        # via the dedicated cleanup-notifications command instead. Safe to
+        # delete any trigger type: notify-watchers' own dedup no longer
+        # depends on Notification rows surviving (see notified_edge).
         result = self._session.execute(
             sa.delete(NotificationORM).where(
                 NotificationORM.read_at.is_not(None),

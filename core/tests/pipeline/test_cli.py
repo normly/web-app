@@ -448,3 +448,7 @@ def test_cleanup_notifications_command_deletes_old_read_notifications(committed_
     assert exit_code == 0
     output = capsys.readouterr().out
     assert "notifications_deleted=1" in output
+    with Session(committed_db) as session:
+        assert session.execute(
+            sa.select(sa.func.count()).select_from(NotificationORM)
+        ).scalar_one() == 0

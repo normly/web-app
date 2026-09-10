@@ -731,21 +731,6 @@ class NotificationRepository(Protocol):
         emailed_at: datetime | None,
     ) -> Notification: ...
 
-    def find_by_trigger_edge(
-        self,
-        *,
-        account_id: uuid.UUID,
-        work_id: uuid.UUID,
-        trigger_type: NotificationTriggerType,
-        trigger_edge_id: uuid.UUID,
-    ) -> Notification | None:
-        """
-        The NEW_EDITION/NATIONAL_ADOPTION dedup check: has this exact edge
-        already produced a notification for this account/work? The
-        notify-watchers job (Task 6) calls this before creating one.
-        """
-        ...
-
     def list_for_account(self, account_id: uuid.UUID) -> list[Notification]:
         """Newest first -- the shape the in-app feed renders directly."""
         ...

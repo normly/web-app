@@ -14,13 +14,14 @@ from normly_core.graph.domain import (
     TdmOptOutResult,
     WorkCreatedVia,
 )
-from normly_core.graph.postgres.orm import EdgeORM, WatchlistORM
+from normly_core.graph.postgres.orm import EdgeORM, NotificationORM, WatchlistORM
 from normly_core.graph.postgres.repositories import (
     PostgresAccountRepository,
     PostgresDeliveryRepository,
     PostgresDocumentRepository,
     PostgresEdgeRepository,
     PostgresNotificationRepository,
+    PostgresNotifiedEdgeRepository,
     PostgresRightsNotificationBaselineRepository,
     PostgresRightsRepository,
     PostgresSourceRepository,
@@ -347,6 +348,64 @@ def test_edge_created_before_the_watch_is_skipped_as_history(db_session):
 
     assert summary.notifications_created == 0
     assert PostgresNotificationRepository(db_session).list_for_account(account.id) == []
+
+
+def test_deleting_a_read_notification_does_not_cause_a_duplicate_on_the_next_run(db_session):
+    # Regression test for the bug the final review of the notification-
+    # cleanup branch found: before notified_edge existed, the Notification
+    # row itself was the only dedup marker for NEW_EDITION/NATIONAL_ADOPTION.
+    # Once cleanup-notifications could delete a read Notification row, the
+    # next notify-watchers run had no memory that the edge was already
+    # handled -- it recreated the notification and, under EMAIL/BOTH,
+    # re-sent the email. This proves that no longer happens.
+    source = _make_source(db_session)
+    delivery = _make_delivery(db_session, source.id, "no-duplicate-after-cleanup")
+    doc_repo = PostgresDocumentRepository(db_session)
+    old = doc_repo.create_document(
+        origin_issuer="DGUV", origin_number="1", edition="2020", part=None,
+        delivery_id=delivery.id,
+    )
+    new = doc_repo.create_document(
+        origin_issuer="DGUV", origin_number="1", edition="2026", part=None,
+        delivery_id=delivery.id, work_id=old.work_id,
+    )
+    PostgresEdgeRepository(db_session).create_edge(
+        from_document_id=new.id, to_document_id=old.id, edge_type=EdgeType.REPLACES,
+        jurisdiction=None, layer=Layer.FREE, delivery_id=delivery.id,
+    )
+    account = PostgresAccountRepository(db_session).create_account(
+        email="watcher-no-dup@example.de", password_hash=None
+    )
+    PostgresAccountRepository(db_session).update_notification_preference(
+        account.id, preference=NotificationPreference.IN_APP
+    )
+    watch = PostgresWatchlistRepository(db_session).add_watch(
+        account_id=account.id, work_id=old.work_id
+    )
+    _set_created_at(db_session, WatchlistORM, watch.id, _BEFORE)
+
+    sender = RecordingEmailSender()
+    first_run = run_notify_watchers(db_session, sender)
+    assert first_run.notifications_created == 1
+
+    notification_repo = PostgresNotificationRepository(db_session)
+    created = notification_repo.list_for_account(account.id)[0]
+    # delete_read_before compares against created_at, which defaults to the
+    # transaction's frozen now() -- today's real date, not the fictional
+    # _BEFORE/_AFTER timeline the rest of this test uses. Backdate it
+    # explicitly so it is unambiguously older than the _AFTER cutoff, same
+    # technique as test_notification_repository.py's delete_read_before
+    # tests and _set_created_at above.
+    _set_created_at(db_session, NotificationORM, created.id, _BEFORE)
+    notification_repo.mark_read(created.id, account_id=account.id, read_at=_AFTER)
+    deleted_count = notification_repo.delete_read_before(_AFTER)
+    assert deleted_count == 1
+    assert notification_repo.list_for_account(account.id) == []
+
+    second_run = run_notify_watchers(db_session, sender)
+
+    assert second_run.notifications_created == 0
+    assert notification_repo.list_for_account(account.id) == []
 
 
 def test_edge_created_after_the_watch_produces_a_notification(db_session):

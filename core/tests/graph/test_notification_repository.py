@@ -58,45 +58,6 @@ def _make_edge(db_session, from_document_id, to_document_id, delivery_id):
     )
 
 
-def test_create_and_find_by_trigger_edge(db_session):
-    account = _make_account(db_session, "notif-edge@example.de")
-    work = _make_work(db_session)
-    delivery = _make_delivery(db_session, content_hash="sha256:notif-edge-fixture")
-    from_doc = _make_document(db_session, delivery.id)
-    to_doc = _make_document(db_session, delivery.id)
-    edge = _make_edge(db_session, from_doc.id, to_doc.id, delivery.id)
-    repo = PostgresNotificationRepository(db_session)
-
-    created = repo.create(
-        account_id=account.id, work_id=work.id, trigger_type=NotificationTriggerType.NEW_EDITION,
-        trigger_edge_id=edge.id, trigger_document_id=None, trigger_jurisdiction=None,
-        may_process=None, may_index_fulltext=None, may_cite_passages=None, may_export_free=None,
-        emailed_at=None,
-    )
-    found = repo.find_by_trigger_edge(
-        account_id=account.id, work_id=work.id, trigger_type=NotificationTriggerType.NEW_EDITION,
-        trigger_edge_id=edge.id,
-    )
-    assert found is not None
-    assert found.id == created.id
-    assert found.read_at is None
-
-
-def test_find_by_trigger_edge_returns_none_when_absent(db_session):
-    account = _make_account(db_session, "notif-absent@example.de")
-    work = _make_work(db_session)
-    delivery = _make_delivery(db_session, content_hash="sha256:notif-absent-fixture")
-    from_doc = _make_document(db_session, delivery.id)
-    to_doc = _make_document(db_session, delivery.id)
-    edge = _make_edge(db_session, from_doc.id, to_doc.id, delivery.id)
-    repo = PostgresNotificationRepository(db_session)
-
-    assert repo.find_by_trigger_edge(
-        account_id=account.id, work_id=work.id, trigger_type=NotificationTriggerType.NEW_EDITION,
-        trigger_edge_id=edge.id,
-    ) is None
-
-
 def test_list_for_account_orders_newest_first(db_session):
     account = _make_account(db_session, "notif-list@example.de")
     work = _make_work(db_session)
