@@ -377,7 +377,7 @@ def test_deleting_a_read_notification_does_not_cause_a_duplicate_on_the_next_run
         email="watcher-no-dup@example.de", password_hash=None
     )
     PostgresAccountRepository(db_session).update_notification_preference(
-        account.id, preference=NotificationPreference.IN_APP
+        account.id, preference=NotificationPreference.BOTH
     )
     watch = PostgresWatchlistRepository(db_session).add_watch(
         account_id=account.id, work_id=old.work_id
@@ -387,6 +387,7 @@ def test_deleting_a_read_notification_does_not_cause_a_duplicate_on_the_next_run
     sender = RecordingEmailSender()
     first_run = run_notify_watchers(db_session, sender)
     assert first_run.notifications_created == 1
+    assert len(sender.sent) == 1
 
     notification_repo = PostgresNotificationRepository(db_session)
     created = notification_repo.list_for_account(account.id)[0]
@@ -406,6 +407,7 @@ def test_deleting_a_read_notification_does_not_cause_a_duplicate_on_the_next_run
 
     assert second_run.notifications_created == 0
     assert notification_repo.list_for_account(account.id) == []
+    assert len(sender.sent) == 1  # unchanged from after first_run -- no re-send
 
 
 def test_edge_created_after_the_watch_produces_a_notification(db_session):

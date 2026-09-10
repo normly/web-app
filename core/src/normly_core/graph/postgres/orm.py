@@ -598,6 +598,13 @@ class NotificationORM(Base):
             "account_id", "work_id", "trigger_type", "trigger_edge_id",
             name="uq_notification_account_work_trigger_edge",
         ),
+        # The retention cleanup (delete_read_before) filters on created_at,
+        # via the cleanup-notifications command. Matches the index the
+        # 0030 migration already creates -- this just keeps the ORM's own
+        # metadata in agreement with it so a future autogenerate diff
+        # doesn't propose dropping it. Same pattern as
+        # RateLimitBucketORM.__table_args__'s ix_rate_limit_bucket_window_start.
+        sa.Index("ix_notification_created_at", "created_at"),
     )
 
 

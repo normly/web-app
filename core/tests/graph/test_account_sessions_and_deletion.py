@@ -7,6 +7,8 @@ from datetime import datetime, timedelta, timezone
 from normly_core.graph.domain import (
     AccountTokenPurpose,
     ChatMessageRole,
+    EdgeType,
+    Layer,
     LegalBasisCategory,
     NotificationTriggerType,
     WorkCreatedVia,
@@ -19,6 +21,8 @@ from normly_core.graph.postgres.repositories import (
     PostgresChatRepository,
     PostgresDeliveryRepository,
     PostgresDocumentRepository,
+    PostgresEdgeRepository,
+    PostgresNotifiedEdgeRepository,
     PostgresRightsNotificationBaselineRepository,
     PostgresSourceRepository,
     PostgresWorkRepository,
@@ -149,6 +153,15 @@ def test_delete_account_removes_watchlist_and_notification_rows(db_session):
         origin_issuer="Test", origin_number="TST-DEL", edition="2026", part=None,
         delivery_id=delivery.id,
     )
+    other_document = PostgresDocumentRepository(db_session).create_document(
+        origin_issuer="Test", origin_number="TST-DEL-2", edition="2026", part=None,
+        delivery_id=delivery.id,
+    )
+    edge = PostgresEdgeRepository(db_session).create_edge(
+        from_document_id=other_document.id, to_document_id=document.id,
+        edge_type=EdgeType.REPLACES, jurisdiction=None, layer=Layer.FREE,
+        delivery_id=delivery.id,
+    )
     PostgresRightsNotificationBaselineRepository(db_session).upsert_baseline(
         account_id=account.id, work_id=work.id, trigger_document_id=document.id,
         trigger_jurisdiction="DE", may_process=True, may_index_fulltext=True,
@@ -172,6 +185,16 @@ def test_delete_account_removes_watchlist_and_notification_rows(db_session):
             read_at=None,
             emailed_at=None,
         )
+    )
+    db_session.flush()
+
+    # notified_edge is the fourth account-referencing bookkeeping table, and
+    # the same class of bug applies: its FK to account also declares no ON
+    # DELETE, so a delete_account that forgets it fails with an
+    # IntegrityError too.
+    PostgresNotifiedEdgeRepository(db_session).mark_notified(
+        account_id=account.id, work_id=work.id,
+        trigger_type=NotificationTriggerType.NEW_EDITION, trigger_edge_id=edge.id,
     )
     db_session.flush()
 

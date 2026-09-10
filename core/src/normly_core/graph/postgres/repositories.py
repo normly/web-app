@@ -2099,6 +2099,9 @@ class PostgresAccountRepository:
             )
         )
         self._session.execute(
+            sa.delete(NotifiedEdgeORM).where(NotifiedEdgeORM.account_id == account_id)
+        )
+        self._session.execute(
             sa.delete(WatchlistORM).where(WatchlistORM.account_id == account_id)
         )
         self._session.execute(sa.delete(AccountORM).where(AccountORM.id == account_id))

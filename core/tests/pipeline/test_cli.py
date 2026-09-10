@@ -45,6 +45,7 @@ _WRITTEN_TABLES = (
     "embedding",
     "segment",
     "notification",
+    "notified_edge",
     "watchlist",
     "edge",
     "rights_classification",
