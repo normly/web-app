@@ -82,8 +82,29 @@ bereits eine session-weite, rohe `migrated_engine`-Fixture (ein echtes
 gebaut gegen einen echten Postgres-Testcontainer. `core/tests/pipeline/test_cli.py`s
 `committed_db`-Fixture zeigt bereits das richtige Muster im Repo: den echten
 Code committen lassen, dann über eine **zweite, unabhängige** Verbindung
-zurücklesen — Postgres' echte Sichtbarkeitsregeln über getrennte
-Verbindungen hinweg beweisen dann tatsächlich, ob committed wurde.
+zurücklesen.
+
+**Wichtige Korrektur gegenüber der ursprünglichen Fassung dieser Spec**: Ein
+`TestClient`-Aufruf führt den kompletten Request-Zyklus — inklusive
+`get_session()`s eigenem, verzögertem `session.commit()` beim
+Dependency-Teardown — **synchron ab, bevor die Testfunktion weiterläuft**.
+Es gibt innerhalb eines einzelnen `TestClient`-Aufrufs kein Zeitfenster, in
+dem eine zweite Verbindung zwischen "Response gesendet" und "Commit
+ausgeführt" dazwischenfunken könnte — das echte Produktions-Race brauchte
+einen echten laufenden Server mit zwei parallelen HTTP-Verbindungen. Ein
+"zweite Verbindung, kein Override"-Test kann diese Race-Eigenschaft also
+**nicht** beweisen, und würde identisch bestehen, ob Punkt 1's Fix
+angewendet wurde oder nicht.
+
+**Was der Test stattdessen beweist, ehrlich umgedeutet (User-Entscheidung)**:
+nicht "Commit passiert vor der Response", sondern "der Schreibvorgang landet
+wirklich durable in der echten Datenbank, sichtbar über eine wirklich
+unabhängige zweite Verbindung" — eine schwächere, aber immer noch echte und
+wertvolle Garantie. Sie ist strikt besser als der aktuelle kaputte Test (der
+bestünde sogar, wenn `commit()` nirgendwo je aufgerufen würde, weil Test und
+App dieselbe Session teilen) und schützt real gegen z. B. eine künftige
+Änderung, die `get_session()`s eigenen Teardown-Commit kaputt macht oder
+einen Endpunkt versehentlich über eine nie committende Session laufen lässt.
 
 Fix-Design:
 - Eine neue Fixture in `accounts/tests/conftest.py`, die einen `TestClient`
@@ -101,10 +122,10 @@ Fix-Design:
   kaskadierend, und die Passwort-Änderung hinterlässt nur den erwarteten
   geänderten Zustand des ohnehin für den Test erstellten Kontos, kein Leck
   in andere Tests.
-- Die übrigen 15 Endpunkt-Fixes bekommen KEINEN eigenen neuen
+- Die übrigen 16 der 17 Endpunkt-Fixes bekommen KEINEN eigenen neuen
   "zweite Verbindung"-Test — sie werden durch ihre bestehende funktionale
   Testsuite (unverändertes Verhalten, nur anderer Commit-Zeitpunkt) und durch
-  Code-Review abgedeckt, nicht durch 15 weitere aufwendige Durability-Tests.
+  Code-Review abgedeckt, nicht durch 16 weitere aufwendige Durability-Tests.
 
 ## Zwei kleine, unabhängige Datenfixe (Punkt 4 und 5 dieses Specs)
 
@@ -134,8 +155,10 @@ Anwendungsverhalten beim UPDATE).
   betroffenen Endpunkts laufen unverändert durch (Verhalten ändert sich
   nicht sichtbar).
 - Zwei neue "echte zweite Verbindung"-Tests (Kontolöschung — Ersatz für den
-  bestehenden, unwirksamen Test; Passwort-Änderung — neu) beweisen den
-  Commit-Zeitpunkt tatsächlich.
+  bestehenden, unwirksamen Test; Passwort-Änderung — neu) beweisen echte
+  Durability über eine unabhängige Verbindung (nicht die ursprüngliche
+  Timing-Race-Eigenschaft, die nur ein Live-Server-Setup zeigen könnte —
+  siehe Korrektur oben).
 - Der Edition-Docstring-Fix: keine neue Testpflicht (reine Dokumentation),
   aber die bestehende Testsuite für `find_previous_edition` muss weiter
   grün bleiben.
