@@ -5,7 +5,7 @@
 /.next/
 /out/
 
-# Production build (standalone output, see next.config.mjs)
+# Production build (standalone output, see next.config.ts)
 /build
 
 # Testing
