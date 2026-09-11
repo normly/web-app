@@ -632,6 +632,41 @@ Pflegeaufwand-Problem nicht, verzögert die Entscheidung nur).
 
 ---
 
+## ADR-020 — Dokumentation auf Englisch statt Deutsch
+
+**Status:** beschlossen
+
+**Entscheidung:** Neue Dokumentation (`docs/`-Inhalte, Code-Referenz,
+Guides) wird ab sofort auf Englisch verfasst statt auf Deutsch. Nicht
+rückwirkend — bestehender deutscher Content (README.md, `docs/adr/`,
+`docs/srs/`, `CONTRIBUTING.md`, `SECURITY.md`, `GOVERNANCE.md`,
+`TRADEMARK.md`, `CODE_OF_CONDUCT.md`) wird nicht migriert; das ist ein
+eigenes, späteres Projekt.
+
+**Begründung:** Englisch ist der De-facto-Standard für
+Open-Source-Dokumentation. Er ermöglicht internationalen Beitragenden
+Teilnahme, unabhängig vom deutschsprachigen Kernteam — passend zum
+Open-Core-Modell (ADR-001) und dem Anspruch, dass der freie Kern von
+außen mitgetragen werden kann. Die ursprüngliche Regel (Dokumentation auf
+Deutsch) stand dem im Weg.
+
+**Nicht betroffen:** Code, Bezeichner und Commits waren schon vorher
+Englisch (unverändert). Die App-eigene Sprachumschaltung
+(`LocaleProvider`, Deutsch/Englisch für Endnutzer) ist eine
+Laufzeit-Funktion, keine Projektdokumentation, und bleibt unverändert.
+Die Fachbegriffs-Ausnahme für Normenwesen-Begriffe ohne etablierte
+englische Entsprechung (z. B. `Normenausschuss`) gilt unabhängig von der
+Sprache weiter.
+
+**Konsequenz:** CLAUDE.md's Abschnitt „Sprache" ist entsprechend
+angepasst. Der bereits offene, noch nicht gemergte Merge Request für die
+Zensical-Dokumentations-Site
+(`docs/superpowers/plans/2026-09-11-zensical-documentation-site.md`)
+wird vor dem Merge auf Englisch umgeschrieben, da er als „ab jetzt"
+zählt.
+
+---
+
 ## Offene Punkte
 
 | Thema | Status | Nächster Schritt |

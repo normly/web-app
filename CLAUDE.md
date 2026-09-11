@@ -120,10 +120,18 @@ Von Anfang an weltweit gedacht — nachträglicher Umbau ist die teuerste Altlas
 
 ## Sprache
 
-Code, Bezeichner und Commits auf Englisch. Fachbegriffe aus dem Normenwesen
-behalten ihren deutschen Begriff, wo es keine etablierte Entsprechung gibt
-(z. B. `Normenausschuss`). Dokumentation und Nutzeroberfläche auf Deutsch,
-Mehrsprachigkeit vorgesehen.
+Code, Bezeichner und Commits auf Englisch. **Dokumentation ebenfalls auf
+Englisch** (`docs/`-Inhalte, Code-Referenz, Guides) — internationale
+Reichweite hat Vorrang. Fachbegriffe aus dem Normenwesen behalten ihren
+deutschen Begriff, wo es keine etablierte Entsprechung gibt (z. B.
+`Normenausschuss`), unabhängig von der Sprache der umgebenden Doku. Diese
+Datei (CLAUDE.md) bleibt auf Deutsch. Die App-eigene Sprachumschaltung
+(Deutsch/Englisch für Endnutzer) ist davon unberührt. → ADR-020
+
+Nicht rückwirkend: bestehender deutscher Content (README.md, docs/adr/,
+docs/srs/, CONTRIBUTING.md, SECURITY.md, GOVERNANCE.md, TRADEMARK.md,
+CODE_OF_CONDUCT.md) bleibt vorerst unverändert — Migration ist ein
+eigenes, späteres Projekt.
 
 ## Weitere Repository-Dateien
 
