@@ -22,6 +22,7 @@ nav = [
     "reference/accounts.md",
     "reference/chat.md",
   ] },
+  { "Glossary" = "glossary.md" },
 ]
 
 [project.theme]
