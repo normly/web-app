@@ -771,12 +771,18 @@ pattern as the existing jobs (`test-accounts`, `test-api`, `test-chat`,
           git fetch -q --depth=1 origin "$GITHUB_SHA"
           git checkout -q FETCH_HEAD
       - run: apt-get update && apt-get install -y --no-install-recommends libgl1 && rm -rf /var/lib/apt/lists/*
-      - run: pip install -e core -e api -e accounts -e chat "zensical==0.0.60"
+      - run: pip install -e core -e api -e accounts -e chat "zensical==0.0.60" "mkdocstrings[python]"
       - run: zensical build
 ```
 
 No `--strict` — see Task 6 Step 3 for why (3 pre-existing, unfixable-in-scope
 wiki-link warnings in `docs/superpowers/specs/`).
+
+`"mkdocstrings[python]"` is required in addition to `zensical` itself —
+Task 5 discovered Task 1's original venv setup never installed it, and the
+build fails outright ("mkdocstrings plugin is enabled, but mkdocstrings is
+not installed") without it. This CI command already includes the fix;
+don't drop it.
 
 `0.0.60` was the latest release on PyPI as of 2026-09-11 (`pip index versions
 zensical`) — Zensical is pre-1.0 and moves fast, so reconcile this against
@@ -801,7 +807,7 @@ deactivate 2>/dev/null
 rm -rf /tmp/normly-docs-ci-check && mkdir /tmp/normly-docs-ci-check
 python3 -m venv /tmp/normly-docs-ci-check/venv
 source /tmp/normly-docs-ci-check/venv/bin/activate
-pip install -e core -e api -e accounts -e chat "zensical==0.0.60"  # match Task 1's actual version if different
+pip install -e core -e api -e accounts -e chat "zensical==0.0.60" "mkdocstrings[python]"  # match Task 1's actual version if different
 zensical build
 echo "exit code: $?"
 deactivate
