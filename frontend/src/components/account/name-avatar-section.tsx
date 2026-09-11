@@ -12,10 +12,12 @@ import { useTranslation } from "@/lib/i18n/provider";
 import type { AccountSummary } from "@/lib/account-response";
 
 export function NameAvatarSection({
-  account, onAccountUpdated,
+  account, onAccountUpdated, avatarVersion, onAvatarChange,
 }: {
   account: AccountSummary;
   onAccountUpdated: (account: AccountSummary) => void;
+  avatarVersion: number;
+  onAvatarChange: () => void;
 }) {
   const { t } = useTranslation();
   const [firstName, setFirstName] = React.useState(account.firstName ?? "");
@@ -58,6 +60,7 @@ export function NameAvatarSection({
       if (response.ok) {
         setAvatarStatus("idle");
         onAccountUpdated(await response.json());
+        onAvatarChange();
       } else {
         setAvatarStatus("error");
       }
@@ -76,6 +79,7 @@ export function NameAvatarSection({
       if (response.ok) {
         setAvatarStatus("idle");
         onAccountUpdated(await response.json());
+        onAvatarChange();
       } else {
         setAvatarStatus("error");
       }
@@ -91,7 +95,7 @@ export function NameAvatarSection({
       <h2 className="text-lg font-semibold">{t("account.nameAvatarTitle")}</h2>
       <div className="flex items-center gap-4">
         <Avatar
-          avatarDataUrl={account.avatarDataUrl} firstName={account.firstName}
+          key={avatarVersion} avatarVersion={avatarVersion} firstName={account.firstName}
           lastName={account.lastName} email={account.email} size={64}
         />
         <div className="flex flex-col gap-2">
@@ -102,7 +106,7 @@ export function NameAvatarSection({
               onChange={uploadAvatar} disabled={isUpdatingAvatar}
             />
           </label>
-          {account.avatarDataUrl && (
+          {account.hasAvatar && (
             <button
               type="button" className="text-sm text-destructive underline"
               onClick={removeAvatar} disabled={isUpdatingAvatar}
