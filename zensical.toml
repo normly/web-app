@@ -1,6 +1,6 @@
 [project]
 site_name = "normly"
-site_description = "Standards knowledge, structured as a graph."
+site_description = "Standards and regulations knowledge, structured as a graph."
 site_author = "normly contributors"
 docs_dir = "docs"
 

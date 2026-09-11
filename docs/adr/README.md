@@ -641,7 +641,10 @@ Guides) wird ab sofort auf Englisch verfasst statt auf Deutsch. Nicht
 rückwirkend — bestehender deutscher Content (README.md, `docs/adr/`,
 `docs/srs/`, `CONTRIBUTING.md`, `SECURITY.md`, `GOVERNANCE.md`,
 `TRADEMARK.md`, `CODE_OF_CONDUCT.md`) wird nicht migriert; das ist ein
-eigenes, späteres Projekt.
+eigenes, späteres Projekt. `docs/superpowers/` fällt nicht unter diese
+Regel — die Specs, Pläne und Ledger dort sind Arbeitsdokumente des
+KI-gestützten Entwicklungsprozesses, keine Dokumentation für Leser von
+außen, und bleiben wie CLAUDE.md auf Deutsch.
 
 **Begründung:** Englisch ist der De-facto-Standard für
 Open-Source-Dokumentation. Er ermöglicht internationalen Beitragenden

@@ -15,7 +15,7 @@ established English equivalent.
 : A regulation as a language-independent node in the reference graph. DIN
   EN ISO 9001 and BS EN ISO 9001 are the same Work; national adoptions and
   translations are relationships or attributes, not separate Works. See
-  the "Identifiers" section in `CLAUDE.md`.
+  the "Identifikatoren" section in `CLAUDE.md`.
 
 **Trägerorganisation**
 : Holds the brand, open data, and source code; responsible for the free

@@ -104,7 +104,7 @@ jetzt", nicht als Bestandsschutz. Betroffene Dateien (Branch
 | `docs/guide/self-hosting.md` | Übersetzen, ADR-010-Link-Ziel bleibt unverändert (verlinkt weiterhin die deutsche ADR-Seite — das ist in Ordnung, ADR-Migration ist nicht Teil dieser Spec). |
 | `docs/concepts/normen-graph.md` | Übersetzen. |
 | `docs/concepts/lizenzmodell.md` | Übersetzen, inkl. der Kategorien-Tabelle (A–D) und des neuen ADR-014-Absatzes. |
-| `docs/glossary.md` | Übersetzen — der **Titel bleibt „Glossar"→"Glossary"**, aber Fachbegriffe wie `Normenausschuss`, `Referenzgraph` (letzteres hat keine etablierte englische Entsprechung im Projekt, bleibt als Terminus erhalten mit englischer Erklärung) folgen der Fachbegriffs-Ausnahme aus CLAUDE.md. |
+| `docs/glossary.md` | Übersetzen — der **Titel bleibt „Glossar"→"Glossary"**; Fachbegriffe ohne etablierte englische Entsprechung wie `Normenausschuss` folgen der Fachbegriffs-Ausnahme aus CLAUDE.md. `Referenzgraph` fällt **nicht** darunter — der Begriff hat mit „Reference graph" bereits eine etablierte englische Entsprechung, die auf den übrigen Seiten der Site (`index.md`, `normen-graph.md`, `lizenzmodell.md`) durchgängig verwendet wird, und wird entsprechend übersetzt statt als Terminus erhalten zu bleiben. |
 | `docs/reference/*.md` | **Keine Änderung** — bereits Englisch (`# normly-core`, `Reference graph data model...`, `::: normly_core`). |
 
 Nach der Übersetzung: Build erneut verifizieren (`zensical build`, die

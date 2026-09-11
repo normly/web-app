@@ -25,6 +25,10 @@ standard.
 - **[Code reference](reference/core.md)** — generated automatically from
   docstrings, for contributors
 
+Architecture decisions and Requirements are currently German-only; the
+rest of the site is in English, and full translation is tracked
+separately.
+
 ## Licenses
 
 | Component | License |
