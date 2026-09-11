@@ -48,8 +48,8 @@ Platzhalter — dieses Projekt löst diese Platzhalter ein.
    `accounts`, `chat` generiert — eine Seite pro Package, wie im alten
    Branch.
 5. Ein neuer CI-Job (`test-docs` in `.forgejo/workflows/ci.yml`), der die
-   Site im Strict-Modus baut, damit kaputte Querverweise oder fehlende
-   Docstring-Ziele den Job fehlschlagen lassen statt unbemerkt zu bleiben.
+   Site baut. **Nachtrag aus der Umsetzung:** `--strict` musste wieder
+   verworfen werden — siehe „Warum kein `--strict`" weiter unten.
 6. Ein als Entwurf markierter, nicht in CI eingebundener Dockerfile-Vorschlag
    als Anhang dieser Spec, für ein späteres eigenständiges
    Container/Deployment-Teilprojekt.
@@ -172,25 +172,55 @@ test-docs:
         # (Checkout wie in den anderen Jobs)
     - run: apt-get update && apt-get install -y --no-install-recommends libgl1 && rm -rf /var/lib/apt/lists/*
     - run: pip install -e core -e api -e accounts -e chat zensical
-    - run: zensical build --strict
+    - run: zensical build
 ```
 
 `libgl1` wird gebraucht, weil das Importieren von `normly_core` Docling
-mitzieht (siehe `test-core`-Job). `--strict` lässt den Job fehlschlagen bei
-kaputten internen Links, fehlenden Docstring-Zielen oder Warnungen — Doku-
-Rot fällt so beim nächsten PR auf, nicht erst wenn jemand die Site liest.
+mitzieht (siehe `test-core`-Job).
 
-Paketname (`pip install zensical`) und Befehl (`zensical build --strict`)
-sind recherchiert (siehe [zensical.org/docs/get-started](https://zensical.org/docs/get-started/)),
+Paketname (`pip install zensical`) und Befehl (`zensical build`) sind
+recherchiert (siehe [zensical.org/docs/get-started](https://zensical.org/docs/get-started/)),
 aber nicht in diesem Repo getestet — die erste Implementierungsaufgabe
 verifiziert das gegen die dann aktuelle Zensical-Version, bevor der Rest
 des Projekts darauf aufbaut.
 
+### Warum kein `--strict`
+
+Ursprünglich vorgesehen, damit kaputte interne Links und fehlende
+Docstring-Ziele den CI-Job fehlschlagen lassen statt unbemerkt zu bleiben.
+In der Umsetzung (Task 5/6) zeigte sich: `--strict` bricht mit einem
+unbehandelten Python-Traceback ab, sobald irgendeine Datei unter `docs_dir`
+eine Warnung erzeugt — auch Dateien, die nie in `nav` stehen (Zensical baut
+laut eigener Kompatibilitätsliste ohnehin alles unter `docs_dir`, siehe
+oben). Zwei Ursachen wurden gefunden und einzeln beurteilt:
+
+- **33 echte, kaputte Anker in `docs/srs/README.md`** (deutsche Umlaute im
+  Anker-Fragment, die Zensicals Slugifizierung entfernt — z. B. erzeugt die
+  Überschrift „…WCAG-Konformität" die ID `...wcag-konformitat`, nicht
+  `...wcag-konformität`). Das war ein echter, vorbestehender Bug im
+  Requirements-Index, unabhängig von diesem Projekt — behoben in einem
+  eigenen Commit (`fix(srs): strip diacritics from requirement anchor
+  links`), 32 gezielte Ersetzungen, Titel/Text unangetastet.
+- **3 unlösbare Fehlalarme in `docs/superpowers/specs/*.md`** — diese
+  Dateien nutzen `[[repo/pfad.md]]`-Wikilink-Notation für lose Querverweise
+  zwischen Planungsdokumenten (dieselbe Konvention wie im Memory-System),
+  nie als echter Hyperlink gedacht. Die Zieldateien existieren; Zensical
+  versucht trotzdem, `[[...]]` als Link aufzulösen, und scheitert an der
+  Pfadauflösung. Das zu beheben hieße, eine projektweite, von diesem
+  Projekt unabhängige Konvention zu ändern — außerhalb des Scopes.
+
+Mit den 33 echten Fehlern behoben, aber den 3 Fehlalarmen weiterhin
+vorhanden, bleibt `--strict` dauerhaft rot. Menschliche Entscheidung: kein
+`--strict`, dafür gezielte Grep-/Anker-Prüfungen für die neuen Seiten
+(bereits Teil jeder einzelnen Content-Aufgabe im Plan).
+
 ## Fehlerbehandlung
 
-- `--strict`-Build in CI (siehe oben) ist die einzige Prüfung. Keine
-  weiteren automatisierten Tests nötig — eine Doku-Site hat kein
-  Laufzeitverhalten jenseits von "baut sie fehlerfrei".
+- Ein grüner `zensical build` (ohne `--strict`) in CI ist die Prüfung, dass
+  die Site überhaupt baut. Die einzelnen Content-Aufgaben im Plan prüfen
+  zusätzlich gezielt (Grep auf erwarteten Inhalt, Anker-Auflösung gegen die
+  tatsächlich gebauten Seiten) — das deckt kaputte Links in neuem Content
+  ab, ohne an den 3 vorbestehenden Fehlalarmen zu scheitern.
 - Kein Linting von Prosa-Inhalten (Rechtschreibung o. Ä.) — außerhalb des
   Scopes.
 
@@ -210,7 +240,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends libgl1 \
     && rm -rf /var/lib/apt/lists/*
 COPY core api accounts chat docs zensical.toml .
 RUN pip install --no-cache-dir -e core -e api -e accounts -e chat zensical \
-    && zensical build --strict --site-dir /site/dist
+    && zensical build --site-dir /site/dist
 
 FROM nginxinc/nginx-unprivileged:stable-alpine
 COPY --from=build /site/dist /usr/share/nginx/html
