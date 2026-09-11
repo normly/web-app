@@ -1,0 +1,37 @@
+[project]
+site_name = "normly"
+site_description = "Standards and regulations knowledge, structured as a graph."
+site_author = "normly contributors"
+docs_dir = "docs"
+
+nav = [
+  { "Home" = "index.md" },
+  { "Guide" = [
+    "guide/getting-started.md",
+    "guide/self-hosting.md",
+  ] },
+  { "Concepts" = [
+    "concepts/normen-graph.md",
+    "concepts/lizenzmodell.md",
+  ] },
+  { "Architecture decisions" = "adr/README.md" },
+  { "Requirements (SRS)" = "srs/README.md" },
+  { "Code reference" = [
+    "reference/core.md",
+    "reference/api.md",
+    "reference/accounts.md",
+    "reference/chat.md",
+  ] },
+  { "Glossary" = "glossary.md" },
+]
+
+[project.theme]
+font = false
+
+[project.plugins.mkdocstrings.handlers.python]
+paths = ["core/src", "api/src", "accounts/src", "chat/src"]
+
+[project.plugins.mkdocstrings.handlers.python.options]
+show_submodules = true
+show_source = true
+docstring_style = "google"
