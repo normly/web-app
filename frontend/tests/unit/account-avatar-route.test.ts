@@ -11,7 +11,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { POST, DELETE } from "@/app/api/account/avatar/route";
+import { GET, POST, DELETE } from "@/app/api/account/avatar/route";
 
 const originalFetch = global.fetch;
 
@@ -86,5 +86,65 @@ describe("avatar BFF route", () => {
     const body = await response.json();
 
     expect(body.hasAvatar).toBe(false);
+  });
+
+  it("GET streams the image with its headers when the backend returns 200", async () => {
+    vi.stubEnv("NORMLY_ACCOUNTS_BASE_URL", "http://accounts.internal");
+    const imageBytes = new Uint8Array([1, 2, 3, 4]);
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(imageBytes, {
+        status: 200,
+        headers: {
+          "content-type": "image/jpeg",
+          "etag": '"abc123"',
+          "cache-control": "private, max-age=0, must-revalidate",
+        },
+      }),
+    );
+
+    const request = new NextRequest("http://localhost/api/account/avatar", {
+      headers: { cookie: "normly_account_session=acct-tok" },
+    });
+    const response = await GET(request);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/jpeg");
+    expect(response.headers.get("etag")).toBe('"abc123"');
+    const body = new Uint8Array(await response.arrayBuffer());
+    expect(Array.from(body)).toEqual([1, 2, 3, 4]);
+  });
+
+  it("GET returns 304 with no body when the backend returns 304", async () => {
+    vi.stubEnv("NORMLY_ACCOUNTS_BASE_URL", "http://accounts.internal");
+    global.fetch = vi.fn().mockResolvedValue(new Response(null, { status: 304 }));
+
+    const request = new NextRequest("http://localhost/api/account/avatar", {
+      headers: { cookie: "normly_account_session=acct-tok", "if-none-match": '"abc123"' },
+    });
+    const response = await GET(request);
+
+    expect(response.status).toBe(304);
+    const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(init.headers["If-None-Match"]).toBe('"abc123"');
+  });
+
+  it("GET returns 404 when the backend has no avatar set", async () => {
+    vi.stubEnv("NORMLY_ACCOUNTS_BASE_URL", "http://accounts.internal");
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ detail: "no avatar set" }), { status: 404 }),
+    );
+
+    const request = new NextRequest("http://localhost/api/account/avatar", {
+      headers: { cookie: "normly_account_session=acct-tok" },
+    });
+    const response = await GET(request);
+
+    expect(response.status).toBe(404);
+  });
+
+  it("GET requires a session cookie", async () => {
+    const request = new NextRequest("http://localhost/api/account/avatar");
+    const response = await GET(request);
+    expect(response.status).toBe(401);
   });
 });
