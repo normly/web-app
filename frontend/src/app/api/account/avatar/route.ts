@@ -42,3 +42,50 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
   }
   return NextResponse.json(mapAccountSummary(body.id, body.email, body));
 }
+
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const { accountSessionToken } = readSessionCookies(request);
+  if (!accountSessionToken) {
+    return NextResponse.json({ detail: "not authenticated" }, { status: 401 });
+  }
+
+  const headers: Record<string, string> = { Authorization: `Bearer ${accountSessionToken}` };
+  const ifNoneMatch = request.headers.get("if-none-match");
+  if (ifNoneMatch) {
+    headers["If-None-Match"] = ifNoneMatch;
+  }
+
+  const backendResponse = await fetch(`${getBackendUrls().accounts}/v1/accounts/avatar`, {
+    headers,
+    cache: "no-store",
+  });
+
+  if (backendResponse.status === 304) {
+    return new NextResponse(null, {
+      status: 304,
+      headers: {
+        "ETag": backendResponse.headers.get("etag") ?? "",
+        "Cache-Control":
+          backendResponse.headers.get("cache-control") ?? "private, max-age=0, must-revalidate",
+      },
+    });
+  }
+  if (backendResponse.status === 404) {
+    const body = await backendResponse.json();
+    return NextResponse.json(body, { status: 404 });
+  }
+
+  const body = await backendResponse.arrayBuffer();
+  const responseHeaders: Record<string, string> = {
+    "Content-Type": backendResponse.headers.get("content-type") ?? "application/octet-stream",
+  };
+  const etag = backendResponse.headers.get("etag");
+  if (etag) {
+    responseHeaders["ETag"] = etag;
+  }
+  if (backendResponse.ok) {
+    responseHeaders["Cache-Control"] =
+      backendResponse.headers.get("cache-control") ?? "private, max-age=0, must-revalidate";
+  }
+  return new NextResponse(body, { status: backendResponse.status, headers: responseHeaders });
+}

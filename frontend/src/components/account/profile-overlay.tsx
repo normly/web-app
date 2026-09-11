@@ -34,11 +34,15 @@ export function ProfileOverlay({
   onOpenChange,
   account,
   setAccount,
+  avatarVersion,
+  onAvatarChange,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   account: AccountSummary | null;
   setAccount: React.Dispatch<React.SetStateAction<AccountSummary | null>>;
+  avatarVersion: number;
+  onAvatarChange: () => void;
 }) {
   const { t } = useTranslation();
   const [activeSection, setActiveSection] = React.useState<SectionId>("profile");
@@ -78,7 +82,10 @@ export function ProfileOverlay({
             </nav>
             <div className="max-h-[60vh] min-w-0 flex-1 overflow-y-auto">
               {activeSection === "profile" && (
-                <NameAvatarSection account={account} onAccountUpdated={setAccount} />
+                <NameAvatarSection
+                  account={account} onAccountUpdated={setAccount}
+                  avatarVersion={avatarVersion} onAvatarChange={onAvatarChange}
+                />
               )}
               {activeSection === "notifications" && (
                 <NotificationPreferenceSection account={account} onAccountUpdated={setAccount} />

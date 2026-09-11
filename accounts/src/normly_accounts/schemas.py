@@ -35,7 +35,7 @@ class AccountResponse(BaseModel):
     email_verified: bool
     first_name: str | None
     last_name: str | None
-    avatar_data_url: str | None
+    has_avatar: bool
     has_password: bool
     notification_preference: str
 
@@ -75,7 +75,7 @@ class SessionValidationResponse(BaseModel):
     email: str
     first_name: str | None
     last_name: str | None
-    avatar_data_url: str | None
+    has_avatar: bool
     has_password: bool
     # This endpoint is the frontend's only source of account state on initial
     # page load -- login returns no account data -- so every field the

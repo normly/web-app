@@ -45,10 +45,12 @@ const NAV_ITEMS: Array<{ href: string; labelKey: TranslationKey; icon: typeof Me
 
 function NavUser({
   account,
+  avatarVersion,
   logout,
   onOpenProfile,
 }: {
   account: AccountSummary | null;
+  avatarVersion: number;
   logout: () => Promise<void>;
   onOpenProfile: () => void;
 }) {
@@ -71,7 +73,9 @@ function NavUser({
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton size="lg">
               <Avatar
-                avatarDataUrl={account.avatarDataUrl}
+                key={avatarVersion}
+                avatarVersion={avatarVersion}
+                hasAvatar={account.hasAvatar}
                 firstName={account.firstName}
                 lastName={account.lastName}
                 email={account.email}
@@ -116,6 +120,7 @@ export function AppShell({
   const pathname = usePathname();
   const { t } = useTranslation();
   const [profileOpen, setProfileOpen] = React.useState(false);
+  const [avatarVersion, setAvatarVersion] = React.useState(0);
   const { account, logout, setAccount } = useAccountSession();
 
   return (
@@ -157,6 +162,7 @@ export function AppShell({
         <SidebarFooter>
           <NavUser
             account={account}
+            avatarVersion={avatarVersion}
             logout={logout}
             onOpenProfile={() => setProfileOpen(true)}
           />
@@ -172,6 +178,8 @@ export function AppShell({
         onOpenChange={setProfileOpen}
         account={account}
         setAccount={setAccount}
+        avatarVersion={avatarVersion}
+        onAvatarChange={() => setAvatarVersion((v) => v + 1)}
       />
     </SidebarProvider>
   );

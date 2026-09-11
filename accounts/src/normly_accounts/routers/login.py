@@ -64,7 +64,7 @@ def _create_session_response(account: Account, session: Session) -> SessionRespo
             id=account.id, email=account.email,
             email_verified=account.email_verified_at is not None,
             first_name=account.first_name, last_name=account.last_name,
-            avatar_data_url=avatar_data_url(account),
+            has_avatar=account.avatar_image is not None,
             has_password=account.password_hash is not None,
             notification_preference=account.notification_preference.value,
         ),

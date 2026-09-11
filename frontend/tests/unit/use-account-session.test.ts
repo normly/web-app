@@ -19,7 +19,7 @@ describe("useAccountSession", () => {
         JSON.stringify({
           account: {
             accountId: "1", email: "a@example.de", firstName: null, lastName: null,
-            avatarDataUrl: null,
+            hasAvatar: false,
           },
         }),
       ),
@@ -35,7 +35,7 @@ describe("useAccountSession", () => {
         JSON.stringify({
           account: {
             accountId: "1", email: "a@example.de", firstName: null, lastName: null,
-            avatarDataUrl: null,
+            hasAvatar: false,
           },
         }),
       ),
@@ -57,7 +57,7 @@ describe("useAccountSession", () => {
         JSON.stringify({
           account: {
             accountId: "1", email: "a@example.de", firstName: null, lastName: null,
-            avatarDataUrl: null,
+            hasAvatar: false,
           },
         }),
       ),

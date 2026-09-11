@@ -119,7 +119,7 @@ describe("auth Route Handlers", () => {
           email: "a@example.de",
           first_name: "Ada",
           last_name: "Lovelace",
-          avatar_data_url: null,
+          has_avatar: false,
           has_password: true,
           notification_preference: "both",
         }),
@@ -138,7 +138,7 @@ describe("auth Route Handlers", () => {
       email: "a@example.de",
       firstName: "Ada",
       lastName: "Lovelace",
-      avatarDataUrl: null,
+      hasAvatar: false,
       hasPassword: true,
       notificationPreference: "both",
     });

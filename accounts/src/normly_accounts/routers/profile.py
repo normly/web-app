@@ -4,9 +4,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import io
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile
 from PIL import Image, UnidentifiedImageError
 from sqlalchemy.orm import Session
 
@@ -14,7 +15,6 @@ from normly_core.graph.domain import Account, NotificationPreference
 from normly_core.graph.postgres.repositories import PostgresAccountRepository
 
 from normly_accounts.dependencies import get_current_account, get_session
-from normly_accounts.routers.login import avatar_data_url
 from normly_accounts.schemas import AccountResponse, UpdateProfileRequest
 
 profile_router = APIRouter(prefix="/v1/accounts", tags=["profile"])
@@ -28,7 +28,7 @@ def _account_response(account: Account) -> AccountResponse:
         id=account.id, email=account.email,
         email_verified=account.email_verified_at is not None,
         first_name=account.first_name, last_name=account.last_name,
-        avatar_data_url=avatar_data_url(account),
+        has_avatar=account.avatar_image is not None,
         has_password=account.password_hash is not None,
         notification_preference=account.notification_preference.value,
     )
@@ -112,3 +112,30 @@ def delete_avatar(
     session.commit()
     updated = account_repo.get_account_by_id(account.id)
     return _account_response(updated)
+
+
+@profile_router.get("/avatar")
+def get_avatar(
+    request: Request, account: Account = Depends(get_current_account),
+) -> Response:
+    if account.avatar_image is None:
+        raise HTTPException(status_code=404, detail="no avatar set")
+
+    etag = f'"{hashlib.sha256(account.avatar_image).hexdigest()}"'
+    if request.headers.get("if-none-match") == etag:
+        return Response(
+            status_code=304,
+            headers={
+                "ETag": etag,
+                "Cache-Control": "private, max-age=0, must-revalidate",
+            },
+        )
+
+    return Response(
+        content=account.avatar_image,
+        media_type=account.avatar_content_type,
+        headers={
+            "ETag": etag,
+            "Cache-Control": "private, max-age=0, must-revalidate",
+        },
+    )
