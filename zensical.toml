@@ -14,6 +14,8 @@ nav = [
     "concepts/normen-graph.md",
     "concepts/lizenzmodell.md",
   ] },
+  { "Architecture decisions" = "adr/README.md" },
+  { "Requirements (SRS)" = "srs/README.md" },
 ]
 
 [project.theme]
