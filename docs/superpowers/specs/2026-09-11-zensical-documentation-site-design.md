@@ -96,12 +96,17 @@ zensical.toml                 # neu, root-level
 ```
 
 `docs/superpowers/` (interne Pläne/Specs, inkl. dieser Datei) wird nicht in
-`nav` eingetragen — das sind Arbeitsdokumente, keine öffentliche
-Dokumentation. Ob Zensical eine explizite Exclude-Option für nicht in der
-Nav gelistete Dateien unter `docs_dir` braucht oder solche Dateien ohnehin
-nicht mitbaut, ist zum Zeitpunkt dieser Spec nicht abschließend verifiziert
-— wird in der ersten Implementierungsaufgabe per Build-Probe geklärt (siehe
-Plan).
+`nav` eingetragen. Zensical hat aktuell **keine** Exclude-Option (laut
+eigener Kompatibilitätsliste sind `exclude_docs`, `not_in_nav` und
+`draft_docs` "not yet supported") — ob nicht in `nav` gelistete Dateien
+unter `docs_dir` trotzdem mitgebaut und unter ihrer Pfad-URL erreichbar
+sind, wird in der ersten Implementierungsaufgabe per Build-Probe geklärt.
+Falls ja: bewusst akzeptiert, kein Workaround (z. B. `docs_dir` auf einen
+Unterordner verengen und `adr/`/`srs/` dorthin duplizieren) — das gesamte
+Repository inklusive `docs/superpowers/` ist über STACKIT Git ohnehin
+öffentlich einsehbar, eine zusätzliche unverlinkte Seite auf der Doku-Site
+ist kein neues Datenschutz- oder Geheimhaltungsproblem, nur potenziell
+unaufgeräumt. Wird nur zum Thema, wenn es tatsächlich stört.
 
 ### Code-Referenz
 
