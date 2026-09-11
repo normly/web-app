@@ -10,6 +10,10 @@ nav = [
     "guide/getting-started.md",
     "guide/self-hosting.md",
   ] },
+  { "Concepts" = [
+    "concepts/normen-graph.md",
+    "concepts/lizenzmodell.md",
+  ] },
 ]
 
 [project.theme]
