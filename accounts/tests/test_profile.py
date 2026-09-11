@@ -152,7 +152,7 @@ def test_delete_avatar_clears_it(client, db_session):
     response = client.delete("/v1/accounts/avatar", headers=headers)
 
     assert response.status_code == 200
-    assert response.json()["avatar_data_url"] is None
+    assert response.json()["has_avatar"] is False
 
 
 def test_update_notification_preference(client):

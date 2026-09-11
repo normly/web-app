@@ -14,7 +14,6 @@ from normly_core.graph.domain import Account, NotificationPreference
 from normly_core.graph.postgres.repositories import PostgresAccountRepository
 
 from normly_accounts.dependencies import get_current_account, get_session
-from normly_accounts.routers.login import avatar_data_url
 from normly_accounts.schemas import AccountResponse, UpdateProfileRequest
 
 profile_router = APIRouter(prefix="/v1/accounts", tags=["profile"])
@@ -28,7 +27,7 @@ def _account_response(account: Account) -> AccountResponse:
         id=account.id, email=account.email,
         email_verified=account.email_verified_at is not None,
         first_name=account.first_name, last_name=account.last_name,
-        avatar_data_url=avatar_data_url(account),
+        has_avatar=account.avatar_image is not None,
         has_password=account.password_hash is not None,
         notification_preference=account.notification_preference.value,
     )
