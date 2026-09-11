@@ -1,33 +1,33 @@
-# Glossar
+# Glossary
 
-Fachbegriffe aus dem Normenwesen behalten ihren deutschen Begriff, wo es
-keine etablierte Entsprechung gibt.
+Terms from the standards domain keep their German form where there's no
+established English equivalent.
 
 **Normenausschuss**
-: Gremium, das eine Norm inhaltlich verantwortet und pflegt.
+: The body responsible for the content of a standard and its upkeep.
 
-**Referenzgraph**
-: Der maschinenlesbare Graph aus Regelwerken, Rechtstexten und ihren
-  Verweisen zueinander (Ersetzung, Verweis, Übernahme) — der zentrale
-  Datenbestand von normly.
+**Reference graph**
+: The machine-readable graph of regulations, legal texts, and the
+  relationships between them (replacement, reference, adoption) —
+  normly's central data asset.
 
 **Work**
-: Ein Regelwerk als sprachunabhängiger Knoten im Referenzgraph. DIN EN ISO
-  9001 und BS EN ISO 9001 sind dasselbe Work; nationale Übernahmen und
-  Übersetzungen sind Beziehungen bzw. Attribute, keine eigenen Works. Siehe
-  Abschnitt "Identifikatoren" in `CLAUDE.md`.
+: A regulation as a language-independent node in the reference graph. DIN
+  EN ISO 9001 and BS EN ISO 9001 are the same Work; national adoptions and
+  translations are relationships or attributes, not separate Works. See
+  the "Identifiers" section in `CLAUDE.md`.
 
 **Trägerorganisation**
-: Hält Marke, offene Daten und Quellcode; verantwortet den freien Kern und
-  die Beziehungen zu Herausgebern und Community. Getrennt von einer
-  künftigen kommerziellen Gesellschaft — siehe
+: Holds the brand, open data, and source code; responsible for the free
+  core and relationships with publishers and the community. Separate from
+  a future commercial entity — see
   [ADR-001](adr/README.md#adr-001-open-core-modell-statt-white-label-produkt).
 
-**Normenausschuss vs. Herausgeber**
-: Der Herausgeber (z. B. DIN, VDI, DGUV) veröffentlicht eine Norm; der
-  Normenausschuss erarbeitet ihren Inhalt. Für die Rechteklassifikation
-  zählt der Herausgeber.
+**Normenausschuss vs. publisher**
+: The publisher (e.g. DIN, VDI, DGUV) releases a standard; the
+  Normenausschuss develops its content. For rights classification, the
+  publisher is what counts.
 
-**Kategorie A–D**
-: Rechteklassifikation je Quelle, siehe
-  [Lizenzmodell](concepts/lizenzmodell.md#rechteklassifikation-nach-kategorie).
+**Category A–D**
+: Rights classification per source, see
+  [License Model](concepts/lizenzmodell.md#rights-classification-by-category).
