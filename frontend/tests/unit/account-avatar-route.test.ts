@@ -27,7 +27,7 @@ describe("avatar BFF route", () => {
       new Response(
         JSON.stringify({
           id: "acc-1", email: "a@example.de", email_verified: true,
-          first_name: null, last_name: null, avatar_data_url: "data:image/jpeg;base64,xyz",
+          first_name: null, last_name: null, has_avatar: true,
         }),
         { status: 200 },
       ),
@@ -42,7 +42,7 @@ describe("avatar BFF route", () => {
     const response = await POST(request);
     const body = await response.json();
 
-    expect(body.avatarDataUrl).toBe("data:image/jpeg;base64,xyz");
+    expect(body.hasAvatar).toBe(true);
     const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(init.headers.Authorization).toBe("Bearer acct-tok");
   });
@@ -72,7 +72,7 @@ describe("avatar BFF route", () => {
       new Response(
         JSON.stringify({
           id: "acc-1", email: "a@example.de", email_verified: true,
-          first_name: null, last_name: null, avatar_data_url: null,
+          first_name: null, last_name: null, has_avatar: false,
         }),
         { status: 200 },
       ),
@@ -85,6 +85,6 @@ describe("avatar BFF route", () => {
     const response = await DELETE(request);
     const body = await response.json();
 
-    expect(body.avatarDataUrl).toBeNull();
+    expect(body.hasAvatar).toBe(false);
   });
 });

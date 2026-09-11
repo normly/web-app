@@ -15,7 +15,7 @@ const ACCOUNT: AccountSummary = {
   email: "a@example.de",
   firstName: null,
   lastName: null,
-  avatarDataUrl: null,
+  hasAvatar: false,
   hasPassword: true,
   notificationPreference: "immediate",
 };
