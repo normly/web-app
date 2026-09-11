@@ -1,9 +1,9 @@
 # Getting Started
 
-!!! warning "Noch keine lauffähige Version"
-    normly befindet sich in früher Entwicklung — es gibt noch kein
-    installierbares Release. Erster lauffähiger Prototyp: Dezember 2026.
-    Diese Seite füllt sich, sobald es so weit ist.
+!!! warning "No runnable version yet"
+    normly is in early development — there's no installable release yet.
+    First runnable prototype: December 2026. This page fills in once
+    that's ready.
 
-Wenn du am Code mitarbeiten willst, ist `CONTRIBUTING.md` im
-Repository-Wurzelverzeichnis der richtige Einstieg, nicht diese Seite.
+If you want to contribute to the code, `CONTRIBUTING.md` at the
+repository root is the right starting point, not this page.
