@@ -38,7 +38,7 @@ def test_full_account_profile_lifecycle(client, email_sender):
         headers=headers,
     )
     assert avatar_upload.status_code == 200
-    assert avatar_upload.json()["avatar_data_url"] is not None
+    assert avatar_upload.json()["has_avatar"] is True
     # The avatar upload must not have clobbered the name set in step 2 --
     # profile.py and Task 4's set_avatar both write to the same account row.
     assert avatar_upload.json()["first_name"] == "Jamie"

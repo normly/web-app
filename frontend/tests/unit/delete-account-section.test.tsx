@@ -12,12 +12,12 @@ const originalFetch = global.fetch;
 
 const account: AccountSummary = {
   accountId: "acc-1", email: "a@example.de", firstName: null, lastName: null,
-  avatarDataUrl: null, hasPassword: true, notificationPreference: "immediate",
+  hasAvatar: false, hasPassword: true, notificationPreference: "immediate",
 };
 
 const passwordlessAccount: AccountSummary = {
   accountId: "acc-2", email: "b@example.de", firstName: null, lastName: null,
-  avatarDataUrl: null, hasPassword: false, notificationPreference: "immediate",
+  hasAvatar: false, hasPassword: false, notificationPreference: "immediate",
 };
 
 describe("DeleteAccountSection", () => {

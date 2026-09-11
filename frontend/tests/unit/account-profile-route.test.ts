@@ -20,7 +20,7 @@ describe("PATCH /api/account/profile", () => {
       new Response(
         JSON.stringify({
           id: "acc-1", email: "a@example.de", email_verified: true,
-          first_name: "Jamie", last_name: "Weber", avatar_data_url: null,
+          first_name: "Jamie", last_name: "Weber", has_avatar: false,
         }),
         { status: 200 },
       ),
@@ -35,7 +35,7 @@ describe("PATCH /api/account/profile", () => {
 
     expect(body).toEqual({
       accountId: "acc-1", email: "a@example.de", firstName: "Jamie", lastName: "Weber",
-      avatarDataUrl: null,
+      hasAvatar: false,
     });
     const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(init.headers.Authorization).toBe("Bearer acct-tok");

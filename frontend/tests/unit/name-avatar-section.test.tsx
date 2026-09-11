@@ -12,7 +12,7 @@ const originalFetch = global.fetch;
 
 const account: AccountSummary = {
   accountId: "acc-1", email: "a@example.de", firstName: null, lastName: null,
-  avatarDataUrl: null, hasPassword: true, notificationPreference: "immediate",
+  hasAvatar: false, hasPassword: true, notificationPreference: "immediate",
 };
 
 describe("NameAvatarSection", () => {
@@ -26,7 +26,7 @@ describe("NameAvatarSection", () => {
       new Response(
         JSON.stringify({
           accountId: "acc-1", email: "a@example.de", firstName: "Jamie", lastName: "Weber",
-          avatarDataUrl: null,
+          hasAvatar: false,
         }),
         { status: 200 },
       ),
@@ -34,7 +34,10 @@ describe("NameAvatarSection", () => {
 
     render(
       <LocaleProvider initialLocale="de">
-        <NameAvatarSection account={account} onAccountUpdated={onAccountUpdated} />
+        <NameAvatarSection
+          account={account} onAccountUpdated={onAccountUpdated}
+          avatarVersion={0} onAvatarChange={vi.fn()}
+        />
       </LocaleProvider>,
     );
     fireEvent.change(screen.getByLabelText("Vorname"), { target: { value: "Jamie" } });
@@ -49,7 +52,10 @@ describe("NameAvatarSection", () => {
   it("shows a remove button only when an avatar is already set", () => {
     render(
       <LocaleProvider initialLocale="de">
-        <NameAvatarSection account={account} onAccountUpdated={vi.fn()} />
+        <NameAvatarSection
+          account={account} onAccountUpdated={vi.fn()}
+          avatarVersion={0} onAvatarChange={vi.fn()}
+        />
       </LocaleProvider>,
     );
     expect(screen.queryByText("Bild entfernen")).not.toBeInTheDocument();
@@ -62,7 +68,10 @@ describe("NameAvatarSection", () => {
 
     render(
       <LocaleProvider initialLocale="de">
-        <NameAvatarSection account={account} onAccountUpdated={vi.fn()} />
+        <NameAvatarSection
+          account={account} onAccountUpdated={vi.fn()}
+          avatarVersion={0} onAvatarChange={vi.fn()}
+        />
       </LocaleProvider>,
     );
     fireEvent.change(screen.getByLabelText("Vorname"), { target: { value: "Jamie" } });
@@ -82,7 +91,10 @@ describe("NameAvatarSection", () => {
 
     render(
       <LocaleProvider initialLocale="de">
-        <NameAvatarSection account={account} onAccountUpdated={vi.fn()} />
+        <NameAvatarSection
+          account={account} onAccountUpdated={vi.fn()}
+          avatarVersion={0} onAvatarChange={vi.fn()}
+        />
       </LocaleProvider>,
     );
     const file = new File([new Uint8Array(10)], "avatar.png", { type: "image/png" });
@@ -101,7 +113,10 @@ describe("NameAvatarSection", () => {
 
     render(
       <LocaleProvider initialLocale="de">
-        <NameAvatarSection account={account} onAccountUpdated={vi.fn()} />
+        <NameAvatarSection
+          account={account} onAccountUpdated={vi.fn()}
+          avatarVersion={0} onAvatarChange={vi.fn()}
+        />
       </LocaleProvider>,
     );
     const file = new File([new Uint8Array(10)], "avatar.png", { type: "image/png" });
@@ -116,12 +131,15 @@ describe("NameAvatarSection", () => {
   });
 
   it("shows an error message when removing the avatar fails at the network level", async () => {
-    const accountWithAvatar: AccountSummary = { ...account, avatarDataUrl: "data:image/png;base64,abc" };
+    const accountWithAvatar: AccountSummary = { ...account, hasAvatar: true };
     global.fetch = vi.fn().mockRejectedValue(new TypeError("network error"));
 
     render(
       <LocaleProvider initialLocale="de">
-        <NameAvatarSection account={accountWithAvatar} onAccountUpdated={vi.fn()} />
+        <NameAvatarSection
+          account={accountWithAvatar} onAccountUpdated={vi.fn()}
+          avatarVersion={0} onAvatarChange={vi.fn()}
+        />
       </LocaleProvider>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Bild entfernen" }));
@@ -131,5 +149,58 @@ describe("NameAvatarSection", () => {
         screen.getByText("Profilbild konnte nicht aktualisiert werden. Bitte versuche es erneut."),
       ).toBeInTheDocument(),
     );
+  });
+
+  it("calls onAvatarChange after a successful upload", async () => {
+    const onAvatarChange = vi.fn();
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          accountId: "acc-1", email: "a@example.de", firstName: null, lastName: null,
+          hasAvatar: true,
+        }),
+        { status: 200 },
+      ),
+    );
+
+    render(
+      <LocaleProvider initialLocale="de">
+        <NameAvatarSection
+          account={account} onAccountUpdated={vi.fn()}
+          avatarVersion={0} onAvatarChange={onAvatarChange}
+        />
+      </LocaleProvider>,
+    );
+    const file = new File([new Uint8Array(10)], "avatar.png", { type: "image/png" });
+    const input = screen.getByLabelText("Bild hochladen") as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => expect(onAvatarChange).toHaveBeenCalled());
+  });
+
+  it("calls onAvatarChange after a successful removal", async () => {
+    const onAvatarChange = vi.fn();
+    const accountWithAvatar: AccountSummary = { ...account, hasAvatar: true };
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          accountId: "acc-1", email: "a@example.de", firstName: null, lastName: null,
+          hasAvatar: false,
+        }),
+        { status: 200 },
+      ),
+    );
+
+    render(
+      <LocaleProvider initialLocale="de">
+        <NameAvatarSection
+          account={accountWithAvatar} onAccountUpdated={vi.fn()}
+          avatarVersion={0} onAvatarChange={onAvatarChange}
+        />
+      </LocaleProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Bild entfernen" }));
+
+    await waitFor(() => expect(onAvatarChange).toHaveBeenCalled());
   });
 });

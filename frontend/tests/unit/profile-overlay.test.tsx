@@ -15,7 +15,7 @@ const ACCOUNT: AccountSummary = {
   email: "a@example.de",
   firstName: null,
   lastName: null,
-  avatarDataUrl: null,
+  hasAvatar: false,
   hasPassword: true,
   notificationPreference: "immediate",
 };
@@ -23,7 +23,10 @@ const ACCOUNT: AccountSummary = {
 function renderOverlay(account: AccountSummary | null, open = true) {
   return render(
     <LocaleProvider initialLocale="de">
-      <ProfileOverlay open={open} onOpenChange={vi.fn()} account={account} setAccount={vi.fn()} />
+      <ProfileOverlay
+        open={open} onOpenChange={vi.fn()} account={account} setAccount={vi.fn()}
+        avatarVersion={0} onAvatarChange={vi.fn()}
+      />
     </LocaleProvider>,
   );
 }

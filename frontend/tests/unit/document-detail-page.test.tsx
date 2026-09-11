@@ -295,7 +295,7 @@ describe("DocumentDetailContent", () => {
     mockFetch({
       account: {
         accountId: "acc-1", email: "a@example.de", firstName: null, lastName: null,
-        avatarDataUrl: null, hasPassword: true, notificationPreference: "none",
+        hasAvatar: false, hasPassword: true, notificationPreference: "none",
       },
       watchlist: [],
     });
@@ -324,7 +324,7 @@ describe("DocumentDetailContent", () => {
     mockFetch({
       account: {
         accountId: "acc-1", email: "a@example.de", firstName: null, lastName: null,
-        avatarDataUrl: null, hasPassword: true, notificationPreference: "none",
+        hasAvatar: false, hasPassword: true, notificationPreference: "none",
       },
       watchlist: [],
     });
@@ -343,7 +343,7 @@ describe("DocumentDetailContent", () => {
     mockFetch({
       account: {
         accountId: "acc-1", email: "a@example.de", firstName: null, lastName: null,
-        avatarDataUrl: null, hasPassword: true, notificationPreference: "none",
+        hasAvatar: false, hasPassword: true, notificationPreference: "none",
       },
       watchlist: [{ workId: WORK_ID, createdAt: "2026-01-01T00:00:00Z" }],
     });
@@ -367,7 +367,7 @@ describe("DocumentDetailContent", () => {
     mockFetch({
       account: {
         accountId: "acc-1", email: "a@example.de", firstName: null, lastName: null,
-        avatarDataUrl: null, hasPassword: true, notificationPreference: "none",
+        hasAvatar: false, hasPassword: true, notificationPreference: "none",
       },
       watchlist: [],
       watchlistToggleStatus: 500,
