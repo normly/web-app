@@ -1,8 +1,7 @@
 # Self-Hosting
 
 !!! warning "Noch keine lauffähige Version"
-    Auslieferung ist laut [ADR-010](
-    ../adr/README.md#adr-010-auslieferung-als-container-daten-getrennt-vom-image)
+    Auslieferung ist laut [ADR-010](../adr/README.md#adr-010-auslieferung-als-container-daten-getrennt-vom-image)
     als signierte
     Container-Images plus Compose-Setup geplant, mit dem Wissensbestand als
     eigenständig versioniertem Dump. Diese Seite beschreibt den geplanten
