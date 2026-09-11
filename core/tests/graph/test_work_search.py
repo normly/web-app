@@ -101,6 +101,25 @@ def test_semantic_tier_finds_a_document_with_no_exact_text_match(db_session):
     assert hits[0].best_match.id == document.id
 
 
+def test_semantic_tier_excludes_a_document_beyond_the_distance_threshold(db_session):
+    delivery = _make_delivery(db_session, "sha256:work-search-semantic-far")
+    document = _make_visible_document(
+        db_session, delivery, issuer="DGUV", designation="DGUV Vorschrift 39",
+    )
+    PostgresDocumentEmbeddingRepository(db_session).upsert_document_embedding(
+        document_id=document.id, delivery_id=delivery.id, model_name="test-model",
+        vector=[0.0, 1.0] + [0.0] * 1022,
+    )
+
+    hits, total = PostgresDocumentRepository(db_session).search_works_for_jurisdiction(
+        "DE", q="kein Treffer im Titel",
+        query_vector=[1.0] + [0.0] * 1023, embedding_model_name="test-model",
+    )
+
+    assert total == 0
+    assert hits == []
+
+
 def test_exact_tier_ranks_before_the_semantic_tier(db_session):
     delivery = _make_delivery(db_session, "sha256:work-search-tier-order")
     exact_match = _make_visible_document(

@@ -88,7 +88,27 @@ from normly_core.graph.postgres.orm import (
 # not a page size. search_works_for_jurisdiction groups these (plus Tier 1's
 # exact matches) down to one hit per Work before paginating, so this bounds
 # the expensive ANN query rather than the number of Works actually returned.
+# Depends on document_embedding's HNSW index (see migration 0031): pgvector's
+# hnsw.ef_search defaults to 40, and an HNSW index scan never returns more
+# rows than that regardless of this LIMIT -- once the corpus grows enough
+# that the query planner prefers the index over a sequential scan, this pool
+# effectively shrinks to ~40 rows, not 200, silently. Not addressed here;
+# a future fix needs either a per-query hnsw.ef_search override or an
+# iterative-scan mode (pgvector >= 0.8).
 _SEMANTIC_CANDIDATE_POOL = 200
+
+# Above this cosine distance (0 = identical, 2 = opposite), a Tier-2 match is
+# noise, not a result -- a fallback tier feeding a ranked list the user
+# visually scans can tolerate a borderline match; this cutoff exists so a
+# query with no genuinely close match returns nothing instead of the
+# nearest-available row regardless of how far it actually is. Starting
+# point, not derived from real-corpus measurement -- revisit once real
+# query logs exist to tune against. Measured against the actual embedding
+# model (intfloat/multilingual-e5-large) with real German query/passage
+# pairs: even clearly unrelated pairs land around 0.21-0.28, well under
+# this cutoff -- so as set, this threshold is a conservative circuit
+# breaker for pathological input, not an active filter on real queries.
+_DOCUMENT_SEARCH_MAX_COSINE_DISTANCE = 0.6
 
 # How many Tier 1 (exact-match) candidates search_works_for_jurisdiction pulls
 # before Work-deduplication -- large enough that no realistic TEXT query (q is
@@ -764,6 +784,8 @@ class PostgresDocumentRepository:
                     RightsClassificationORM.may_process.is_(True),
                     RightsClassificationORM.revoked_at.is_(None),
                     DocumentEmbeddingORM.model_name == embedding_model_name,
+                    DocumentEmbeddingORM.vector.cosine_distance(query_vector)
+                    <= _DOCUMENT_SEARCH_MAX_COSINE_DISTANCE,
                 )
             )
             if issuer is not None:
@@ -1593,6 +1615,23 @@ def _segment_to_domain(orm: SegmentORM) -> Segment:
     )
 
 
+# Above this cosine distance (0 = identical, 2 = opposite), a chat-segment
+# match is not close enough to feed into an LLM-synthesized answer
+# presented as fact -- an irrelevant passage there produces a
+# wrong-sounding confident answer, which is worse than "no results" (the
+# caller already has a fallback path for an empty result). Set
+# independently from the document-search threshold
+# (_DOCUMENT_SEARCH_MAX_COSINE_DISTANCE above), not derived from it -- short
+# segment embeddings spread wider than averaged whole-document embeddings,
+# so an equivalently relevant match tends to land at a larger distance
+# here. Starting point, not derived from real-corpus measurement -- revisit
+# once real query logs exist to tune against. Same caveat as the
+# document-search threshold: measured against the real embedding model,
+# even unrelated pairs land around 0.21-0.28 -- well under 0.75 -- so this
+# is currently a conservative circuit breaker, not an active filter.
+_CHAT_SEGMENT_MAX_COSINE_DISTANCE = 0.75
+
+
 class PostgresSegmentRepository:
     def __init__(self, session: Session):
         self._session = session
@@ -1693,6 +1732,8 @@ class PostgresSegmentRepository:
                 RightsClassificationORM.may_index_fulltext.is_(True),
                 RightsClassificationORM.revoked_at.is_(None),
                 EmbeddingORM.model_name == model_name,
+                EmbeddingORM.vector.cosine_distance(query_vector)
+                <= _CHAT_SEGMENT_MAX_COSINE_DISTANCE,
             )
             .order_by(EmbeddingORM.vector.cosine_distance(query_vector))
             .limit(limit)
