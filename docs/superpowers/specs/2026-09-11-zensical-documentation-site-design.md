@@ -194,7 +194,7 @@ eine Warnung erzeugt — auch Dateien, die nie in `nav` stehen (Zensical baut
 laut eigener Kompatibilitätsliste ohnehin alles unter `docs_dir`, siehe
 oben). Zwei Ursachen wurden gefunden und einzeln beurteilt:
 
-- **33 echte, kaputte Anker in `docs/srs/README.md`** (deutsche Umlaute im
+- **32 echte, kaputte Anker in `docs/srs/README.md`** (deutsche Umlaute im
   Anker-Fragment, die Zensicals Slugifizierung entfernt — z. B. erzeugt die
   Überschrift „…WCAG-Konformität" die ID `...wcag-konformitat`, nicht
   `...wcag-konformität`). Das war ein echter, vorbestehender Bug im
@@ -209,7 +209,7 @@ oben). Zwei Ursachen wurden gefunden und einzeln beurteilt:
   Pfadauflösung. Das zu beheben hieße, eine projektweite, von diesem
   Projekt unabhängige Konvention zu ändern — außerhalb des Scopes.
 
-Mit den 33 echten Fehlern behoben, aber den 3 Fehlalarmen weiterhin
+Mit den 32 echten Fehlern behoben, aber den 3 Fehlalarmen weiterhin
 vorhanden, bleibt `--strict` dauerhaft rot. Menschliche Entscheidung: kein
 `--strict`, dafür gezielte Grep-/Anker-Prüfungen für die neuen Seiten
 (bereits Teil jeder einzelnen Content-Aufgabe im Plan).
@@ -245,6 +245,10 @@ RUN pip install --no-cache-dir -e core -e api -e accounts -e chat zensical \
 FROM nginxinc/nginx-unprivileged:stable-alpine
 COPY --from=build /site/dist /usr/share/nginx/html
 ```
+
+ENTWURF-Hinweis: `--site-dir` existiert nicht in Zensical 0.0.60 —
+Ausgabeverzeichnis stattdessen über `site_dir` in zensical.toml setzen, oder
+die Standard-Ausgabe nach dem Build verschieben.
 
 Offene Fragen für den Folge-Task: Basis-Image über STACKIT-eigene
 Spiegelung statt Docker Hub beziehen (nginxinc-Image liegt auf Docker Hub

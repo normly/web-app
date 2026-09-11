@@ -1,11 +1,11 @@
 [project]
 site_name = "normly"
-site_description = "Standards knowledge, structured as a graph."
+site_description = "Normen- und Regelwerkswissen, strukturiert als Graph."
 site_author = "normly contributors"
 docs_dir = "docs"
 
 nav = [
-  { "Home" = "index.md" },
+  { "Start" = "index.md" },
   { "Guide" = [
     "guide/getting-started.md",
     "guide/self-hosting.md",
@@ -14,15 +14,15 @@ nav = [
     "concepts/normen-graph.md",
     "concepts/lizenzmodell.md",
   ] },
-  { "Architecture decisions" = "adr/README.md" },
-  { "Requirements (SRS)" = "srs/README.md" },
-  { "Code reference" = [
+  { "Architekturentscheidungen" = "adr/README.md" },
+  { "Anforderungen (SRS)" = "srs/README.md" },
+  { "Code-Referenz" = [
     "reference/core.md",
     "reference/api.md",
     "reference/accounts.md",
     "reference/chat.md",
   ] },
-  { "Glossary" = "glossary.md" },
+  { "Glossar" = "glossary.md" },
 ]
 
 [project.theme]
