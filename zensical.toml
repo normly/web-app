@@ -16,7 +16,21 @@ nav = [
   ] },
   { "Architecture decisions" = "adr/README.md" },
   { "Requirements (SRS)" = "srs/README.md" },
+  { "Code reference" = [
+    "reference/core.md",
+    "reference/api.md",
+    "reference/accounts.md",
+    "reference/chat.md",
+  ] },
 ]
 
 [project.theme]
 font = false
+
+[project.plugins.mkdocstrings.handlers.python]
+paths = ["core/src", "api/src", "accounts/src", "chat/src"]
+
+[project.plugins.mkdocstrings.handlers.python.options]
+show_submodules = true
+show_source = true
+docstring_style = "google"
