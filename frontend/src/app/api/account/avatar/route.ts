@@ -64,7 +64,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return new NextResponse(null, { status: 304 });
   }
   if (backendResponse.status === 404) {
-    return NextResponse.json({ detail: "no avatar set" }, { status: 404 });
+    const body = await backendResponse.json();
+    return NextResponse.json(body, { status: 404 });
   }
 
   const body = await backendResponse.arrayBuffer();

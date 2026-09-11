@@ -140,6 +140,8 @@ describe("avatar BFF route", () => {
     const response = await GET(request);
 
     expect(response.status).toBe(404);
+    const body = await response.json();
+    expect(body).toEqual({ detail: "no avatar set" });
   });
 
   it("GET requires a session cookie", async () => {
