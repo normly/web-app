@@ -15,8 +15,11 @@ Zwischenzeitlich hat das mkdocs-material-Team [Zensical](https://zensical.org/)
 als Nachfolgeprojekt angekündigt; Material for MkDocs ist seit Anfang 2026
 im Wartungsmodus, neue Feature-Arbeit fließt in Zensical. Der
 mkdocstrings-Autor ist Teil des Zensical-Teams; Zensical unterstützt
-mkdocstrings bereits und liest bestehende `mkdocs.yml`-Konfigurationen über
-eine Kompatibilitätsschicht ein.
+mkdocstrings bereits. Zensical hat zusätzlich eine Kompatibilitätsschicht,
+die bestehende `mkdocs.yml`-Konfigurationen einliest — die ist aber für die
+Migration *bestehender* mkdocs-Projekte gedacht. Da hier neu aufgebaut
+wird, nutzt dieses Projekt die native `zensical.toml`-Konfiguration statt
+der Kompatibilitätsschicht.
 
 **Entscheidung (bereits getroffen, 01.09.2026):** Der alte Branch wird
 nicht reaktiviert, gemergt oder rebased. Stattdessen wird die
@@ -67,9 +70,9 @@ Platzhalter — dieses Projekt löst diese Platzhalter ein.
 
 ## Architektur
 
-Root-level `mkdocs.yml` (Zensical liest dieses Format direkt), analog zum
-alten Branch, mit `docs_dir: docs`. Das ist bewusst derselbe Ordner, in dem
-`docs/adr/` und `docs/srs/` bereits liegen — kein Kopieren nötig.
+Root-level `zensical.toml` mit `docs_dir = "docs"`. Das ist bewusst
+derselbe Ordner, in dem `docs/adr/` und `docs/srs/` bereits liegen — kein
+Kopieren nötig.
 
 ```
 docs/
@@ -89,28 +92,30 @@ docs/
   adr/README.md               # bereits vorhanden, unverändert
   srs/*.md                    # bereits vorhanden, unverändert
   superpowers/                # bereits vorhanden, von der Nav ausgeschlossen
-mkdocs.yml                    # neu, root-level
+zensical.toml                 # neu, root-level
 ```
 
-`docs/superpowers/` (interne Pläne/Specs, inkl. dieser Datei) bleibt aus
-der Nav ausgeschlossen (`exclude_docs: superpowers/` in `mkdocs.yml`) —
-das sind Arbeitsdokumente, keine öffentliche Dokumentation.
+`docs/superpowers/` (interne Pläne/Specs, inkl. dieser Datei) wird nicht in
+`nav` eingetragen — das sind Arbeitsdokumente, keine öffentliche
+Dokumentation. Ob Zensical eine explizite Exclude-Option für nicht in der
+Nav gelistete Dateien unter `docs_dir` braucht oder solche Dateien ohnehin
+nicht mitbaut, ist zum Zeitpunkt dieser Spec nicht abschließend verifiziert
+— wird in der ersten Implementierungsaufgabe per Build-Probe geklärt (siehe
+Plan).
 
 ### Code-Referenz
 
-Eine Seite pro Package mit `show_submodules: true`, wie im alten Branch:
+Eine Seite pro Package mit `show_submodules: true`, wie im alten Branch.
+Nach dem bekannten mkdocstrings-Zensical-Format:
 
-```yaml
-plugins:
-  - search
-  - mkdocstrings:
-      handlers:
-        python:
-          paths: [core/src, api/src, accounts/src, chat/src]
-          options:
-            show_submodules: true
-            show_source: true
-            docstring_style: google
+```toml
+[project.plugins.mkdocstrings.handlers.python]
+paths = ["core/src", "api/src", "accounts/src", "chat/src"]
+
+[project.plugins.mkdocstrings.handlers.python.options]
+show_submodules = true
+show_source = true
+docstring_style = "google"
 ```
 
 Keine feinere Granularität (eine Seite pro Modul) — bei der aktuellen
@@ -127,10 +132,13 @@ sentence-transformers, …).
 
 Das Material-Theme lädt standardmäßig Web-Fonts von Google Fonts — auch
 beim Build ein Aufruf an einen US-Dienst, verboten laut CLAUDE.md ("Keine
-US-Dienste für Betrieb, **Build**, Daten, Secrets oder Deployment").
-Fonts-Feature in `mkdocs.yml` deaktivieren (`theme.font: false`),
-System-Font-Stack verwenden — konsistent mit dem Frontend, das aus
-demselben Grund ebenfalls keine Google Fonts lädt.
+US-Dienste für Betrieb, **Build**, Daten, Secrets oder Deployment"). Der
+genaue Theme-Schlüssel zum Abschalten ist zum Zeitpunkt dieser Spec nicht
+verifiziert; verbindlich ist das Ergebnis, nicht der Weg dahin: der
+gebaute `site/`-Ordner darf **keine** Referenz auf `fonts.googleapis.com`
+oder `fonts.gstatic.com` enthalten (per Grep geprüft, siehe Plan). System-
+Font-Stack verwenden — konsistent mit dem Frontend, das aus demselben
+Grund ebenfalls keine Google Fonts lädt.
 
 ## Inhalte im Detail
 
@@ -167,11 +175,11 @@ mitzieht (siehe `test-core`-Job). `--strict` lässt den Job fehlschlagen bei
 kaputten internen Links, fehlenden Docstring-Zielen oder Warnungen — Doku-
 Rot fällt so beim nächsten PR auf, nicht erst wenn jemand die Site liest.
 
-Der exakte Zensical-Paketname und CLI-Interface (`zensical build` vs.
-`mkdocs build` über die Kompatibilitätsschicht) sind zum Zeitpunkt dieser
-Spec nicht abschließend verifiziert — das ist ein Implementierungsdetail,
-das beim Umsetzen gegen die dann aktuelle Zensical-Version geprüft wird,
-keine Architekturentscheidung.
+Paketname (`pip install zensical`) und Befehl (`zensical build --strict`)
+sind recherchiert (siehe [zensical.org/docs/get-started](https://zensical.org/docs/get-started/)),
+aber nicht in diesem Repo getestet — die erste Implementierungsaufgabe
+verifiziert das gegen die dann aktuelle Zensical-Version, bevor der Rest
+des Projekts darauf aufbaut.
 
 ## Fehlerbehandlung
 
@@ -195,7 +203,7 @@ FROM python:3.12-slim AS build
 WORKDIR /site
 RUN apt-get update && apt-get install -y --no-install-recommends libgl1 \
     && rm -rf /var/lib/apt/lists/*
-COPY core api accounts chat docs mkdocs.yml .
+COPY core api accounts chat docs zensical.toml .
 RUN pip install --no-cache-dir -e core -e api -e accounts -e chat zensical \
     && zensical build --strict --site-dir /site/dist
 
