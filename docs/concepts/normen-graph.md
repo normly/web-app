@@ -1,29 +1,29 @@
-# Graph zuerst, Modell nur bei Bedarf
+# Graph first, model only when needed
 
-Anfragen werden zuerst gegen den Referenzgraph aufgelöst. Ein Sprachmodell
-wird nur aufgerufen, wenn Synthese über Fließtext nötig ist — nicht für
-Strukturfragen.
+Queries are resolved against the reference graph first. A language model
+is only invoked when synthesizing free text is actually needed — not for
+structural questions.
 
-**Warum:** Fragen wie „was ersetzt Norm X" oder „welche Vorschrift verweist
-auf Norm Y" sind aus dem Graph exakt beantwortbar — deterministisch, in
-Millisekunden, ohne Tokenkosten. Ein Modellaufruf wäre hier teurer,
-langsamer und fehleranfälliger. Gerade bei Gültigkeits- und
-Ersetzungsfragen sind Halluzinationen besonders folgenschwer.
+**Why:** Questions like "what replaces standard X" or "which regulation
+references standard Y" can be answered exactly from the graph —
+deterministically, in milliseconds, at no token cost. A model call here
+would be more expensive, slower, and more error-prone. Hallucinations are
+especially costly for validity and replacement questions.
 
-Details und Abwägung: [ADR-008](../adr/README.md#adr-008-graph-first-anfrageverarbeitung).
+Details and trade-offs: [ADR-008](../adr/README.md#adr-008-graph-first-anfrageverarbeitung).
 
-## Datenhaltung
+## Data storage
 
-Der Graph liegt in PostgreSQL mit pgvector — Graph und Embeddings in
-derselben Datenbank, derselben Transaktion, demselben Backup, statt zweier
-Systeme, die synchron gehalten werden müssten. Der Datenbankzugriff läuft
-ausschließlich über die Repository-Schicht; welche Speichertechnologie
-dahintersteckt, bleibt austauschbar.
+The graph lives in PostgreSQL with pgvector — graph and embeddings in the
+same database, the same transaction, the same backup, instead of two
+systems that would need to be kept in sync. Database access goes
+exclusively through the repository layer; the underlying storage
+technology stays swappable.
 
 Details: [ADR-006](../adr/README.md#adr-006-postgresql-statt-neo4j-fur-den-referenzgraph).
 
-## Offen und geschichtet zugleich
+## Open and layered at once
 
-Der Referenzgraph selbst ist offen (ODbL) — geschichtet in einen freien und
-einen kommerziellen Teil, nicht zurückgehalten. Was frei ist, steht in
-[Lizenzmodell](lizenzmodell.md).
+The reference graph itself is open (ODbL) — layered into a free and a
+commercial part, not withheld. What's free is described in
+[License Model](lizenzmodell.md).

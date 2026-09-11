@@ -1,46 +1,44 @@
-# Lizenzmodell
+# License Model
 
-normly folgt einem Open-Core-Modell — die Trennlinie verläuft am **Inhalt**,
-nicht am Zugangsweg.
+normly follows an open-core model — the dividing line runs along
+**content**, not the access path.
 
-| Bestandteil | Lizenz |
+| Component | License |
 |---|---|
-| Kern (Server, Anwendung) | AGPL-3.0 |
-| Client-SDKs, API-Spezifikation | Apache-2.0 |
-| Daten und Referenzgraph | ODbL |
+| Core (server, application) | AGPL-3.0 |
+| Client SDKs, API specification | Apache-2.0 |
+| Data and reference graph | ODbL |
 
-Die AGPL greift, wenn jemand den Server selbst verändert und betreibt. Ein
-Drittsystem, das über die HTTP-API mit einer normly-Instanz spricht, ist
-ein getrenntes Programm und nicht betroffen — Integrationen sind
-ausdrücklich erwünscht.
+The AGPL applies when someone modifies and operates the server itself. A
+third-party system that talks to a normly instance over the HTTP API is a
+separate program and unaffected — integrations are explicitly welcome.
 
-Begründung der Lizenzwahl: [ADR-002](../adr/README.md#adr-002-lizenzmodell-agpl-30-apache-20-odbl).
-Warum der Graph trotz Lizenzierung offen bleibt:
+Rationale for the license choice: [ADR-002](../adr/README.md#adr-002-lizenzmodell-agpl-30-apache-20-odbl).
+Why the graph stays open despite licensing:
 [ADR-007](../adr/README.md#adr-007-referenzgraph-bleibt-offen).
 
-## Rechteklassifikation nach Kategorie
+## Rights classification by category
 
-Jede Datenquelle bekommt eine Kategorie, bevor sie überhaupt verarbeitet
-wird:
+Every data source gets a category before it's processed at all:
 
-| | Kategorie | Grundlage |
+| | Category | Basis |
 |---|---|---|
-| A | Amtliche Werke, Rechtstexte | § 5 UrhG o. Ä. |
-| B | Frei lizenzierte Regelwerke | Lizenz des Herausgebers |
-| C | Vertraglich bezogen | Vertragsreferenz |
-| D | Sonstige öffentlich zugänglich | Einzelfallprüfung + § 44b Abs. 3 |
+| A | Official works, legal texts | § 5 UrhG or similar |
+| B | Freely licensed regulations | Publisher's license |
+| C | Contractually acquired | Contract reference |
+| D | Other publicly accessible | Case-by-case review + § 44b Abs. 3 |
 
-Keine Kategorie zuordenbar heißt: nicht erfassen. Kategorie D wird nie für
-kommerziell verwertete Kataloge (DIN Media/Nautos u. Ä.) verwendet — dazu
+No assignable category means: not ingested. Category D is never used for
+commercially exploited catalogs (DIN Media/Nautos and similar) — see
 [ADR-012](../adr/README.md#adr-012-kein-scraping-kommerziell-verwerteter-katalogbestande).
 
-Die Klassifikation gilt **je Rechtsraum**, nicht global — § 5 UrhG gilt nur
-in Deutschland. Details: [ADR-011](../adr/README.md#adr-011-internationalisierung-von-beginn-an).
+Classification applies **per jurisdiction**, not globally — § 5 UrhG only
+applies in Germany. Details: [ADR-011](../adr/README.md#adr-011-internationalisierung-von-beginn-an).
 
-## Getrennte Datenhaltung je Herausgeber
+## Separate data storage per publisher
 
-Lizenzierte Bestände (Kategorie C) werden je Herausgeber mit einem eigenen
-Datenschlüssel getrennt gespeichert. Das ermöglicht kryptographisches
-Löschen bei Vertragsende — auch in Backups, wo selektives Löschen sonst
-praktisch nicht durchführbar ist. Details:
+Licensed holdings (Category C) are stored separately per publisher, each
+with its own data encryption key. This enables cryptographic deletion at
+contract end — even in backups, where selective deletion is otherwise
+practically infeasible. Details:
 [ADR-014](../adr/README.md#adr-014-verschlusselung-kryptographisches-loschen-je-herausgeber).
