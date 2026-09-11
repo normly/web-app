@@ -75,3 +75,18 @@ jobs:
           git fetch -q --depth=1 origin "$GITHUB_SHA"
           git checkout -q FETCH_HEAD
       - run: cd frontend && npm ci && npm test
+
+  test-docs:
+    runs-on: stackit-docker
+    container: python:3.12
+    timeout-minutes: 30
+    steps:
+      - run: |
+          (git --version >/dev/null 2>&1) || (apt-get update -qq && apt-get install -y -qq git)
+          git init -q .
+          git remote add origin "https://${GITHUB_TOKEN}@${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}.git"
+          git fetch -q --depth=1 origin "$GITHUB_SHA"
+          git checkout -q FETCH_HEAD
+      - run: apt-get update && apt-get install -y --no-install-recommends libgl1 && rm -rf /var/lib/apt/lists/*
+      - run: pip install -e core -e api -e accounts -e chat "zensical==0.0.60" "mkdocstrings[python]"
+      - run: zensical build
