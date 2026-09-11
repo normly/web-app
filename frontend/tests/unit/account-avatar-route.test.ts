@@ -110,13 +110,22 @@ describe("avatar BFF route", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("image/jpeg");
     expect(response.headers.get("etag")).toBe('"abc123"');
+    expect(response.headers.get("cache-control")).toBe("private, max-age=0, must-revalidate");
     const body = new Uint8Array(await response.arrayBuffer());
     expect(Array.from(body)).toEqual([1, 2, 3, 4]);
   });
 
   it("GET returns 304 with no body when the backend returns 304", async () => {
     vi.stubEnv("NORMLY_ACCOUNTS_BASE_URL", "http://accounts.internal");
-    global.fetch = vi.fn().mockResolvedValue(new Response(null, { status: 304 }));
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(null, {
+        status: 304,
+        headers: {
+          "etag": '"abc123"',
+          "cache-control": "private, max-age=0, must-revalidate",
+        },
+      }),
+    );
 
     const request = new NextRequest("http://localhost/api/account/avatar", {
       headers: { cookie: "normly_account_session=acct-tok", "if-none-match": '"abc123"' },
@@ -124,6 +133,8 @@ describe("avatar BFF route", () => {
     const response = await GET(request);
 
     expect(response.status).toBe(304);
+    expect(response.headers.get("etag")).toBe('"abc123"');
+    expect(response.headers.get("cache-control")).toBe("private, max-age=0, must-revalidate");
     const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(init.headers["If-None-Match"]).toBe('"abc123"');
   });

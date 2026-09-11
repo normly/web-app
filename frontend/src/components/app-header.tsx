@@ -47,6 +47,7 @@ export function AppHeader({
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2">
               <Avatar
+                hasAvatar={account.hasAvatar}
                 firstName={account.firstName}
                 lastName={account.lastName} email={account.email}
               />

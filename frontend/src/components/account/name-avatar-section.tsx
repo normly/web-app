@@ -95,8 +95,9 @@ export function NameAvatarSection({
       <h2 className="text-lg font-semibold">{t("account.nameAvatarTitle")}</h2>
       <div className="flex items-center gap-4">
         <Avatar
-          key={avatarVersion} avatarVersion={avatarVersion} firstName={account.firstName}
-          lastName={account.lastName} email={account.email} size={64}
+          key={avatarVersion} avatarVersion={avatarVersion} hasAvatar={account.hasAvatar}
+          firstName={account.firstName} lastName={account.lastName} email={account.email}
+          size={64}
         />
         <div className="flex flex-col gap-2">
           <label className="text-sm underline">

@@ -7,27 +7,37 @@ import { describe, expect, it } from "vitest";
 import { Avatar } from "@/components/ui/avatar";
 
 describe("Avatar", () => {
-  it("renders an img pointed at the avatar endpoint", () => {
-    render(<Avatar firstName="Jamie" lastName="Weber" email="a@example.de" />);
+  it("renders an img pointed at the avatar endpoint when hasAvatar is true", () => {
+    render(<Avatar hasAvatar firstName="Jamie" lastName="Weber" email="a@example.de" />);
     expect(screen.getByRole("img")).toHaveAttribute("src", "/api/account/avatar");
   });
 
   it("includes the avatarVersion as a cache-busting query param when set", () => {
     render(
-      <Avatar avatarVersion={3} firstName="Jamie" lastName="Weber" email="a@example.de" />,
+      <Avatar
+        hasAvatar avatarVersion={3} firstName="Jamie" lastName="Weber" email="a@example.de"
+      />,
     );
     expect(screen.getByRole("img")).toHaveAttribute("src", "/api/account/avatar?v=3");
   });
 
   it("falls back to initials when the image fails to load", () => {
-    render(<Avatar firstName="Jamie" lastName="Weber" email="a@example.de" />);
+    render(<Avatar hasAvatar firstName="Jamie" lastName="Weber" email="a@example.de" />);
     fireEvent.error(screen.getByRole("img"));
     expect(screen.getByText("JW")).toBeInTheDocument();
   });
 
   it("falls back to the first letter of the email when no name is set", () => {
-    render(<Avatar firstName={null} lastName={null} email="a@example.de" />);
+    render(<Avatar hasAvatar firstName={null} lastName={null} email="a@example.de" />);
     fireEvent.error(screen.getByRole("img"));
     expect(screen.getByText("A")).toBeInTheDocument();
+  });
+
+  it("renders initials directly without attempting an image when hasAvatar is false", () => {
+    render(
+      <Avatar hasAvatar={false} firstName="Jamie" lastName="Weber" email="a@example.de" />,
+    );
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(screen.getByText("JW")).toBeInTheDocument();
   });
 });

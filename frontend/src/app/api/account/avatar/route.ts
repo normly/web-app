@@ -61,7 +61,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   });
 
   if (backendResponse.status === 304) {
-    return new NextResponse(null, { status: 304 });
+    return new NextResponse(null, {
+      status: 304,
+      headers: {
+        "ETag": backendResponse.headers.get("etag") ?? "",
+        "Cache-Control":
+          backendResponse.headers.get("cache-control") ?? "private, max-age=0, must-revalidate",
+      },
+    });
   }
   if (backendResponse.status === 404) {
     const body = await backendResponse.json();
@@ -69,13 +76,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   const body = await backendResponse.arrayBuffer();
-  return new NextResponse(body, {
-    status: backendResponse.status,
-    headers: {
-      "Content-Type": backendResponse.headers.get("content-type") ?? "application/octet-stream",
-      "ETag": backendResponse.headers.get("etag") ?? "",
-      "Cache-Control":
-        backendResponse.headers.get("cache-control") ?? "private, max-age=0, must-revalidate",
-    },
-  });
+  const responseHeaders: Record<string, string> = {
+    "Content-Type": backendResponse.headers.get("content-type") ?? "application/octet-stream",
+  };
+  const etag = backendResponse.headers.get("etag");
+  if (etag) {
+    responseHeaders["ETag"] = etag;
+  }
+  if (backendResponse.ok) {
+    responseHeaders["Cache-Control"] =
+      backendResponse.headers.get("cache-control") ?? "private, max-age=0, must-revalidate";
+  }
+  return new NextResponse(body, { status: backendResponse.status, headers: responseHeaders });
 }

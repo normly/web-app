@@ -150,4 +150,57 @@ describe("NameAvatarSection", () => {
       ).toBeInTheDocument(),
     );
   });
+
+  it("calls onAvatarChange after a successful upload", async () => {
+    const onAvatarChange = vi.fn();
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          accountId: "acc-1", email: "a@example.de", firstName: null, lastName: null,
+          hasAvatar: true,
+        }),
+        { status: 200 },
+      ),
+    );
+
+    render(
+      <LocaleProvider initialLocale="de">
+        <NameAvatarSection
+          account={account} onAccountUpdated={vi.fn()}
+          avatarVersion={0} onAvatarChange={onAvatarChange}
+        />
+      </LocaleProvider>,
+    );
+    const file = new File([new Uint8Array(10)], "avatar.png", { type: "image/png" });
+    const input = screen.getByLabelText("Bild hochladen") as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => expect(onAvatarChange).toHaveBeenCalled());
+  });
+
+  it("calls onAvatarChange after a successful removal", async () => {
+    const onAvatarChange = vi.fn();
+    const accountWithAvatar: AccountSummary = { ...account, hasAvatar: true };
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          accountId: "acc-1", email: "a@example.de", firstName: null, lastName: null,
+          hasAvatar: false,
+        }),
+        { status: 200 },
+      ),
+    );
+
+    render(
+      <LocaleProvider initialLocale="de">
+        <NameAvatarSection
+          account={accountWithAvatar} onAccountUpdated={vi.fn()}
+          avatarVersion={0} onAvatarChange={onAvatarChange}
+        />
+      </LocaleProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Bild entfernen" }));
+
+    await waitFor(() => expect(onAvatarChange).toHaveBeenCalled());
+  });
 });

@@ -189,4 +189,63 @@ describe("AppShell", () => {
     );
     expect(sessionCalls).toHaveLength(1);
   });
+
+  it("refreshes the sidebar avatar after an upload in the profile overlay", async () => {
+    const fetchMock = vi.fn().mockImplementation(
+      (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url === "/api/account/avatar" && init?.method === "POST") {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                accountId: "1", email: "a@example.de", firstName: null, lastName: null,
+                hasAvatar: true,
+              }),
+              { status: 200 },
+            ),
+          );
+        }
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              account: {
+                accountId: "1", email: "a@example.de", firstName: null, lastName: null,
+                hasAvatar: true,
+              },
+            }),
+          ),
+        );
+      },
+    );
+    global.fetch = fetchMock;
+    render(
+      <LocaleProvider initialLocale="de">
+        <AppShell instanceName="normly" logoPath={null}>
+          <div>content</div>
+        </AppShell>
+      </LocaleProvider>,
+    );
+    await waitFor(() => expect(screen.getByText("a@example.de")).toBeInTheDocument());
+
+    const trigger = screen.getByRole("button", { name: /a@example\.de/ });
+    fireEvent.keyDown(trigger, { key: "Enter" });
+    fireEvent.click(screen.getByRole("menuitem", { name: "Konto" }));
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole("dialog")).getByRole("heading", { name: "Name und Profilbild" }),
+      ).toBeInTheDocument(),
+    );
+
+    const sidebarAvatarBefore = screen.getAllByRole("img", { name: "Profilbild" })[0];
+    expect(sidebarAvatarBefore).toHaveAttribute("src", "/api/account/avatar");
+
+    const file = new File([new Uint8Array(10)], "avatar.png", { type: "image/png" });
+    const input = screen.getByLabelText("Bild hochladen") as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => {
+      const sidebarAvatarAfter = screen.getAllByRole("img", { name: "Profilbild" })[0];
+      expect(sidebarAvatarAfter).toHaveAttribute("src", "/api/account/avatar?v=1");
+    });
+  });
 });

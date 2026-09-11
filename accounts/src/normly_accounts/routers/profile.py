@@ -123,7 +123,13 @@ def get_avatar(
 
     etag = f'"{hashlib.sha256(account.avatar_image).hexdigest()}"'
     if request.headers.get("if-none-match") == etag:
-        return Response(status_code=304)
+        return Response(
+            status_code=304,
+            headers={
+                "ETag": etag,
+                "Cache-Control": "private, max-age=0, must-revalidate",
+            },
+        )
 
     return Response(
         content=account.avatar_image,

@@ -75,6 +75,7 @@ function NavUser({
               <Avatar
                 key={avatarVersion}
                 avatarVersion={avatarVersion}
+                hasAvatar={account.hasAvatar}
                 firstName={account.firstName}
                 lastName={account.lastName}
                 email={account.email}

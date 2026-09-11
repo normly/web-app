@@ -16,8 +16,9 @@ function initialsFor(
 }
 
 export function Avatar({
-  avatarVersion = 0, firstName, lastName, email, size = 32,
+  hasAvatar, avatarVersion = 0, firstName, lastName, email, size = 32,
 }: {
+  hasAvatar: boolean;
   avatarVersion?: number;
   firstName: string | null;
   lastName: string | null;
@@ -26,7 +27,7 @@ export function Avatar({
 }) {
   const [imageFailed, setImageFailed] = React.useState(false);
 
-  if (!imageFailed) {
+  if (hasAvatar && !imageFailed) {
     return (
       // eslint-disable-next-line @next/next/no-img-element -- this is a
       // same-origin BFF route (/api/account/avatar), not a remote URL
@@ -39,11 +40,12 @@ export function Avatar({
       // both real screen readers and getByRole("img") in tests would then
       // skip entirely.
       //
-      // onError covers both "no avatar set" (backend 404) and any other
-      // fetch failure -- both cases fall back to the same initials display
-      // this component already used before this endpoint existed.
+      // onError covers any load failure after hasAvatar said an image
+      // should exist (an expired token, the backend being down, a delete
+      // racing this render) -- falls back to the same initials display
+      // used when hasAvatar is false, so a caller only needs to keep
+      // hasAvatar reasonably fresh, not perfectly so.
       <img
-        key={avatarVersion}
         src={
           avatarVersion === 0 ? "/api/account/avatar" : `/api/account/avatar?v=${avatarVersion}`
         }
