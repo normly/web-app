@@ -4,9 +4,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import io
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile
 from PIL import Image, UnidentifiedImageError
 from sqlalchemy.orm import Session
 
@@ -111,3 +112,24 @@ def delete_avatar(
     session.commit()
     updated = account_repo.get_account_by_id(account.id)
     return _account_response(updated)
+
+
+@profile_router.get("/avatar")
+def get_avatar(
+    request: Request, account: Account = Depends(get_current_account),
+) -> Response:
+    if account.avatar_image is None:
+        raise HTTPException(status_code=404, detail="no avatar set")
+
+    etag = f'"{hashlib.sha256(account.avatar_image).hexdigest()}"'
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304)
+
+    return Response(
+        content=account.avatar_image,
+        media_type=account.avatar_content_type,
+        headers={
+            "ETag": etag,
+            "Cache-Control": "private, max-age=0, must-revalidate",
+        },
+    )

@@ -82,25 +82,6 @@ def test_update_profile_explicit_null_still_clears_a_field(client):
     assert body["last_name"] == "Weber"
 
 
-def test_upload_avatar_resizes_to_256_and_returns_data_url(client):
-    _, headers = _register_and_authorize(client)
-    image_bytes = _make_test_image()
-
-    response = client.post(
-        "/v1/accounts/avatar",
-        files={"avatar": ("avatar.jpg", image_bytes, "image/jpeg")},
-        headers=headers,
-    )
-
-    assert response.status_code == 200
-    data_url = response.json()["avatar_data_url"]
-    assert data_url.startswith("data:image/jpeg;base64,")
-    import base64
-    stored = base64.b64decode(data_url.split(",", 1)[1])
-    resized = Image.open(io.BytesIO(stored))
-    assert resized.size == (256, 256)
-
-
 def test_upload_avatar_rejects_a_file_that_is_too_large(client):
     _, headers = _register_and_authorize(client)
     oversized = b"\x00" * (5 * 1024 * 1024 + 1)
@@ -141,6 +122,24 @@ def test_upload_avatar_rejects_a_truncated_image_instead_of_crashing(client):
     assert response.json()["detail"] == "avatar must be a valid image file"
 
 
+def test_upload_avatar_resizes_to_256_and_serves_it_via_the_avatar_endpoint(client):
+    _, headers = _register_and_authorize(client)
+    image_bytes = _make_test_image()
+
+    upload_response = client.post(
+        "/v1/accounts/avatar",
+        files={"avatar": ("avatar.jpg", image_bytes, "image/jpeg")},
+        headers=headers,
+    )
+    assert upload_response.status_code == 200
+    assert upload_response.json()["has_avatar"] is True
+
+    avatar_response = client.get("/v1/accounts/avatar", headers=headers)
+    assert avatar_response.status_code == 200
+    resized = Image.open(io.BytesIO(avatar_response.content))
+    assert resized.size == (256, 256)
+
+
 def test_delete_avatar_clears_it(client, db_session):
     _, headers = _register_and_authorize(client)
     client.post(
@@ -153,6 +152,71 @@ def test_delete_avatar_clears_it(client, db_session):
 
     assert response.status_code == 200
     assert response.json()["has_avatar"] is False
+
+
+def test_get_avatar_returns_404_when_unset(client):
+    _, headers = _register_and_authorize(client)
+
+    response = client.get("/v1/accounts/avatar", headers=headers)
+
+    assert response.status_code == 404
+
+
+def test_get_avatar_returns_the_image_with_correct_headers(client):
+    _, headers = _register_and_authorize(client)
+    client.post(
+        "/v1/accounts/avatar",
+        files={"avatar": ("avatar.jpg", _make_test_image(), "image/jpeg")},
+        headers=headers,
+    )
+
+    response = client.get("/v1/accounts/avatar", headers=headers)
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/jpeg"
+    assert response.headers["cache-control"] == "private, max-age=0, must-revalidate"
+    assert "etag" in response.headers
+    resized = Image.open(io.BytesIO(response.content))
+    assert resized.size == (256, 256)
+
+
+def test_get_avatar_returns_304_when_if_none_match_matches(client):
+    _, headers = _register_and_authorize(client)
+    client.post(
+        "/v1/accounts/avatar",
+        files={"avatar": ("avatar.jpg", _make_test_image(), "image/jpeg")},
+        headers=headers,
+    )
+    first = client.get("/v1/accounts/avatar", headers=headers)
+    etag = first.headers["etag"]
+
+    response = client.get(
+        "/v1/accounts/avatar", headers={**headers, "If-None-Match": etag},
+    )
+
+    assert response.status_code == 304
+    assert response.content == b""
+
+
+def test_get_avatar_returns_200_when_if_none_match_does_not_match(client):
+    _, headers = _register_and_authorize(client)
+    client.post(
+        "/v1/accounts/avatar",
+        files={"avatar": ("avatar.jpg", _make_test_image(), "image/jpeg")},
+        headers=headers,
+    )
+
+    response = client.get(
+        "/v1/accounts/avatar", headers={**headers, "If-None-Match": '"stale-etag"'},
+    )
+
+    assert response.status_code == 200
+    assert len(response.content) > 0
+
+
+def test_get_avatar_requires_authorization(client):
+    response = client.get("/v1/accounts/avatar")
+    assert response.status_code == 401
 
 
 def test_update_notification_preference(client):
