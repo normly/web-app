@@ -72,10 +72,11 @@ als Issue melden — siehe [SECURITY.md](SECURITY.md).
 
 ## Wo der Code liegt
 
-Alleinige Plattform für Quellcode, Beiträge, Build und Deployment ist
-**STACKIT Git** (Forgejo, Rechenzentren in Deutschland) — keine externe
-Beitragsfassade mehr (ADR-019). Issues und Pull Requests finden dort statt,
-Betrieb und Daten bleiben in Deutschland.
+Quellcode, Beiträge, CI/CD und Container-Registry des freien Kerns liegen auf
+**GitHub**: [github.com/normly/web-app](https://github.com/normly/web-app)
+(ADR-021) — einfachere Kollaboration war der Grund für die Rückkehr. Betrieb,
+Nutzerdaten und die spätere Normen-Wissensbasis bleiben davon getrennt und
+ausschließlich auf STACKIT-Infrastruktur in Deutschland.
 
 ## Dokumentation
 

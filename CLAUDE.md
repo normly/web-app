@@ -12,10 +12,14 @@ Requirement-Index). Diese Datei enthält nur, was bei **jeder** Aufgabe gilt.
 Diese Regeln haben rechtliche oder strategische Gründe. Bei Konflikt mit einer
 Aufgabe: nachfragen, nicht umgehen.
 
-- **Keine US-Dienste für Betrieb, Build, Daten, Secrets oder Deployment.**
-  Alles läuft auf STACKIT, ohne Ausnahme — auch kein GitHub mehr als
-  öffentliche Beitragsfassade. STACKIT Git ist von Anfang an die alleinige
-  Plattform für Quellcode, Beiträge, Build und Betrieb. → ADR-019
+- **Keine US-Dienste für Betrieb, Nutzerdaten, Normen-Wissensbasis, Secrets
+  oder Produktions-Deployment.** Das läuft ausschließlich auf STACKIT, ohne
+  Ausnahme. **Ausnahme seit ADR-021 (2026-09-14):** Quellcode, CI/CD und
+  Container-Registry des freien Kerns liegen auf GitHub
+  (`github.com/normly/web-app`) — einfachere Kollaboration war der
+  ausschlaggebende Grund. STACKIT Git (`jwokittel/normly-webapp`) wird
+  dafür nicht mehr genutzt und ist stattdessen für das künftige Hosting der
+  Normen-Wissensbasis vorgesehen. → ADR-021 (löst ADR-019 ab)
 - **Kein Scraping kommerziell verwerteter Katalogbestände** (DIN Media/Nautos
   und vergleichbare). Nur vertraglich beziehen. Gilt auch bei öffentlicher
   Zugänglichkeit. → ADR-012
@@ -85,10 +89,10 @@ kommerziell verwertete Kataloge.
 - **Auslieferung:** signierte Container-Images plus lauffähiges Compose-Setup.
   Der Wissensbestand liegt **nicht** im Image, sondern als eigenständig
   versionierter Dump. Code und Daten getrennt versioniert. → ADR-010
-- **Registry:** STACKIT Container Registry, alleinig — kein öffentlicher
-  Spiegel über GHCR mehr. → ADR-019
-- **CI:** STACKIT Pipelines (Forgejo Actions, weitgehend
-  GitHub-Actions-kompatibel).
+- **Registry:** GitHub Container Registry (GHCR) im Repository
+  `normly/web-app`, führend für den freien Kern. → ADR-021
+- **CI:** GitHub Actions im Repository `normly/web-app`. Der Port von
+  `.forgejo/workflows/ci.yml` steht als Folgearbeit noch aus. → ADR-021
 - **Frontend:** Next.js mit `standalone`-Output, zugleich installierbare PWA.
   Keine plattformspezifischen Primitive — alles muss im Container hinter
   beliebigem Reverse Proxy laufen.

@@ -352,7 +352,7 @@ Dieses Kapitel definiert Anforderungen an die Bereitstellung, Konfiguration und 
 
 **Abnahmekriterium:** Infrastruktur- und Vertragsprüfung bestätigt ausschließliche Nutzung von STACKIT-Services in Deutschland.
 
-**Weitere Informationen:** Gilt auch für LLM-Inferenz, Vektordatenbanken, Logging und Monitoring. Die zuvor hier vorgesehene Ausnahme für eine externe Beitragsfassade (GitHub) entfällt seit ADR-019 — REQ-GIT-002 ist hinfällig, es gibt keine externe Plattform mehr, auf der Quellcode oder Images liegen.
+**Weitere Informationen:** Gilt für LLM-Inferenz, Vektordatenbanken, Logging und Monitoring sowie für Betrieb, Nutzerdaten und die Normen-Wissensbasis uneingeschränkt. Seit ADR-021 (2026-09-14) gilt eine Ausnahme für Quellcode, CI/CD und Container-Registry des freien Kerns: Diese liegen auf GitHub (`github.com/normly/web-app`), siehe REQ-GIT-001 und REQ-BUILD-002. Die Server-, Daten- und Betriebsinfrastruktur selbst bleibt davon unberührt und ausschließlich auf STACKIT.
 
 #### REQ-INST-002 — Automatisiertes Deployment
 
@@ -420,21 +420,21 @@ Dieses Kapitel definiert Anforderungen an Build-Prozesse, Artefakterstellung, In
 
 **Weitere Informationen:** Gilt für Backend, Frontend und ML-Komponenten.
 
-#### REQ-BUILD-002 — EU-basierte Build- und CI/CD-Infrastruktur
+#### REQ-BUILD-002 — CI/CD-Infrastruktur für den freien Kern
 
-**Statement:** Build-, Test- und CI/CD-Prozesse müssen auf **STACKIT Pipelines** oder gleichwertiger, nicht-US-amerikanischer Infrastruktur betrieben werden.
+**Statement:** Build-, Test- und CI/CD-Prozesse für den freien Kern laufen auf **GitHub Actions** im Repository `normly/web-app`. Für Betrieb, Deployment, Secrets-Management und die Normen-Wissensbasis gilt unverändert die Beschränkung auf STACKIT bzw. gleichwertige, nicht-US-amerikanische Infrastruktur.
 
-**Rationale:** Schutz von Quellcode, Modellkonfigurationen und Prompts vor extraterritorialem Zugriff.
+**Rationale:** ADR-021 (2026-09-14) — einfachere Kollaboration überwiegt für Quellcode und CI des offenen Kerns den Souveränitätsvorteil einer alleinigen STACKIT-Plattform. Schutz von Betriebsdaten, Zugangsdaten und Prompts vor extraterritorialem Zugriff bleibt davon unberührt, da diese nicht Teil des CI-Prozesses auf GitHub sind.
 
 **Akzeptanzkriterium:**
 
-- Keine Ausführung von Builds, Tests oder Deployments auf US-SaaS-CI-Systemen
+- Build und Test des freien Kerns laufen auf GitHub Actions
 
-- Runner, Container Registry und Secrets Manager werden ausschließlich in STACKIT betrieben
+- Secrets Manager, Produktions-Deployment und Betriebs-Runner für alles außer dem Kern-Build bleiben ausschließlich in STACKIT
 
-**Abnahmekriterium:** Tooling-Review bestätigt, dass kein Build- oder Deployment-Schritt außerhalb von STACKIT läuft.
+**Abnahmekriterium:** Tooling-Review bestätigt, dass kein Betriebs- oder Deployment-Schritt außerhalb von STACKIT läuft und dass in der GitHub-CI keine STACKIT-Betriebszugangsdaten hinterlegt sind.
 
-**Weitere Informationen:** STACKIT Git (Forgejo) mit STACKIT Pipelines, siehe REQ-GIT-001.
+**Weitere Informationen:** Bis zum Port von `.forgejo/workflows/ci.yml` nach `.github/workflows/` läuft auf GitHub noch keine CI (Stand 2026-09-14). Siehe REQ-GIT-001.
 
 #### REQ-BUILD-003 — Automatisierte Qualitätssicherung im Build
 
@@ -512,7 +512,7 @@ Dieses Kapitel beschreibt Anforderungen an die Verteilung, Skalierung und Trennu
 
 **Abnahmekriterium:** Eine leere Umgebung wird ohne Vorkenntnisse allein anhand der Dokumentation in Betrieb genommen; ein Wechsel des Datenstands erfolgt ohne Neubau des Images.
 
-**Weitere Informationen:** Führende und alleinige Registry ist die STACKIT Container Registry — kein Spiegel mehr auf einer externen Plattform (ADR-019, ADR-010-Nachtrag). Der öffentlich lesbare Bezug im Akzeptanzkriterium ist über anonymen Lesezugriff auf die STACKIT Container Registry selbst zu lösen, nicht über eine zweite Plattform. Helm-Charts für den Betrieb auf Kubernetes können ergänzend folgen. Cache-Strategien sind zu berücksichtigen.
+**Weitere Informationen:** Führende Registry für den freien Kern ist seit ADR-021 (2026-09-14) die GitHub Container Registry (GHCR) im Repository `normly/web-app` — löst den vorherigen Stand (STACKIT Container Registry alleinig, ADR-019/ADR-010-Nachtrag) ab. Der öffentlich lesbare Bezug im Akzeptanzkriterium ist über anonymen Lesezugriff auf GHCR zu lösen. Helm-Charts für den Betrieb auf Kubernetes können ergänzend folgen. Cache-Strategien sind zu berücksichtigen.
 
 ### 3.5.4 Wartbarkeit
 
@@ -724,26 +724,29 @@ Dieses Kapitel definiert Anforderungen an Lizenzierung, Rechteordnung und Govern
 
 Dieses Kapitel definiert Anforderungen an Plattform, Ablauf und Absicherung der Quellcodeverwaltung.
 
-### REQ-GIT-001 — STACKIT Git als führende Plattform
+### REQ-GIT-001 — GitHub als führende Plattform für den Kern-Quellcode
 
-**Statement:** Führende Plattform für Quellcode, Build, Artefakte, Zugangsdaten und Deployment ist STACKIT Git (Forgejo) mit STACKIT Pipelines. Runner, Container Registry und Secrets Manager werden ausschließlich dort betrieben.
+**Status:** Neu gefasst durch ADR-021 (2026-09-14); löst die vorherige Fassung (STACKIT Git als alleinige Plattform, ADR-019) ab.
 
-**Rationale:** Daten- und Technologiesouveränität; Erfüllung der Beschränkung aus Kapitel 2.3.
+**Statement:** Führende Plattform für Quellcode, Beiträge, CI/CD und Container-Registry des freien Kerns ist GitHub (`github.com/normly/web-app`). Betrieb, Deployment, Secrets-Management und die Normen-Wissensbasis bleiben davon getrennt und ausschließlich auf STACKIT (siehe REQ-INST-001, REQ-BUILD-002). STACKIT Git (`jwokittel/normly-webapp`) wird nicht mehr für Quellcode genutzt und ist für das künftige Hosting der Normen-Wissensbasis vorgesehen.
 
-**Akzeptanzkriterium:** Alle Repositories, Pipelines und Registries liegen in STACKIT; keine Build- oder Deployment-Rechte außerhalb.
+**Rationale:** ADR-021 — einfachere Kollaboration für den offenen Kern-Quellcode überwiegt den Souveränitätsvorteil einer alleinigen STACKIT-Plattform für Code, CI und Registry. Die Souveränitätsbeschränkung aus Kapitel 2.3 gilt unverändert für Betrieb, Daten und Secrets.
 
-**Abnahmekriterium:** Infrastruktur-Review bestätigt, dass kein Build- oder Deployment-Schritt außerhalb von STACKIT läuft.
+**Akzeptanzkriterium:** Quellcode, Pipelines und Container-Registry des freien Kerns liegen in GitHub; kein Betriebs- oder Deployment-Zugangsdatum ist dort hinterlegt.
 
-### REQ-GIT-002 — Öffentliche Beitragsfassade (entfällt)
+**Abnahmekriterium:** Infrastruktur-Review bestätigt, dass Betrieb, Deployment und Secrets-Management ausschließlich auf STACKIT laufen und die GitHub-Seite frei von Betriebszugangsdaten ist.
 
-**Status:** Hinfällig seit ADR-019 (2026-09-05). Keine GitHub-Beitragsfassade
-mehr — STACKIT Git ist von Anfang an die alleinige Plattform für Quellcode,
-Beiträge, Build und Betrieb. Beitragswege für externe Mitwirkende laufen
-direkt über STACKIT Git.
+### REQ-GIT-002 — Beitragsweg über GitHub
 
-**Ursprüngliches Statement (Referenz, nicht mehr gültig):** Der quelloffene Kern wird zusätzlich auf einer öffentlich zugänglichen Plattform (GitHub) als Beitragsfassade gespiegelt. Dort finden Issues und Pull Requests statt. Der Spiegel enthält keine Zugangsdaten, Runner, Build-Artefakte oder Deployment-Rechte.
+**Status:** Neu gefasst durch ADR-021 (2026-09-14). War von 2026-09-05 bis 2026-09-14 hinfällig (ADR-019); GitHub ist jetzt keine reine Beitragsfassade mehr, sondern die führende Plattform gemäß REQ-GIT-001.
 
-**Ursprüngliche Rationale:** Sichtbarkeit und niedrige Beitragshürde für externe Mitwirkende, ohne Betrieb und Daten aus der souveränen Umgebung zu verlagern.
+**Statement:** Externe wie interne Beiträge (Issues, Pull Requests) laufen über GitHub im Repository `normly/web-app`. Es gibt keinen zweiten, parallel gepflegten Beitragsweg.
+
+**Rationale:** Sichtbarkeit und niedrige Beitragshürde; siehe ADR-021 für die vollständige Begründung des Plattformwechsels.
+
+**Akzeptanzkriterium:** Beiträge werden ausschließlich über GitHub entgegengenommen.
+
+**Abnahmekriterium:** Review bestätigt, dass kein zweiter aktiv gepflegter Issue-Tracker oder Beitragsweg besteht.
 
 ### REQ-GIT-003 — Branch- und Release-Strategie
 
