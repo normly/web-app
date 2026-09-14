@@ -83,9 +83,11 @@ künftige Trägerorganisation oder GmbH? Vor dem ersten externen Beitrag klären
 
 ## ADR-004 — STACKIT Git als führende Plattform, GitHub als Beitragsfassade
 
-**Status:** teilweise abgelöst durch ADR-019 (2026-09-05) — die
-Beitragsfassade auf GitHub entfällt, STACKIT Git bleibt führende Plattform
-wie hier entschieden.
+**Status:** war teilweise abgelöst durch ADR-019 (2026-09-05), das die
+Beitragsfassade auf GitHub verwarf. Seit ADR-021 (2026-09-14) gilt für
+Quellcode, CI und Registry wieder die hier ursprünglich getroffene
+GitHub-Aufteilung, allerdings mit GitHub als führend statt als reiner
+Beitragsfassade — siehe ADR-021 für den aktuellen Stand.
 
 **Entscheidung:** STACKIT Git (Forgejo) mit STACKIT Pipelines ist führend für
 Quellcode, Build, Artefakte, Zugangsdaten und Deployment. GitHub dient als
@@ -257,12 +259,14 @@ Die Trennung von Code und Daten ist nötig, weil sich Normenstände deutlich
 häufiger ändern als der Code; sonst wächst das Image und jede Datenaktualisierung
 erzwingt einen Neubau.
 
-**Registry:** STACKIT Container Registry ist führend. **Nachtrag 2026-09-05
-(ADR-019):** der ursprünglich vorgesehene öffentliche Spiegel über GitHub
-Container Registry entfällt zusammen mit der GitHub-Beitragsfassade — STACKIT
-Container Registry ist die alleinige Registry. Docker Hub allenfalls später
-als eigenständiger Spiegel, falls die Pull-Limits für anonyme Zugriffe zum
-echten Problem werden — unabhängig von der GitHub-Frage.
+**Registry:** **Nachtrag 2026-09-14 (ADR-021):** GitHub Container Registry
+(GHCR) im Repository `normly/web-app` ist die führende Registry für den
+freien Kern — löst den vorherigen Nachtrag vom 2026-09-05 (ADR-019, STACKIT
+Container Registry alleinig) wieder ab. STACKIT Container Registry bleibt
+für Artefakte der kommerziellen Schicht bzw. spätere Normen-Datenprojekte
+verfügbar, ist aber nicht mehr die Registry des Kern-Images. Docker Hub
+allenfalls später als eigenständiger Spiegel, falls Pull-Limits für anonyme
+Zugriffe zum echten Problem werden.
 
 ---
 
@@ -602,7 +606,9 @@ Modell reicht für die heutigen Anforderungen.
 
 ## ADR-019 — Kein GitHub mehr als Beitragsfassade
 
-**Status:** beschlossen
+**Status:** abgelöst durch ADR-021 (2026-09-14) — Quellcode, CI und
+Registry liegen wieder auf GitHub. Eintrag bleibt als Begründungshistorie
+stehen.
 
 **Entscheidung:** GitHub entfällt als Ziel für jede künftige Automatisierung.
 Es wird kein Push-Mirror von STACKIT Git nach GitHub eingerichtet und keine
@@ -667,6 +673,63 @@ Zensical-Dokumentations-Site
 (`docs/superpowers/plans/2026-09-11-zensical-documentation-site.md`)
 wird vor dem Merge auf Englisch umgeschrieben, da er als „ab jetzt"
 zählt.
+
+---
+
+## ADR-021 — Rückkehr zu GitHub für Quellcode, CI und Registry
+
+**Status:** beschlossen
+
+**Entscheidung:** GitHub (Organisation `normly`, Repository
+`github.com/normly/web-app`) ist ab dem 14.09.2026 wieder die führende
+Plattform für Quellcode, CI/CD und Container-Registry (GitHub Actions,
+GitHub Container Registry). Das löst ADR-019 vollständig ab — nicht nur den
+Beitragsfassade-Teil, sondern die gesamte Festlegung „STACKIT Git ist die
+alleinige Plattform für Quellcode, Beiträge, Build und Betrieb". STACKIT
+Git (`jwokittel/normly-webapp`) wird nicht mehr für Quellcode, CI oder
+Registry verwendet. Es bleibt bestehen und ist als Plattform für das
+künftige Hosting der Normen-Wissensbasis vorgesehen, sobald lizenzierte
+Bestände hinzukommen — das ist ein Datenprojekt, kein Code-Projekt, und
+folgt weiter der Trennung aus ADR-010 (Code und Daten getrennt versioniert).
+
+**Begründung:** Nutzerentscheidung. Die Kollaboration — externe wie interne
+— ist auf GitHub spürbar einfacher als auf dem selbst gehosteten
+Forgejo-Setup: Tooling, Reviewer-Ökosystem und Beitragsfreundlichkeit waren
+schon der ursprüngliche Grund für ADR-004, bevor ADR-019 sie zugunsten der
+Souveränität einer einzigen STACKIT-Plattform verworfen hatte. Der
+Kollaborationsnachteil hat sich in der Praxis stärker ausgewirkt als
+erwartet; die Souveränitätsanforderung selbst bleibt bestehen, gilt aber ab
+sofort für Betrieb, Nutzerdaten, die Normen-Wissensbasis und Secrets — nicht
+mehr für den quelloffenen Kern-Quellcode, dessen CI und dessen
+Image-Registry.
+
+**Konsequenz:**
+
+- Löst ADR-019 vollständig ab und ändert ADR-004 (STACKIT statt GitHub
+  führend) sowie den Registry-Nachtrag in ADR-010 (STACKIT Container
+  Registry statt GHCR) auf ihren jeweiligen Kernpunkt.
+- CLAUDE.md's nicht-verhandelbare US-Dienste-Regel gilt unverändert für
+  Betrieb, Nutzerdaten, Normen-Wissensbasis, Secrets-Management und
+  Produktions-Deployment — dafür bleibt STACKIT ohne Ausnahme. Für
+  Quellcode, CI/CD und Container-Registry des freien Kerns gilt ab jetzt
+  die hier getroffene Ausnahme.
+- `docs/srs/03-anforderungen.md` ist entsprechend zu aktualisieren:
+  REQ-GIT-001 (führende Plattform), REQ-GIT-002 (Beitragsweg), REQ-BUILD-002
+  (CI/CD-Infrastruktur), REQ-INST-001 (Ausnahme im Fließtext) und
+  REQ-DIST-004 (Registry-Verweis).
+- Der bisherige GitHub-Spiegel `Sn4kez/normly-app` (lokaler Remote
+  `github-old`) war ein reiner, nicht mehr gepflegter Schnappschuss aus der
+  ADR-004-Ära und ist vom neuen Repository `normly/web-app` zu
+  unterscheiden — kein automatischer Zusammenhang zwischen beiden.
+- Offen als technische Folgearbeit, nicht Teil dieser Entscheidung selbst:
+  Port von `.forgejo/workflows/ci.yml` nach `.github/workflows/`,
+  GHCR-Zugangsdaten und Secrets-Einrichtung in den GitHub-Repository-
+  Einstellungen. Bis dahin läuft auf GitHub keine CI.
+
+**Verworfen:** STACKIT Git als alleinige Plattform beibehalten (Status quo
+aus ADR-019) — der Kollaborationsnachteil wiegt für den Kern-Quellcode
+schwerer als der Souveränitätsgewinn, während dieser für Betrieb und Daten
+weiterhin überwiegt und dort unangetastet bleibt.
 
 ---
 

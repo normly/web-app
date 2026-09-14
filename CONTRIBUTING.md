@@ -79,8 +79,9 @@ Diese Punkte haben rechtliche oder strategische Gründe. PRs, die dagegen
 verstoßen, können wir nicht annehmen — auch wenn der Code gut ist. Frag lieber
 vorher in einem Issue nach.
 
-- **Keine US-Dienste** für Betrieb, Build, Daten, Zugangsdaten oder Deployment.
-  Einzige Ausnahme ist diese öffentliche Beitragsfassade.
+- **Keine US-Dienste** für Betrieb, Nutzerdaten, die Normen-Wissensbasis,
+  Zugangsdaten oder Produktions-Deployment. Ausnahme seit ADR-021: Quellcode,
+  CI/CD und Container-Registry des freien Kerns liegen auf GitHub.
 - **Kein Scraping kommerziell verwerteter Katalogbestände.** Auch nicht, wenn
   sie öffentlich zugänglich sind. Neue Quellen brauchen einen Eintrag im
   Quellenregister mit zugeordneter Rechtsgrundlage.

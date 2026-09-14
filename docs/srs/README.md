@@ -121,8 +121,8 @@ Nach Kapiteln aufgeteilt, damit gezielt gelesen werden kann statt des ganzen Dok
 
 | ID | Titel | Kapitel |
 |---|---|---|
-| [`REQ-GIT-001`](03-anforderungen.md#req-git-001-stackit-git-als-fuhrende-plattform) | STACKIT Git als führende Plattform | 3.8 |
-| [`REQ-GIT-002`](03-anforderungen.md#req-git-002-offentliche-beitragsfassade-entfallt) | Öffentliche Beitragsfassade (entfällt, ADR-019) | 3.8 |
+| [`REQ-GIT-001`](03-anforderungen.md#req-git-001-github-als-fuhrende-plattform-fur-den-kern-quellcode) | GitHub als führende Plattform für den Kern-Quellcode (ADR-021) | 3.8 |
+| [`REQ-GIT-002`](03-anforderungen.md#req-git-002-beitragsweg-uber-github) | Beitragsweg über GitHub (ADR-021) | 3.8 |
 | [`REQ-GIT-003`](03-anforderungen.md#req-git-003-branch-und-release-strategie) | Branch- und Release-Strategie | 3.8 |
 | [`REQ-GIT-004`](03-anforderungen.md#req-git-004-merge-request-richtlinie) | Merge-Request-Richtlinie | 3.8 |
 | [`REQ-GIT-005`](03-anforderungen.md#req-git-005-integritat-der-lieferkette) | Integrität der Lieferkette | 3.8 |
