@@ -643,14 +643,13 @@ Pflegeaufwand-Problem nicht, verzögert die Entscheidung nur).
 **Status:** beschlossen
 
 **Entscheidung:** Neue Dokumentation (`docs/`-Inhalte, Code-Referenz,
-Guides) wird ab sofort auf Englisch verfasst statt auf Deutsch. Nicht
-rückwirkend — bestehender deutscher Content (README.md, `docs/adr/`,
-`docs/srs/`, `CONTRIBUTING.md`, `SECURITY.md`, `GOVERNANCE.md`,
-`TRADEMARK.md`, `CODE_OF_CONDUCT.md`) wird nicht migriert; das ist ein
-eigenes, späteres Projekt. `docs/superpowers/` fällt nicht unter diese
-Regel — die Specs, Pläne und Ledger dort sind Arbeitsdokumente des
-KI-gestützten Entwicklungsprozesses, keine Dokumentation für Leser von
-außen, und bleiben wie CLAUDE.md auf Deutsch.
+Guides) wird ab sofort auf Englisch verfasst statt auf Deutsch. Ursprünglich
+nicht rückwirkend gedacht; die Migration des bestehenden deutschen Contents
+ist inzwischen teilweise erfolgt (siehe Nachtrag 2026-09-14 unten).
+`docs/superpowers/` fällt nicht unter diese Regel — die Specs, Pläne und
+Ledger dort sind Arbeitsdokumente des KI-gestützten Entwicklungsprozesses,
+keine Dokumentation für Leser von außen, und bleiben wie CLAUDE.md auf
+Deutsch.
 
 **Begründung:** Englisch ist der De-facto-Standard für
 Open-Source-Dokumentation. Er ermöglicht internationalen Beitragenden
@@ -673,6 +672,16 @@ Zensical-Dokumentations-Site
 (`docs/superpowers/plans/2026-09-11-zensical-documentation-site.md`)
 wird vor dem Merge auf Englisch umgeschrieben, da er als „ab jetzt"
 zählt.
+
+**Nachtrag 2026-09-14 — Migration teilweise begonnen:** Auf Nutzerwunsch ins
+Englische übersetzt: `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
+`CODE_OF_CONDUCT.md`. Die ursprüngliche „nicht rückwirkend"-Regel gilt damit
+nicht mehr uneingeschränkt für alle acht ursprünglich genannten Dateien,
+sondern nur noch für die verbliebenen: `docs/adr/` (dieses Dokument),
+`docs/srs/`, `GOVERNANCE.md`, `TRADEMARK.md` — deren Migration bleibt ein
+eigenes, späteres Projekt, insbesondere `docs/adr/` und `docs/srs/` wegen
+ihres Umfangs. Keine inhaltliche Änderung an den vier übersetzten Dateien,
+nur Sprachwechsel.
 
 ---
 

@@ -132,14 +132,14 @@ deutschen Begriff, wo es keine etablierte Entsprechung gibt (z. B.
 Datei (CLAUDE.md) bleibt auf Deutsch. Die App-eigene Sprachumschaltung
 (Deutsch/Englisch für Endnutzer) ist davon unberührt. → ADR-020
 
-Nicht rückwirkend: bestehender deutscher Content (README.md, docs/adr/,
-docs/srs/, CONTRIBUTING.md, SECURITY.md, GOVERNANCE.md, TRADEMARK.md,
-CODE_OF_CONDUCT.md) bleibt vorerst unverändert — Migration ist ein
-eigenes, späteres Projekt. `docs/superpowers/` (interne Specs, Pläne,
-Ledger für die KI-gestützte Entwicklung) ist davon unabhängig zu
-betrachten — das sind Arbeitsdokumente für den Entwicklungsprozess, keine
-Dokumentation im Sinne dieser Regel, und bleiben wie CLAUDE.md selbst auf
-Deutsch.
+Teilweise migriert (2026-09-14): README.md, CONTRIBUTING.md, SECURITY.md
+und CODE_OF_CONDUCT.md sind jetzt auf Englisch. Weiterhin auf Deutsch und
+vorerst unverändert: docs/adr/, docs/srs/, GOVERNANCE.md, TRADEMARK.md —
+deren Migration bleibt ein eigenes, späteres Projekt, siehe ADR-020-Nachtrag.
+`docs/superpowers/` (interne Specs, Pläne, Ledger für die KI-gestützte
+Entwicklung) ist davon unabhängig zu betrachten — das sind Arbeitsdokumente
+für den Entwicklungsprozess, keine Dokumentation im Sinne dieser Regel, und
+bleiben wie CLAUDE.md selbst auf Deutsch.
 
 ## Weitere Repository-Dateien
 

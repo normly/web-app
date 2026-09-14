@@ -1,59 +1,59 @@
-# Sicherheitsrichtlinie
+# Security Policy
 
-## Schwachstellen melden
+## Reporting a vulnerability
 
-**Bitte melde Sicherheitslücken nicht als öffentliches Issue.**
+**Please do not report security vulnerabilities as a public issue.**
 
-Meldung an: **security@normly.ai**
+Report to: **security@normly.ai**
 
-Hilfreich für uns:
+Helpful for us:
 
-- Betroffene Komponente und Version
-- Beschreibung und mögliche Auswirkung
-- Schritte zur Reproduktion
-- Deine Einschätzung des Schweregrads
+- Affected component and version
+- Description and potential impact
+- Steps to reproduce
+- Your assessment of the severity
 
-Verschlüsselte Meldung ist möglich; den öffentlichen Schlüssel findest du unter
-`docs/security/pgp-key.asc` *(noch zu ergänzen)*.
+Encrypted reports are possible; the public key is at
+`docs/security/pgp-key.asc` *(to be added)*.
 
-## Was du erwarten kannst
+## What you can expect
 
 | | |
 |---|---|
-| Eingangsbestätigung | innerhalb von **3 Werktagen** |
-| Erste Einschätzung | innerhalb von **10 Werktagen** |
-| Statusmeldung | mindestens alle **14 Tage** bis zur Klärung |
+| Acknowledgement of receipt | within **3 business days** |
+| Initial assessment | within **10 business days** |
+| Status update | at least every **14 days** until resolved |
 
-Wir arbeiten mit koordinierter Offenlegung: Nach der Behebung veröffentlichen
-wir einen Hinweis und nennen dich als Finder:in, sofern du das möchtest.
-Üblicherweise liegen zwischen Behebung und Veröffentlichung **90 Tage** — bei
-aktiv ausgenutzten Lücken deutlich weniger.
+We follow coordinated disclosure: once fixed, we publish an advisory and
+credit you as the finder, if you'd like that. There are usually **90 days**
+between a fix and publication — considerably less for actively exploited
+vulnerabilities.
 
-## Umfang
+## Scope
 
-**Im Umfang:** der Kern dieses Repositories, die öffentliche API, die
-Verarbeitungskette, Authentifizierung und Autorisierung, die Container-Images
-sowie die Build- und Auslieferungswege.
+**In scope:** this repository's core, the public API, the processing
+pipeline, authentication and authorization, the container images, and the
+build and delivery paths.
 
-**Besonders relevant** sind Lücken, die eine der folgenden Zusagen brechen:
+**Especially relevant** are vulnerabilities that break one of the following
+guarantees:
 
-- Trennung lizenzierter Bestände zwischen Mandanten
-- Unerreichbarkeit lizenzierter Inhalte über anonyme Zugänge
-- Wirksamkeit der Rücknahme zurückgezogener Bestände
-- Schutz vor systematischer Massenextraktion
+- Separation of licensed holdings between tenants
+- Unreachability of licensed content through anonymous access
+- Effectiveness of withdrawal for retracted holdings
+- Protection against systematic bulk extraction
 
-**Nicht im Umfang:** Schwachstellen in Fremdabhängigkeiten (bitte dort melden;
-ein Hinweis an uns ist trotzdem willkommen), Angriffe, die physischen Zugriff
-oder ein bereits kompromittiertes Konto voraussetzen, sowie Berichte aus
-automatisierten Scannern ohne belegte Auswirkung.
+**Out of scope:** vulnerabilities in third-party dependencies (please report
+those there; a note to us is still welcome), attacks that require physical
+access or an already-compromised account, and reports from automated
+scanners without demonstrated impact.
 
-## Regeln für Sicherheitsforschung
+## Rules for security research
 
-Erlaubt und erwünscht, solange du auf einer **eigenen Instanz** testest, keine
-fremden Daten abrufst, veränderst oder löschst, keine Verfügbarkeit
-beeinträchtigst und Funde nicht vor der koordinierten Offenlegung
-veröffentlichst.
+Permitted and welcome, as long as you test on your **own instance**, don't
+access, modify, or delete other people's data, don't impair availability,
+and don't publish findings before coordinated disclosure.
 
-Wer sich daran hält, muss von uns keine rechtlichen Schritte befürchten.
+Anyone who follows these rules has nothing to fear from us legally.
 
-## Ein Bug-Bounty-Programm gibt es derzeit nicht.
+## There is currently no bug bounty program.

@@ -1,102 +1,102 @@
 # normly
 
-**KI-unterstützte Normen und Standards, offen für jeden.**
+**AI-assisted standards and technical rules, open to everyone.**
 
-normly macht Wissen über Normen und Regelwerke so weit frei zugänglich, wie es
-rechtlich zulässig ist — und baut darauf einen offenen, maschinenlesbaren
-Referenzgraph: welche Regelwerke aufeinander verweisen, was durch was ersetzt
-wurde, und welche Rechtsvorschrift auf welche Norm verweist.
+normly makes knowledge about standards and Regelwerke as freely accessible as
+the law allows — and builds an open, machine-readable reference graph on top
+of it: which Regelwerke reference each other, what was superseded by what,
+and which legal provision references which standard.
 
-> ⚠️ **Frühe Entwicklungsphase.** Dieses Repository befindet sich im Aufbau.
-> Es gibt noch keine lauffähige Version und keine stabile API.
+> ⚠️ **Early development stage.** This repository is under construction.
+> There is no working release yet and no stable API.
 
-## Warum
+## Why
 
-Wer wissen will, welche Norm für eine Aufgabe gilt, ob sie noch gültig ist und
-was sie ersetzt hat, findet darauf heute keine gute Antwort. Die Regelwerke
-liegen verstreut bei verschiedenen Herausgebern, ihre Verweise untereinander
-sind nirgends maschinenlesbar erfasst, und viele frei verfügbare Texte —
-Unfallverhütungsvorschriften, technische Regeln, EU-Richtlinien — sind zwar
-öffentlich, aber praktisch kaum auffindbar.
+Anyone who wants to know which standard applies to a task, whether it's still
+valid, and what it superseded, finds no good answer today. Regelwerke are
+scattered across different publishers, their cross-references are nowhere
+captured in a machine-readable way, and many freely available texts —
+accident-prevention regulations, technical rules, EU directives — are public
+in principle but hard to find in practice.
 
-normly richtet sich an die Menschen, die täglich damit arbeiten: Handwerk,
-Planung, Arbeitssicherheit und kleine bis mittlere Unternehmen.
+normly is built for the people who work with this material every day:
+skilled trades, planning, occupational safety, and small to medium
+businesses.
 
-## Was frei ist und was nicht
+## What's free and what isn't
 
-normly folgt einem **Open-Core-Modell**. Die Trennlinie verläuft am Inhalt,
-nicht am Zugangsweg.
+normly follows an **open-core model**. The line runs through content, not
+through the access path.
 
-**Frei** — der Kern, der Referenzgraph und alle Inhalte, die frei weitergegeben
-werden dürfen: amtliche Werke, DGUV-Regeln, BAuA-Technische Regeln,
-EU-Richtlinien über EUR-Lex, offene Standards. Nutzbar ohne Konto, ohne Entgelt,
-selbst hostbar.
+**Free** — the core, the reference graph, and all content that may be freely
+redistributed: official works, DGUV Regeln, BAuA technical rules, EU
+directives via EUR-Lex, open standards. Usable without an account, without
+payment, self-hostable.
 
-**Kostenpflichtig** — Managed Hosting mit SLA, Compliance-Instanzen mit
-Audit-Trail, Integrationen in CAD- und ERP-Systeme, sowie Instanzen mit
-vertraglich lizenzierten Normenvolltexten.
+**Paid** — managed hosting with an SLA, compliance instances with an audit
+trail, integrations into CAD and ERP systems, and instances with
+contractually licensed full texts of standards.
 
-Urheberrechtlich geschützte Volltexte werden **nicht** frei weitergegeben.
-Wo sie verarbeitet werden, geschieht das auf vertraglicher Grundlage — mit
-Umsatzbeteiligung der Herausgeber.
+Copyrighted full texts are **not** redistributed freely. Where they are
+processed, that happens on a contractual basis — with revenue share for the
+publishers.
 
-Was normly ausdrücklich **nicht** tut: keine personalisierte Werbung, keine
-Nutzerprofile zu Werbezwecken, kein Abgreifen kommerziell verwerteter
-Normenkataloge.
+What normly explicitly does **not** do: no personalized advertising, no user
+profiles for advertising purposes, no scraping of commercially exploited
+standards catalogs.
 
-## Lizenzen
+## Licenses
 
-| Bestandteil | Lizenz |
+| Component | License |
 |---|---|
-| Kern (Server, Anwendung) | AGPL-3.0 |
-| Client-SDKs, API-Spezifikation | Apache-2.0 |
-| Daten und Referenzgraph | ODbL |
-| Marke `normly` | siehe [TRADEMARK.md](TRADEMARK.md) |
+| Core (server, application) | AGPL-3.0 |
+| Client SDKs, API specification | Apache-2.0 |
+| Data and reference graph | ODbL |
+| `normly` trademark | see [TRADEMARK.md](TRADEMARK.md) |
 
-Die AGPL greift, wenn jemand den Server selbst verändert und betreibt. Ein
-Drittsystem, das über die HTTP-API mit einer normly-Instanz spricht, ist ein
-getrenntes Programm und nicht betroffen — Integrationen sind ausdrücklich
-erwünscht.
+The AGPL applies when someone modifies and operates the server itself. A
+third-party system that talks to a normly instance over the HTTP API is a
+separate program and unaffected — integrations are explicitly welcome.
 
-## Mitwirken
+## Contributing
 
-Beiträge laufen über das **Developer Certificate of Origin** (DCO), nicht über
-eine Rechteübertragung. Jeder Commit braucht eine `Signed-off-by`-Zeile:
+Contributions go through the **Developer Certificate of Origin** (DCO), not
+a transfer of rights. Every commit needs a `Signed-off-by` line:
 
 ```bash
-git commit -s -m "feat: kurze Beschreibung"
+git commit -s -m "feat: short description"
 ```
 
-Details in [CONTRIBUTING.md](CONTRIBUTING.md). Sicherheitslücken bitte **nicht**
-als Issue melden — siehe [SECURITY.md](SECURITY.md).
+Details in [CONTRIBUTING.md](CONTRIBUTING.md). Please **do not** report
+security vulnerabilities as an issue — see [SECURITY.md](SECURITY.md).
 
-## Wo der Code liegt
+## Where the code lives
 
-Quellcode, Beiträge, CI/CD und Container-Registry des freien Kerns liegen auf
-**GitHub**: [github.com/normly/web-app](https://github.com/normly/web-app)
-(ADR-021) — einfachere Kollaboration war der Grund für die Rückkehr. Betrieb,
-Nutzerdaten und die spätere Normen-Wissensbasis bleiben davon getrennt und
-ausschließlich auf STACKIT-Infrastruktur in Deutschland.
+Source code, contributions, CI/CD, and the container registry for the free
+core live on **GitHub**: [github.com/normly/web-app](https://github.com/normly/web-app)
+(ADR-021) — easier collaboration was the reason for the move back. Operations,
+user data, and the future standards knowledge base stay separate from that
+and remain exclusively on STACKIT infrastructure in Germany.
 
-## Dokumentation
+## Documentation
 
 | | |
 |---|---|
-| [docs/srs/](docs/srs/) | Anforderungen (SRS/SDD), 78 Requirements |
-| [docs/adr/](docs/adr/) | Architekturentscheidungen mit Begründung |
-| [docs/normly_Verarbeitungskette.svg](docs/normly_Verarbeitungskette.svg) | Von der Quelle bis zur Ausspielung |
-| [docs/normly_Entwicklungsphasen.svg](docs/normly_Entwicklungsphasen.svg) | Phasenplan |
-| [CLAUDE.md](CLAUDE.md) | Arbeitsanweisungen für KI-gestützte Entwicklung |
+| [docs/srs/](docs/srs/) | Requirements (SRS/SDD), 78 requirements |
+| [docs/adr/](docs/adr/) | Architecture decisions with rationale |
+| [docs/normly_Verarbeitungskette.svg](docs/normly_Verarbeitungskette.svg) | From source to delivery |
+| [docs/normly_Entwicklungsphasen.svg](docs/normly_Entwicklungsphasen.svg) | Phase plan |
+| [CLAUDE.md](CLAUDE.md) | Working instructions for AI-assisted development |
 
-Wenn du verstehen willst, **warum** etwas so ist, wie es ist: `docs/adr/` ist
-der richtige Einstieg.
+If you want to understand **why** something is the way it is: `docs/adr/`
+is the right place to start.
 
 ## Status
 
-Erster lauffähiger Prototyp: Dezember 2026. Der Referenzgraph entsteht dabei
-aus frei zugänglichen Quellen — er braucht keinen Lizenzvertrag.
+First working prototype: December 2026. The reference graph is built from
+freely accessible sources — it needs no licensing agreement.
 
 ---
 
-<sub>normly ist ein unabhängiges Projekt und steht in keiner Verbindung zu DIN,
-VDI, ISO, CEN oder anderen Normungsorganisationen.</sub>
+<sub>normly is an independent project and has no affiliation with DIN, VDI,
+ISO, CEN, or other standards organizations.</sub>

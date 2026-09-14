@@ -1,45 +1,45 @@
-# Verhaltenskodex
+# Code of Conduct
 
-## Worum es geht
+## What this is about
 
-An normly arbeiten Menschen mit sehr unterschiedlichem Hintergrund —
-Entwicklung, Handwerk, Arbeitssicherheit, Normung, Recht. Genau das macht das
-Projekt wertvoll. Damit das funktioniert, braucht es einen Umgangston, in dem
-auch jemand ohne Programmiererfahrung eine Beobachtung beitragen kann, ohne
-sich zu blamieren.
+normly is built by people with very different backgrounds — development,
+skilled trades, occupational safety, standardization, law. That's exactly
+what makes the project valuable. For that to work, we need a tone where
+even someone without programming experience can contribute an observation
+without embarrassment.
 
-## Erwünscht
+## Welcome
 
-- Sachliche Kritik an Inhalten, nicht an Personen
-- Geduld mit Fragen, die für dich selbstverständlich sind
-- Fehler einräumen und daraus lernen
-- Rücksicht darauf, dass nicht alle dieselbe Muttersprache oder denselben
-  Fachhintergrund haben
+- Objective criticism of content, not of people
+- Patience with questions that feel obvious to you
+- Admitting mistakes and learning from them
+- Consideration for the fact that not everyone shares the same native
+  language or professional background
 
-## Nicht akzeptabel
+## Not acceptable
 
-- Beleidigungen, Herabwürdigung, persönliche Angriffe
-- Belästigung jeder Art, auch privat
-- Diskriminierung aufgrund von Herkunft, Geschlecht, Alter, Behinderung,
-  Religion, sexueller Orientierung oder sozialem Hintergrund
-- Veröffentlichung privater Informationen ohne Zustimmung
-- Herablassung gegenüber weniger erfahrenen Beitragenden
+- Insults, belittling, personal attacks
+- Harassment of any kind, including in private
+- Discrimination based on origin, gender, age, disability, religion, sexual
+  orientation, or social background
+- Publishing private information without consent
+- Condescension toward less experienced contributors
 
-## Geltungsbereich
+## Scope
 
-Für alle Projektbereiche — Repositories, Issues, Pull Requests,
-Diskussionskanäle — sowie überall dort, wo jemand das Projekt nach außen
-vertritt.
+Applies to all project spaces — repositories, issues, pull requests,
+discussion channels — as well as anywhere someone represents the project
+publicly.
 
-## Verstöße melden
+## Reporting violations
 
-Meldung an **conduct@normly.ai**. Meldungen werden vertraulich behandelt.
+Report to **conduct@normly.ai**. Reports are handled confidentially.
 
-Wir bestätigen den Eingang innerhalb von 3 Werktagen, prüfen den Sachverhalt
-und hören beide Seiten an. Je nach Schwere reichen die Folgen von einem
-klärenden Gespräch über eine Verwarnung bis zum dauerhaften Ausschluss.
+We acknowledge receipt within 3 business days, investigate the matter, and
+hear both sides. Depending on severity, consequences range from a
+clarifying conversation through a warning to a permanent ban.
 
-## Grundlage
+## Attribution
 
-Angelehnt an den [Contributor Covenant 2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/),
-gekürzt und an dieses Projekt angepasst.
+Adapted from the [Contributor Covenant 2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/),
+shortened and adjusted for this project.
