@@ -56,6 +56,7 @@ export function ChatInput({
     <div className="flex items-center gap-2 rounded-lg border bg-background p-2">
       <Textarea
         ref={textareaRef}
+        rows={1}
         value={value}
         onChange={(event) => setValue(event.target.value)}
         onKeyDown={(event) => {
@@ -67,7 +68,7 @@ export function ChatInput({
         placeholder={t("chat.inputPlaceholder")}
         disabled={disabled}
         aria-label={t("chat.inputPlaceholder")}
-        className="min-h-[44px] resize-none border-0 shadow-none focus-visible:ring-0"
+        className="min-h-[44px] resize-none border-0 py-2.5 shadow-none focus-visible:ring-0 md:py-3"
       />
       <Button
         onClick={submit}
