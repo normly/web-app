@@ -24,7 +24,7 @@ interface ChatApiResponse {
 }
 
 export function HomePageContent() {
-  const { locale } = useTranslation();
+  const { t, locale } = useTranslation();
   const { jurisdiction } = useJurisdiction();
   const [messages, setMessages] = React.useState<ChatMessageView[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
@@ -60,9 +60,10 @@ export function HomePageContent() {
 
   return (
     <ChatShell onNewChat={() => setMessages([])}>
-      <div className="mx-auto flex max-w-2xl flex-1 flex-col gap-4 p-4">
+      <div className="mx-auto flex max-w-3xl flex-1 flex-col gap-4 p-4">
         <MessageList messages={messages} isLoading={isLoading} />
         <ChatInput onSend={sendMessage} disabled={isLoading} />
+        <p className="text-center text-xs text-muted-foreground">{t("chat.aiDisclaimer")}</p>
       </div>
     </ChatShell>
   );

@@ -28,7 +28,7 @@ export function ChatInput({
   };
 
   return (
-    <div className="flex items-end gap-2 rounded-lg border bg-background p-2">
+    <div className="flex items-center gap-2 rounded-lg border bg-background p-2">
       <Textarea
         value={value}
         onChange={(event) => setValue(event.target.value)}
@@ -41,7 +41,7 @@ export function ChatInput({
         placeholder={t("chat.inputPlaceholder")}
         disabled={disabled}
         aria-label={t("chat.inputPlaceholder")}
-        className="min-h-[60px] resize-none border-0 shadow-none focus-visible:ring-0"
+        className="min-h-[88px] resize-none border-0 shadow-none focus-visible:ring-0"
       />
       <Button
         onClick={submit}

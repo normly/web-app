@@ -9,7 +9,8 @@
     "loading": "Antwort wird geladen…",
     "citationSource": "Quelle",
     "copyButtonLabel": "Antwort kopieren",
-    "copiedLabel": "Kopiert"
+    "copiedLabel": "Kopiert",
+    "aiDisclaimer": "normly ist eine KI und kann Fehler machen. Bitte überprüfe die Antworten."
   },
   "auth": {
     "loginTab": "Anmelden",
@@ -71,7 +72,9 @@
     "toggleSidebar": "Seitenleiste umschalten",
     "sidebarTitle": "Seitenleiste",
     "sidebarDescription": "Zeigt die mobile Seitenleiste an.",
-    "toggleChatHistory": "Chatverlauf umschalten"
+    "toggleChatHistory": "Chatverlauf umschalten",
+    "languageSwitcherTooltip": "Sprache",
+    "jurisdictionSwitcherTooltip": "Jurisdiktion (Rechtsraum)"
   },
   "search": {
     "navLink": "Suche",

@@ -4,15 +4,25 @@
 
 "use client";
 
+import { Languages } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/provider";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function LocaleSwitcher() {
-  const { locale, setLocale } = useTranslation();
+  const { t, locale, setLocale } = useTranslation();
   const other = locale === "de" ? "en" : "de";
   return (
-    <Button variant="ghost" size="sm" onClick={() => setLocale(other)}>
-      {other.toUpperCase()}
-    </Button>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => setLocale(other)}>
+            <Languages className="h-4 w-4" />
+            {other.toUpperCase()}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{t("nav.languageSwitcherTooltip")}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
