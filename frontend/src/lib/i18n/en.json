@@ -9,7 +9,8 @@
     "loading": "Loading answer…",
     "citationSource": "Source",
     "copyButtonLabel": "Copy response",
-    "copiedLabel": "Copied"
+    "copiedLabel": "Copied",
+    "aiDisclaimer": "normly uses AI and can make mistakes. Please check its responses."
   },
   "auth": {
     "loginTab": "Log in",
@@ -71,7 +72,9 @@
     "toggleSidebar": "Toggle sidebar",
     "sidebarTitle": "Sidebar",
     "sidebarDescription": "Displays the mobile sidebar.",
-    "toggleChatHistory": "Toggle chat history"
+    "toggleChatHistory": "Toggle chat history",
+    "languageSwitcherTooltip": "Language",
+    "jurisdictionSwitcherTooltip": "Jurisdiction (legal system)"
   },
   "search": {
     "navLink": "Search",

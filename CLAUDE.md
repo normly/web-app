@@ -42,6 +42,32 @@ Aufgabe: nachfragen, nicht umgehen.
   Pipeline.
 - **Keine Secrets im Code**, auch nicht in Tests oder Beispielen.
 
+## Arbeitsweise: Wann abstimmen, wann direkt umsetzen
+
+Diese Regeln gelten in jedem Permission-Modus, auch in Auto-Mode. Auto-Mode betrifft
+nur Werkzeugentscheidungen (Dateien lesen, Befehle ausführen), nicht die Frage,
+ob ein Design abgestimmt wird.
+
+### Zuerst `brainstorming`-Skill aufrufen und Rückfragen stellen, wenn mindestens eines zutrifft:
+- eine neue Komponente, Seite, Route, Tabelle oder ein neuer Service entsteht
+- sich eine Interaktion oder ein Verhalten für den Nutzer ändert (Ablauf, Zustand, Sichtbarkeit, Bedienung)
+- mehr als zwei Dateien angefasst werden
+- eine Schnittstelle, ein Datenmodell oder eine Migration betroffen ist
+- die Anforderung mehr als eine sinnvolle Umsetzung zulässt
+
+Erst nach bestätigtem Design wird implementiert. Keine Edits vorher.
+
+### Direkt umsetzen, ohne Brainstorming:
+- Bugfix mit klarer Ursache
+- reine Optik ohne Verhaltensänderung (Farbe, Abstand, Text, Icon-Tausch)
+- Änderungen an höchstens zwei Dateien, die genau eine Umsetzung zulassen
+
+Im Zweifel gilt die erste Liste.
+
+### Weitere Skills
+- Fehlersuche immer mit `systematic-debugging`, nicht ad hoc.
+- Vor „fertig" immer `verification-before-completion`.
+
 ## Architekturregeln
 
 - **Datenbankzugriff nur über die Repository-Schicht.** Keine SQL- oder

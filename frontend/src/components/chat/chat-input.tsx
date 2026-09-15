@@ -10,6 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n/provider";
 
+const MAX_HEIGHT_PX = 260; // ~3x the 88px resting height this replaces (user-approved, rounded)
+
 export function ChatInput({
   onSend,
   disabled,
@@ -19,6 +21,29 @@ export function ChatInput({
 }) {
   const { t } = useTranslation();
   const [value, setValue] = React.useState("");
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  React.useLayoutEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+
+    const resize = () => {
+      if (value === "") {
+        el.style.height = "";
+        el.style.overflowY = "hidden";
+        return;
+      }
+      el.style.height = "auto";
+      const contentHeight = el.scrollHeight;
+      el.style.height = `${Math.min(contentHeight, MAX_HEIGHT_PX)}px`;
+      el.style.overflowY = contentHeight > MAX_HEIGHT_PX ? "auto" : "hidden";
+    };
+
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [value]);
 
   const submit = () => {
     const trimmed = value.trim();
@@ -28,8 +53,10 @@ export function ChatInput({
   };
 
   return (
-    <div className="flex items-end gap-2 rounded-lg border bg-background p-2">
+    <div className="flex items-center gap-2 rounded-lg border bg-background p-2">
       <Textarea
+        ref={textareaRef}
+        rows={1}
         value={value}
         onChange={(event) => setValue(event.target.value)}
         onKeyDown={(event) => {
@@ -41,7 +68,7 @@ export function ChatInput({
         placeholder={t("chat.inputPlaceholder")}
         disabled={disabled}
         aria-label={t("chat.inputPlaceholder")}
-        className="min-h-[60px] resize-none border-0 shadow-none focus-visible:ring-0"
+        className="min-h-[44px] resize-none border-0 py-2.5 shadow-none focus-visible:ring-0 md:py-3"
       />
       <Button
         onClick={submit}
