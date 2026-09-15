@@ -13,6 +13,8 @@ export function LocaleSwitcher() {
   const { t, locale, setLocale } = useTranslation();
   const other = locale === "de" ? "en" : "de";
   return (
+    // Own provider so this renders standalone (e.g. AppHeader on
+    // /confirm-email-change, which has no SidebarProvider above it).
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>

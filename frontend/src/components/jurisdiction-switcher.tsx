@@ -13,10 +13,12 @@ export function JurisdictionSwitcher() {
   const { t } = useTranslation();
   const { jurisdiction, setJurisdiction } = useJurisdiction();
   return (
+    // Own provider so this renders standalone (e.g. AppHeader on
+    // /confirm-email-change, which has no SidebarProvider above it).
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className="flex items-center gap-1.5 rounded-md border border-input bg-background px-2 h-9">
+          <div className="flex items-center gap-1.5 rounded-md border border-input bg-background px-2 h-9 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ring-offset-background">
             <Landmark className="h-4 w-4 text-muted-foreground" />
             <select
               value={jurisdiction}

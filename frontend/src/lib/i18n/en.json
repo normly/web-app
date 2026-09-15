@@ -10,7 +10,7 @@
     "citationSource": "Source",
     "copyButtonLabel": "Copy response",
     "copiedLabel": "Copied",
-    "aiDisclaimer": "normly is AI and can make mistakes. Please check its responses."
+    "aiDisclaimer": "normly uses AI and can make mistakes. Please check its responses."
   },
   "auth": {
     "loginTab": "Log in",

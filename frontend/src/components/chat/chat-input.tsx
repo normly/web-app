@@ -26,15 +26,23 @@ export function ChatInput({
   React.useLayoutEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
-    if (value === "") {
-      el.style.height = "";
-      el.style.overflowY = "hidden";
-      return;
-    }
-    el.style.height = "auto";
-    const nextHeight = Math.min(el.scrollHeight, MAX_HEIGHT_PX);
-    el.style.height = `${nextHeight}px`;
-    el.style.overflowY = el.scrollHeight > MAX_HEIGHT_PX ? "auto" : "hidden";
+
+    const resize = () => {
+      if (value === "") {
+        el.style.height = "";
+        el.style.overflowY = "hidden";
+        return;
+      }
+      el.style.height = "auto";
+      const contentHeight = el.scrollHeight;
+      el.style.height = `${Math.min(contentHeight, MAX_HEIGHT_PX)}px`;
+      el.style.overflowY = contentHeight > MAX_HEIGHT_PX ? "auto" : "hidden";
+    };
+
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(el);
+    return () => observer.disconnect();
   }, [value]);
 
   const submit = () => {
