@@ -76,6 +76,8 @@ To run the complete stack locally using Docker Compose:
 
 ```bash
 docker compose up --build
+docker compose --profile chat-llm up --build
+docker compose --profile chat-llm exec ollama ollama pull llama3.1:8b-instruct-q4_0
 ```
 
 - Web UI: [http://localhost:3000](http://localhost:3000)
