@@ -70,6 +70,25 @@ git commit -s -m "feat: short description"
 Details in [CONTRIBUTING.md](CONTRIBUTING.md). Please **do not** report
 security vulnerabilities as an issue — see [SECURITY.md](SECURITY.md).
 
+## Running Locally
+
+To run the complete stack locally using Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+- Web UI: [http://localhost:3000](http://localhost:3000)
+- Graph API Docs: [http://localhost:8002/docs](http://localhost:8002/docs)
+- Accounts API Docs: [http://localhost:8001/docs](http://localhost:8001/docs)
+
+To seed sample data:
+```bash
+./scripts/seed-data.sh --compose
+```
+
+For native development with hot-reloading (`./scripts/dev-setup.sh` and `./scripts/dev-run.sh`) or direct database querying, see the [Local Development Guide](docs/guide/local-development.md).
+
 ## Where the code lives
 
 Source code, contributions, CI/CD, and the container registry for the free

@@ -1,0 +1,17 @@
+.git
+.gitignore
+.dockerignore
+**/.venv
+**/venv
+**/__pycache__
+**/*.py[cod]
+**/*.so
+**/.pytest_cache
+**/.coverage
+**/htmlcov
+frontend/node_modules
+frontend/.next
+frontend/.swc
+frontend/test-results
+frontend/playwright-report
+docs/site

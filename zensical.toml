@@ -8,6 +8,7 @@ nav = [
   { "Home" = "index.md" },
   { "Guide" = [
     "guide/getting-started.md",
+    "guide/local-development.md",
     "guide/self-hosting.md",
   ] },
   { "Concepts" = [
