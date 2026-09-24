@@ -23,6 +23,7 @@ No root package manager or workspace file exists. The repo contains four Python 
 - 1-Command full stack with Docker Compose: `docker compose up --build`
   - Seed sample data: `./scripts/seed-data.sh --compose`
   - Optional local Ollama profile: `docker compose --profile chat-llm up --build`
+  - And starting the Ollama model: docker compose --profile chat-llm exec ollama ollama pull llama3.1:8b-instruct-q4_0
 - Host-native development (with hot-reloading):
   - Setup environment: `./scripts/dev-setup.sh`
   - Run all services concurrently: `./scripts/dev-run.sh`

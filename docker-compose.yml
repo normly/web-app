@@ -117,8 +117,10 @@ services:
     profiles:
       - chat-llm
     restart: unless-stopped
+    dns:
+      - 192.168.0.1
     ports:
-      - "11434:11434"
+      - "11435:11434"
     volumes:
       - normly-ollama:/root/.ollama
 
