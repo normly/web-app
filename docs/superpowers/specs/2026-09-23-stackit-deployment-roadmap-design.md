@@ -1,7 +1,7 @@
 # Design: STACKIT-Deployment-Roadmap (Übersicht, 4 Teilprojekte)
 
-Stand: 2026-09-23 · Status: vom Nutzer freigegeben, Teilprojekte folgen je
-mit eigenem Spec und Plan.
+Stand: 2026-09-23, ergänzt 2026-10-01 (E8, TP1-Vorentscheidungen) · Status: vom
+Nutzer freigegeben, Teilprojekte folgen je mit eigenem Spec und Plan.
 
 ## Kontext
 
@@ -125,6 +125,18 @@ Eine echte Staging-Umgebung (zweite VM, zweite Datenbank) kommt, sobald es
 Nutzer gibt, die ein fehlerhaftes Deployment treffen würde. Wird im ADR-022
 als bewusste, befristete Abweichung festgehalten.
 
+### E8 — Iteration direkt auf der STACKIT-VM statt lokal (2026-10-01)
+
+Nutzerentscheidung gegen die Empfehlung, Teilprojekt 1 zuerst lokal zu
+verifizieren: VM und Postgres Flex werden sofort gebucht, das Repository
+wird auf der VM ausgecheckt und die Images werden dort gebaut (`docker
+compose build`), ohne Umweg über die GHCR. Vorteil: echte Umgebung von
+Anfang an. In Kauf genommen: rund 235 €/Monat laufen ab Buchung, und jede
+Iteration braucht einen Build auf der VM statt auf dem Entwicklungsrechner.
+Der GHCR-Pull-Weg ersetzt den VM-Build mit Teilprojekt 2/4. Die Dateien
+selbst (Dockerfiles, Compose) sind dieselben; das lokale Compose-Setup
+bleibt für Self-Hoster und als Staging-Ersatz (E7) Ergebnis von TP1.
+
 ## Zu buchende STACKIT-Produkte
 
 Listenpreise aus der STACKIT-Preisliste (PDF, Version 18), Region EU01,
@@ -159,17 +171,20 @@ geht laut Doku ohne Ausfall, Backups macht Flex selbst.
 
 Nicht gebucht: SKE, Load Balancer, STACKIT Container Registry.
 
-**Buchungszeitpunkt:** Projekt, DNS-Zone (Propagation dauert), AI-Token und
-Secrets Manager sofort (< 5 €/Monat). VM, Public IP, Postgres Flex und
-Object Storage erst, wenn Teilprojekt 1 abgeschlossen ist — sonst laufen
-Wochen Kosten für leere Ressourcen.
+**Buchungszeitpunkt:** ursprünglich VM, Public IP, Postgres Flex und Object
+Storage erst nach Abschluss von Teilprojekt 1 (um Kosten für leere
+Ressourcen zu vermeiden). Mit E8 (2026-10-01) werden Projekt, VM, Public IP
+und Postgres Flex sofort gebucht; DNS-Zone, AI-Token, Secrets Manager und
+IONOS-Postfach parallel dazu, Object Storage mit Teilprojekt 4.
 
 ## Teilprojekte
 
 Reihenfolge strikt 1 → 4; jedes braucht das vorherige. Jedes Teilprojekt
-bekommt ein eigenes Brainstorming, einen eigenen Spec, Plan und PR.
+bekommt ein eigenes Brainstorming, einen eigenen Spec, Plan und PR. Mit E8
+zieht nur die Buchung von VM und Postgres aus TP3 vor TP1; der übrige
+Zuschnitt bleibt.
 
-### TP1 — Containerisierung (rein lokal verifizierbar)
+### TP1 — Containerisierung (verifiziert auf der STACKIT-VM, siehe E8)
 
 **Umfang:**
 - Dockerfiles für `frontend`, `api`, `chat`, `accounts` und ein
@@ -186,10 +201,21 @@ bekommt ein eigenes Brainstorming, einen eigenen Spec, Plan und PR.
 **Ergebnis:** Self-Hosting-Zusage aus ADR-010 / REQ-DIST-004 eingelöst;
 `docs/guide/self-hosting.md` verliert den Platzhalter.
 
-**Offen für das TP1-Brainstorming:** Modellgewichte im Image oder als
-Volume aus Object Storage; Aufteilung Compose-Basis vs. Overrides für
-Produktion; Ingestion-Ort (lokal mit Dump-Export vs. auf der VM); wie die
-CI die Images baut, ohne die Testjobs zu verlangsamen.
+**Vorentschieden am 2026-10-01 (Nutzer):**
+- Abhängigkeiten von `core` bleiben ungeteilt (Docling und
+  sentence-transformers als Pflicht). Gegen die Empfehlung optionaler
+  Extras `[ingest]`/`[embeddings]`. Folge: ein gemeinsames Python-
+  Basis-Image (~5 GB) mit allen Abhängigkeiten, die vier Python-Images
+  legen darauf nur ihr eigenes Paket; Docker teilt die Basis-Schicht,
+  neu gezogen wird sie nur bei geänderten Abhängigkeiten.
+- Embedding-Gewichte (`multilingual-e5-large`, 2,2 GB) werden beim Build
+  in das Basis-Image eingebacken, Pfad fest über
+  `NORMLY_EMBEDDING_MODEL_PATH`. Kein Laufzeit-Download, kein Init-Schritt.
+
+**Offen für das TP1-Brainstorming:** Aufteilung Compose-Basis vs. Overrides
+für Produktion; Migrationslauf (Init-Container vs. Entrypoint); Mail-Fänger;
+Ollama-Modell für die Entwicklung; Ingestion-Ort (lokal mit Dump-Export vs.
+auf der VM); wie die CI die Images baut, ohne die Testjobs zu verlangsamen.
 
 ### TP2 — Image-Pipeline
 
