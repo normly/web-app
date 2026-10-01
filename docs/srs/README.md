@@ -94,7 +94,7 @@ Nach Kapiteln aufgeteilt, damit gezielt gelesen werden kann statt des ganzen Dok
 | ID | Titel | Kapitel |
 |---|---|---|
 | [`REQ-BUILD-001`](03-anforderungen.md#req-build-001-reproduzierbare-builds) | Reproduzierbare Builds | 3.5.2 |
-| [`REQ-BUILD-002`](03-anforderungen.md#req-build-002-eu-basierte-build-und-cicd-infrastruktur) | EU-basierte Build- und CI/CD-Infrastruktur | 3.5.2 |
+| [`REQ-BUILD-002`](03-anforderungen.md#req-build-002-cicd-infrastruktur-fur-den-freien-kern) | CI/CD-Infrastruktur für den freien Kern (ADR-021) | 3.5.2 |
 | [`REQ-BUILD-003`](03-anforderungen.md#req-build-003-automatisierte-qualitatssicherung-im-build) | Automatisierte Qualitätssicherung im Build | 3.5.2 |
 
 ### REQ-DIST — Distribution
