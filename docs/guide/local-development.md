@@ -46,7 +46,7 @@ all containers.
 In a separate terminal, run:
 
 ```bash
-./scripts/seed-data.sh --compose
+make seed
 ```
 
 This ingests sample DGUV and technical regulations into the running database.
@@ -68,6 +68,7 @@ For active code development where you want instantaneous hot-reloading without r
 - **Python**: 3.12 (>= 3.11)
 - **Node.js**: v22 & `npm`
 - **Docker**: For running PostgreSQL with `pgvector`
+- **Ollama**: Required separately on `localhost:11434` when using native chat development
 - **System**: `libgl1` and `libglib2.0-0` (Debian/Ubuntu: `sudo apt-get install -y libgl1 libglib2.0-0` for Docling PDF processing)
 
 ### Automated Setup
@@ -75,7 +76,7 @@ For active code development where you want instantaneous hot-reloading without r
 Run the setup script:
 
 ```bash
-./scripts/dev-setup.sh
+make setup
 ```
 
 This script will:
@@ -90,10 +91,18 @@ This script will:
 Once setup is complete, run:
 
 ```bash
-./scripts/dev-run.sh
+make dev-native
 ```
 
 All four services start concurrently with hot-reload enabled (`uvicorn --reload` and `next dev`). Press `Ctrl+C` to cleanly stop all services.
+
+For the native workflow, `make setup` starts the separate `normly-pg`
+PostgreSQL container and installs the local Python and frontend dependencies.
+It is separate from the Compose workflow: do not run `make dev` and
+`make dev-native` at the same time because both use the same host ports.
+
+For Ollama status and logs in the Compose workflow, use `make llm-ps` and
+`make llm-logs`.
 
 ---
 
