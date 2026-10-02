@@ -70,40 +70,6 @@ git commit -s -m "feat: short description"
 Details in [CONTRIBUTING.md](CONTRIBUTING.md). Please **do not** report
 security vulnerabilities as an issue — see [SECURITY.md](SECURITY.md).
 
-## Running Locally
-
-To run the complete stack locally using Docker Compose:
-
-```bash
-make dev
-```
-
-`make dev` starts the Compose stack with local Ollama support in a tmux
-session, opens the chat UI, and attaches the terminal to the session. Docker
-Compose application logs, Ollama logs, and a working shell each have their own
-pane. Detach with `Ctrl-b d` without stopping services.
-
-To attach again or stop the development environment:
-
-```bash
-make dev-attach
-make dev-stop
-```
-
-The first startup pulls the configured Ollama model if it is not already
-available. The default model is `llama3.1:8b-instruct-q4_0`.
-
-- Web UI: [http://localhost:3000](http://localhost:3000)
-- Graph API Docs: [http://localhost:8002/docs](http://localhost:8002/docs)
-- Accounts API Docs: [http://localhost:8001/docs](http://localhost:8001/docs)
-
-To seed sample data:
-```bash
-./scripts/seed-data.sh --compose
-```
-
-For native development with hot-reloading (`./scripts/dev-setup.sh` and `./scripts/dev-run.sh`) or direct database querying, see the [Local Development Guide](docs/guide/local-development.md).
-
 ## Where the code lives
 
 Source code, contributions, CI/CD, and the container registry for the free
