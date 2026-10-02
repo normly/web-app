@@ -22,7 +22,7 @@ normly consists of four Python backend packages and one Next.js frontend:
 The fastest way to run all services without installing Python 3.12, Node 22, or system dependencies locally:
 
 ```bash
-docker compose up --build
+make dev
 ```
 
 This will automatically:
@@ -30,6 +30,16 @@ This will automatically:
 2. Run database migrations to `head`.
 3. Launch `accounts` (8001), `api` (8002), and `chat` (8003).
 4. Launch `frontend` on port `3000`.
+5. Start Ollama with the `chat-llm` profile and pull the local model if needed.
+6. Open the chat UI in the default browser.
+
+The command attaches to a tmux session named `normly-dev`. Docker Compose logs
+for the application services run in the main pane, Ollama output runs in a
+separate pane, and the third pane is an interactive working shell. The working
+pane reports when the Ollama model is available. Browser opening is also held
+until that check succeeds. Detach without stopping the stack with `Ctrl-b d`,
+then use `make dev-attach` to return to the session or `make dev-stop` to stop
+all containers.
 
 ### Seeding Sample Data
 
@@ -41,13 +51,11 @@ In a separate terminal, run:
 
 This ingests sample DGUV and technical regulations into the running database.
 
-### Enabling Local LLM Chat (Optional)
+### Local LLM Chat
 
-To start with local Ollama support:
-
-```bash
-docker compose --profile chat-llm up --build
-```
+`make dev` starts local Ollama support automatically through the `chat-llm`
+Compose profile. The first run downloads the configured model; later runs reuse
+the persisted `normly-ollama` volume.
 
 ---
 

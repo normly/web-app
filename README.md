@@ -75,10 +75,23 @@ security vulnerabilities as an issue — see [SECURITY.md](SECURITY.md).
 To run the complete stack locally using Docker Compose:
 
 ```bash
-docker compose up --build
-docker compose --profile chat-llm up --build
-docker compose --profile chat-llm exec ollama ollama pull llama3.1:8b-instruct-q4_0
+make dev
 ```
+
+`make dev` starts the Compose stack with local Ollama support in a tmux
+session, opens the chat UI, and attaches the terminal to the session. Docker
+Compose application logs, Ollama logs, and a working shell each have their own
+pane. Detach with `Ctrl-b d` without stopping services.
+
+To attach again or stop the development environment:
+
+```bash
+make dev-attach
+make dev-stop
+```
+
+The first startup pulls the configured Ollama model if it is not already
+available. The default model is `llama3.1:8b-instruct-q4_0`.
 
 - Web UI: [http://localhost:3000](http://localhost:3000)
 - Graph API Docs: [http://localhost:8002/docs](http://localhost:8002/docs)
