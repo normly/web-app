@@ -105,11 +105,20 @@ Verworfen: nur `app.normly.ai` als Subzone delegieren (Cloudflare bliebe
 autoritativ für die Apex-Zone und damit in der Auflösungskette); alles bei
 Cloudflare lassen (Bruch der Regel, die das Verkaufsargument ist).
 
-### E5 — Mailversand: IONOS Business (SMTP mit Authentifizierung)
+### E5 — Mailversand: Strato-SMTP aus dem bestehenden Mailpaket (geändert 2026-10-03)
 
-Deutsches Unternehmen, Postfach wie `noreply@normly.ai`, SPF und DKIM als
-Records in der STACKIT-Zone. Verworfen: Strato-Mailpaket (Drosselung),
-eigener Postfix auf der VM (Zustellbarkeit einer frischen Cloud-IP).
+Ursprünglich (2026-09-23) IONOS Business. Beim DNS-Umzug zeigte sich, dass
+die Mail der Domain bereits bei Strato liegt (MX `smtpin.rzone.de`,
+Autoconfig, DKIM-Richtlinie, aktives Postfach `mail@normly.ai`). Eine
+Domain hat nur einen Mail-Empfänger; IONOS daneben hätte einen MX-Wechsel
+und die Migration des bestehenden Postfachs bedeutet. Entscheidung:
+zusätzliches Postfach `noreply@normly.ai` im Strato-Paket, SMTP-Zugang
+daraus (`smtp.strato.de`, Port 587 STARTTLS), SPF-Record neu anlegen
+(fehlte bisher ganz), DKIM-Records aus dem Strato-Kundenbereich in die
+STACKIT-Zone übernehmen. Strato ist ein deutsches Unternehmen. Die
+Drosselung bei Strato wird erst bei mehreren hundert Mails am Tag relevant;
+dann ist ein Wechsel des gesamten Mail-Hostings ein eigenes Thema.
+Verworfen: IONOS Business (MX-Konflikt), eigener Postfix (Zustellbarkeit).
 
 ### E6 — Images: GHCR per GitHub Actions (ADR-021, bestätigt)
 
@@ -176,7 +185,7 @@ Nicht gebucht: SKE, Load Balancer, STACKIT Container Registry.
 Storage erst nach Abschluss von Teilprojekt 1 (um Kosten für leere
 Ressourcen zu vermeiden). Mit E8 (2026-10-01) werden Projekt, VM, Public IP
 und Postgres Flex sofort gebucht; DNS-Zone, AI-Token, Secrets Manager und
-IONOS-Postfach parallel dazu, Object Storage mit Teilprojekt 4.
+Strato-Postfach `noreply@` parallel dazu, Object Storage mit Teilprojekt 4.
 
 ## Teilprojekte
 
@@ -243,7 +252,7 @@ Schlüssel); Tagging-Schema; ob Multi-Arch nötig ist (VM ist x86_64).
 4. Secrets-Fluss: Zugangsdaten liegen im Secrets Manager; die VM bezieht
    sie per AppRole beim Start, nicht dauerhaft in Umgebungsvariablen
    (REQ-INST-003).
-5. IONOS-SMTP (E5) samt SPF-/DKIM-Records; AI-Model-Serving-Token (E2);
+5. Strato-SMTP (E5) samt SPF-/DKIM-Records; AI-Model-Serving-Token (E2);
    Google-OAuth-Redirect-URI auf `https://app.normly.ai/api/auth/google/callback`.
 
 **Ergebnis:** `app.normly.ai` antwortet mit einem manuell gestarteten
