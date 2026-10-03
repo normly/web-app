@@ -147,7 +147,7 @@ das Portal.
 |---|---|---|---|
 | Projekt | eigenes Projekt für den Betrieb, getrennt vom Git-Projekt | 0 | Trennung Betrieb / Datenprojekt |
 | Compute Engine | `g1a.4d` (4 vCPU, 16 GB, AMD), Ubuntu LTS, Variante ohne Suffix `-m` | 142 | alle Container per Compose |
-| Block Storage (VM) | 80 GB, Premium-Performance 2 | ca. 20 | OS, Images, Modellgewichte |
+| Block Storage (VM) | 80 GB Boot-Volume, Premium-Performance 1 (Klasse 2 wäre ~12 €/Monat teurer und bringt für eine Compose-VM nichts; Premium-Capacity ist für Docker-Builds zu langsam) | ca. 8 | OS, Images, Modellgewichte |
 | Public IP (IPv4) | eine | 3 | Eingang für Caddy |
 | PostgreSQL Flex | `2.4` Single (2 vCPU, 4 GB), 20 GB Premium-Capacity, neueste PG-Version; Extension `vector` | 92 | eine DB für alle Dienste |
 | DNS | Zone `normly.ai`, Tarif DNS-100 | 2 | siehe E4 |
@@ -155,7 +155,8 @@ das Portal.
 | Object Storage | ein Bucket, Standard, AES-256 at rest per Default | 0,03/GB | Datenstand-Dumps, DB-Sicherungen, Modellgewichte |
 | AI Model Serving | ein Token, Modell `google/gemma-4-31B-it` | pro Token | siehe E2 |
 
-Grundlast rund 260 €/Monat plus Tokens. LLM-Preisstufen laut Liste:
+Grundlast rund 250 €/Monat plus Tokens in der Iterationsphase; nach TP1a
+und Herunterstufung auf `g1a.2d` rund 180 €/Monat. LLM-Preisstufen laut Liste:
 Standard 0,15 € Eingabe / 0,25 € Ausgabe je Mio. Tokens, Plus 0,45 / 0,65,
 Premium 1,50 / 1,75. Die Zuordnung der Modelle zu Stufen zeigt nur das
 Portal.
@@ -267,6 +268,31 @@ ADR-010 (Daten getrennt vom Image) erfüllt.
 **Offen:** Auslöser des Rollouts (manueller Aufruf per SSH vs. Timer, der
 GHCR abfragt); Dump-Format und Versionierung des Datenstands;
 Aufbewahrungsfrist der Sicherungen (offener Punkt aus dem ADR-Register).
+
+### TP1a — Embedding-Modell nur einmal laden, VM auf `g1a.2d` (Folgearbeit direkt nach TP1)
+
+**Anlass (2026-10-03):** Beim Anlegen des Servers im Portal stellte der
+Nutzer die Kosten infrage. Die 16 GB von `g1a.4d` (141,59 €/Monat) sind
+nötig, weil `api` und `chat` dasselbe Embedding-Modell
+(`multilingual-e5-large`, ~3 GB RAM mit Torch) jeweils selbst laden und die
+Ingestion weitere 6–8 GB braucht. Entscheidung: `g1a.4d` für die
+Iterationsphase buchen, danach die Doppelung beseitigen und den Server
+auf `g1a.2d` (70,79 €/Monat) herunterstufen — dauerhaft rund 71 €/Monat
+weniger. STACKIT erlaubt den Wechsel des Maschinentyps bei gestopptem
+Server.
+
+**Umfang:** Nur ein Dienst hält das Modell im Speicher; der andere bezieht
+Einbettungen über eine interne HTTP-Schnittstelle. Naheliegend ist `api`
+als Träger (es bietet bereits die Suche an) und ein Endpunkt, den `chat`
+für Anfrage-Einbettungen ruft; die genaue Schnittstelle, Fehlerbehandlung
+und das Verhalten beim Start klärt ein eigenes kurzes Brainstorming.
+Voraussetzung für den kleinen Server ist außerdem, dass die Ingestion nicht
+mehr auf der VM läuft, sondern lokal mit Dump-Import — das liefert TP4.
+Die Herunterstufung selbst erfolgt also erst, wenn TP1a *und* der
+Dump-Import aus TP4 stehen; TP1a selbst kann unmittelbar nach TP1 gebaut
+werden.
+
+**Ergebnis:** VM-Leerlauf unter 5 GB RAM; `g1a.2d` komfortabel.
 
 ## Dokumentation, die mitläuft
 
