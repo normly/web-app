@@ -35,7 +35,8 @@ with open("/tmp/core-pyproject.toml", "rb") as f:
     for dep in tomllib.load(f)["project"]["dependencies"]:
         print(dep)
 PY
-RUN pip install -r /tmp/core-requirements.txt
+# CPU-only torch wheels: the target VM has no GPU, CUDA builds would add ~4 GB of dead weight.
+RUN pip install --extra-index-url https://download.pytorch.org/whl/cpu -r /tmp/core-requirements.txt
 
 # 2) Embedding weights, fetched once at build time (the only moment
 #    huggingface.co is contacted). Cached until the model name changes.
