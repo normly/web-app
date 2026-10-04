@@ -54,3 +54,29 @@ PY
 COPY core /app/core
 RUN pip install --no-deps /app/core \
     && chown -R normly:normly /app
+
+# ---------------------------------------------------------------------------
+FROM base AS api
+COPY api /app/api
+# normly-core is already installed from /app/core above, so pip resolves the
+# `normly-core` requirement locally and never asks an index for it.
+RUN pip install /app/api && chown -R normly:normly /app/api
+USER normly
+EXPOSE 8000
+CMD ["uvicorn", "normly_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# ---------------------------------------------------------------------------
+FROM base AS chat
+COPY chat /app/chat
+RUN pip install /app/chat && chown -R normly:normly /app/chat
+USER normly
+EXPOSE 8000
+CMD ["uvicorn", "normly_chat.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# ---------------------------------------------------------------------------
+FROM base AS accounts
+COPY accounts /app/accounts
+RUN pip install /app/accounts && chown -R normly:normly /app/accounts
+USER normly
+EXPOSE 8000
+CMD ["uvicorn", "normly_accounts.main:app", "--host", "0.0.0.0", "--port", "8000"]
