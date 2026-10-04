@@ -1,6 +1,6 @@
 # Design: Containerisierung (STACKIT-Deployment, Teilprojekt 1/4)
 
-Stand: 2026-10-01 · Status: Entwurf zur Durchsicht. Roadmap und
+Stand: 2026-10-01, freigegeben 2026-10-04 · Status: freigegeben. Roadmap und
 Grundsatzentscheidungen E1–E8:
 `docs/superpowers/specs/2026-09-23-stackit-deployment-roadmap-design.md`.
 
@@ -183,10 +183,19 @@ Protokoll gültig.
 5. Bestehende Testsuiten aller Pakete grün; neue Tests für den
    LLM-Client grün; `test-docs` auf der 3-Issue-Baseline.
 
-## Offene Punkte für die Durchsicht
+## Durchsicht (2026-10-04, Nutzer): freigegeben
 
-- Postgres-Version im `bundled`-Profil: `pg17` als Vorschlag; sollte zur
-  auf Flex gebuchten Version passen, damit Dumps austauschbar bleiben.
-- Ob `caddy` mit ins Self-Hosting-Standardprofil soll (Self-Hoster mit
-  eigener Domain wollen TLS) oder wie vorgeschlagen nur ins `edge`-Profil.
-- Healthchecks über `/openapi.json` statt eigener Endpunkte (siehe oben).
+- Postgres-Version im `bundled`-Profil: **17**, passend zur gebuchten
+  Flex-Instanz (Version 17), damit Dumps austauschbar bleiben.
+- Caddy nur im `edge`-Profil; Self-Hoster ohne eigene Domain starten ohne
+  TLS-Terminierung, der Self-Hosting-Guide beschreibt, wie das Profil
+  zugeschaltet wird.
+- Healthchecks über `/openapi.json`; eigene `/health`-Endpunkte mit
+  DB-Prüfung als Folgearbeit für TP4 notiert.
+
+Zielumgebung am 2026-10-04 verifiziert: VM `normly-prod` (Ubuntu 26.04 LTS,
+`g1a.4d`, Public IP `213.17.23.196`, SSH als `ubuntu`), `/opt/normly/.env`
+vorhanden (600), Postgres Flex per TCP erreichbar (ACL auf die VM-IP),
+AI Model Serving antwortet mit dem Token und listet `google/gemma-4-31B-it`.
+Docker ist auf der VM noch nicht installiert; das ist der erste
+Implementierungsschritt.
