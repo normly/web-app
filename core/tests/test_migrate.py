@@ -64,3 +64,10 @@ def test_migrate_module_fails_when_core_dir_has_no_alembic_ini(tmp_path):
     )
     assert result.returncode == 1
     assert "alembic.ini" in result.stderr
+
+
+def test_alembic_config_preserves_percent_encoded_url():
+    from normly_core.migrate import _alembic_config
+
+    url = "postgresql+psycopg://u:p%2Fx@h:5432/db"
+    assert _alembic_config(url, CORE_DIR).get_main_option("sqlalchemy.url") == url

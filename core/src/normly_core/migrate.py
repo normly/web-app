@@ -30,11 +30,17 @@ CORE_DIR_ENV_VAR = "NORMLY_CORE_DIR"
 DEFAULT_CORE_DIR = Path("/app/core")
 
 
-def upgrade_to_head(database_url: str, core_dir: Path) -> None:
+def _alembic_config(database_url: str, core_dir: Path) -> Config:
     config = Config(str(core_dir / "alembic.ini"))
     config.set_main_option("script_location", str(core_dir / "migrations"))
-    config.set_main_option("sqlalchemy.url", database_url)
-    command.upgrade(config, "head")
+    # configparser interpolation treats "%" specially; percent-encoded
+    # passwords (p%2Fx) must survive the round trip.
+    config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
+    return config
+
+
+def upgrade_to_head(database_url: str, core_dir: Path) -> None:
+    command.upgrade(_alembic_config(database_url, core_dir), "head")
 
 
 def main(argv: list[str] | None = None) -> int:
