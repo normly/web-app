@@ -80,3 +80,15 @@ RUN pip install /app/accounts && chown -R normly:normly /app/accounts
 USER normly
 EXPOSE 8000
 CMD ["uvicorn", "normly_accounts.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# ---------------------------------------------------------------------------
+FROM base AS pipeline
+ENV NORMLY_DOCLING_ARTIFACTS_PATH=/opt/models/docling \
+    NORMLY_CORE_DIR=/app/core
+# Docling's layout/tableformer models, fetched at build time only (see
+# core/src/normly_core/pipeline/docling_extraction.py for why runtime
+# downloads are not acceptable in production).
+RUN docling-tools models download layout tableformer -o /opt/models/docling \
+    && chown -R normly:normly /opt/models/docling
+USER normly
+ENTRYPOINT ["python", "-m", "normly_core.pipeline"]
