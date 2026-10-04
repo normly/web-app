@@ -1434,7 +1434,7 @@ Quellcode, CI/CD und Container-Registry des freien Kerns liegen seit ADR-021 auf
 
 `docs/guide/self-hosting.md` vollständig ersetzen:
 
-```markdown
+````markdown
 # Self-Hosting
 
 normly ships as container images plus a Compose setup that starts a
@@ -1526,7 +1526,7 @@ Sources: `eur-lex`, `dguv`, `baua`. Other maintenance commands:
   Signed images on GHCR and a versioned knowledge-base dump are the next
   two deliverables of the deployment roadmap.
 - No Helm chart. Kubernetes is not a target for the free core right now.
-```
+````
 
 - [ ] **Step 5: Getting-Started-Seite und Frontend-README anpassen**
 
