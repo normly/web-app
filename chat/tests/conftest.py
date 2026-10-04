@@ -83,7 +83,8 @@ def client(db_url, monkeypatch, db_session):
     monkeypatch.setenv("NORMLY_DATABASE_URL", db_url)
     monkeypatch.setenv("NORMLY_API_BASE_URL", "http://localhost:8001")
     monkeypatch.setenv("NORMLY_ACCOUNTS_BASE_URL", "http://localhost:8002")
-    monkeypatch.setenv("NORMLY_OLLAMA_BASE_URL", "http://localhost:11434")
+    monkeypatch.setenv("NORMLY_LLM_BASE_URL", "http://localhost:11434")
+    monkeypatch.setenv("NORMLY_LLM_MODEL", "test-model")
     from normly_chat.dependencies import get_session
     from normly_chat.main import create_app
 
@@ -129,9 +130,10 @@ def e2e_client(db_url, monkeypatch, db_session, api_process, accounts_process):
     monkeypatch.setenv("NORMLY_DATABASE_URL", db_url)
     monkeypatch.setenv("NORMLY_API_BASE_URL", api_process)
     monkeypatch.setenv("NORMLY_ACCOUNTS_BASE_URL", accounts_process)
-    monkeypatch.setenv("NORMLY_OLLAMA_BASE_URL", os.environ["NORMLY_TEST_OLLAMA_BASE_URL"])
+    monkeypatch.setenv("NORMLY_LLM_PROVIDER", "ollama")
+    monkeypatch.setenv("NORMLY_LLM_BASE_URL", os.environ["NORMLY_TEST_OLLAMA_BASE_URL"])
     monkeypatch.setenv(
-        "NORMLY_OLLAMA_MODEL", os.environ.get("NORMLY_TEST_OLLAMA_MODEL", "llama3.1:8b-instruct-q4_0"),
+        "NORMLY_LLM_MODEL", os.environ.get("NORMLY_TEST_OLLAMA_MODEL", "gemma3:4b"),
     )
     from normly_chat.dependencies import get_session
     from normly_chat.main import create_app

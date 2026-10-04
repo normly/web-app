@@ -65,8 +65,8 @@ _FAITHFULNESS_PROMPT = {
 _AFFIRMATIVE_ANSWERS = {"de": "ja"}
 
 
-def _is_faithful(answer_text: str, context: str, ollama_client) -> bool:
-    check_response = ollama_client.chat([
+def _is_faithful(answer_text: str, context: str, llm_client) -> bool:
+    check_response = llm_client.chat([
         {
             "role": "system",
             "content": f"{_FAITHFULNESS_PROMPT['de']}\n\nKontext:\n{context}",
@@ -78,7 +78,7 @@ def _is_faithful(answer_text: str, context: str, ollama_client) -> bool:
 
 
 def build_synthesis_answer(
-    message: str, jurisdiction: str, language: str, embedding_model, segment_repo, ollama_client,
+    message: str, jurisdiction: str, language: str, embedding_model, segment_repo, llm_client,
 ) -> SynthesisAnswer:
     query_vector = embedding_model.embed_query(message)
     segments = segment_repo.find_similar_segments_for_jurisdiction(
@@ -92,13 +92,13 @@ def build_synthesis_answer(
         {"role": "system", "content": f"{_SYSTEM_PROMPT[language]}\n\nKontext:\n{context}"},
         {"role": "user", "content": message},
     ]
-    answer_text = ollama_client.chat(messages)
+    answer_text = llm_client.chat(messages)
     ollama_calls = 1
 
     if _has_verbatim_overlap(answer_text, context):
         return _fallback(language, ollama_calls=ollama_calls)
 
-    if not _is_faithful(answer_text, context, ollama_client):
+    if not _is_faithful(answer_text, context, llm_client):
         ollama_calls += 1
         return _fallback(language, ollama_calls=ollama_calls)
     ollama_calls += 1
