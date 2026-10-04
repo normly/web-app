@@ -40,7 +40,11 @@ RUN pip install --extra-index-url https://download.pytorch.org/whl/cpu -r /tmp/c
 
 # 2) Embedding weights, fetched once at build time (the only moment
 #    huggingface.co is contacted). Cached until the model name changes.
-RUN python - <<'PY'
+#    Downloaded into a throwaway HF_HOME and chowned in the same RUN, so the
+#    layer holds only the saved weights, already owned by normly.
+RUN HF_HOME=/tmp/hf python - <<'PY' \
+    && rm -rf /tmp/hf \
+    && chown -R normly:normly /opt/models
 from sentence_transformers import SentenceTransformer
 SentenceTransformer("intfloat/multilingual-e5-large").save("/opt/models/multilingual-e5-large")
 PY
@@ -49,4 +53,4 @@ PY
 #    only rebuild from this layer on.
 COPY core /app/core
 RUN pip install --no-deps /app/core \
-    && chown -R normly:normly /opt/models /app
+    && chown -R normly:normly /app
