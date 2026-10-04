@@ -742,6 +742,65 @@ weiterhin überwiegt und dort unangetastet bleibt.
 
 ---
 
+## ADR-022 — Betriebsumgebung Phase 1 und Modellherkunftsregel
+
+**Status:** beschlossen (2026-09-23, ergänzt 2026-10-03)
+
+**Entscheidung:**
+
+1. **Zielumgebung:** eine STACKIT-VM (`g1a.4d`) mit Docker Compose, Caddy
+   für TLS, PostgreSQL Flex (Einzelinstanz, pgvector), Secrets Manager,
+   später Object Storage. Kein SKE, kein Load Balancer. Bestätigt ADR-005.
+2. **LLM-Inferenz:** STACKIT AI Model Serving (OpenAI-kompatible API,
+   Region eu01), Startmodell `google/gemma-4-31B-it`. Ollama bleibt für
+   lokale Entwicklung und Self-Hosting.
+3. **Modellherkunftsregel:** Produktiv eingesetzte Sprachmodelle sind
+   Open-Weight-Modelle unter OSI-anerkannter Lizenz, betrieben
+   ausschließlich auf STACKIT-Infrastruktur; keine Anfrage erreicht den
+   Modellhersteller. Europäische Herkunft ist Präferenz, nicht Pflicht.
+   Wiedervorlage: sobald STACKIT ein europäisches Modell in passender
+   Größe anbietet, wird der Wechsel geprüft.
+4. **DNS:** die Zone `normly.ai` liegt vollständig bei STACKIT DNS
+   (Registrar bleibt Strato); kein Cloudflare mehr. App unter
+   `app.normly.ai`.
+5. **Mailversand:** SMTP aus dem bestehenden Strato-Mailpaket
+   (`noreply@normly.ai`), SPF und DKIM in der STACKIT-Zone.
+6. **Umgebungen:** zunächst nur eine Produktionsumgebung auf STACKIT; das
+   lokale Compose-Setup übernimmt die Rolle der Staging-Umgebung.
+   Bewusste, befristete Abweichung von REQ-DIST-001, aufzuheben, sobald es
+   Nutzer gibt, die ein fehlerhaftes Deployment treffen würde.
+7. **Images:** ein gemeinsames Python-Basis-Image mit allen
+   `core`-Abhängigkeiten und eingebackenen Embedding-Gewichten; keine
+   Aufteilung der Abhängigkeiten.
+
+**Begründung:** Die VM mit Compose ist die günstigste Umgebung und zugleich
+das Self-Hosting-Artefakt aus ADR-010. AI Model Serving liefert
+GPU-Inferenz pro Token ohne Dauerkosten; die Daten gehen an STACKIT, nicht
+an den Modellhersteller — Gewichte sind eine Datei, kein Dienst. Die
+Herkunftsregel schließt die bisher ungeregelte Lücke, dass das
+Standardmodell (Llama, Meta-Lizenz) weder offen lizenziert noch
+geregelt war; europäische Pflicht hätte nur eine eigene GPU-VM übrig
+gelassen, da der STACKIT-Katalog kein europäisches Chat-Modell führt.
+Cloudflare als DNS wäre ein US-Dienst in der Betriebskette gewesen. Die
+Mail der Domain lag bereits bei Strato; ein zweiter Anbieter hätte einen
+MX-Wechsel bedeutet.
+
+**Verworfen:** Ollama auf CPU in Produktion (Antwortzeiten), eigene GPU-VM
+(Dauerkosten), europäische Modellherkunft als Pflicht (kein Angebot),
+Subzonen-Delegation nur für `app` (Cloudflare bliebe autoritativ), IONOS
+als zweiter Mailanbieter (MX-Konflikt), Aufteilung der
+`core`-Abhängigkeiten in Extras (Nutzerentscheidung zugunsten der
+Einfachheit).
+
+**Konsequenz:** CLAUDE.md erhält einen Satz zur Modellherkunft; REQ-DIST-001
+und Kapitel 3.5.9 der SRS verweisen hierher; `docs/guide/self-hosting.md`
+beschreibt den Compose-Weg. Folgearbeiten: Embedding-Modell nur einmal
+laden und VM auf `g1a.2d` verkleinern (TP1a), Image-Pipeline (TP2),
+Secrets-Bezug per AppRole (TP3), Rollout/Rollback/Datenstand (TP4). Details:
+`docs/superpowers/specs/2026-09-23-stackit-deployment-roadmap-design.md`.
+
+---
+
 ## Offene Punkte
 
 | Thema | Status | Nächster Schritt |
@@ -749,7 +808,6 @@ weiterhin überwiegt und dort unangetastet bleibt.
 | Ausgründung GmbH | favorisiert, nicht beschlossen | Steuer- und vereinsrechtliche Prüfung vor Gründung |
 | Rechtsform Trägerorganisation (e.V. / eG / Alternative) | offen | eG könnte Normungsorganisationen als Mitglieder statt Gegner einbinden |
 | Rechteinhaber im Copyright-Header | offen | vor erstem externen Beitrag klären |
-| Öffentlicher Lesezugriff auf STACKIT Container Registry | offen | im Portal prüfen |
 | Lizenzvertrag Trägerorganisation → GmbH | offen | muss zu marktüblichen Konditionen erfolgen, sonst Risiko für die Gemeinnützigkeit |
 | RDF-/JSON-LD-Export mit SKOS | vorgeschlagen | Speicherformat und Veröffentlichungsformat sind trennbar |
 | Gewichtungsmodell Attribution bei Graph-Antworten | offen | Steht einem Herausgeber etwas zu, wenn ohne Volltext geantwortet wurde? Als eigene Kategorie erfasst, vertraglich zu klären |

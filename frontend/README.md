@@ -6,6 +6,10 @@ For the full design rationale see
 
 ## Environment variables
 
+When running via the repository's `compose.yaml`, the three `*_BASE_URL`
+variables are set by Compose to the internal service names; only the
+optional branding variables and `NORMLY_PUBLIC_BASE_URL` come from `.env`.
+
 All variables are read at request time via `process.env` (not
 `NEXT_PUBLIC_*`), so one built image can serve any number of differently
 configured instances without a rebuild (ADR-010).

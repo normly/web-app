@@ -32,6 +32,9 @@ Aufgabe: nachfragen, nicht umgehen.
   bereit. → ADR-015
 - **Der Kern darf nicht von proprietären Bestandteilen abhängen.** Er muss ohne
   sie baubar, testbar und lauffähig sein.
+- **Sprachmodelle nur als Open-Weight-Modelle mit OSI-Lizenz, betrieben auf
+  STACKIT.** Keine Anfrage erreicht den Modellhersteller; europäische
+  Herkunft ist Präferenz, nicht Pflicht. → ADR-022
 
 ## Bei jeder Codeänderung
 
