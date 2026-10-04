@@ -46,13 +46,19 @@ services:
     profiles: ["bundled"]
     volumes:
       - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
     restart: unless-stopped
 
   ollama-pull:
     image: ollama/ollama:0.35.1      # same tag as `ollama`
     profiles: ["bundled"]
     depends_on:
-      - ollama
+      ollama:
+        condition: service_healthy
     environment:
       OLLAMA_HOST: http://ollama:11434
     entrypoint: ["/bin/sh", "-c"]
