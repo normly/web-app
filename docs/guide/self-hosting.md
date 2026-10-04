@@ -30,14 +30,26 @@ weights and Docling models are fetched once at build time), pulls the
 Ollama model, runs the database migrations and then brings up the four
 services. Afterwards:
 
-- App: <http://localhost:3000>
+- App: <http://localhost:3000> (the frontend is bound to localhost only;
+  for remote access use the `edge` profile or an SSH tunnel, see
+  `NORMLY_FRONTEND_BIND` in `.env.example`)
 - Mail catcher (every e-mail the app sends): <http://localhost:8025>
 
-Check `docker compose ps` — `migrate` and `ollama-pull` exit with code 0,
-everything else reports `healthy`.
+Check `docker compose ps -a` (exited one-shot containers are hidden
+otherwise): api, accounts, chat, frontend, postgres and ollama report
+`healthy`; `migrate` and `ollama-pull` exit 0. On the first start, chat
+answers may return 503 until `ollama-pull` has finished.
 
 Running `docker compose up -d` again is safe: migrations are idempotent and
 unchanged containers are left alone.
+
+Changing `NORMLY_BUNDLED_POSTGRES_PASSWORD` after the first start has no
+effect on an existing `postgres-data` volume.
+
+### Changing the LLM model
+
+Edit `NORMLY_LLM_MODEL` in `.env`, then run `docker compose up -d`;
+`ollama-pull` re-runs and pulls the new tag.
 
 ## What the profiles mean
 
@@ -59,7 +71,11 @@ Point the instance at managed services instead of the bundled ones:
   `NORMLY_PUBLIC_BASE_URL=https://app.example.org`,
   `NORMLY_FRONTEND_BIND=127.0.0.1` (Caddy is the only public entry point).
 - `NORMLY_DATABASE_URL=postgresql+psycopg://…?sslmode=require` on a
-  PostgreSQL 16+ with the `vector` extension available.
+  PostgreSQL 16+ with the `vector` extension available. The target
+  database must already exist (the migration creates tables, not the
+  database). Special characters in the password must be URL-encoded in
+  the URL, and a literal `$` in `.env` must be written `$$` (Compose
+  interpolates env files).
 - LLM: `NORMLY_LLM_PROVIDER=openai-compatible` plus base URL, model and
   `NORMLY_LLM_API_KEY` of any OpenAI-compatible `/chat/completions`
   endpoint. Only open-weight models under an OSI-approved licence are used

@@ -8,7 +8,8 @@ For the full design rationale see
 
 When running via the repository's `compose.yaml`, the three `*_BASE_URL`
 variables are set by Compose to the internal service names; only the
-optional branding variables and `NORMLY_PUBLIC_BASE_URL` come from `.env`.
+optional branding variables come from `.env`. `NORMLY_PUBLIC_BASE_URL` is
+read by `accounts/` and `chat/`, not by the frontend.
 
 All variables are read at request time via `process.env` (not
 `NEXT_PUBLIC_*`), so one built image can serve any number of differently
