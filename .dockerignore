@@ -5,6 +5,7 @@
 .git
 .github
 .worktrees
+.claude
 .superpowers
 **/.venv
 **/__pycache__
@@ -16,7 +17,7 @@ frontend
 docs
 site
 .venv-docs
-.env
-.env.*
+**/.env
+**/.env.*
 !.env.example
 data

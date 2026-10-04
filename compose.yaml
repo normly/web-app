@@ -61,9 +61,9 @@ services:
         condition: service_healthy
     environment:
       OLLAMA_HOST: http://ollama:11434
+      NORMLY_LLM_MODEL: ${NORMLY_LLM_MODEL:-gemma3:4b}
     entrypoint: ["/bin/sh", "-c"]
     command: ["ollama pull \"$$NORMLY_LLM_MODEL\""]
-    env_file: .env
     restart: "no"
 
   mailpit:
@@ -129,8 +129,10 @@ services:
     build:
       context: frontend
     image: normly-frontend:local
-    env_file: .env
     environment:
+      NORMLY_INSTANCE_NAME: ${NORMLY_INSTANCE_NAME:-normly}
+      NORMLY_BRAND_COLOR_HSL: ${NORMLY_BRAND_COLOR_HSL:-222 89% 55%}
+      NORMLY_LOGO_PATH: ${NORMLY_LOGO_PATH:-}
       NORMLY_API_BASE_URL: http://api:8000
       NORMLY_ACCOUNTS_BASE_URL: http://accounts:8000
       NORMLY_CHAT_BASE_URL: http://chat:8000
