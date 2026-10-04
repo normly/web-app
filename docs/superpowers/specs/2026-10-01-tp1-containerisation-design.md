@@ -199,3 +199,19 @@ vorhanden (600), Postgres Flex per TCP erreichbar (ACL auf die VM-IP),
 AI Model Serving antwortet mit dem Token und listet `google/gemma-4-31B-it`.
 Docker ist auf der VM noch nicht installiert; das ist der erste
 Implementierungsschritt.
+
+## Verifikation 2026-10-04
+
+Geprüft auf der STACKIT-VM (Docker 29, Compose 2.40), Images dort gebaut.
+
+**Image-Größen:** python-base 6,59 GB; api 6,62 GB; chat 6,62 GB; accounts 6,65 GB; pipeline 7,94 GB; frontend 336 MB. Die Python-Images sind groß, weil Torch und die Embedding-Gewichte (multilingual-e5-large) im Image liegen.
+
+**Self-Hosting-Pfad (Profil bundled, eigene Postgres, Ollama gemma3:4b):** `up -d --build` mit gecachten Layern; nach rund 2 Minuten alle Dienste healthy, `migrate` Exit 0 mit `migrations: at head` (Revision 0031), `ollama-pull` Exit 0. Frontend und /search liefern 200, Registrierung 200 mit genau einer Mail in Mailpit, Chat 200 mit Fallback-Antwort (leere Datenbank). Ein zweites `up -d` erzeugt keine Container, `migrate` bleibt `at head`. Die Gewichte stammen aus dem Image; die „huggingface"-Treffer in den Logs sind nur der URL-Text einer Tokenizer-Warnung.
+
+**Produktionspfad (Postgres Flex, Model Serving, Caddy):** Der erste Start scheiterte, weil die Datenbank `normly` auf der Flex-Instanz noch nicht angelegt war (Verbindung und Anmeldung funktionierten). Nach dem Anlegen: `migrate` Exit 0 `at head`; api, accounts, chat, frontend healthy; caddy Up. Ports: nur caddy auf 80/443, frontend auf 127.0.0.1:3000; kein postgres, ollama, mailpit.
+
+**TLS und Ende-zu-Ende:** `https://app.normly.ai/` liefert 200 mit gültigem Let's-Encrypt-Zertifikat (ssl_verify_result 0); HTTP leitet mit 308 auf HTTPS um. Chat über die öffentliche Adresse: 200, Fallback-Antwort, keine Fehler in den Chat-Logs. Ein echter Aufruf an Model Serving ist nicht belegt, da die Fallback-Antwort ohne Segmente kein Modell braucht; das folgt mit dem Datenimport (TP4).
+
+**Firewall:** Von außen sind 8000, 3000, 5432, 11434 und 8025 geschlossen, 80 und 443 offen.
+
+**Auffälligkeiten:** Das Tokenizer-Warning (`fix_mistral_regex`) beim Laden des Embedding-Modells ist harmlos, sollte aber bei einem späteren Modell-Update beobachtet werden. Container haben ausgehenden Internetzugang; „offline" ist durch die Image-Gewichte belegt, nicht durch eine Netzsperre.
