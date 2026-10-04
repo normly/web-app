@@ -17,7 +17,7 @@ pytestmark = pytest.mark.skipif(
 def ollama_client():
     return OllamaClient(
         base_url=os.environ["NORMLY_TEST_OLLAMA_BASE_URL"],
-        model=os.environ.get("NORMLY_TEST_OLLAMA_MODEL", "gemma3:4b"),
+        model=os.environ.get("NORMLY_TEST_OLLAMA_MODEL", "gemma4:e4b"),
     )
 
 

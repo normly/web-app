@@ -61,7 +61,7 @@ services:
         condition: service_healthy
     environment:
       OLLAMA_HOST: http://ollama:11434
-      NORMLY_LLM_MODEL: ${NORMLY_LLM_MODEL:-gemma3:4b}
+      NORMLY_LLM_MODEL: ${NORMLY_LLM_MODEL:-gemma4:e4b}
     entrypoint: ["/bin/sh", "-c"]
     command: ["ollama pull \"$$NORMLY_LLM_MODEL\""]
     restart: "no"

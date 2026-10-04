@@ -133,7 +133,7 @@ def e2e_client(db_url, monkeypatch, db_session, api_process, accounts_process):
     monkeypatch.setenv("NORMLY_LLM_PROVIDER", "ollama")
     monkeypatch.setenv("NORMLY_LLM_BASE_URL", os.environ["NORMLY_TEST_OLLAMA_BASE_URL"])
     monkeypatch.setenv(
-        "NORMLY_LLM_MODEL", os.environ.get("NORMLY_TEST_OLLAMA_MODEL", "gemma3:4b"),
+        "NORMLY_LLM_MODEL", os.environ.get("NORMLY_TEST_OLLAMA_MODEL", "gemma4:e4b"),
     )
     from normly_chat.dependencies import get_session
     from normly_chat.main import create_app
