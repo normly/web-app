@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 normly contributors
+#
+# Edge profile: terminate TLS (automatic Let's Encrypt) and hand everything
+# to the frontend, which is the only service meant to be reachable. The
+# backends stay on the internal network.
+{$NORMLY_PUBLIC_HOST} {
+	encode zstd gzip
+	reverse_proxy frontend:3000
+}
