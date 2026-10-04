@@ -210,7 +210,7 @@ Geprüft auf der STACKIT-VM (Docker 29, Compose 2.40), Images dort gebaut.
 
 **Produktionspfad (Postgres Flex, Model Serving, Caddy):** Der erste Start scheiterte, weil die Datenbank `normly` auf der Flex-Instanz noch nicht angelegt war (Verbindung und Anmeldung funktionierten). Nach dem Anlegen: `migrate` Exit 0 `at head`; api, accounts, chat, frontend healthy; caddy Up. Ports: nur caddy auf 80/443, frontend auf 127.0.0.1:3000; kein postgres, ollama, mailpit.
 
-**TLS und Ende-zu-Ende:** `https://app.normly.ai/` liefert 200 mit gültigem Let's-Encrypt-Zertifikat (ssl_verify_result 0); HTTP leitet mit 308 auf HTTPS um. Chat über die öffentliche Adresse: 200, Fallback-Antwort, keine Fehler in den Chat-Logs. Ein echter Aufruf an Model Serving ist nicht belegt, da die Fallback-Antwort ohne Segmente kein Modell braucht; das folgt mit dem Datenimport (TP4).
+**TLS und Ende-zu-Ende:** `https://app.normly.ai/` liefert 200 mit gültigem Let's-Encrypt-Zertifikat (ssl_verify_result 0); HTTP leitet mit 308 auf HTTPS um. Chat über die öffentliche Adresse: 200, Fallback-Antwort, keine Fehler in den Chat-Logs. Die Fallback-Antwort braucht ohne Segmente kein Modell; deshalb wurde der Aufruf separat belegt: Model Serving call verified from the chat container (`OpenAiCompatibleClient`, google/gemma-4-31B-it), answer received (`'Test'`).
 
 **Firewall:** Von außen sind 8000, 3000, 5432, 11434 und 8025 geschlossen, 80 und 443 offen.
 
