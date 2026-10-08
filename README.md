@@ -1,6 +1,6 @@
 # normly
 
-**AI-assisted standards and technical rules, open to everyone.**
+**AI-powered norms and standards, open to everyone.**
 
 normly makes knowledge about standards and Regelwerke as freely accessible as
 the law allows — and builds an open, machine-readable reference graph on top
