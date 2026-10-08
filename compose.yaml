@@ -7,6 +7,9 @@
 #   edge     caddy with automatic TLS     (production on a public host)
 #   tools    pipeline (ingestion), run on demand with `docker compose run`
 # Configuration comes from .env (copy .env.example). Secrets never live here.
+# Images come from ghcr.io/normly/web-app (built and signed by
+# .github/workflows/images.yml, defined in docker-bake.hcl); `up --build`
+# builds the same targets locally under the same names.
 # Third-party image tags pinned 2026-10-04.
 
 name: normly
@@ -77,7 +80,7 @@ services:
     build:
       <<: *python-build
       target: pipeline
-    image: normly-pipeline:local
+    image: ghcr.io/normly/web-app/pipeline:${NORMLY_IMAGE_TAG:-edge}
     entrypoint: ["python", "-m", "normly_core.migrate"]
     env_file: .env
     depends_on:
@@ -90,7 +93,7 @@ services:
     build:
       <<: *python-build
       target: api
-    image: normly-api:local
+    image: ghcr.io/normly/web-app/api:${NORMLY_IMAGE_TAG:-edge}
     env_file: .env
     depends_on:
       migrate:
@@ -102,7 +105,7 @@ services:
     build:
       <<: *python-build
       target: accounts
-    image: normly-accounts:local
+    image: ghcr.io/normly/web-app/accounts:${NORMLY_IMAGE_TAG:-edge}
     env_file: .env
     depends_on:
       migrate:
@@ -114,7 +117,7 @@ services:
     build:
       <<: *python-build
       target: chat
-    image: normly-chat:local
+    image: ghcr.io/normly/web-app/chat:${NORMLY_IMAGE_TAG:-edge}
     env_file: .env
     environment:
       NORMLY_API_BASE_URL: http://api:8000
@@ -128,7 +131,7 @@ services:
   frontend:
     build:
       context: frontend
-    image: normly-frontend:local
+    image: ghcr.io/normly/web-app/frontend:${NORMLY_IMAGE_TAG:-edge}
     environment:
       NORMLY_INSTANCE_NAME: ${NORMLY_INSTANCE_NAME:-normly}
       NORMLY_BRAND_COLOR_HSL: ${NORMLY_BRAND_COLOR_HSL:-222 89% 55%}
@@ -180,7 +183,7 @@ services:
     build:
       <<: *python-build
       target: pipeline
-    image: normly-pipeline:local
+    image: ghcr.io/normly/web-app/pipeline:${NORMLY_IMAGE_TAG:-edge}
     profiles: ["tools"]
     env_file: .env
     volumes:
