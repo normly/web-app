@@ -4,6 +4,7 @@
 import os
 import socket
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -100,7 +101,7 @@ def api_process(db_url):
     port = _free_port()
     env = {**os.environ, "NORMLY_DATABASE_URL": db_url}
     proc = subprocess.Popen(
-        [str(CHAT_DIR.parent / "api" / ".venv" / "bin" / "uvicorn"),
+        [sys.executable, "-m", "uvicorn",
          "normly_api.main:app", "--port", str(port)],
         cwd=str(CHAT_DIR.parent / "api"), env=env,
     )
@@ -115,7 +116,7 @@ def accounts_process(db_url):
     port = _free_port()
     env = {**os.environ, "NORMLY_DATABASE_URL": db_url}
     proc = subprocess.Popen(
-        [str(CHAT_DIR.parent / "accounts" / ".venv" / "bin" / "uvicorn"),
+        [sys.executable, "-m", "uvicorn",
          "normly_accounts.main:app", "--port", str(port)],
         cwd=str(CHAT_DIR.parent / "accounts"), env=env,
     )
