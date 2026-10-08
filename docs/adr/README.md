@@ -801,6 +801,64 @@ Secrets-Bezug per AppRole (TP3), Rollout/Rollback/Datenstand (TP4). Details:
 
 ---
 
+## ADR-023 — Image-Pipeline: GHCR, keyless Signatur, eine Version, Lock-Datei
+
+**Status:** beschlossen (2026-10-08)
+
+**Entscheidung:**
+
+1. **Veröffentlichung:** Die fünf Container-Images (`api`, `chat`,
+   `accounts`, `pipeline`, `frontend`) werden in GitHub Actions gebaut
+   und als öffentliche Pakete unter `ghcr.io/normly/web-app/` abgelegt
+   (bestätigt ADR-021). Gebaut wird bei Push auf `main` (Tags `edge`,
+   `sha-<kurz>`), bei Git-Tags `vX.Y.Z` (`X.Y.Z`, `X.Y`, `latest`) und
+   manuell — nie bei Pull Requests.
+2. **Signatur:** cosign keyless über GitHub-OIDC. Kein Schlüsselmaterial
+   wird erzeugt oder verwahrt; das kurzlebige Zertifikat bindet die
+   Signatur an Repository, Workflow und Commit. Dazu je Image
+   SLSA-Provenance und SBOM aus BuildKit (REQ-GIT-005).
+3. **Versionierung:** Eine Version für alle fünf Images; der annotierte
+   Git-Tag `vX.Y.Z` ist die einzige Quelle. Die Versionsfelder der
+   Pakete werden im Release-Commit auf denselben Wert gesetzt, der
+   Workflow prüft die Übereinstimmung.
+4. **Reproduzierbarkeit:** Die vier Python-Pakete bilden einen
+   uv-Workspace mit einer `uv.lock`; Torch kommt ausschließlich aus dem
+   CPU-Wheel-Index; Basis-Images sind per Digest, Modellgewichte (e5,
+   Docling) per Commit gepinnt und liegen in einer eigenen Build-Stufe
+   (REQ-BUILD-001).
+
+**Begründung:** Der Vertrauensanker der keyless Signatur — die öffentliche
+Sigstore-Infrastruktur (Fulcio, Rekor) — wird von der **Linux Foundation
+betrieben, einer Non-Profit-Organisation.** Das unterscheidet ihn
+qualitativ von den kommerziellen US-Diensten in der Build-Kette, die
+ADR-021 für den freien Kern erlaubt, und wiegt leichter als
+Schlüsselpflege, Rotation und Neusignierung bei Verlust. Die gemeinsame
+Version bildet ab, was tatsächlich getestet wird: die Dienste nur in
+Kombination, `api` und `chat` sogar aus einem Basis-Image; ein Rollback
+ist damit ein Handgriff. Der Verzicht auf PR-Builds hält die Pipeline
+schlank; ein kaputtes Dockerfile fällt nach dem Merge laut und ohne
+Schaden auf (`edge` bleibt stehen, der Release-Tag schlägt fehl). Ohne
+gepinnte Gewichte könnte derselbe Git-Tag andere Embeddings erzeugen als
+der Datenstand, den TP4 importiert.
+
+**Verworfen:** eigenes cosign-Schlüsselpaar (Schlüsselpflege, Ablage
+außerhalb von GitHub, Neusignierung bei Verlust); Version je Paket
+(getestete Kombination nicht mehr ablesbar, ein Tag je Paket je Release);
+Image-Build bei Pull Requests (voller Build je PR, Pfadfilter übersieht
+Codeänderungen); pip-tools (vier Lock-Dateien mit möglicher Drift, keine
+saubere Index-Trennung für Torch).
+
+**Konsequenz:** `docker compose up -d` zieht veröffentlichte Images,
+`--build` bleibt der lokale Weg; `docs/guide/self-hosting.md` beschreibt
+Bezug und Signaturprüfung, `docs/guide/releasing.md` den Release-Ablauf,
+`CONTRIBUTING.md` die uv-Entwicklungsumgebung. REQ-BUILD-001,
+REQ-DIST-004 und REQ-GIT-005 verweisen hierher. Die Signaturprüfung als
+Pflichtschritt vor dem Start auf der VM folgt mit dem Rollout-Skript
+(TP4). Details:
+`docs/superpowers/specs/2026-10-08-tp2-image-pipeline-design.md`.
+
+---
+
 ## Offene Punkte
 
 | Thema | Status | Nächster Schritt |
