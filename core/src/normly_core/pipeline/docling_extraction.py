@@ -4,12 +4,11 @@
 """Shared Docling document-extraction layer for all pipeline adapters.
 
 Production/CI requirement (STACKIT-only constraint -- no runtime access to
-external model sources, see CLAUDE.md): before deploying, pre-fetch
-Docling's layout and table-structure models once with
-
-    docling-tools models download layout tableformer -o <path>
-
-and set NORMLY_DOCLING_ARTIFACTS_PATH to <path> in the runtime environment.
+external model sources, see CLAUDE.md): the container image pre-fetches
+Docling's layout and table-structure models at pinned revisions into
+/opt/models/docling (docker/python.Dockerfile, stage `weights`, same folder
+layout as `docling-tools models download layout tableformer -o <path>`)
+and sets NORMLY_DOCLING_ARTIFACTS_PATH to that directory.
 With that set, extract_document() never attempts a network connection
 (verified by tests/pipeline/test_docling_offline.py). Without it (e.g.
 local development), Docling manages its own cache directory and downloads
