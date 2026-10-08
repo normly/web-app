@@ -56,7 +56,7 @@ cd api && ../.venv/bin/pytest            # run one package's tests (needs Docker
 
 `uv sync` keeps `.venv` in step with `uv.lock`. Change a dependency in a
 package's `pyproject.toml`, then run `uv lock` and commit the updated
-`uv.lock` with it — CI installs with `--frozen` and fails when the lock
+`uv.lock` with it — CI installs with `--locked` and fails when the lock
 file is out of date. The frontend uses `npm ci` with `package-lock.json`
 as before.
 

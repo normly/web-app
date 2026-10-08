@@ -6,7 +6,7 @@
 
 **Architecture:** Ein uv-Workspace im Repo-Root mit einer `uv.lock` ersetzt die vier losen `pip install -e`-Umgebungen. `docker/python.Dockerfile` bekommt die Stufen `deps` (gelockte Fremdabhängigkeiten) → `weights` (Modellgewichte mit fester Revision) → `base` (beides plus `core`) → `api`/`chat`/`accounts`/`pipeline`. Eine `docker-bake.hcl` ist die Build-Definition für die CI; `compose.yaml` behält seine `build:`-Blöcke, zeigt aber auf die GHCR-Namen. Der Workflow `.github/workflows/images.yml` baut bei Push auf `main`, bei Tags `v*` und manuell, pusht mit Registry-Cache, erzeugt Provenance und SBOM und signiert jeden Digest.
 
-**Tech Stack:** uv 0.12.23, Docker Buildx Bake (HCL), `python:3.12-slim` und `node:22-alpine` per Digest, `huggingface_hub.snapshot_download`, cosign v3 (keyless, Sigstore), GitHub Actions (`actions/checkout`, `docker/setup-buildx-action`, `docker/login-action`, `sigstore/cosign-installer`), Zensical für die Doku.
+**Tech Stack:** uv 0.12.23, Docker Buildx Bake (HCL), `python:3.12-slim` und `node:22-alpine` per Digest, `huggingface_hub.snapshot_download`, cosign 2.x via cosign-installer@v3 (keyless, Sigstore), GitHub Actions (`actions/checkout`, `docker/setup-buildx-action`, `docker/login-action`, `sigstore/cosign-installer`), Zensical für die Doku.
 
 Spec: `docs/superpowers/specs/2026-10-08-tp2-image-pipeline-design.md`. Roadmap: `docs/superpowers/specs/2026-09-23-stackit-deployment-roadmap-design.md`. Vorgänger-Plan (Dockerfile-Struktur, Compose-Profile): `docs/superpowers/plans/2026-10-04-tp1-containerisation.md`.
 
@@ -52,7 +52,7 @@ Spec: `docs/superpowers/specs/2026-10-08-tp2-image-pipeline-design.md`. Roadmap:
 | `api/pyproject.toml`, `chat/pyproject.toml`, `accounts/pyproject.toml` | Kommentar zur `normly-core`-Auflösung kürzen | 1 |
 | `chat/tests/conftest.py` | Nachbardienste aus der gemeinsamen Umgebung starten | 1 |
 | `CONTRIBUTING.md` | Abschnitt „Development setup" mit uv | 1 |
-| `.github/workflows/ci.yml` | Python-Jobs auf `uv sync --frozen` | 2 |
+| `.github/workflows/ci.yml` | Python-Jobs auf `uv sync --locked` | 2 |
 | `docker/python.Dockerfile` | Stufen `deps`/`weights`/`base`, uv, Digest-Pins, Revisionen | 3 |
 | `frontend/Dockerfile` | Digest-Pin | 3 |
 | `core/src/normly_core/pipeline/docling_extraction.py`, `core/tests/pipeline/test_docling_offline.py` | Docstring/Skip-Text auf den neuen Modellbezug | 3 |
@@ -74,7 +74,7 @@ Spec: `docs/superpowers/specs/2026-10-08-tp2-image-pipeline-design.md`. Roadmap:
 - Modify: `api/pyproject.toml:7-15`, `chat/pyproject.toml:7-10`, `accounts/pyproject.toml:7-10`, `chat/tests/conftest.py:98-121`, `CONTRIBUTING.md` (vor `## Process`)
 
 **Interfaces:**
-- Produces: `uv.lock` im Root; `uv sync --frozen --all-packages --all-extras` richtet `.venv` im Root mit allen vier Paketen ein. Task 2 und Task 3 verlassen sich auf genau diese Lock-Datei und den Workspace-Namen `normly-core`, `normly-api`, `normly-chat`, `normly-accounts`.
+- Produces: `uv.lock` im Root; `uv sync --locked --all-packages --all-extras` richtet `.venv` im Root mit allen vier Paketen ein. Task 2 und Task 3 verlassen sich auf genau diese Lock-Datei und den Workspace-Namen `normly-core`, `normly-api`, `normly-chat`, `normly-accounts`.
 
 - [ ] **Step 1: uv installieren und Version prüfen**
 
@@ -132,7 +132,7 @@ environments = ["sys_platform == 'linux'", "sys_platform == 'darwin'"]
 - [ ] **Step 4: Gemeinsame Umgebung einrichten und alle Pakete importieren**
 
 ```bash
-uv sync --frozen --all-packages --all-extras
+uv sync --locked --all-packages --all-extras
 .venv/bin/python -c "import normly_core, normly_api, normly_chat, normly_accounts, torch; print(torch.__version__, torch.cuda.is_available())"
 ```
 
@@ -208,7 +208,7 @@ cd api && ../.venv/bin/pytest            # run one package's tests (needs Docker
 
 `uv sync` keeps `.venv` in step with `uv.lock`. Change a dependency in a
 package's `pyproject.toml`, then run `uv lock` and commit the updated
-`uv.lock` with it — CI installs with `--frozen` and fails when the lock
+`uv.lock` with it — CI installs with `--locked` and fails when the lock
 file is out of date. The frontend uses `npm ci` with `package-lock.json`
 as before.
 ```
@@ -259,9 +259,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      # --frozen: fail when uv.lock does not match the pyproject.toml files,
+      # --locked: fail when uv.lock does not match the pyproject.toml files,
       # so an outdated lock file is caught in every PR without its own job.
-      - run: pip install "uv==${UV_VERSION}" && uv sync --frozen --all-packages --all-extras
+      - run: pip install "uv==${UV_VERSION}" && uv sync --locked --all-packages --all-extras
       - run: cd accounts && ../.venv/bin/pytest
 
   test-api:
@@ -270,7 +270,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - run: pip install "uv==${UV_VERSION}" && uv sync --frozen --all-packages --all-extras
+      - run: pip install "uv==${UV_VERSION}" && uv sync --locked --all-packages --all-extras
       - run: cd api && ../.venv/bin/pytest
 
   test-chat:
@@ -279,7 +279,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - run: pip install "uv==${UV_VERSION}" && uv sync --frozen --all-packages --all-extras
+      - run: pip install "uv==${UV_VERSION}" && uv sync --locked --all-packages --all-extras
       # Exclude tests/test_structural_end_to_end.py: those 4 tests start real
       # api and accounts processes, and api loads the embedding model at
       # startup -- a 2 GB cold download from huggingface.co on every CI run.
@@ -293,7 +293,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: apt-get update && apt-get install -y --no-install-recommends libgl1 && rm -rf /var/lib/apt/lists/*
-      - run: pip install "uv==${UV_VERSION}" && uv sync --frozen --all-packages --all-extras
+      - run: pip install "uv==${UV_VERSION}" && uv sync --locked --all-packages --all-extras
       - run: cd core && ../.venv/bin/pytest
 
   test-frontend:
@@ -327,13 +327,13 @@ jobs:
 ```bash
 docker run --rm -v "$PWD":/src:ro python:3.12 sh -c '
   git clone -q /src /w && cd /w \
-  && pip install -q "uv==0.12.23" && uv sync --frozen --all-packages --all-extras \
+  && pip install -q "uv==0.12.23" && uv sync --locked --all-packages --all-extras \
   && cd accounts && ../.venv/bin/pytest --co -q | tail -1'
 ```
 
 Der Klon enthält nur Committetes (Task 1 ist committet) und lässt das lokale `.venv` unangetastet.
 
-Expected: `uv sync --frozen` läuft ohne „lock file is out of date"; pytest sammelt die Tests (`N tests collected`; die Sammlung genügt, die volle Suite läuft im echten CI-Lauf).
+Expected: `uv sync --locked` läuft ohne „lock file is out of date"; pytest sammelt die Tests (`N tests collected`; die Sammlung genügt, die volle Suite läuft im echten CI-Lauf).
 
 - [ ] **Step 3: Workflow-Syntax prüfen**
 
@@ -347,7 +347,7 @@ Expected: keine Ausgabe (keine Fehler).
 
 ```bash
 git add .github/workflows/ci.yml
-git commit -s -m "ci: install Python packages from uv.lock with --frozen
+git commit -s -m "ci: install Python packages from uv.lock with --locked
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ```
@@ -373,7 +373,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 # One Dockerfile, four runtime targets (api, chat, accounts, pipeline) on a
 # shared chain of stages, so BuildKit builds and pushes the heavy layers once:
 #
-#   deps     third-party dependencies, installed from uv.lock (--frozen)
+#   deps     third-party dependencies, installed from uv.lock (--locked)
 #   weights  model weights at pinned revisions (the only stage that talks
 #            to huggingface.co)
 #   base     deps + weights + the core package
@@ -421,7 +421,7 @@ COPY api/pyproject.toml api/
 COPY chat/pyproject.toml chat/
 COPY accounts/pyproject.toml accounts/
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --all-packages --no-install-workspace
+    uv sync --locked --no-dev --all-packages --no-install-workspace
 
 # ---------------------------------------------------------------------------
 FROM deps AS weights
@@ -561,7 +561,7 @@ done
 docker images 'normly-*:tp2'
 ```
 
-Expected: vier Images; die Logs zeigen `uv sync --frozen` ohne Fehler und `snapshot_download` für vier Repos. Nur das erste Target lädt; die drei anderen treffen den Cache für `deps`, `weights` und `base`.
+Expected: vier Images; die Logs zeigen `uv sync --locked` ohne Fehler und `snapshot_download` für vier Repos. Nur das erste Target lädt; die drei anderen treffen den Cache für `deps`, `weights` und `base`.
 
 - [ ] **Step 5: Gewichte, Offline-Betrieb und Laufzeitimporte im Image prüfen**
 
@@ -1273,7 +1273,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 Dieser Task läuft nicht in einem Subagenten. Jeder Schritt, der einen Workflow auslöst, braucht vorher das ausdrückliche Ja des Nutzers.
 
-- [ ] **Step 1: PR öffnen** (löst `CI` aus, nicht `Images`): Branch pushen, PR gegen `main` mit Verweis auf Spec und Plan. Erwartung: fünf grüne Jobs, `test-core` rot mit der bekannten DGUV-Signatur. Prüfen, dass `uv sync --frozen` in den Logs ohne „out of date" durchläuft.
+- [ ] **Step 1: PR öffnen** (löst `CI` aus, nicht `Images`): Branch pushen, PR gegen `main` mit Verweis auf Spec und Plan. Erwartung: fünf grüne Jobs, `test-core` rot mit der bekannten DGUV-Signatur. Prüfen, dass `uv sync --locked` in den Logs ohne „out of date" durchläuft.
 
 - [ ] **Step 2: Merge durch den Nutzer.** Danach läuft `Images` zum ersten Mal auf `main`. Aus dem Lauf festhalten: Gesamtdauer, `df -h`-Ausgabe nach dem Aufräumen, Größe der fünf Images laut Summary, ob alle fünf Signaturen durchliefen.
 
@@ -1332,6 +1332,8 @@ Expected: Lauf bricht im Schritt „Check that a release tag matches the package
 ---
 
 ## Self-Review
+
+**Korrektur nach Gesamtdurchsicht (2026-10-08):** `uv sync --frozen` prüft die Lock-Datei nicht; überall durch `--locked` ersetzt.
 
 **Spec-Abdeckung:**
 

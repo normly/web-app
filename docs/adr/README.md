@@ -825,7 +825,9 @@ Secrets-Bezug per AppRole (TP3), Rollout/Rollback/Datenstand (TP4). Details:
    uv-Workspace mit einer `uv.lock`; Torch kommt ausschließlich aus dem
    CPU-Wheel-Index; Basis-Images sind per Digest, Modellgewichte (e5,
    Docling) per Commit gepinnt und liegen in einer eigenen Build-Stufe
-   (REQ-BUILD-001).
+   (REQ-BUILD-001). Bewusst offen bleiben Zeitstempel in den Schichten
+   und die apt-Pakete der Basisschicht; bit-identische Images sind damit
+   noch nicht erreicht.
 
 **Begründung:** Der Vertrauensanker der keyless Signatur — die öffentliche
 Sigstore-Infrastruktur (Fulcio, Rekor) — wird von der **Linux Foundation

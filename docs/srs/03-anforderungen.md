@@ -418,7 +418,7 @@ Dieses Kapitel definiert Anforderungen an Build-Prozesse, Artefakterstellung, In
 
 **Abnahmekriterium:** Zwei Builds aus identischem Commit erzeugen identische Artefakte.
 
-**Weitere Informationen:** Gilt für Backend, Frontend und ML-Komponenten. Umsetzung seit ADR-023 (2026-10-08): uv-Workspace mit `uv.lock`, Basis-Images per Digest, Modellgewichte per Commit gepinnt; derselbe Git-Tag erzeugt dieselben Images.
+**Weitere Informationen:** Gilt für Backend, Frontend und ML-Komponenten. Umsetzung seit ADR-023 (2026-10-08): uv-Workspace mit `uv.lock`, Basis-Images per Digest, Modellgewichte per Commit gepinnt; derselbe Git-Tag baut aus denselben Eingaben (Lock-Datei, Image-Digests, Modell-Commits, gelockter Build-Backend). Bit-identische Images (Abnahmekriterium) sind damit noch nicht erreicht: Zeitstempel in Schichten und die apt-Pakete der Basisschicht sind nicht festgeschrieben — offener Punkt.
 
 #### REQ-BUILD-002 — CI/CD-Infrastruktur für den freien Kern
 

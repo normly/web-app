@@ -5,14 +5,17 @@
 # One Dockerfile, four runtime targets (api, chat, accounts, pipeline) on a
 # shared chain of stages, so BuildKit builds and pushes the heavy layers once:
 #
-#   deps     third-party dependencies, installed from uv.lock (--frozen)
+#   deps     third-party dependencies, installed from uv.lock (--locked)
 #   weights  model weights at pinned revisions (the only stage that talks
 #            to huggingface.co)
 #   base     deps + weights + the core package
 #   api/chat/accounts/pipeline  base + the service's own package
 #
-# Every input is pinned: base images by digest, Python packages by uv.lock,
-# model weights by commit (REQ-BUILD-001, ADR-023). Build context: repo root.
+# Inputs are pinned: base images by digest, Python packages (including the
+# build backend) by uv.lock, model weights by commit (REQ-BUILD-001,
+# ADR-023). The one unpinned input left is the Debian apt packages
+# libgl1/libglib2.0-0 (Debian snapshots are impractical; accepted).
+# Build context: repo root.
 
 # Digests resolved 2026-10-08.
 ARG PYTHON_IMAGE=python:3.12-slim@sha256:05cda9777409a9c3ffddd94a4c476b79f0769a0b4857f0c7ed9226b6800b0d6f
@@ -45,15 +48,17 @@ COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /app
 
 # Only the workspace metadata: this layer is rebuilt when a dependency
-# changes, not when application code does. --no-install-workspace leaves
-# the four normly packages out; each stage below adds its own.
+# changes, not when application code does. The `build` group holds the
+# build backend (hatchling) so the package installs below need no index.
+# --no-install-workspace leaves the four normly packages out; each stage
+# below adds its own.
 COPY pyproject.toml uv.lock ./
 COPY core/pyproject.toml core/
 COPY api/pyproject.toml api/
 COPY chat/pyproject.toml chat/
 COPY accounts/pyproject.toml accounts/
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --all-packages --no-install-workspace
+    uv sync --locked --no-dev --group build --all-packages --no-install-workspace
 
 # ---------------------------------------------------------------------------
 FROM deps AS weights
@@ -118,12 +123,12 @@ ENV UV_PYTHON=/app/.venv/bin/python
 # The core package itself (code, alembic.ini, migrations). Dependencies are
 # already in the environment, so --no-deps installs only the package.
 COPY --chown=normly:normly core /app/core
-RUN uv pip install --no-deps /app/core
+RUN uv pip install --no-deps --no-build-isolation /app/core
 
 # ---------------------------------------------------------------------------
 FROM base AS api
 COPY --chown=normly:normly api /app/api
-RUN uv pip install --no-deps /app/api
+RUN uv pip install --no-deps --no-build-isolation /app/api
 USER normly
 EXPOSE 8000
 CMD ["uvicorn", "normly_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
@@ -131,7 +136,7 @@ CMD ["uvicorn", "normly_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
 # ---------------------------------------------------------------------------
 FROM base AS chat
 COPY --chown=normly:normly chat /app/chat
-RUN uv pip install --no-deps /app/chat
+RUN uv pip install --no-deps --no-build-isolation /app/chat
 USER normly
 EXPOSE 8000
 CMD ["uvicorn", "normly_chat.main:app", "--host", "0.0.0.0", "--port", "8000"]
@@ -139,7 +144,7 @@ CMD ["uvicorn", "normly_chat.main:app", "--host", "0.0.0.0", "--port", "8000"]
 # ---------------------------------------------------------------------------
 FROM base AS accounts
 COPY --chown=normly:normly accounts /app/accounts
-RUN uv pip install --no-deps /app/accounts
+RUN uv pip install --no-deps --no-build-isolation /app/accounts
 USER normly
 EXPOSE 8000
 CMD ["uvicorn", "normly_accounts.main:app", "--host", "0.0.0.0", "--port", "8000"]

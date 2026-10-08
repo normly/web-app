@@ -311,9 +311,10 @@ die `normly-core`-Auflösung sauber.
   kennt beide. `CONTRIBUTING.md` beschreibt den neuen Weg (uv installieren,
   `uv sync`, `uv run pytest` im jeweiligen Paket).
 - **`ci.yml`:** die vier Python-Jobs wechseln von `pip install -e ../core
-  -e .[dev]` auf `uv sync --frozen --package normly-<name> --extra dev`
-  und `uv run --package normly-<name> pytest`. `--frozen` schlägt fehl,
-  wenn `uv.lock` nicht zu den `pyproject.toml` passt — damit ist die
+  -e .[dev]` auf `uv sync --locked --package normly-<name> --extra dev`
+  und `uv run --package normly-<name> pytest`. `--locked` schlägt fehl,
+  wenn `uv.lock` nicht zu den `pyproject.toml` passt (Korrektur nach
+  Gesamtdurchsicht 2026-10-08: `--frozen` prüft nicht, `--locked` prüft) — damit ist die
   Lock-Datei in jedem PR geprüft, ohne eigenen Job. uv kommt per
   `astral-sh/setup-uv` mit gepinnter uv-Version; `test-core` behält den
   `libgl1`-Schritt und seine bekannte rote DGUV-Signatur (nicht Teil
@@ -335,7 +336,7 @@ die `normly-core`-Auflösung sauber.
 1. `deps`: `python:3.12-slim` per Digest gepinnt; uv per `COPY --from`
    aus `ghcr.io/astral-sh/uv:<version>` (ebenfalls per Digest). Kopiert
    nur `pyproject.toml`, `uv.lock` und die vier Paket-`pyproject.toml`,
-   dann `uv sync --frozen --no-dev --no-install-workspace --package
+   dann `uv sync --locked --no-dev --no-install-workspace --package
    normly-core` in `/app/.venv`. Diese Schicht ändert sich nur, wenn die
    Lock-Datei sich ändert.
 2. `weights`: lädt die Modellgewichte mit `huggingface_hub.snapshot_download`
@@ -348,10 +349,10 @@ die `normly-core`-Auflösung sauber.
    liest es direkt vom Pfad. Eigene Stufe, damit ein Wechsel der
    Lock-Datei die Gewichte nicht neu lädt und umgekehrt.
 3. `base`: `deps` plus `COPY --from=weights /opt/models /opt/models` plus
-   `core`-Quellcode, installiert mit `uv sync --frozen --no-dev --package
+   `core`-Quellcode, installiert mit `uv sync --locked --no-dev --package
    normly-core`. Benutzer `normly` wie bisher.
 4. `api`, `chat`, `accounts`, `pipeline`: wie bisher, nur mit `uv sync
-   --frozen --no-dev --package normly-<name>` statt `pip install`.
+   --locked --no-dev --package normly-<name>` statt `pip install`.
    `pipeline` lädt keine Modelle mehr selbst; `NORMLY_DOCLING_ARTIFACTS_PATH`
    zeigt auf `/opt/models/docling` aus der `weights`-Stufe.
 
