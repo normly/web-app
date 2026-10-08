@@ -140,7 +140,8 @@ def structural_client(db_url, monkeypatch, db_session, api_process):
     monkeypatch.setenv("NORMLY_DATABASE_URL", db_url)
     monkeypatch.setenv("NORMLY_API_BASE_URL", api_process)
     monkeypatch.setenv("NORMLY_ACCOUNTS_BASE_URL", "http://localhost:1")
-    monkeypatch.setenv("NORMLY_OLLAMA_BASE_URL", "http://localhost:1")
+    monkeypatch.setenv("NORMLY_LLM_BASE_URL", "http://localhost:1")
+    monkeypatch.setenv("NORMLY_LLM_MODEL", "test-model")
     from fastapi.testclient import TestClient
 
     from normly_chat.dependencies import get_session

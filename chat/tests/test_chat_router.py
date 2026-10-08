@@ -37,7 +37,8 @@ def test_a_downstream_outage_is_503_not_500(monkeypatch, db_url, db_session):
     monkeypatch.setenv("NORMLY_DATABASE_URL", db_url)
     monkeypatch.setenv("NORMLY_API_BASE_URL", "http://localhost:8001")
     monkeypatch.setenv("NORMLY_ACCOUNTS_BASE_URL", "http://localhost:8002")
-    monkeypatch.setenv("NORMLY_OLLAMA_BASE_URL", "http://localhost:11434")
+    monkeypatch.setenv("NORMLY_LLM_BASE_URL", "http://localhost:11434")
+    monkeypatch.setenv("NORMLY_LLM_MODEL", "test-model")
     app = create_app()
     app.dependency_overrides[get_session] = lambda: db_session
 

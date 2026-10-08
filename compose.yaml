@@ -1,0 +1,194 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 normly contributors
+#
+# One `docker compose up` starts a working normly instance (REQ-DIST-004).
+# Profiles decide what is bundled:
+#   bundled  postgres + ollama + mailpit  (self-hosting / development)
+#   edge     caddy with automatic TLS     (production on a public host)
+#   tools    pipeline (ingestion), run on demand with `docker compose run`
+# Configuration comes from .env (copy .env.example). Secrets never live here.
+# Third-party image tags pinned 2026-10-04.
+
+name: normly
+
+x-python-build: &python-build
+  context: .
+  dockerfile: docker/python.Dockerfile
+
+x-backend-healthcheck: &backend-healthcheck
+  test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/openapi.json', timeout=5)"]
+  interval: 15s
+  timeout: 10s
+  retries: 20
+  start_period: 90s   # api/chat load the embedding model at startup
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    profiles: ["bundled"]
+    environment:
+      POSTGRES_DB: normly
+      POSTGRES_USER: normly
+      # Compose interpolates every service, profile or not, so no `:?` here;
+      # the postgres image itself refuses to initialise without a password.
+      POSTGRES_PASSWORD: ${NORMLY_BUNDLED_POSTGRES_PASSWORD:-}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U normly -d normly"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:0.35.1
+    profiles: ["bundled"]
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  ollama-pull:
+    image: ollama/ollama:0.35.1      # same tag as `ollama`
+    profiles: ["bundled"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      NORMLY_LLM_MODEL: ${NORMLY_LLM_MODEL:-gemma4:e4b}
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["ollama pull \"$$NORMLY_LLM_MODEL\""]
+    restart: "no"
+
+  mailpit:
+    image: axllent/mailpit:v1
+    profiles: ["bundled"]
+    ports:
+      - "${NORMLY_MAILPIT_BIND:-127.0.0.1}:8025:8025"
+    restart: unless-stopped
+
+  migrate:
+    build:
+      <<: *python-build
+      target: pipeline
+    image: normly-pipeline:local
+    entrypoint: ["python", "-m", "normly_core.migrate"]
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false            # absent when the bundled profile is off
+    restart: "no"
+
+  api:
+    build:
+      <<: *python-build
+      target: api
+    image: normly-api:local
+    env_file: .env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck: *backend-healthcheck
+    restart: unless-stopped
+
+  accounts:
+    build:
+      <<: *python-build
+      target: accounts
+    image: normly-accounts:local
+    env_file: .env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck: *backend-healthcheck
+    restart: unless-stopped
+
+  chat:
+    build:
+      <<: *python-build
+      target: chat
+    image: normly-chat:local
+    env_file: .env
+    environment:
+      NORMLY_API_BASE_URL: http://api:8000
+      NORMLY_ACCOUNTS_BASE_URL: http://accounts:8000
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck: *backend-healthcheck
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: frontend
+    image: normly-frontend:local
+    environment:
+      NORMLY_INSTANCE_NAME: ${NORMLY_INSTANCE_NAME:-normly}
+      NORMLY_BRAND_COLOR_HSL: ${NORMLY_BRAND_COLOR_HSL:-222 89% 55%}
+      NORMLY_LOGO_PATH: ${NORMLY_LOGO_PATH:-}
+      NORMLY_API_BASE_URL: http://api:8000
+      NORMLY_ACCOUNTS_BASE_URL: http://accounts:8000
+      NORMLY_CHAT_BASE_URL: http://chat:8000
+    ports:
+      - "${NORMLY_FRONTEND_BIND:-127.0.0.1}:3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+      accounts:
+        condition: service_healthy
+      chat:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1:3000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    profiles: ["edge"]
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    # No `:?` guard: Compose interpolates every service even when its profile
+    # is off, which would break the non-edge setup. Check at container start.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        [ -n "$$NORMLY_PUBLIC_HOST" ] || { echo "set NORMLY_PUBLIC_HOST (e.g. app.example.org) for the edge profile" >&2; exit 1; }
+        exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+    environment:
+      NORMLY_PUBLIC_HOST: ${NORMLY_PUBLIC_HOST:-}
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - frontend
+    restart: unless-stopped
+
+  pipeline:
+    build:
+      <<: *python-build
+      target: pipeline
+    image: normly-pipeline:local
+    profiles: ["tools"]
+    env_file: .env
+    volumes:
+      - ./data:/data
+    restart: "no"
+
+volumes:
+  postgres-data:
+  ollama-data:
+  caddy-data:
+  caddy-config:

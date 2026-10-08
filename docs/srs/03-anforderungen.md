@@ -468,7 +468,7 @@ Dieses Kapitel beschreibt Anforderungen an die Verteilung, Skalierung und Trennu
 
 **Abnahmekriterium:** Architektur-Review bestätigt Umgebungstrennung.
 
-**Weitere Informationen:** Gilt auch für ML-Daten und Logs.
+**Weitere Informationen:** Gilt auch für ML-Daten und Logs. **Befristete Abweichung (ADR-022, 2026-09-23):** In Phase 1 existiert nur eine Produktionsumgebung auf STACKIT; das lokale Compose-Setup übernimmt die Rolle der Staging-Umgebung. Aufzuheben, sobald es Nutzer gibt, die ein fehlerhaftes Deployment treffen würde.
 
 #### REQ-DIST-002 — Skalierbare Verteilung der Systemkomponenten
 
@@ -599,7 +599,7 @@ Die Entwicklung eines ersten testbaren Prototypen ist bis Mai/Juni 2026 abgeschl
 
 ### 3.5.9 Physische Anforderungen
 
-Um als USP eine 100%ige Unabhängig von amerikanischen oder chinesischen Angeboten sicherstellen zu können, ist das komplette Deployment auf Server-Infrastruktur von [<u>Stack IT</u>](https://stackit.com/de) sicherzustellen. Dies gilt auch für Entwicklungs-, Build- und Deployment-Umgebungen. Als Quell- und Build-Plattform wird STACKIT Git (Forgejo) mit STACKIT Pipelines eingesetzt.
+Um als USP eine 100%ige Unabhängig von amerikanischen oder chinesischen Angeboten sicherstellen zu können, ist das komplette Deployment auf Server-Infrastruktur von [<u>Stack IT</u>](https://stackit.com/de) sicherzustellen. Dies gilt auch für Entwicklungs-, Build- und Deployment-Umgebungen. Quellcode, CI/CD und Container-Registry des freien Kerns liegen seit ADR-021 auf GitHub (REQ-GIT-001, REQ-BUILD-002). Für Sprachmodelle gilt ADR-022: ausschließlich Open-Weight-Modelle mit OSI-anerkannter Lizenz, betrieben auf STACKIT-Infrastruktur; keine Anfrage erreicht den Modellhersteller.
 
 ### 3.5.10 Design Anforderungen
 
