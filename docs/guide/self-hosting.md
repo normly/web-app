@@ -11,8 +11,8 @@ separately versioned dump (import tooling follows in a later release, see
 - Docker Engine 24+ with Compose v2.20+ (`docker compose version`).
 - 16 GB RAM for the bundled setup (two services load a 2 GB embedding
   model; the bundled Ollama runs a small Gemma model on CPU).
-- About 20 GB of disk for images and models, plus about 45 GB of free disk
-  for Docker's build cache during the first build.
+- About 20 GB of disk for images and models. Building the images yourself
+  instead of pulling them needs about 45 GB more for Docker's build cache.
 - A Linux host. The images are built for `linux/amd64`.
 
 ## Quick start (everything bundled)
@@ -22,13 +22,23 @@ git clone https://github.com/normly/web-app.git normly && cd normly
 cp .env.example .env
 # edit .env: set NORMLY_BUNDLED_POSTGRES_PASSWORD and the matching password
 # inside NORMLY_DATABASE_URL
-docker compose up -d --build
+docker compose up -d
 ```
 
-The first start builds the images (10–20 minutes: PyTorch, the embedding
-weights and Docling models are fetched once at build time), pulls the
-Ollama model, runs the database migrations and then brings up the four
-services. Afterwards:
+The first start pulls the five normly images from
+`ghcr.io/normly/web-app` (about 3 GB to download, about 8 GB on disk; PyTorch, the embedding weights and
+Docling's models are inside), pulls the Ollama model, runs the database
+migrations and then brings up the four services. `NORMLY_IMAGE_TAG` in
+`.env` selects which published tag you follow: `edge` (newest commit on
+`main`, the default), a release such as `0.1.0`, its minor line `0.1`, or
+`latest` (newest release). To update, change the tag if you want, then
+`docker compose pull && docker compose up -d`.
+
+To build the images from source instead — for example on a modified
+checkout — run `docker compose up -d --build`; this takes 10–20 minutes
+and needs the extra disk space listed above.
+
+Afterwards:
 
 - App: <http://localhost:3000> (the frontend is bound to localhost only;
   for remote access use the `edge` profile or an SSH tunnel, see
@@ -90,6 +100,25 @@ Ports 80 and 443 must be reachable from the internet for Let's Encrypt.
 All variables are documented inline in `.env.example`. Frontend-specific
 branding variables are described in `frontend/README.md`.
 
+## Verifying image signatures
+
+Every published image is signed keyless with [cosign](https://docs.sigstore.dev/)
+from the `Images` workflow in `normly/web-app`, and ships a SLSA provenance
+and an SBOM attestation ([ADR-023](../adr/README.md#adr-023-image-pipeline-ghcr-keyless-signatur-eine-version-lock-datei)).
+To check an image before running it:
+
+```bash
+cosign verify \
+  --certificate-identity-regexp '^https://github\.com/normly/web-app/\.github/workflows/images\.yml@refs/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/normly/web-app/api:0.1.0
+```
+
+A valid signature prints the certificate subject (the workflow) and the
+commit it was built from. Provenance and SBOM are visible with
+`docker buildx imagetools inspect ghcr.io/normly/web-app/api:0.1.0 --format '{{ json .Provenance }}'`
+(and `.SBOM`).
+
 ## Ingesting documents
 
 ```bash
@@ -102,7 +131,7 @@ Sources: `eur-lex`, `dguv`, `baua`. Other maintenance commands:
 
 ## Known gaps
 
-- No published images yet — `docker compose up --build` builds locally.
-  Signed images on GHCR and a versioned knowledge-base dump are the next
-  two deliverables of the deployment roadmap.
+- No versioned knowledge-base dump yet — ingestion runs locally with the
+  `pipeline` image; the dump import is the next deliverable of the
+  deployment roadmap.
 - No Helm chart. Kubernetes is not a target for the free core right now.

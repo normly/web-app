@@ -5,9 +5,8 @@ description = "normly free core: natural-language chat over the reference graph"
 requires-python = ">=3.11"
 license = { text = "AGPL-3.0-or-later" }
 dependencies = [
-    # Same-repo sibling package -- install from ../core, never from a public
-    # index (not published to one; a name match there would be a typosquat).
-    # See api/pyproject.toml for the identical note.
+    # Same-repo sibling package, resolved by the uv workspace from ../core,
+    # never from an index (see api/pyproject.toml for the full note).
     "normly-core>=0.1.0,<0.2.0",
     "fastapi>=0.115,<0.120",
     "uvicorn[standard]>=0.30,<1.0",

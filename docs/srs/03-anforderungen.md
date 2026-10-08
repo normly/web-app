@@ -418,7 +418,7 @@ Dieses Kapitel definiert Anforderungen an Build-Prozesse, Artefakterstellung, In
 
 **Abnahmekriterium:** Zwei Builds aus identischem Commit erzeugen identische Artefakte.
 
-**Weitere Informationen:** Gilt für Backend, Frontend und ML-Komponenten.
+**Weitere Informationen:** Gilt für Backend, Frontend und ML-Komponenten. Umsetzung seit ADR-023 (2026-10-08): uv-Workspace mit `uv.lock`, Basis-Images per Digest, Modellgewichte per Commit gepinnt; derselbe Git-Tag baut aus denselben Eingaben (Lock-Datei, Image-Digests, Modell-Commits, gelockter Build-Backend). Bit-identische Images (Abnahmekriterium) sind damit noch nicht erreicht: Zeitstempel in Schichten und die apt-Pakete der Basisschicht sind nicht festgeschrieben — offener Punkt.
 
 #### REQ-BUILD-002 — CI/CD-Infrastruktur für den freien Kern
 
@@ -512,7 +512,7 @@ Dieses Kapitel beschreibt Anforderungen an die Verteilung, Skalierung und Trennu
 
 **Abnahmekriterium:** Eine leere Umgebung wird ohne Vorkenntnisse allein anhand der Dokumentation in Betrieb genommen; ein Wechsel des Datenstands erfolgt ohne Neubau des Images.
 
-**Weitere Informationen:** Führende Registry für den freien Kern ist seit ADR-021 (2026-09-14) die GitHub Container Registry (GHCR) im Repository `normly/web-app` — löst den vorherigen Stand (STACKIT Container Registry alleinig, ADR-019/ADR-010-Nachtrag) ab. Der öffentlich lesbare Bezug im Akzeptanzkriterium ist über anonymen Lesezugriff auf GHCR zu lösen. Helm-Charts für den Betrieb auf Kubernetes können ergänzend folgen. Cache-Strategien sind zu berücksichtigen.
+**Weitere Informationen:** Führende Registry für den freien Kern ist seit ADR-021 (2026-09-14) die GitHub Container Registry (GHCR) im Repository `normly/web-app` — löst den vorherigen Stand (STACKIT Container Registry alleinig, ADR-019/ADR-010-Nachtrag) ab. Der öffentlich lesbare Bezug im Akzeptanzkriterium ist über anonymen Lesezugriff auf GHCR zu lösen. Helm-Charts für den Betrieb auf Kubernetes können ergänzend folgen. Cache-Strategien sind zu berücksichtigen. Build, Signatur (cosign keyless) und Tagging der Images regelt ADR-023.
 
 ### 3.5.4 Wartbarkeit
 
@@ -774,9 +774,11 @@ Dieses Kapitel definiert Anforderungen an Plattform, Ablauf und Absicherung der 
 
 **Rationale:** Schutz vor Manipulation und Voraussetzung für die Nachvollziehbarkeit in regulierten Umgebungen.
 
-**Akzeptanzkriterium:** Signaturprüfung als Pflichtschritt in der Pipeline; Artefakte in der STACKIT Container Registry signiert abgelegt.
+**Akzeptanzkriterium:** Signaturprüfung als Pflichtschritt vor dem Rollout; Artefakte signiert in der GitHub Container Registry abgelegt (ADR-021, ADR-023: cosign keyless, SLSA-Provenance und SBOM je Image).
 
 **Abnahmekriterium:** Ein unsigniertes Artefakt wird von der Auslieferung abgewiesen.
+
+**Stand (2026-10-08):** Signatur, Provenance und SBOM je Image sind mit ADR-023 umgesetzt. Die Prüfung als Pflichtschritt vor dem Start auf der Zielumgebung folgt mit dem Rollout-Skript (Deployment-Roadmap TP4).
 
 ## 3.9 Referenzgraph
 

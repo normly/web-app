@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 normly contributors
+#
+# uv workspace root. This file is not a package: it only ties the four
+# Python packages together so that one `uv.lock` pins every dependency of
+# all of them (REQ-BUILD-001, ADR-023). `normly-core` is resolved from the
+# checkout, never from an index; torch and torchvision come only from the
+# CPU wheel index (no CUDA builds, no other package may be served from it).
+
+[tool.uv.workspace]
+members = ["core", "api", "chat", "accounts"]
+
+[tool.uv.sources]
+normly-core = { workspace = true }
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[dependency-groups]
+# Build backend of the four packages, locked here so image builds do not
+# fetch it unpinned from PyPI (installed with --no-build-isolation).
+build = ["hatchling>=1.27,<2"]

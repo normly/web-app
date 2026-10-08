@@ -1,0 +1,132 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 normly contributors
+#
+# Builds, signs and publishes the five container images (ADR-023).
+#   push to main   -> edge, sha-<short>
+#   tag vX.Y.Z     -> X.Y.Z, X.Y, latest, sha-<short>
+# Pull requests never build images (D3 in the TP2 spec). Signing is keyless
+# (cosign + GitHub OIDC); no key material exists anywhere.
+#
+# Action versions (floating major tags, resolved 2026-10-08):
+#   actions/checkout           v7 -> v7.0.1
+#   docker/setup-buildx-action v4 -> v4.4.1
+#   docker/login-action        v4 -> v4.6.0
+#   sigstore/cosign-installer  v3 -> latest v3.x; the newest release (v4.1.2)
+#                              has no floating v4 tag yet, so v3 is the
+#                              highest major line that can be pinned as @vN.
+#                              It installs cosign 2.x, whose signatures any
+#                              cosign verify can read.
+name: Images
+
+on:
+  push:
+    branches: [main]
+    tags: ["v[0-9]*.[0-9]*.[0-9]*"]  # glob, not regex; exact shape checked below
+  workflow_dispatch:
+
+# Two quick merges must not race on the edge tag and the cache.
+concurrency:
+  group: images-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io/normly/web-app
+  CACHE_REF: ghcr.io/normly/web-app/cache
+  COSIGN_YES: "true"
+
+jobs:
+  build:
+    # Manual runs only make sense from main or a release tag; any other ref
+    # would overwrite edge.
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write   # push images and cache to GHCR
+      id-token: write   # keyless signing: OIDC token for Sigstore
+    steps:
+      - uses: actions/checkout@v7 # v7.0.1
+
+      - name: Check that a release tag matches the package versions
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          fail=0
+          for f in core api chat accounts; do
+            v=$(python3 -c "import tomllib;print(tomllib.load(open('$f/pyproject.toml','rb'))['project']['version'])")
+            [ "$v" = "$version" ] || { echo "::error::$f/pyproject.toml is $v, tag is $version"; fail=1; }
+          done
+          v=$(python3 -c "import json;print(json.load(open('frontend/package.json'))['version'])")
+          [ "$v" = "$version" ] || { echo "::error::frontend/package.json is $v, tag is $version"; fail=1; }
+          exit $fail
+
+      - name: Compute tags
+        id: tags
+        run: |
+          set -euo pipefail
+          short="${GITHUB_SHA::7}"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            if ! [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::tag $GITHUB_REF_NAME is not vX.Y.Z (pre-releases are not supported yet)"
+              exit 1
+            fi
+            version="${GITHUB_REF_NAME#v}"
+            tags="$version ${version%.*} latest sha-$short"
+          else
+            tags="edge sha-$short"
+          fi
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
+          echo "Tags: $tags"
+
+      - name: Free disk space on the runner
+        # ~14 GB free by default; the Python base layer alone is ~5 GB and
+        # the registry cache export needs room too.
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          sudo docker image prune -af >/dev/null
+          df -h / | tail -1
+
+      - uses: docker/setup-buildx-action@v4 # v4.4.1
+
+      - uses: docker/login-action@v4 # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        # -f is required: a bare "docker buildx bake" also auto-loads
+        # compose.yaml as a bake definition, which fails in CI because its
+        # services reference env_file: .env (not present on the runner).
+        env:
+          TAGS: ${{ steps.tags.outputs.tags }}
+          PUSH: "1"
+        run: docker buildx bake -f docker-bake.hcl --push --metadata-file /tmp/bake-meta.json
+
+      - uses: sigstore/cosign-installer@v3 # latest v3.x, see header
+
+      - name: Sign every image by digest
+        run: |
+          set -euo pipefail
+          for t in api chat accounts pipeline frontend; do
+            digest=$(jq -r --arg t "$t" '.[$t]["containerimage.digest"]' /tmp/bake-meta.json)
+            [ -n "$digest" ] && [ "$digest" != "null" ] || { echo "::error::no digest for $t"; exit 1; }
+            cosign sign "${REGISTRY}/${t}@${digest}"
+            echo "${t} ${digest}" >> /tmp/digests.txt
+          done
+
+      - name: Summary
+        run: |
+          {
+            echo "## Images"
+            echo
+            echo "Tags: \`${{ steps.tags.outputs.tags }}\`"
+            echo
+            echo "| Image | Digest |"
+            echo "|---|---|"
+            while read -r t d; do echo "| \`${REGISTRY}/${t}\` | \`${d}\` |"; done < /tmp/digests.txt
+            echo
+            echo "Verify: \`cosign verify --certificate-identity-regexp '^https://github\\.com/normly/web-app/\\.github/workflows/images\\.yml@refs/' --certificate-oidc-issuer https://token.actions.githubusercontent.com ${REGISTRY}/api@<digest>\`"
+          } >> "$GITHUB_STEP_SUMMARY"
