@@ -18,9 +18,9 @@ from normly_chat.accounts_client import AccountsClient
 from normly_chat.api_client import ApiClient
 from normly_chat.classify import QuestionType, classify
 from normly_chat.dependencies import (
-    get_accounts_client, get_api_client, get_embedding_model, get_ollama_client, get_session,
+    get_accounts_client, get_api_client, get_embedding_model, get_llm_client, get_session,
 )
-from normly_chat.ollama_client import OllamaClient
+from normly_chat.llm_client import LlmClient
 from normly_chat.schemas import ChatRequest, ChatResponse, CitationResponse
 from normly_chat.session_resolution import resolve_session
 from normly_chat.structural import build_structural_answer
@@ -36,7 +36,7 @@ def chat(
     payload: ChatRequest, authorization: str | None = Header(default=None),
     session: Session = Depends(get_session), api_client: ApiClient = Depends(get_api_client),
     accounts_client: AccountsClient = Depends(get_accounts_client),
-    ollama_client: OllamaClient = Depends(get_ollama_client),
+    llm_client: LlmClient = Depends(get_llm_client),
     embedding_model=Depends(get_embedding_model),
 ) -> ChatResponse:
     if not payload.message or not payload.jurisdiction:
@@ -60,7 +60,7 @@ def chat(
     if question_type == QuestionType.SYNTHESIS:
         result = build_synthesis_answer(
             payload.message, payload.jurisdiction, payload.language, embedding_model,
-            PostgresSegmentRepository(session), ollama_client,
+            PostgresSegmentRepository(session), llm_client,
         )
     else:
         result = build_structural_answer(

@@ -21,7 +21,7 @@ COMMON_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     },
     503: {
         "model": ErrorResponse,
-        "description": "The service cannot reach the database, api/, accounts/, or Ollama.",
+        "description": "The service cannot reach the database, api/, accounts/, or the LLM endpoint.",
     },
 }
 
@@ -48,7 +48,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     #
     # httpx.HTTPError is in the list here, unlike in api/'s otherwise identical
     # handler: chat/ is the one service that reaches out to siblings (api/,
-    # accounts/, Ollama) over HTTP, so an unreachable or failing sibling is
+    # accounts/, the LLM endpoint) over HTTP, so an unreachable or failing sibling is
     # this service's equivalent of the database going away -- the caller's
     # correct response is the same "retry me" signal.
     #

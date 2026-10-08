@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 normly contributors
+#
+# Build context for docker/python.Dockerfile (context = repository root).
+.git
+.github
+.worktrees
+.claude
+.superpowers
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/*.egg-info
+**/tests
+frontend
+docs
+site
+.venv-docs
+**/.env
+**/.env.*
+!.env.example
+data

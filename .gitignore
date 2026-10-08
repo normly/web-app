@@ -7,3 +7,7 @@ __pycache__/
 .superpowers/
 .venv-docs/
 site/
+.env
+.env.*
+!.env.example
+data/
