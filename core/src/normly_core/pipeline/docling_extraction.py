@@ -15,6 +15,16 @@ local development), Docling manages its own cache directory and downloads
 models on first use -- convenient for development, not acceptable in
 production.
 
+Font requirement: the layout model sees a rendered page image. PDFs that do
+not embed their fonts (the standard 14 -- Helvetica, Times, Courier -- are
+commonly left out) are rendered by pdfium with whatever system font is
+available; with none installed it falls back to a substitute whose metrics
+differ, and the layout model then classifies lines differently (observed:
+a publication title became `page_header`, i.e. furniture, and vanished from
+the body text). Deployments and CI therefore install `fonts-liberation`
+(metric-compatible with the standard 14); see docker/python.Dockerfile and
+.github/workflows/ci.yml.
+
 OCR is deliberately disabled (do_ocr=False): Docling's default pipeline
 runs OCR even on pure vector-text PDFs like the sources this codebase
 ingests today, and does so by downloading additional models from

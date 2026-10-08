@@ -14,7 +14,7 @@
 # Inputs are pinned: base images by digest, Python packages (including the
 # build backend) by uv.lock, model weights by commit (REQ-BUILD-001,
 # ADR-023). The one unpinned input left is the Debian apt packages
-# libgl1/libglib2.0-0 (Debian snapshots are impractical; accepted).
+# libgl1/libglib2.0-0/fonts-liberation (Debian snapshots are impractical; accepted).
 # Build context: repo root.
 
 # Digests resolved 2026-10-08.
@@ -36,8 +36,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UV_LINK_MODE=copy
 
 # libgl1/libglib2.0-0: transitive runtime needs of docling -> opencv.
+# fonts-liberation: PDFs with non-embedded standard fonts (Helvetica, Times,
+# Courier) are rendered for the layout model by pdfium, which needs a
+# metric-compatible system font; without one the page image is rendered with
+# a fallback font and layout classification degrades (titles become
+# page_header). See core/src/normly_core/pipeline/docling_extraction.py.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 \
+    && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd --gid 10001 normly \
