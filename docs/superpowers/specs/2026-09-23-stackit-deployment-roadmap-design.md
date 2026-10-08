@@ -246,6 +246,8 @@ Schlüssel); Tagging-Schema; ob Multi-Arch nötig ist (VM ist x86_64).
 (Entscheidungen D1–D4: cosign keyless, eine Version je Tag, Build nur auf
 `main`/Tags, vollständige Reproduzierbarkeit mit uv-Lock und gepinnten
 Gewichten), umgesetzt nach `docs/superpowers/plans/2026-10-08-tp2-image-pipeline.md`.
+**Umgesetzt und live verifiziert 2026-10-08** (PR #14, Release `v0.1.0`;
+Messwerte im Abschnitt „Verifikation 2026-10-08“ der TP2-Spec).
 
 ### TP3 — Zielumgebung auf STACKIT
 
