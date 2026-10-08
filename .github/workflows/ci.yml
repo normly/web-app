@@ -5,6 +5,9 @@ on:
   push:
     branches: [main]
 
+env:
+  UV_VERSION: "0.12.23"
+
 jobs:
   test-accounts:
     runs-on: ubuntu-latest
@@ -12,7 +15,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - run: cd accounts && pip install -e ../core -e .[dev] && pytest
+      # --frozen: fail when uv.lock does not match the pyproject.toml files,
+      # so an outdated lock file is caught in every PR without its own job.
+      - run: pip install "uv==${UV_VERSION}" && uv sync --frozen --all-packages --all-extras
+      - run: cd accounts && ../.venv/bin/pytest
 
   test-api:
     runs-on: ubuntu-latest
@@ -20,7 +26,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - run: cd api && pip install -e ../core -e .[dev] && pytest
+      - run: pip install "uv==${UV_VERSION}" && uv sync --frozen --all-packages --all-extras
+      - run: cd api && ../.venv/bin/pytest
 
   test-chat:
     runs-on: ubuntu-latest
@@ -28,11 +35,12 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      # Exclude tests/test_structural_end_to_end.py: those 4 tests spawn sibling packages
-      # via local-dev-only .venv/bin/uvicorn (see chat/tests/conftest.py:98-121), which
-      # doesn't exist in CI (no per-package venvs built in fresh container). Tests excluded
-      # from CI, not broken. See docs/superpowers/specs/2026-09-02-ci-pipeline-design.md.
-      - run: cd chat && pip install -e ../core -e .[dev] && pytest --ignore=tests/test_structural_end_to_end.py
+      - run: pip install "uv==${UV_VERSION}" && uv sync --frozen --all-packages --all-extras
+      # Exclude tests/test_structural_end_to_end.py: those 4 tests start real
+      # api and accounts processes, and api loads the embedding model at
+      # startup -- a 2 GB cold download from huggingface.co on every CI run.
+      # They run locally from the shared .venv (see CONTRIBUTING.md).
+      - run: cd chat && ../.venv/bin/pytest --ignore=tests/test_structural_end_to_end.py
 
   test-core:
     runs-on: ubuntu-latest
@@ -41,7 +49,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: apt-get update && apt-get install -y --no-install-recommends libgl1 && rm -rf /var/lib/apt/lists/*
-      - run: cd core && pip install -e .[dev] && pytest
+      - run: pip install "uv==${UV_VERSION}" && uv sync --frozen --all-packages --all-extras
+      - run: cd core && ../.venv/bin/pytest
 
   test-frontend:
     runs-on: ubuntu-latest
