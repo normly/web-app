@@ -1,7 +1,6 @@
 # Design: Image-Pipeline (STACKIT-Deployment, Teilprojekt 2/4)
 
-Stand: 2026-10-08 · Status: Entwurf, Brainstorming abgeschlossen, Nutzer hat
-alle Abschnitte freigegeben. Roadmap und Grundsatzentscheidungen E1–E8:
+Stand: 2026-10-08 · Status: freigegeben (Nutzer, 2026-10-08). Roadmap und Grundsatzentscheidungen E1–E8:
 `docs/superpowers/specs/2026-09-23-stackit-deployment-roadmap-design.md`.
 Vorgänger: `docs/superpowers/specs/2026-10-01-tp1-containerisation-design.md`
 (gemerged als PR #12, 2026-10-08).
@@ -85,9 +84,15 @@ Dockerfile fällt erst nach dem Merge auf, aber laut und ohne Schaden:
 `edge` bleibt auf dem letzten funktionierenden Stand, ein Release-Tag
 schlägt sichtbar fehl.
 
-**Begründung:** Das Repo ist privat, die Organisation auf dem Free-Plan
-(2.000 Actions-Minuten im Monat). Ein voller Build dauert geschätzt 10 bis
-15 Minuten. Der Nutzer ist kostenbewusst.
+**Begründung:** Zum Zeitpunkt der Entscheidung war das Repo privat, die
+Organisation auf dem Free-Plan (2.000 Actions-Minuten im Monat); ein
+voller Build dauert geschätzt 10 bis 15 Minuten. **Nachtrag 2026-10-08:**
+Der Nutzer hat das Repository nach der Freigabe der Spec auf öffentlich
+gestellt; Actions-Minuten sind damit unbegrenzt. Die Entscheidung bleibt
+trotzdem bestehen: weniger Läufe heißt weniger Wartezeit je PR und
+weniger Rauschen, und ein PR-Build ohne Push liefert ohnehin kein
+Artefakt. Wiedervorlage, falls kaputte Dockerfiles auf `main` zum
+wiederkehrenden Problem werden.
 
 **Verworfen:** zusätzlicher Build ohne Push bei Pull Requests, die
 Dockerfile, Compose oder Abhängigkeiten ändern. Fängt Build-Fehler vor dem
@@ -122,11 +127,13 @@ fester Revision in eigener Build-Stufe. Nicht vertagt.
 - Python-Abhängigkeiten nur als Bereiche in `pyproject.toml`; die drei
   Dienst-Pakete vermerken im Kommentar, dass die technische Absicherung
   gegen eine Auflösung von `normly-core` über einen Index noch aussteht.
-- GitHub: Repository privat, Organisation auf dem Free-Plan. GHCR-Speicher
-  ist nur für öffentliche Pakete kostenlos; ein privates Paket mit rund
-  5 GB je Python-Image läge sofort über dem Freikontingent. Die
-  Roadmap-Entscheidung „Paket öffentlich" ist damit Voraussetzung, nicht
-  nur Komfort.
+- GitHub: Organisation auf dem Free-Plan. Repository seit 2026-10-08
+  **öffentlich** (während des Brainstormings noch privat), damit
+  Actions-Minuten unbegrenzt. GHCR-Speicher ist nur für öffentliche
+  Pakete kostenlos; ein privates Paket mit rund 5 GB je Python-Image
+  läge sofort über dem Freikontingent. Die Roadmap-Entscheidung „Paket
+  öffentlich" ist damit Voraussetzung, nicht nur Komfort. Der Nutzer hat
+  bestätigt, dass die Organisation öffentliche Pakete zulässt.
 
 ## Build-Pipeline
 
@@ -387,7 +394,7 @@ bleibt der Nachweis, dass zur Laufzeit kein Netzwerkzugriff stattfindet.
   Lock-Datei"** in `docs/adr/README.md`. Status beschlossen (2026-10-08).
   Entscheidung: D1–D4 in Kurzform. Begründung: Linux Foundation als
   Non-Profit-Betreiber des Vertrauensankers; Monorepo-Kombination als
-  Testeinheit; Kostenrahmen des Free-Plans; Reproduzierbarkeit als
+  Testeinheit; sparsame Build-Auslöser; Reproduzierbarkeit als
   Voraussetzung für den Datenstand-Abgleich. Verworfen: eigener Schlüssel,
   Version je Paket, PR-Builds, pip-tools. Konsequenz: Verweise aus
   REQ-BUILD-001, REQ-DIST-004, REQ-GIT-005.
@@ -419,7 +426,9 @@ bleibt der Nachweis, dass zur Laufzeit kein Netzwerkzugriff stattfindet.
 
 Nichts gilt als fertig, bevor es nicht einmal echt gelaufen ist. Jeder
 Push, der einen Workflow auslöst, wird vorher mit dem Nutzer abgestimmt
-(Actions-Minuten sind begrenzt).
+(gewohnte Regel aus den STACKIT-Zeiten; Minuten sind seit der
+Veröffentlichung des Repos zwar frei, Läufe auf `main` wirken aber nach
+außen sichtbar).
 
 1. **Lokal, vor dem PR:** `uv lock` erzeugt die Lock-Datei; `uv sync
    --all-packages --all-extras`; alle vier Python-Testsuiten und
@@ -451,8 +460,9 @@ Push, der einen Workflow auslöst, wird vorher mit dem Nutzer abgestimmt
   ist die Rückfallebene, die Python-Targets und das Frontend in zwei Jobs
   zu trennen oder den Cache-Export auf `mode=min` zu setzen. Entscheidet
   der erste echte Lauf.
-- **Org-Einstellung für öffentliche Pakete.** Kann der erste Lauf
-  verzögern; vorab im Portal prüfen.
+- **Org-Einstellung für öffentliche Pakete.** Vom Nutzer am 2026-10-08
+  bestätigt: erlaubt. Bleibt als Pflichtschritt nach dem ersten Push
+  (Sichtbarkeit je Paket umstellen).
 - **Hugging-Face-Verfügbarkeit beim Build.** Nur zur Build-Zeit kontaktiert
   (wie bisher); mit festen Revisionen reagiert der Build auf ein
   gelöschtes Repo mit einem klaren Fehler statt stillschweigend anderen
