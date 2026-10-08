@@ -1,6 +1,7 @@
 # Design: Image-Pipeline (STACKIT-Deployment, Teilprojekt 2/4)
 
-Stand: 2026-10-08 · Status: freigegeben (Nutzer, 2026-10-08). Roadmap und Grundsatzentscheidungen E1–E8:
+Stand: 2026-10-08 · Status: umgesetzt und live verifiziert (PR #14, Merge
+ea70cc8, Release `v0.1.0`, 2026-10-08; Ergebnisse am Ende dieses Dokuments). Roadmap und Grundsatzentscheidungen E1–E8:
 `docs/superpowers/specs/2026-09-23-stackit-deployment-roadmap-design.md`.
 Vorgänger: `docs/superpowers/specs/2026-10-01-tp1-containerisation-design.md`
 (gemerged als PR #12, 2026-10-08).
@@ -488,3 +489,41 @@ außen sichtbar).
   baubar.
 - **Wartung:** `uv lock --upgrade` als wiederkehrende Aufgabe; die sieben
   npm-Funde aus TP1 bleiben ein eigener Wartungs-PR.
+
+## Verifikation 2026-10-08 (Task 8, nach dem Merge von PR #14)
+
+Alle Schritte des Verifikationsplans sind gelaufen; gemessen, nicht angenommen.
+
+| Schritt | Ergebnis |
+|---|---|
+| PR #14, Test-Pipeline | fünf Jobs grün; `test-core` rot mit den bekannten vier DGUV-Tests (vgl. CI-Spec 2026-09-02); `uv sync --locked` in allen Jobs ohne Lock-Fehler (147 Pakete aufgelöst, 135 installiert) |
+| Erster `Images`-Lauf auf `main` (Merge ea70cc8) | erfolgreich, **9 min 25 s**, kalt (kein Registry-Cache); Runner hatte nach dem Aufräumen 110 GB frei, Plattenplatz ist kein Engpass |
+| Zweiter Lauf auf `main` (README-Commit 9937b92, kurz danach) | wartete dank Concurrency-Gruppe auf den ersten, dann **5 min 09 s** mit Registry-Cache |
+| Öffentliche Pakete | alle sechs (`api`, `chat`, `accounts`, `pipeline`, `frontend`, `cache`) waren **ohne manuellen Schritt** anonym lesbar (HTTP 200 auf das Manifest): GitHub verknüpft Pakete über das `org.opencontainers.image.source`-Label mit dem öffentlichen Repo und übernimmt dessen Sichtbarkeit. Der Handgriff aus `releasing.md` bleibt als Rückfallebene dokumentiert |
+| Signaturprüfung von außen | `cosign verify` (v3.1.3, ohne GitHub-Anmeldung) bestätigt `api:edge`: Zertifikat vom Workflow `images.yml`, Eintrag im Transparenzprotokoll; SBOM (SPDX, syft 1.51.0) und SLSA-Provenance am Image vorhanden |
+| Pull-Weg | lokal: `docker compose pull` zieht fünf Images (Python-Images je 7,5 GB auf Platte, Frontend 337 MB); `docker compose up -d` mit `NORMLY_IMAGE_TAG=edge`: `migrate` Exit 0, api/accounts/chat healthy, Frontend HTTP 200, ohne lokalen Build |
+| Release `v0.1.0` (annotierter Tag auf ea70cc8) | erfolgreich, **4 min 32 s**; Versionsprüfung aller fünf Felder bestanden; `0.1.0`, `0.1`, `latest`, `sha-ea70cc8` zeigen auf denselben Digest (`api`: `sha256:e67d62a7…`) |
+| Negativprobe `v9.9.9` | Lauf bricht nach **7 s** im Schritt "Check that a release tag matches the package versions" ab, eine `::error::`-Zeile je Versionsfeld, kein Build; Tag lokal und auf GitHub gelöscht |
+
+**Befunde:**
+
+- Das Release-Image aus ea70cc8 hat einen anderen Digest als das `edge`-Image
+  aus demselben Commit (`sha256:96d067d4…` vs. `sha256:e67d62a7…`). Bestätigt
+  den offenen Punkt aus ADR-023 und REQ-BUILD-001: gleiche Eingaben, aber
+  keine bit-identischen Images (Zeitstempel in Schichten, apt-Pakete).
+- Die Concurrency-Gruppe aus der Gesamtdurchsicht hat sich am ersten Abend
+  bewährt: zwei Pushes auf `main` innerhalb von zwei Minuten liefen seriell.
+- Die Runner-Plattenplatz-Bereinigung war mit 145 GB Root-Volume nicht
+  nötig, schadet aber nicht; bleibt drin.
+
+**Folgearbeiten (nicht Teil von TP2):**
+
+- `test-core` rot: mit den jetzt gepinnten Docling-Modellen prüfen, ob die
+  vier DGUV-Tests im `pipeline`-Image bestehen; falls ja, die CI auf
+  dieselben Modellrevisionen umstellen statt auf den jeweils neuesten Stand.
+- Gewichte-Stufe auf ein schlankes Eltern-Image umstellen (Lock-Änderung
+  lädt heute die Gewichte neu); `api`/`chat`/`accounts` ohne Docling-Modelle;
+  `uv` aus den Laufzeit-Images; SBOM-Scanner-Image pinnen; `latest` nur
+  setzen, wenn der Tag der höchste ist.
+- TP4: VM auf `docker compose pull` umstellen, `cosign verify` als
+  Pflichtschritt vor dem Start.
