@@ -78,6 +78,9 @@ core live on **GitHub**: [github.com/normly/web-app](https://github.com/normly/w
 user data, and the future standards knowledge base stay separate from that
 and remain exclusively on STACKIT infrastructure in Germany.
 
+Container images are published to `ghcr.io/normly/web-app`, signed and
+reproducible (ADR-023); see [docs/guide/self-hosting.md](docs/guide/self-hosting.md).
+
 ## Documentation
 
 | | |

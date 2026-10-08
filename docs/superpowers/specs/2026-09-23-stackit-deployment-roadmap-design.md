@@ -241,6 +241,12 @@ stellen (manuell in den GitHub-Paketeinstellungen, nicht vergessen).
 **Offen:** Signaturverfahren (cosign keyless per GitHub-OIDC vs. eigener
 Schlüssel); Tagging-Schema; ob Multi-Arch nötig ist (VM ist x86_64).
 
+**Stand 2026-10-08:** Design in
+`docs/superpowers/specs/2026-10-08-tp2-image-pipeline-design.md`
+(Entscheidungen D1–D4: cosign keyless, eine Version je Tag, Build nur auf
+`main`/Tags, vollständige Reproduzierbarkeit mit uv-Lock und gepinnten
+Gewichten), umgesetzt nach `docs/superpowers/plans/2026-10-08-tp2-image-pipeline.md`.
+
 ### TP3 — Zielumgebung auf STACKIT
 
 **Umfang:**
