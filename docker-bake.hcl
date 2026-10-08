@@ -7,6 +7,9 @@
 # compose.yaml keeps its own build: blocks for `docker compose up --build`;
 # both point at the same Dockerfiles and targets.
 #
+# Always pass `-f docker-bake.hcl`: a bare `docker buildx bake` also auto-loads
+# compose.yaml as a bake file and then fails on its `env_file: .env`.
+#
 # Variables (all optional locally):
 #   REGISTRY   image name prefix
 #   TAGS       space-separated tags applied to every image
@@ -40,6 +43,10 @@ group "default" {
 
 target "_common" {
   platforms = ["linux/amd64"]
+  labels = {
+    "org.opencontainers.image.source"   = "https://github.com/normly/web-app"
+    "org.opencontainers.image.licenses" = "AGPL-3.0-or-later"
+  }
   attest = PUSH == "1" ? ["type=provenance,mode=max", "type=sbom"] : []
 }
 

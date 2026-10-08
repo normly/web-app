@@ -26,7 +26,7 @@ docker compose up -d
 ```
 
 The first start pulls the five normly images from
-`ghcr.io/normly/web-app` (about 5 GB; PyTorch, the embedding weights and
+`ghcr.io/normly/web-app` (about 3 GB to download, about 8 GB on disk; PyTorch, the embedding weights and
 Docling's models are inside), pulls the Ollama model, runs the database
 migrations and then brings up the four services. `NORMLY_IMAGE_TAG` in
 `.env` selects which published tag you follow: `edge` (newest commit on

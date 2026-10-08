@@ -13,7 +13,9 @@ Images are built, signed and published by the `Images` workflow
 | tag `vX.Y.Z` | `X.Y.Z`, `X.Y`, `latest`, `sha-<short commit>` |
 
 Images: `ghcr.io/normly/web-app/{api,chat,accounts,pipeline,frontend}`.
-`latest` always means the newest release, never `edge`.
+`latest` always means the newest release, never `edge`. Only `vX.Y.Z`
+tags publish (no pre-release tags yet), and manual runs are accepted only
+from `main` or a release tag.
 
 ## Cutting a release
 
