@@ -23,8 +23,10 @@ from `main` or a release tag.
    `core/pyproject.toml`, `api/pyproject.toml`, `chat/pyproject.toml`,
    `accounts/pyproject.toml` (`[project] version`) and
    `frontend/package.json` (then `cd frontend && npm install --package-lock-only`
-   so `package-lock.json` follows). The workflow refuses a tag whose
-   version differs from any of them.
+   so `package-lock.json` follows). Run `uv lock` afterwards: `uv.lock`
+   records the workspace packages' versions, and CI installs with
+   `--locked`, so a stale lock fails the PR. The workflow refuses a tag
+   whose version differs from any of the five fields.
 2. Merge that branch to `main` through a pull request as usual.
 3. Tag the merge commit and push the tag:
 

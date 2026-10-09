@@ -1296,7 +1296,7 @@ wheels = [
 
 [[package]]
 name = "normly-accounts"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "accounts" }
 dependencies = [
     { name = "bcrypt" },
@@ -1332,7 +1332,7 @@ provides-extras = ["dev"]
 
 [[package]]
 name = "normly-api"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "api" }
 dependencies = [
     { name = "fastapi" },
@@ -1360,7 +1360,7 @@ provides-extras = ["dev"]
 
 [[package]]
 name = "normly-chat"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "chat" }
 dependencies = [
     { name = "fastapi" },
@@ -1388,7 +1388,7 @@ provides-extras = ["dev"]
 
 [[package]]
 name = "normly-core"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "core" }
 dependencies = [
     { name = "alembic" },
