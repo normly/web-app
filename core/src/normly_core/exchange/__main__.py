@@ -19,7 +19,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from normly_core.exchange.exporter import export_dump
-from normly_core.exchange.fetch import fetch_dump
+from normly_core.exchange.fetch import FetchError, fetch_dump
 from normly_core.exchange.importer import ImportRefused, import_dump
 from normly_core.exchange.signing import generate_keypair
 from normly_core.exchange.tables import group_tables
@@ -40,6 +40,12 @@ def _require_env(name: str) -> str | None:
     return value
 
 
+def _write_new(path: Path, data: bytes, mode: int) -> None:
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode)
+    with os.fdopen(fd, "wb") as out:
+        out.write(data)
+
+
 def _keygen(args) -> int:
     private, public = Path(args.private), Path(args.public)
     for path in (private, public):
@@ -47,9 +53,13 @@ def _keygen(args) -> int:
             print(f"{path} exists; refusing to overwrite", file=sys.stderr)
             return 1
     private_pem, public_pem = generate_keypair()
-    private.write_bytes(private_pem)
-    private.chmod(0o600)
-    public.write_bytes(public_pem)
+    try:
+        # O_EXCL: atomic "refuse to overwrite"; the mode applies from creation on.
+        _write_new(private, private_pem, 0o600)
+        _write_new(public, public_pem, 0o644)
+    except FileExistsError as exc:
+        print(f"{exc.filename} exists; refusing to overwrite", file=sys.stderr)
+        return 1
     print(f"wrote {private} (keep offline) and {public} (commit to the repository)")
     return 0
 
@@ -137,9 +147,14 @@ def main(argv: list[str] | None = None) -> int:
 
             with tempfile.TemporaryDirectory() as scratch:
                 if args.fetch:
-                    dump_dir = fetch_dump(
-                        os.environ["NORMLY_KB_BASE_URL"], args.fetch, Path(scratch)
-                    )
+                    try:
+                        dump_dir = fetch_dump(
+                            os.environ["NORMLY_KB_BASE_URL"], args.fetch, Path(scratch)
+                        )
+                    except FetchError as exc:
+                        session.rollback()
+                        print(f"fetch failed: {exc}", file=sys.stderr)
+                        return 1
                 else:
                     dump_dir = args.from_dir
                 try:
