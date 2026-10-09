@@ -23,18 +23,45 @@ BACKUP_BIN="${NORMLY_BACKUP_BIN:-$HERE/normly-backup}"
 OIDC_ISSUER="https://token.actions.githubusercontent.com"
 HEALTH_TIMEOUT="${NORMLY_HEALTH_TIMEOUT:-600}"
 
+# Alembic head of a release image, printed by the image's own migration files.
+HEAD_PY='
+import os
+from alembic.config import Config
+from alembic.script import ScriptDirectory
+core = os.environ.get("NORMLY_CORE_DIR", "/app/core")
+config = Config(os.path.join(core, "alembic.ini"))
+config.set_main_option("script_location", os.path.join(core, "migrations"))
+print(ScriptDirectory.from_config(config).get_current_head())'
+
 die() { echo "normly-deploy: $*" >&2; exit "${2:-1}"; }
 
-# One cleanup path for every exit. The lock is released only if THIS run took
-# it (a refused second run must leave the first run's lock alone). The scratch
-# directory of a rollback is removed here too, so no later trap can overwrite
-# this one.
+read_state() { cat "$STATE/$1" 2>/dev/null || true; }
+
+# One cleanup path for every exit. The lock is released, and in-flight state
+# files are removed, only if THIS run took the lock (a refused second run or a
+# `status` call must leave the first run's files alone). The scratch directory
+# of a rollback is removed here too, so no later trap can overwrite this one.
 LOCK_HELD=0
 WORK=""
+DESTRUCTIVE=0   # set once a rollback starts dropping tables
+ROLLBACK_IDENTITY=""
 cleanup() {
+  local rc=$?
   if [ -n "$WORK" ]; then rm -rf "$WORK"; fi
-  rm -f "$STATE/pre_rollout_backup.new" "$STATE/pre_rollout_kb_version.new"
-  if [ "$LOCK_HELD" -eq 1 ]; then rmdir "$STATE/deploy.lock" 2>/dev/null || true; fi
+  if [ "$LOCK_HELD" -eq 1 ]; then
+    rm -f "$STATE/pre_rollout_backup.new" "$STATE/pre_rollout_kb_version.new"
+    rmdir "$STATE/deploy.lock" 2>/dev/null || true
+  fi
+  if [ "$DESTRUCTIVE" -eq 1 ] && [ "$rc" -ne 0 ]; then
+    cat >&2 <<EOF
+normly-deploy: ROLLBACK FAILED AFTER THE DESTRUCTIVE STEP.
+  The database was dropped and is incomplete; services are stopped.
+  current_tag is still $(read_state current_tag); no state file was changed.
+  Re-run: normly-deploy rollback --age-identity ${ROLLBACK_IDENTITY:-<file>}
+  (safe to repeat: it rebuilds the schema from the backup each time).
+EOF
+  fi
+  return "$rc"
 }
 trap cleanup EXIT
 trap 'exit 130' INT
@@ -45,8 +72,6 @@ normalise_tag() {
   [[ "$tag" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "not a release tag: $1 (expected vX.Y.Z)" 2
   echo "$tag"
 }
-
-read_state() { cat "$STATE/$1" 2>/dev/null || true; }
 
 compose() {  # compose <tag> <args...>
   local tag="$1"; shift
@@ -61,25 +86,56 @@ take_lock() {
   LOCK_HELD=1
 }
 
+# Digests of the signed images. cosign verifies whatever the tag resolves to
+# right now; docker create and compose pull happen later, so both are pinned to
+# or checked against these digests: a re-pointed tag cannot slip in.
+declare -A DIGESTS=()
+
 verify_images() {
-  local tag="$1" image
+  local tag="$1" image output digest
   for image in "${IMAGES[@]}"; do
-    cosign verify \
+    output="$(cosign verify \
       --certificate-identity-regexp "^https://github\\.com/normly/web-app/\\.github/workflows/images\\.yml@refs/tags/v${tag//./\\.}\$" \
       --certificate-oidc-issuer "$OIDC_ISSUER" \
-      "$REGISTRY/$image:$tag" > /dev/null \
+      "$REGISTRY/$image:$tag")" \
       || die "signature verification failed for $image:$tag; nothing was changed"
+    digest="$(printf '%s' "$output" | python3 -c '
+import json, sys
+print(json.load(sys.stdin)[0]["critical"]["image"]["docker-manifest-digest"])')" \
+      || die "cannot read the verified digest of $image:$tag; nothing was changed"
+    [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] \
+      || die "unexpected digest '$digest' for $image:$tag; nothing was changed"
+    DIGESTS[$image]="$digest"
+  done
+}
+
+check_pulled_digests() {
+  local tag="$1" image repo_digests
+  for image in "${IMAGES[@]}"; do
+    repo_digests="$(docker image inspect --format '{{json .RepoDigests}}' "$REGISTRY/$image:$tag")" \
+      || die "cannot inspect pulled image $image:$tag; nothing was started"
+    case "$repo_digests" in
+      *"\"$REGISTRY/$image@${DIGESTS[$image]}\""*) ;;
+      *) die "pulled $image:$tag does not match the verified digest ${DIGESTS[$image]} (tag re-pointed?); nothing was started" ;;
+    esac
   done
 }
 
 extract_assets() {
-  local tag="$1" container target
+  local tag="$1" container target image
   target="$RELEASES/$tag"
+  rm -rf "$target"   # no stale files from an earlier attempt
   mkdir -p "$target"
-  container="$(docker create "$REGISTRY/pipeline:$tag")"
-  docker cp "$container:/app/deploy/." "$target/"
+  container="$(docker create "$REGISTRY/pipeline@${DIGESTS[pipeline]}")"
+  if ! docker cp "$container:/app/deploy/." "$target/"; then
+    docker rm "$container" > /dev/null 2>&1 || true
+    die "could not extract deploy assets from pipeline:$tag; nothing was changed"
+  fi
   docker rm "$container" > /dev/null
   ln -sfn "$NORMLY_DIR/.env" "$target/.env"
+  for image in "${IMAGES[@]}"; do
+    printf '%s %s\n' "$image" "${DIGESTS[$image]}"
+  done > "$target/verified-digests"
 }
 
 deploy() {
@@ -87,21 +143,26 @@ deploy() {
   tag="$(normalise_tag "${1:?usage: normly-deploy deploy <vX.Y.Z>}")"
   take_lock
 
+  local current failed kb_version="none" backup_base
+  current="$(read_state current_tag)"
+  failed="$(read_state failed_rollout)"
+  [ "$tag" != "$current" ] || die "$tag is already the current release" 2
+  [ -z "$failed" ] || die "a failed rollout of $failed is recorded. Run: normly-deploy rollback --age-identity <file>. To override deliberately, remove $STATE/failed_rollout" 4
+
   verify_images "$tag"
   extract_assets "$tag"
 
-  local current kb_version="none" backup_base
-  current="$(read_state current_tag)"
   if [ -n "$current" ]; then
-    # Knowledge-base version of the release that is running NOW (not the new
-    # one); a rollback re-imports exactly this version. "none" skips the import.
-    if [ -d "$RELEASES/$current" ]; then
-      kb_version="$(compose "$current" run --rm --no-deps -T --entrypoint python pipeline \
-        -m normly_core.exchange info 2>/dev/null | tail -n 1)" || kb_version="none"
-      [ -n "$kb_version" ] || kb_version="none"
-    else
-      echo "normly-deploy: warning: no release files for $current; knowledge base version unknown" >&2
-    fi
+    # Knowledge-base version of the release that runs NOW (not the new one); a
+    # rollback re-imports exactly this version. Only a literal "none" from
+    # `info` skips that import later. Any failure stops the deploy: guessing
+    # "none" would make a later rollback drop the knowledge base for good.
+    [ -d "$RELEASES/$current" ] \
+      || die "release files for $current are missing in $RELEASES; knowledge base version unknown; nothing was changed"
+    kb_version="$(compose "$current" run --rm --no-deps -T --entrypoint python pipeline \
+      -m normly_core.exchange info | tail -n 1)" \
+      || die "cannot read the knowledge base version of $current; nothing was changed"
+    [ -n "$kb_version" ] || die "knowledge base version of $current is empty; nothing was changed"
     # Not "$(backup | tail)": a pipeline would mask the backup's exit status.
     backup_base="$("$BACKUP_BIN" run --kind "pre-$tag")" \
       || die "pre-rollout backup failed; nothing was changed"
@@ -112,7 +173,9 @@ deploy() {
   fi
 
   compose "$tag" pull || die "pull failed for $tag; nothing was changed"
-  if ! compose "$tag" up -d --wait --wait-timeout "$HEALTH_TIMEOUT"; then
+  check_pulled_digests "$tag"
+  if ! compose "$tag" up -d --no-build --wait --wait-timeout "$HEALTH_TIMEOUT"; then
+    local hint="Inspect: docker compose -f $RELEASES/$tag/compose.yaml logs."
     if [ -n "$current" ]; then
       # The new release may already have migrated the database, so the backup
       # is now the way back. The rollback target is the release that ran
@@ -120,8 +183,10 @@ deploy() {
       mv "$STATE/pre_rollout_backup.new" "$STATE/pre_rollout_backup"
       mv "$STATE/pre_rollout_kb_version.new" "$STATE/pre_rollout_kb_version"
       printf '%s\n' "$current" > "$STATE/previous_tag"
+      printf '%s\n' "$tag" > "$STATE/failed_rollout"
+      hint="$hint To go back to $current: normly-deploy rollback --age-identity <file> (current_tag is still $current; further deploys are refused until then)."
     fi
-    die "rollout of $tag did not become healthy. Inspect: docker compose logs. To go back: normly-deploy rollback --age-identity <file> (current_tag is still ${current:-unset})"
+    die "rollout of $tag did not become healthy. $hint"
   fi
 
   if [ -n "$current" ]; then
@@ -145,15 +210,39 @@ rollback() {
   done
   [ -f "$identity" ] || die "--age-identity FILE is required (the private backup key, supplied only for this run)" 2
 
-  local current previous backup kb_version answer
+  local current previous backup kb_version failed from answer
   current="$(read_state current_tag)"; previous="$(read_state previous_tag)"
   backup="$(read_state pre_rollout_backup)"; kb_version="$(read_state pre_rollout_kb_version)"
+  failed="$(read_state failed_rollout)"
   [ -n "$previous" ] && [ -n "$backup" ] || die "no previous release recorded; nothing to roll back to"
   [ -d "$RELEASES/$previous" ] || die "release files for $previous are missing in $RELEASES"
   take_lock
+  ROLLBACK_IDENTITY="$identity"
+  from="${failed:-$current}"
+
+  local database_url drop_sql down_tag="$current" backup_rev head_rev
+  WORK="$(mktemp -d -t normly-rollback.XXXXXX)"; chmod 700 "$WORK"
+  # shellcheck disable=SC1091  # .env is a runtime file on the VM
+  if [ -f "$NORMLY_DIR/.env" ]; then set -a; . "$NORMLY_DIR/.env"; set +a; fi
+  database_url="${NORMLY_DATABASE_URL:?}"; database_url="${database_url/+psycopg/}"
+
+  # Preflight, before anything destructive: the backup must come from the
+  # schema the previous release expects, or the data-only restore would not fit.
+  rclone copyto "${NORMLY_BACKUP_REMOTE:?}/backups/$backup.meta.json" "$WORK/meta.json" \
+    || die "cannot fetch the metadata of backup $backup; nothing was changed"
+  backup_rev="$(python3 -c '
+import json, sys
+print(json.load(sys.stdin)["alembic_revision"])' < "$WORK/meta.json")" \
+    || die "backup $backup has no readable alembic_revision; nothing was changed"
+  head_rev="$(compose "$previous" run --rm --no-deps -T --entrypoint python pipeline \
+    -c "$HEAD_PY" | tail -n 1)" \
+    || die "cannot read the Alembic head of $previous; nothing was changed"
+  if [ -z "$backup_rev" ] || [ "$backup_rev" != "$head_rev" ]; then
+    die "backup $backup was taken at schema revision '$backup_rev' but $previous expects '$head_rev'; refusing to roll back, nothing was changed"
+  fi
 
   cat >&2 <<EOF
-Rollback $current -> $previous
+Rollback $from -> $previous
   Database state after backup '$backup' is DISCARDED (accounts, chats, watchlists
   created or changed since the rollout are lost).
   Steps: stop services, drop all tables, migrate with $previous, import the
@@ -165,33 +254,34 @@ EOF
     [ "$answer" = "$previous" ] || die "aborted"
   fi
 
-  local database_url drop_sql down_tag="$current"
-  WORK="$(mktemp -d -t normly-rollback.XXXXXX)"; chmod 700 "$WORK"
-  # shellcheck disable=SC1091  # .env is a runtime file on the VM
-  if [ -f "$NORMLY_DIR/.env" ]; then set -a; . "$NORMLY_DIR/.env"; set +a; fi
-  database_url="${NORMLY_DATABASE_URL:?}"; database_url="${database_url/+psycopg/}"
-
-  rclone copyto "${NORMLY_BACKUP_REMOTE:?}/backups/$backup.dump.age" "$WORK/dump.age"
+  rclone copyto "$NORMLY_BACKUP_REMOTE/backups/$backup.dump.age" "$WORK/dump.age"
   age -d -i "$identity" -o "$WORK/dump" "$WORK/dump.age"
 
   # The project name is fixed in compose.yaml, so any release file can stop it.
   [ -d "$RELEASES/$down_tag" ] || down_tag="$previous"
   compose "$down_tag" down --remove-orphans
-  # Drop tables, never the schema: that would take the pgvector extension along.
-  drop_sql="$(compose "$previous" run --rm --no-deps -T --entrypoint python pipeline \
-    -m normly_core.exchange tables all)"
-  drop_sql="$(printf '%s\n' "$drop_sql" | sed 's/.*/DROP TABLE IF EXISTS "&" CASCADE;/')"
-  psql "$database_url" -v ON_ERROR_STOP=1 -c "$drop_sql"
+
+  # Drop what is in the database, not what the previous image knows: the newer
+  # release may have added tables. Tables only, never the schema, which would
+  # take the pgvector extension along.
+  drop_sql="$(psql "$database_url" -Atc "SELECT tablename FROM pg_tables WHERE schemaname='public'")"
+  drop_sql="$(printf '%s\n' "$drop_sql" | sed '/^$/d; s/.*/DROP TABLE IF EXISTS "&" CASCADE;/')"
+  DESTRUCTIVE=1
+  if [ -n "$drop_sql" ]; then
+    psql "$database_url" -v ON_ERROR_STOP=1 -c "$drop_sql"
+  fi
   compose "$previous" run --rm migrate
   if [ "$kb_version" != "none" ] && [ -n "$kb_version" ]; then
     compose "$previous" run --rm --no-deps --entrypoint python pipeline \
       -m normly_core.exchange import --fetch "$kb_version"
   fi
   pg_restore --dbname="$database_url" --data-only --exit-on-error "$WORK/dump"
-  compose "$previous" up -d --wait --wait-timeout "$HEALTH_TIMEOUT"
+  compose "$previous" up -d --no-build --wait --wait-timeout "$HEALTH_TIMEOUT"
+  DESTRUCTIVE=0
 
   printf '%s\n' "$previous" > "$STATE/current_tag"
   : > "$STATE/previous_tag"
+  rm -f "$STATE/failed_rollout"
   ln -sfn "$RELEASES/$previous" "$NORMLY_DIR/current"
   echo "rolled back to $previous"
 }
@@ -200,6 +290,9 @@ status() {
   echo "current:  $(read_state current_tag)"
   echo "previous: $(read_state previous_tag)"
   echo "last pre-rollout backup: $(read_state pre_rollout_backup)"
+  if [ -n "$(read_state failed_rollout)" ]; then
+    echo "failed rollout: $(read_state failed_rollout) (roll back, or remove $STATE/failed_rollout)"
+  fi
 }
 
 case "${1:-}" in

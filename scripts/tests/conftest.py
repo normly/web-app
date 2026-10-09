@@ -24,6 +24,32 @@ fail_on="FAKE_$(basename "$0" | tr 'a-z-' 'A-Z_')_FAIL_ON"
 if [ -n "${!fail_on:-}" ]; then
   case " $* " in *"${!fail_on}"*) exit 1 ;; esac
 fi
+digest="sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+case "$(basename "$0")" in
+  cosign)
+    if [ -z "${FAKE_COSIGN_OUT:-}" ]; then
+      printf '[{"critical":{"image":{"docker-manifest-digest":"%s"}}}]\\n' "$digest"
+      exit 0
+    fi ;;
+  docker)
+    case " $* " in
+      *" image inspect "*)
+        if [ -n "${FAKE_DOCKER_INSPECT_OUT:-}" ]; then printf '%s\\n' "$FAKE_DOCKER_INSPECT_OUT"
+        else ref="${!#}"; printf '["%s@%s"]\\n' "${ref%:*}" "$digest"; fi
+        exit 0 ;;
+      *ScriptDirectory*) printf '%s\\n' "${FAKE_DOCKER_HEAD_OUT:-rev1}"; exit 0 ;;
+      *"exchange info"*)
+        printf '%s\\n' "${FAKE_DOCKER_INFO_OUT:-${FAKE_DOCKER_OUT:-2026.10.1}}"; exit 0 ;;
+    esac ;;
+  rclone)
+    # a remote .meta.json fetched by copyto lands as a local file
+    if [ "$1" = copyto ]; then
+      case "$2" in *:*) case "$3" in *:*) ;; *meta.json)
+        meta="${FAKE_RCLONE_META:-}"
+        [ -n "$meta" ] || meta='{"alembic_revision": "rev1"}'
+        printf '%s' "$meta" > "$3" ;; esac ;; esac
+    fi ;;
+esac
 out="FAKE_$(basename "$0" | tr 'a-z-' 'A-Z_')_OUT"
 if [ -n "${!out:-}" ]; then printf '%s\\n' "${!out}"; fi
 if [ -n "${FAKE_DOCKER_EXIT_ON:-}" ] && [ "$(basename "$0")" = docker ]; then

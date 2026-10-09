@@ -67,26 +67,45 @@ Es nutzt, was `compose.yaml` schon hat: den `migrate`-Dienst vor `api`,
 
 **`normly-deploy deploy vX.Y.Z`**
 
+0. Ein Tag, der dem aktuellen entspricht, wird abgelehnt. Ist ein
+   fehlgeschlagener Rollout vermerkt (`state/failed_rollout`), startet kein
+   neuer `deploy`, bis der Rollback gelaufen ist; der Operator kann das
+   bewusst übergehen, indem er die Datei entfernt.
 1. `cosign verify` für alle fünf Images gegen die GitHub-OIDC-Identität des
    Release-Workflows. Schlägt eine Prüfung fehl: Abbruch, nichts verändert.
+   **Digest-Pinning:** Der geprüfte Digest (`docker-manifest-digest` aus der
+   cosign-Ausgabe) wird festgehalten (`releases/<tag>/verified-digests`).
+   Die Assets kommen aus `pipeline@<digest>`; nach `pull` muss der Digest
+   jedes Images dem geprüften entsprechen, sonst Abbruch vor `up`. Ein
+   zwischenzeitlich umgesetztes Tag umgeht die Prüfung so nicht.
 2. Pre-Rollout-Sicherung nach Teil 2 (Nutzerdaten) samt aktuellem Tag und
    Dump-Version des Wissensbestands. Ohne bestätigten Upload kein Rollout.
+   Lässt sich die Dump-Version des laufenden Releases nicht lesen, bricht
+   der Rollout ab; `none` wird nur festgehalten, wenn `info` es meldet.
 3. `docker compose pull` mit `NORMLY_IMAGE_TAG=vX.Y.Z`.
 4. `migrate`, dann `up -d`.
 5. Warten auf die `/health`-Endpunkte aller Dienste mit Timeout (von TP1 für
    TP4 vorgemerkt).
 6. Bei Erfolg: Tag als `current`, vorheriger als `previous` festhalten. Bei
-   Fehlschlag: klare Meldung, **kein** automatischer Rückweg.
+   Fehlschlag: klare Meldung, **kein** automatischer Rückweg; `previous` wird
+   auf das bis dahin laufende Release gesetzt (Rollback-Ziel) und der
+   fehlgeschlagene Tag in `failed_rollout` vermerkt.
 
-**`normly-deploy rollback`:** zeigt, welche Daten verworfen werden (vom
+**`normly-deploy rollback`:** prüft zuerst, bevor etwas verändert wird, ob
+die Alembic-Revision aus `<backup>.meta.json` dem Alembic-Head des
+**vorherigen** Images entspricht; bei Abweichung Abbruch (Dump und Schema
+passen sonst nicht zusammen). Danach zeigt es, welche Daten verworfen werden (vom
 Pre-Rollout-Dump bis jetzt), verlangt ausdrückliche Bestätigung und stellt
 dann den Stand vor dem Rollout wieder her. Weil Alembic-Migrationen nur
 vorwärts laufen, bleibt das neue Schema nach einem reinen Datenrestore
 bestehen; der Rollback baut das Schema deshalb **neu auf**:
 
 1. Dienste stoppen.
-2. Schema `public` verwerfen und mit dem `migrate`-Dienst des **vorherigen**
-   Images auf dessen Alembic-Stand neu anlegen (leere Datenbank, altes Schema).
+2. Alle Tabellen verwerfen (`DROP TABLE … CASCADE`; die Liste kommt aus der
+   Datenbank selbst, nicht aus dem vorherigen Image, damit auch Tabellen des
+   neueren Releases verschwinden; das Schema bleibt, damit pgvector erhalten
+   bleibt) und mit dem `migrate`-Dienst des **vorherigen** Images auf dessen
+   Alembic-Stand neu anlegen.
 3. Wissensbestand in der damaligen Dump-Version importieren (stabile IDs,
    siehe Teil 3). Das muss **vor** den Nutzerdaten geschehen, denn diese
    verweisen per Fremdschlüssel auf Wissensbestand-Zeilen (`watchlist` →
@@ -97,6 +116,10 @@ bestehen; der Rollback baut das Schema deshalb **neu auf**:
 5. `previous` starten, Gesundheit prüfen.
 
 Die Dauer von Schritt 3 steigt mit dem Bestand; das Skript nennt sie vorab.
+Scheitert der Rollback nach dem Verwerfen, meldet das Skript, dass die
+Datenbank unvollständig ist, `current_tag` unverändert bleibt und der
+identische Aufruf gefahrlos wiederholt werden kann. Erfolgreich beendet,
+löscht er `failed_rollout`.
 
 **Fehlerfälle:** Läuft `migrate` halb durch, ist der Pre-Rollout-Dump der
 Rettungsweg (das Skript sagt es). Eine Sperrdatei verhindert parallele Läufe.
