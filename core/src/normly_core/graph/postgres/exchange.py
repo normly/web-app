@@ -322,18 +322,23 @@ class PostgresKnowledgeExchangeRepository:
             # Skip rows that a row of the new dump still references; the
             # upsert will move that reference, the final pass deletes them.
             for child_name in KNOWLEDGE_TABLES:
-                child = Base.metadata.tables[child_name]
+                child_table = Base.metadata.tables[child_name]
                 child_keep = keep_tables[child_name]
+                # A self-referencing table must be aliased: otherwise SQLAlchemy
+                # correlates the child with the outer DELETE target and the
+                # deferral silently never matches.
+                child = child_table.alias() if child_table is sa_table else child_table
                 child_match = sa.and_(
-                    *[child_keep.c[c.name] == c for c in _primary_key(child)]
+                    *[child_keep.c[c.name] == child.c[c.name] for c in _primary_key(child_table)]
                 )
-                for foreign_key in child.foreign_keys:
+                for foreign_key in child_table.foreign_keys:
                     if foreign_key.column.table is not sa_table:
                         continue
                     condition = sa.and_(
                         condition,
                         ~sa.exists().where(
-                            foreign_key.parent == foreign_key.column, child_match
+                            child.c[foreign_key.parent.name] == foreign_key.column,
+                            child_match,
                         ),
                     )
         connection.execute(sa.delete(sa_table).where(condition))

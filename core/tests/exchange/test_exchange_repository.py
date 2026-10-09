@@ -268,3 +268,34 @@ def test_classification_switching_delivery_does_not_block_import(db_session):
     snapshot = _snapshot(db_session)
     assert str(d1.id) not in _ids(snapshot, "delivery")
     assert snapshot["rights"] == [(str(document.id), "DE", str(d2.id))]
+
+
+def test_unmerge_in_the_dump_does_not_falsely_block_deleting_the_old_target(db_session):
+    """
+    A kept work X points (merged_into) at work S, which the new dump drops
+    while X's pointer moves. The deferral must see X as a referencing row;
+    with the child table auto-correlated to the DELETE target it never did.
+    """
+    source = _source(db_session)
+    delivery = _delivery(db_session, source, "u")
+    doc_s = _document(db_session, delivery, "S")
+    doc_x = _document(db_session, delivery, "X")
+    repository = PostgresKnowledgeExchangeRepository(db_session)
+    dump = _dump(repository)
+
+    db_session.execute(
+        sa.text("UPDATE work SET status = 'merged', merged_into_work_id = :s WHERE id = :x"),
+        {"s": doc_s.work_id, "x": doc_x.work_id},
+    )
+    dump["document"] = [r for r in dump["document"] if r["id"] != str(doc_s.id)]
+    dump["rights_classification"] = [
+        r for r in dump["rights_classification"] if r["document_id"] != str(doc_s.id)
+    ]
+    dump["work"] = [r for r in dump["work"] if r["id"] != str(doc_s.work_id)]
+
+    repository.replace_knowledge_base(_frozen(dump), record=_record())
+
+    snapshot = _snapshot(db_session)
+    assert str(doc_s.work_id) not in _ids(snapshot, "work")
+    kept = {row[0]: row for row in snapshot["work"]}[str(doc_x.work_id)]
+    assert kept[2] is None
