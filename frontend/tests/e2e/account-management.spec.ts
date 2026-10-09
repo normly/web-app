@@ -41,7 +41,7 @@ test.describe("account management", () => {
     await registerAndOpenAccountPage(page);
 
     await page.getByLabel("Vorname").fill("Jamie");
-    await page.getByLabel("Nachname").fill("Tester");
+    await page.getByLabel("Nachname").fill("Weber");
     await page.getByRole("button", { name: "Speichern" }).click();
 
     await page.reload();

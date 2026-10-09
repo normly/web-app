@@ -8,12 +8,12 @@ import { mapAccountSummary } from "@/lib/account-response";
 describe("mapAccountSummary", () => {
   it("maps the backend's snake_case fields to the frontend's camelCase shape", () => {
     const result = mapAccountSummary("acc-1", "a@example.de", {
-      first_name: "Jamie", last_name: "Tester", has_avatar: true,
+      first_name: "Jamie", last_name: "Weber", has_avatar: true,
       has_password: true, notification_preference: "immediate",
     });
 
     expect(result).toEqual({
-      accountId: "acc-1", email: "a@example.de", firstName: "Jamie", lastName: "Tester",
+      accountId: "acc-1", email: "a@example.de", firstName: "Jamie", lastName: "Weber",
       hasAvatar: true, hasPassword: true,
       notificationPreference: "immediate",
     });

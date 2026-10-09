@@ -30,19 +30,19 @@ def test_update_profile_sets_first_and_last_name(client):
     _, headers = _register_and_authorize(client)
 
     response = client.patch(
-        "/v1/accounts/profile", json={"first_name": "Jamie", "last_name": "Tester"},
+        "/v1/accounts/profile", json={"first_name": "Jamie", "last_name": "Weber"},
         headers=headers,
     )
 
     assert response.status_code == 200
     body = response.json()
     assert body["first_name"] == "Jamie"
-    assert body["last_name"] == "Tester"
+    assert body["last_name"] == "Weber"
 
 
 def test_update_profile_requires_authorization(client):
     response = client.patch(
-        "/v1/accounts/profile", json={"first_name": "Jamie", "last_name": "Tester"},
+        "/v1/accounts/profile", json={"first_name": "Jamie", "last_name": "Weber"},
     )
     assert response.status_code == 401
 
@@ -50,7 +50,7 @@ def test_update_profile_requires_authorization(client):
 def test_update_profile_leaves_an_omitted_field_untouched(client):
     _, headers = _register_and_authorize(client)
     client.patch(
-        "/v1/accounts/profile", json={"first_name": "Jamie", "last_name": "Tester"},
+        "/v1/accounts/profile", json={"first_name": "Jamie", "last_name": "Weber"},
         headers=headers,
     )
 
@@ -67,19 +67,19 @@ def test_update_profile_leaves_an_omitted_field_untouched(client):
 def test_update_profile_explicit_null_still_clears_a_field(client):
     _, headers = _register_and_authorize(client)
     client.patch(
-        "/v1/accounts/profile", json={"first_name": "Jamie", "last_name": "Tester"},
+        "/v1/accounts/profile", json={"first_name": "Jamie", "last_name": "Weber"},
         headers=headers,
     )
 
     response = client.patch(
-        "/v1/accounts/profile", json={"first_name": None, "last_name": "Tester"},
+        "/v1/accounts/profile", json={"first_name": None, "last_name": "Weber"},
         headers=headers,
     )
 
     assert response.status_code == 200
     body = response.json()
     assert body["first_name"] is None
-    assert body["last_name"] == "Tester"
+    assert body["last_name"] == "Weber"
 
 
 def test_upload_avatar_rejects_a_file_that_is_too_large(client):
