@@ -79,11 +79,24 @@ Es nutzt, was `compose.yaml` schon hat: den `migrate`-Dienst vor `api`,
    Fehlschlag: klare Meldung, **kein** automatischer Rückweg.
 
 **`normly-deploy rollback`:** zeigt, welche Daten verworfen werden (vom
-Pre-Rollout-Dump bis jetzt) und welche Dauer der Neu-Import des
-Wissensbestands erwartet, verlangt ausdrückliche Bestätigung. Dann: Dienste
-stoppen, Nutzerdaten aus dem Pre-Rollout-Dump zurückspielen, Wissensbestand
-in der damaligen Dump-Version neu importieren, `previous` starten,
-Gesundheit prüfen.
+Pre-Rollout-Dump bis jetzt), verlangt ausdrückliche Bestätigung und stellt
+dann den Stand vor dem Rollout wieder her. Weil Alembic-Migrationen nur
+vorwärts laufen, bleibt das neue Schema nach einem reinen Datenrestore
+bestehen; der Rollback baut das Schema deshalb **neu auf**:
+
+1. Dienste stoppen.
+2. Schema `public` verwerfen und mit dem `migrate`-Dienst des **vorherigen**
+   Images auf dessen Alembic-Stand neu anlegen (leere Datenbank, altes Schema).
+3. Wissensbestand in der damaligen Dump-Version importieren (stabile IDs,
+   siehe Teil 3). Das muss **vor** den Nutzerdaten geschehen, denn diese
+   verweisen per Fremdschlüssel auf Wissensbestand-Zeilen (`watchlist` →
+   `work`, `notification` → `edge`/`document`, `chat_message_citation` →
+   `document`/`segment`).
+4. Nutzerdaten aus dem Pre-Rollout-Dump einspielen (`--data-only`; Schema und
+   Dump stammen vom selben Alembic-Stand).
+5. `previous` starten, Gesundheit prüfen.
+
+Die Dauer von Schritt 3 steigt mit dem Bestand; das Skript nennt sie vorab.
 
 **Fehlerfälle:** Läuft `migrate` halb durch, ist der Pre-Rollout-Dump der
 Rettungsweg (das Skript sagt es). Eine Sperrdatei verhindert parallele Läufe.
@@ -106,14 +119,26 @@ Aufgerufen vom Rollout und von einem täglichen systemd-Timer.
 | Wissensbestand | groß, reproduzierbar | kein eigener Dump; Stand = zuletzt importierte Dump-Version |
 | Gesamtdatenbank | Betrieb | Flex-Sicherung (siehe Befund) |
 
-Die genaue Tabellenzuordnung wird beim Bau aus den Migrationen abgeleitet
-und als Allowlist im Code festgehalten, mit einem Test, der jede
-Tabelle genau einer Gruppe zuweist (neue Tabelle ohne Zuordnung lässt den
-Test fehlschlagen).
+Die Zuordnung ist als Allowlist im Code festgehalten
+(`normly_core/exchange/tables.py`), mit einem Test, der jede ORM-Tabelle
+genau einer Gruppe zuweist (neue Tabelle ohne Zuordnung lässt den Test
+fehlschlagen). Es gibt drei Gruppen: **Wissensbestand** (`source`,
+`delivery`, `work`, `document`, `document_designation`, `document_title`,
+`rights_classification`, `edge`, `segment`, `embedding`,
+`document_embedding`), **Nutzerdaten** (`account*`, `oauth_state`,
+`watchlist`, `notification`, `rights_notification_baseline`,
+`notified_edge`, `chat_*`, `rate_limit_bucket`) und **Pipeline-Zustand**
+(`identity_resolution_case`: Prüfwarteschlange der lokalen Ingestion, in
+Produktion leer, weder exportiert noch gesichert). Nutzerdaten verweisen per
+Fremdschlüssel auf Wissensbestand-Zeilen; der Dump muss deshalb die
+**IDs unverändert** erhalten (Voraussetzung für Rollback und Restore).
 
 **Voraussetzung:** Der Wissensbestand in Produktion ändert sich **nur** durch
 Dump-Import, nie durch Ingestion auf der VM. Das ist zugleich die
 Voraussetzung für TP1a.
+
+**Werkzeug für den Upload:** `rclone` (quelloffen, ein Binary, S3-kompatibel
+gegen STACKIT Object Storage); kein US-Dienst, nur ein Client.
 
 **Ablauf:** Dump → auf der VM mit dem öffentlichen `age`-Schlüssel
 verschlüsseln (temporäre Datei in einem 0700-Verzeichnis, kein Klartext
@@ -171,8 +196,12 @@ ist unveränderlich und wird nie überschrieben.
 `kb/<version>/`, dazu `kb/latest`. Das Manifest ist mit einem
 Maintainer-Schlüssel signiert (kein Keyless-Zertifikat möglich, weil der Dump
 lokal entsteht, nicht in der CI); der öffentliche Schlüssel liegt im
-Repository. Werkzeugwahl (cosign mit Schlüsselpaar oder minisign) fällt im
-Plan und wird dort begründet.
+Repository. **Werkzeug: Ed25519 in Python (`cryptography`), im Import
+selbst geprüft.** Begründung: Der Import läuft im `pipeline`-Image und beim
+Selbsthoster; ein zusätzliches Binary (cosign, minisign) würde das Image
+vergrößern und eine zweite Installationshürde schaffen. Signaturformat und
+Prüfung sind klein genug, um sie testbar im Kern zu halten. Die Prüfung der
+Images mit cosign (Teil 1) bleibt davon unberührt.
 
 **Import (`normly-kb import <version>`):**
 
@@ -182,8 +211,13 @@ Plan und wird dort begründet.
 3. Prüfsummen prüfen, über die Repository-Schicht einspielen.
 4. **Idempotent:** Wiederholung derselben Version erzeugt keinen
    abweichenden Stand; Zeilen sind über stabile Schlüssel identifiziert,
-   in der neuen Version fehlende Zeilen werden entfernt. Der Austausch ist
-   atomar, die Anwendung sieht nie einen halben Bestand.
+   in der neuen Version fehlende Zeilen werden entfernt (zuerst löschen,
+   dann einfügen oder aktualisieren). Der Austausch ist atomar, die
+   Anwendung sieht nie einen halben Bestand. Verweist eine Nutzerdaten-Zeile
+   noch auf eine zu löschende Wissensbestand-Zeile (z. B. eine beobachtete
+   `work`, die die neue Version nicht mehr enthält), bricht der Import
+   **ohne Änderung** ab und nennt die blockierenden Verweise; wie solche
+   Fälle fachlich aufzulösen sind, ist eine spätere Entscheidung.
 5. Die importierte Version wird in einer kleinen Tabelle festgehalten;
    Rollout und Rollback lesen sie dort.
 
