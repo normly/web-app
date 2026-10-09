@@ -2,7 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Der Import eines Wissensbestand-Dumps blockiert nie mehr an Nutzerverweisen: Kennungen (`work`, `document`, `edge`) werden zu Tombstones (`retired_at`), Inhalt und Ableitungen (`segment`, `embedding`, `document_embedding`, `rights_classification`) werden physisch gelöscht, Herkunft (`delivery`, `source`) bleibt.
+**Goal:** Der Import eines Wissensbestand-Dumps blockiert nie mehr an Nutzerverweisen: Kennungen (`work`, `document`, `edge`) werden zu Tombstones (`retired_at`), Inhalt und Ableitungen (`segment`, `embedding`, `document_embedding`, `rights_classification`) werden physisch gelöscht, Herkunft (`delivery`, `source`) bleibt. Beobachter erfahren per neuem Benachrichtigungstyp `no_longer_available`, dass ein beobachtetes Dokument zurückgezogen wurde (Tasks 4–5).
+
+**Ausführungsreihenfolge:** Task 1, 2, 4, 5, dann Task 3 (Dokumentation zuletzt, weil ADR-026 die Meldung beschreibt).
 
 **Architecture:** Klassen-Konstanten in `normly_core/exchange/tables.py` (reine Daten, mit Fail-closed-Test gegen die ORM-Fremdschlüssel); Migration 0033 und ORM-Spalte `retired_at` auf drei Tabellen, die aus dem Austauschformat ausgeschlossen bleibt; `replace_knowledge_base` wird von drei Lösch-/Einfügedurchläufen auf einen Ablauf „Zitate lösen → Inhalt löschen → einfügen → Tombstones setzen“ umgestellt. Spec: `docs/superpowers/specs/2026-10-09-user-data-on-kb-import-design.md`.
 
@@ -498,6 +500,7 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
   - **Begründung:** Rücknahme gewinnt immer; keine Textreste in Produktion und Sicherungen nach Ablauf; keine Nutzerdaten gehen verloren.
   - **Verworfen:** Blockieren mit Bereinigungswerkzeug (Rücknahme wartet auf einen Menschen); Nutzerverweise anpassen/löschen (Datenverlust ohne Nutzen, da nur Verweise); reine Tombstones auch für Inhalt (Rücknahme nur logisch, Text bliebe lesbar in DB/Sicherungen).
   - **Folgen / offen:** (1) In Produktion verschwindet bei einem Widerruf die Klassifikation; `notify-watchers` (RIGHTS_CHANGE) sieht dann nichts mehr — eine Meldung „nicht mehr verfügbar“ auf Basis von `retired_at` ist Folgearbeit (Produktentscheidung); (2) Aufbewahrung/Alterung von Tombstones offen (Teil B); (3) Dumps müssen aus einer Abstammungslinie mit stabilen IDs stammen: Ein Neuaufbau der Produzenten-Datenbank mit neuen IDs kollidiert mit stehengebliebenen Tombstones (partielle Eindeutigkeit von Kanten, Bezeichner) und bricht mit `ImportBlockedError` ab; (4) Tombstones bleiben in der Datenbank sichtbar für Pipeline-Lesewege ohne Rechtetor (`*_unchecked`); diese dürfen sie nicht als Inhalt ausliefern.
+  Folge (1) lautet nach Task 4/5 nicht mehr „offen“: Der Widerruf wird in Produktion als Benachrichtigung `no_longer_available` gemeldet (Erkennung aus `retired_at`, Dedup über `notified_retirement`); offen bleibt nur die RIGHTS_CHANGE-Meldung im engeren Sinn (Rechtewerte ändern sich, ohne dass das Dokument verschwindet) — die entsteht weiter beim Produzenten. Dokumentiere das so.
   Übertrage in ADR-025 den Verweis auf ADR-026 (Import: „Zitate lösen → Inhalt löschen → einfügen → Tombstones setzen“; Blockierregel und der offene Punkt „Nutzerdaten, die auf ersetzte Segmente/Kanten verweisen, können Importe blockieren“ entfallen).
 - [ ] **Step 2: TP4-Spec Teil 3 Schritt 4, `docs/guide/operations.md`:** Importverhalten (Tombstones, Wiederkehr, was nach einer Rücknahme in den Nutzerdaten passiert) in zwei bis vier Sätzen beschreiben (Guide Englisch); Spec-Status der neuen Spec auf „umgesetzt“ setzen.
 - [ ] **Step 3: Docs-Build wie in CI** (docker `python:3.12` mit `pip install "zensical==0.0.60" "mkdocstrings==1.0.6" "mkdocstrings-python==2.0.8" "griffelib==2.3.0"`, dann `zensical build`; Ausgabe muss eine Zeile `3 issues found` enthalten; mit `--user "$(id -u):$(id -g)"` und beschreibbarem HOME laufen lassen und danach `site/` und `.cache/` entfernen, damit keine root-eigenen Dateien bleiben).
@@ -526,3 +529,76 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 | ADR-026, ADR-025, Spec, Guide | Task 3 |
 
 **Bekannte Lücken, bewusst nicht in diesem Plan:** Alterung/Aufräumen von Tombstones, Anzeige „nicht mehr verfügbar“ und RIGHTS_CHANGE-Meldung bei Widerruf in Produktion (Produktentscheidung, als offene Punkte in ADR-026), Lebenszyklus der Nutzerdaten insgesamt (Teil B). **Risiken beim Bau:** Eindeutigkeitsschlüssel von Tombstone-Klassen können bei neuen IDs kollidieren (ADR-026, Folge 3); Chat-Repositories für das Zitat im Test (Signaturen prüfen); die komplette Core-Suite muss nach der Umstellung grün bleiben (insbesondere die alten Work-Merge-/Lieferungswechsel-Tests).
+
+---
+
+## Erweiterung: Meldung „nicht mehr verfügbar“
+
+Spec-Ergänzung: `docs/superpowers/specs/2026-10-09-user-data-on-kb-import-design.md`, Abschnitt „Meldung ‚nicht mehr verfügbar‘“. Entscheidungen des Nutzers: **eine Meldung pro zurückgezogenem Dokument**; nur Rücknahmen **nach** dem Beginn der Beobachtung; kein Link; Dedup-Gedächtnis in eigener Tabelle.
+
+### Task 4: Kern — Typ, Tabelle, Erkennung, E-Mail
+
+**Files:**
+- Modify: `core/src/normly_core/graph/domain.py` (`NotificationTriggerType.NO_LONGER_AVAILABLE = "no_longer_available"`; `Document.retired_at: datetime | None = None` als **letztes** Feld mit Default; neues Protocol `NotifiedRetirementRepository`)
+- Modify: `core/src/normly_core/graph/postgres/orm.py` (`NotifiedRetirementORM`; die ORM-`Enum` von `NotificationTriggerType` nimmt den neuen Wert automatisch auf)
+- Create: `core/migrations/versions/0034_add_no_longer_available.py`
+- Modify: `core/src/normly_core/graph/postgres/repositories.py` (`_document_to_domain` setzt `retired_at`; `PostgresNotifiedRetirementRepository`)
+- Modify: `core/src/normly_core/notifications/detection.py` (Schleife, `_EMAIL_SUBJECTS`)
+- Modify: `core/src/normly_core/exchange/tables.py` (`USER_TABLES` um `notified_retirement`, nach `notified_edge`)
+- Test: `core/tests/notifications/test_no_longer_available.py` (neu), bestehende Tests für Tabellen/Migration/Architektur müssen grün bleiben
+
+**Interfaces:**
+- Produces:
+  - `NotifiedRetirementRepository` mit `has_been_notified(*, account_id, work_id, document_id, retired_at) -> bool` und `mark_notified(*, account_id, work_id, document_id, retired_at) -> None` (keine `get_`/`list_`-Namen, wegen des Jurisdiktions-Guards in `test_architecture.py`).
+  - Tabelle `notified_retirement(account_id UUID FK account, work_id UUID FK work, document_id UUID FK document, retired_at timestamptz, notified_at timestamptz DEFAULT now(), PRIMARY KEY (account_id, work_id, document_id, retired_at))`.
+  - `run_notify_watchers` erzeugt `NO_LONGER_AVAILABLE`-Benachrichtigungen (`trigger_document_id` = Dokument, `trigger_edge_id=None`, `trigger_jurisdiction=None`, Rechtefelder `None`) und zählt sie in `notifications_created`/`emails_sent`.
+
+**Verhalten (verbindlich):** Pro Beobachtung und pro Dokument des beobachteten Works aus `list_documents_for_work_unchecked` mit `retired_at is not None` und `retired_at > watch.created_at` und nicht `has_been_notified(...)`: Benachrichtigung anlegen (E-Mail nach Kontoeinstellung wie bei den anderen Typen), dann `mark_notified`. Das Dedup-Schlüsselfeld `retired_at` macht eine spätere erneute Rücknahme nach einer Rückkehr zu einer neuen Meldung. Konten mit `NotificationPreference.NONE` werden wie bisher übersprungen. E-Mail-Betreff: `"Ein beobachtetes Regelwerk ist nicht mehr verfügbar"` (in `_EMAIL_SUBJECTS`), Rumpf wie bei den anderen Typen.
+
+- [ ] **Step 1: Failing tests** in `core/tests/notifications/test_no_longer_available.py`. Szenarien (Fixtures über die vorhandenen Test-Helfer in `core/tests/notifications/` bzw. `core/tests/exchange/helpers.py`; die genauen Konstruktoren der Repositories vor dem Schreiben aus den bestehenden Notification-Tests übernehmen):
+  1. Konto + Beobachtung eines Works; danach wird das Dokument zurückgezogen (`UPDATE document SET retired_at = now()` über die ORM-Session im Test, oder über `replace_knowledge_base` mit einem Dump ohne das Dokument — Letzteres ist der Ende-zu-Ende-Test) → `run_notify_watchers` erzeugt **genau eine** `NO_LONGER_AVAILABLE`-Benachrichtigung mit `trigger_document_id`.
+  2. Rücknahme **vor** dem Beobachten (`retired_at <= watch.created_at`) → keine Meldung.
+  3. Zweiter Lauf → keine zweite Meldung (Idempotenz).
+  4. Gelesene Benachrichtigung wird per `delete_read_before(...)` aufgeräumt → nächster Lauf meldet **nicht** erneut.
+  5. Dokument kehrt zurück (`retired_at = NULL`) und wird später erneut zurückgezogen (neuer Zeitstempel) → eine **neue** Meldung.
+  6. Zwei zurückgezogene Dokumente desselben Works → zwei Meldungen (pro Dokument).
+  7. Konto mit `NotificationPreference.NONE` → keine Meldung; Konto mit `EMAIL`/`BOTH` → E-Mail mit dem neuen Betreff an den Fake-`EmailSender`, `emailed_at` gesetzt; `NotifyWatchersSummary` zählt Meldungen und E-Mails.
+  8. Ein zurückgezogenes Dokument stört den bestehenden Rechteänderungs-Pfad nicht (kein Fehler, keine Rechteänderungs-Meldung).
+  Ferner (in vorhandenen Test-Dateien ergänzen): `PostgresNotifiedRetirementRepository` Roundtrip; ORM↔Migration-Konsistenz (`test_orm_migration_consistency.py`, `test_migration_determinism.py`) bleibt grün; `test_tables.py` kennt `notified_retirement` in `USER_TABLES` in FK-sicherer Reihenfolge.
+- [ ] **Step 2:** `cd core && ../.venv/bin/pytest tests/notifications/test_no_longer_available.py -v` — Expected: FAIL (`AttributeError: ... NO_LONGER_AVAILABLE`).
+- [ ] **Step 3: Implementierung.** Migration `0034` (Nachbar `0033` für Stil und IDs; `revision = "0034"`, `down_revision = "0033"`): (a) Tabelle `notified_retirement` anlegen (Spalten und Primärschlüssel wie oben); (b) die CHECK-Beschränkung des Enum-Typs `notification_trigger_type` auf `notification` **und** `notified_edge` um `'no_longer_available'` erweitern — dazu den tatsächlichen Constraint-Namen in `0027_create_watchlist_and_notification.py` und `0030_create_notified_edge.py` nachlesen (SQLAlchemy benennt ihn nach dem `name=`-Argument; bei `op.create_table` ist er `notification_trigger_type`; prüfe mit `\d notification` im Testcontainer oder `inspect(...).get_check_constraints`), `op.drop_constraint` + `op.create_check_constraint` mit der erweiterten Wertliste; `downgrade` stellt die alte Liste her (zuvor Zeilen mit dem neuen Wert löschen, sonst scheitert die Beschränkung). Detection: nach der Schleife über Kanten, vor der Rechte-Schleife, eine Schleife über `documents` mit `document.retired_at`; `NotifiedRetirementRepository` im Kopf von `run_notify_watchers` anlegen. Importiere `PostgresNotifiedRetirementRepository`. `Document` in `domain.py` bekommt `retired_at: datetime | None = None` am Ende (keine bestehenden Aufrufer brechen).
+- [ ] **Step 4:** `cd core && ../.venv/bin/pytest tests/notifications tests/exchange tests/graph -q` — Expected: PASS. Danach die komplette Core-Suite `cd core && ../.venv/bin/pytest tests -q`.
+- [ ] **Step 5: Commit** `feat(notifications): notify watchers when a watched document is no longer available` (mit `-s` und Trailer).
+
+### Task 5: Frontend — Eintrag in der Glocke
+
+**Files:**
+- Modify: `frontend/src/components/page-header.tsx` (`TRIGGER_TYPE_KEYS`, `TRIGGER_TYPE_ICONS`)
+- Modify: `frontend/src/lib/i18n/de.json`, `frontend/src/lib/i18n/en.json`, `frontend/src/lib/i18n/dictionary-keys.ts` (falls der Schlüssel dort aufgelistet werden muss; Mechanismus vor dem Ändern lesen)
+- Test: `frontend/tests/unit/page-header.test.tsx`
+
+**Interfaces:**
+- Consumes: API liefert `triggerType: "no_longer_available"` unverändert (Accounts-API gibt den Typ als String durch; keine Änderung dort nötig).
+- Produces: i18n-Schlüssel `nav.notificationNoLongerAvailable` mit `de: "Nicht mehr verfügbar"`, `en: "No longer available"`; Icon `FileX` (lucide-react); Mapping `no_longer_available` in beiden Tabellen. Kein Link.
+
+- [ ] **Step 1: Failing test** in `page-header.test.tsx` (bestehendes Muster der Datei übernehmen): Eine Benachrichtigung mit `triggerType: "no_longer_available"` wird mit dem Label „Nicht mehr verfügbar“ (de) bzw. „No longer available“ (en) und ohne Fallback „Benachrichtigungen“ dargestellt; das Icon-Element ist nicht das Standard-`Bell`.
+- [ ] **Step 2:** `cd frontend && npx vitest run tests/unit/page-header.test.tsx` — Expected: FAIL (Fallback-Label statt neuem Label). Falls `node_modules` fehlt: `cd frontend && npm ci` (kann dauern; Netz nötig).
+- [ ] **Step 3: Implementierung** wie unter Interfaces. Danach `cd frontend && npx vitest run` (komplette Frontend-Testsuite) und, falls im Projekt vorhanden, `npx tsc --noEmit` — Expected: PASS. Falls ein Parity-Test zwischen `de.json` und `en.json` existiert, muss er grün sein.
+- [ ] **Step 4: Commit** `feat(frontend): show the no-longer-available notification` (mit `-s` und Trailer).
+
+### Task 6: Dokumentation der Meldung (in Task 3 enthalten)
+
+Der ADR-026-Text (Task 3, Schritt 1) beschreibt die Meldung bereits; zusätzlich in `docs/guide/operations.md` (Englisch) im Abschnitt zum Import einen Satz: Watchers of a withdrawn document receive a "no longer available" notification the next time `notify-watchers` runs. Und im ADR-Register den Eintrag für ADR-026 anlegen, falls das Register Einträge pro ADR führt. Keine eigene Commit-Runde nötig; Teil von Task 3.
+
+## Selbstprüfung der Erweiterung
+
+| Spec-Ergänzung | Task |
+|---|---|
+| Typ `no_longer_available`, Erkennung nach Beobachtungsbeginn, eine Meldung pro Dokument | Task 4 |
+| Gedächtnis `notified_retirement` (inkl. `retired_at` im Schlüssel), Aufräumen löst keine zweite Meldung aus | Task 4 (Tests 3, 4, 5) |
+| Migration `0034` (Tabelle, CHECK-Erweiterung) | Task 4 |
+| E-Mail-Betreff, Zusammenfassung | Task 4 (Test 7) |
+| Glocke: Label de/en, Icon, kein Link | Task 5 |
+| ADR-026-Folge 1 gelöst | Task 3 (zuletzt) |
+
+**Risiken:** Der Name der CHECK-Beschränkung und das `downgrade` (Zeilen mit neuem Wert vor dem Wiederherstellen löschen); die Frontend-Dictionary-Mechanik (Schlüssel eventuell generiert/typisiert); `Document` ist ein eingefrorenes Dataclass-Objekt mit Positionsaufrufen in Tests — der neue Wert hat einen Default und steht am Ende.

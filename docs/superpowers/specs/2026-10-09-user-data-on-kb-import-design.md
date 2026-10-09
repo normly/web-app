@@ -112,6 +112,32 @@ Test fehlschlagen. Das gilt auch für `identity_resolution_case`
 - **TP4-Spec** Teil 3, `docs/guide/operations.md`: Importverhalten
   (Tombstones, Wiederkehr) beschreiben; ADR-Register aktualisieren.
 
+## Meldung „nicht mehr verfügbar“ (Erweiterung)
+
+Weil ein Widerruf in Produktion die Klassifikation löscht (der Rechteänderungs-
+Pfad von `notify-watchers` sieht dann nichts mehr), melden Tombstones den
+Verlust selbst. Entscheidungen des Nutzers:
+
+- Neuer Benachrichtigungstyp `no_longer_available`.
+- **Pro zurückgezogenem Dokument eine Meldung** (nicht pro Work und Lauf).
+- Gemeldet wird nur, was **nach dem Beginn der Beobachtung** zurückgezogen
+  wurde (wie bei Kanten).
+- Kein Link: Das Dokument ist durch das Rechtetor nicht mehr abrufbar.
+- Gedächtnis gegen Doppelmeldungen: neue Tabelle `notified_retirement`
+  (Konto, Work, Dokument, `retired_at`; der Zeitstempel gehört zum
+  Schlüssel, damit eine Rücknahme nach einer Rückkehr neu gemeldet wird).
+  Die Tabelle gehört zu den Nutzerdaten; sie zeigt nur auf Tombstone-Klassen.
+- E-Mail: Betreff „Ein beobachtetes Regelwerk ist nicht mehr verfügbar“,
+  Rumpf wie bei den anderen Typen.
+- Oberfläche: Eintrag „Nicht mehr verfügbar“ / „No longer available“ in der
+  Glocke mit eigenem Icon.
+- Schema: Migration `0034` (Tabelle, Erweiterung der CHECK-Beschränkung für
+  `trigger_type`); `Document` im Domänenmodell erhält `retired_at`.
+
+Nicht enthalten: Detailseite oder Link für zurückgezogene Dokumente,
+Alterung von Tombstones. Der Rechteänderungs-Pfad bleibt für den Produzenten
+unverändert.
+
 ## Nicht-Ziele
 
 - Alterung und Aufräumen von Tombstones.
