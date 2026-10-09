@@ -23,12 +23,13 @@ No credentials for the VM exist on GitHub.
 | `rclone` | uploading and downloading backups (S3-compatible, STACKIT Object Storage) |
 | `postgresql-client` | `pg_dump`, `psql`, `pg_restore` |
 | `python3` | digest parsing and the retention policy (standard library only) |
+| `git` | fetching the systemd unit files from the release tag (see "Backups") |
 
 On Ubuntu:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y age rclone postgresql-client python3
+sudo apt-get install -y age rclone postgresql-client python3 git
 # Docker Engine with the Compose plugin: https://docs.docker.com/engine/install/ubuntu/
 # cosign: https://docs.sigstore.dev/cosign/system_config/installation/
 docker compose version   # must print v2.20 or newer
@@ -99,12 +100,15 @@ What happens, in order:
    recorded (see below).
 2. `cosign verify` runs for all five images against the identity
    `images.yml@refs/tags/v0.2.0`. If any check fails, nothing is changed. The
-   verified digests are written to `releases/v0.2.0/verified-digests`.
+   verified digests are written to `releases/0.2.0/verified-digests`. Release
+   directories, state files and backup names use the tag **without** the `v`.
 3. Compose file and assets are extracted from the **verified**
-   `pipeline@<digest>` into `releases/v0.2.0/`.
+   `pipeline@<digest>` into `releases/0.2.0/`.
 4. The script reads the knowledge-base version the running release uses, then
-   takes a pre-rollout backup (`normly-backup run --kind pre-v0.2.0`). If the
-   upload is not confirmed, there is no rollout.
+   takes a pre-rollout backup (`normly-backup run --kind pre-0.2.0`). If the
+   upload is not confirmed, there is no rollout. On the very first deploy
+   (no current release yet) there is nothing to read and nothing to back up,
+   so this step is skipped, and there is no rollback target either.
 5. `docker compose pull`, then the pulled digests are compared with the
    verified ones. A tag that was re-pointed in the meantime stops the run
    before anything starts.
@@ -144,11 +148,33 @@ Manager or your offline copy; do not leave it on the VM afterwards:
 shred -u /root/normly-backup.key
 ```
 
-Before it changes anything, the script compares the `alembic_revision` in the
-backup's `meta.json` with the Alembic head of the **previous** image and
-refuses to continue on a mismatch (a dump and a schema that do not fit
-together). It then prints what will be discarded and asks you to type the
-target tag; `--yes` skips the question for scripted runs.
+Before it changes anything, the script runs two checks and refuses (nothing
+changed) if either fails:
+
+- The `alembic_revision` in the backup's `meta.json` must equal the Alembic
+  head of the **previous** image (a dump and a schema that do not fit together
+  are refused).
+- If the knowledge-base version recorded at backup time is not `none`, the
+  script verifies that dump first (`python -m normly_core.exchange verify
+  --fetch <version>`, in the previous release's image, without touching the
+  database): download from `NORMLY_KB_BASE_URL`, signature, exchange schema,
+  embedding model and revision, checksums. If the dump or the public key
+  cannot be verified, the rollback stops before the banner, the prompt, and
+  the `DROP`.
+
+**Public key.** The signature is checked against the public key, resolved in
+this order: `--public-key PATH`, the environment variable
+`NORMLY_KB_PUBLIC_KEY_FILE`, the key packaged with the build. Until the key
+ceremony is done and the key is committed, nothing is packaged, so set
+`NORMLY_KB_PUBLIC_KEY_FILE` in `/opt/normly/.env` to a path **on the VM** that
+holds the PEM public key. If it is set, `normly-deploy` requires it to be a
+file and mounts it read-only into the container for the verify and import
+steps. Without a key, a rollback that has to re-import a knowledge base
+refuses.
+
+It then prints what will be discarded and asks you to type the target tag
+**without** the `v` (for example `0.1.0`); `--yes` skips the question for
+scripted runs.
 
 Then it:
 
@@ -183,14 +209,19 @@ Add to `/opt/normly/.env`:
 
 | Variable | Meaning |
 |---|---|
-| `NORMLY_BACKUP_AGE_RECIPIENT` | the age **public** key (`age1…`); the VM can write backups but not read them |
+| `NORMLY_BACKUP_AGE_RECIPIENT` | the age **public** key (`age1…`); the VM can encrypt backups but not decrypt them |
 | `NORMLY_BACKUP_REMOTE` | an rclone path to the private bucket, e.g. `stackit:normly-backups` |
 | `NORMLY_DATABASE_URL` | as for the application; must resolve from the host (see above) |
+| `NORMLY_KB_PUBLIC_KEY_FILE` | optional, see "Rolling back": host path of the knowledge-base public key |
 
 Configure the rclone remote (for example `stackit`) for S3-compatible STACKIT
-Object Storage in `~/.config/rclone/rclone.conf` of the user that runs the
-scripts, with the access keys of a bucket user that may write and list but
-need not read. Create the bucket as **private**.
+Object Storage. The daily timer runs as **root** (the systemd units set no
+`User=`), so the config belongs in root's `~/.config/rclone/rclone.conf`; for
+manual runs it must be readable by the user who runs them. The bucket
+credentials on the VM need **list and write** (upload, prune), **delete**
+(prune) and **read** (rollback downloads `meta.json` and `dump.age` with
+rclone). What the VM cannot do is *decrypt*: the private age key is not there.
+Create the bucket as **private**.
 
 Generate the key pair once, on the operator's machine, not on the VM:
 
@@ -233,40 +264,62 @@ older than one day.
 Do this once after setting up the backups, then monthly. It needs the private
 key on a machine other than the production VM, and a throw-away database.
 
+The commands below were derived from the code and the scripts; they have not
+been run end to end yet. Treat the first live run (the acceptance of the
+deployment work) as their verification and correct this section if needed.
+
 ```bash
 # 1. Pick a backup and download it
 rclone lsf stackit:normly-backups/backups | tail
 BASE=20261009T033000Z-daily
 rclone copyto stackit:normly-backups/backups/$BASE.dump.age ./$BASE.dump.age
 rclone copyto stackit:normly-backups/backups/$BASE.sha256   ./$BASE.sha256
+rclone copyto stackit:normly-backups/backups/$BASE.meta.json ./$BASE.meta.json
 sha256sum -c $BASE.sha256
+cat $BASE.meta.json        # alembic_revision, image_tag, kb_version
 
 # 2. Decrypt
 age -d -i normly-backup.key -o $BASE.dump $BASE.dump.age
 
-# 3. Prepare an empty database (PostgreSQL 16 with pgvector) and create the
-#    schema with the migrations of the release named in the backup's meta.json
-createdb normly_restore_test
-psql normly_restore_test -c 'CREATE EXTENSION IF NOT EXISTS vector'
+# 3. Start a throw-away PostgreSQL with pgvector, reachable over TCP
+#    (any PostgreSQL 16 with the vector extension works; this is one way)
+export TEST_PW="$(head -c 12 /dev/urandom | base64 | tr -d '/+=')"
+docker run -d --name restore-test -e POSTGRES_PASSWORD="$TEST_PW" \
+  -e POSTGRES_DB=normly_restore_test -p 127.0.0.1:55432:5432 pgvector/pgvector:pg16
+sleep 10
+export PGURL="postgresql://postgres:$TEST_PW@127.0.0.1:55432/normly_restore_test"
+export APPURL="postgresql+psycopg://postgres:$TEST_PW@127.0.0.1:55432/normly_restore_test"
+psql "$PGURL" -c 'CREATE EXTENSION IF NOT EXISTS vector'
+
+# 4. Create the schema with the migrations of the release named in meta.json
+#    (image_tag; --network host makes 127.0.0.1 the host)
 docker run --rm --network host --entrypoint python \
-  -e NORMLY_DATABASE_URL=postgresql+psycopg:///normly_restore_test \
+  -e NORMLY_DATABASE_URL="$APPURL" \
   ghcr.io/normly/web-app/pipeline:0.2.0 -m normly_core.migrate
 
-# 4. Restore the user data
-pg_restore --dbname=normly_restore_test --data-only --exit-on-error $BASE.dump
+# 5. Import the knowledge base recorded in meta.json (kb_version) BEFORE the
+#    user data: user data points into knowledge-base rows by foreign key.
+#    Use --public-key or the key file while no key is packaged.
+docker run --rm --network host --entrypoint python \
+  -e NORMLY_DATABASE_URL="$APPURL" \
+  -e NORMLY_KB_BASE_URL=https://example.invalid/kb \
+  -e NORMLY_KB_PUBLIC_KEY_FILE=/kb-key.pem -v "$PWD/kb-signing.pub.pem:/kb-key.pem:ro" \
+  ghcr.io/normly/web-app/pipeline:0.2.0 \
+  -m normly_core.exchange import --fetch 2026.10.1     # the kb_version
 
-# 5. Look at it
-psql normly_restore_test -c "
-  SELECT relname, n_live_tup FROM pg_stat_user_tables ORDER BY relname"
-psql normly_restore_test -c 'SELECT count(*) FROM account'
+# 6. Restore the user data
+pg_restore --dbname="$PGURL" --data-only --exit-on-error $BASE.dump
+
+# 7. Look at it
+psql "$PGURL" -c "SELECT relname, n_live_tup FROM pg_stat_user_tables ORDER BY relname"
+psql "$PGURL" -c 'SELECT count(*) FROM account'
 ```
 
-For exact counts, run `SELECT count(*)` for each table that
-`python -m normly_core.exchange tables user` lists and compare with production.
-Restoring into a database with no knowledge base can fail on foreign keys
-that point into the knowledge base; import the matching dump first
-(see "Knowledge-base dumps") for a complete test. Drop the throw-away
-database and delete the decrypted dump when you are done.
+Replace `NORMLY_KB_BASE_URL` with the real public dump URL. If `kb_version` is
+`none`, skip step 5. For exact counts, run `SELECT count(*)` for each table
+that `python -m normly_core.exchange tables user` lists and compare with
+production. Clean up afterwards: `docker rm -f restore-test`, and delete the
+decrypted dump.
 
 ## Knowledge-base dumps
 
@@ -286,21 +339,34 @@ private key stays with the maintainer.
 python -m normly_core.exchange keygen --private kb-signing.key --public kb-signing.pub.pem
 ```
 
-The key ceremony is still pending: until the public key is packaged with the
-build, every import needs `--public-key PATH`, including the import that
-`kb-import` and `normly-deploy rollback` run.
+The key ceremony is still pending. The public key is resolved as
+`--public-key PATH`, then the environment variable `NORMLY_KB_PUBLIC_KEY_FILE`,
+then the packaged key. Until a key is packaged, supply one yourself:
+
+- `normly-deploy rollback`: set `NORMLY_KB_PUBLIC_KEY_FILE` in
+  `/opt/normly/.env` to the key's path on the VM; the script mounts it into
+  the container (see "Rolling back").
+- `kb-import`: mount the key and point the variable at it:
+  `docker compose run --rm -v /path/key.pem:/kb-key.pem:ro -e NORMLY_KB_PUBLIC_KEY_FILE=/kb-key.pem kb-import latest`
+  (or pass `--public-key` to the underlying command).
 
 **Export** (on the machine that holds the ingested knowledge base, over the
 repository layer; `NORMLY_DATABASE_URL` points at that database and
-`NORMLY_EMBEDDING_MODEL_REVISION` is set in the `pipeline` image):
+`NORMLY_EMBEDDING_MODEL_REVISION` is set in the `pipeline` image). The output
+directory is bind-mounted, so it must be writable by the container user: make
+it world-writable for the run or add `--user "$(id -u):$(id -g)"`:
 
 ```bash
+mkdir -p out && chmod 777 out
 docker compose run --rm --entrypoint python \
   -v "$PWD/out:/out" -v "$PWD/kb-signing.key:/kb-signing.key:ro" \
   pipeline -m normly_core.exchange export \
   --version 2026.10.1 --out /out --private-key /kb-signing.key
 # writes out/2026.10.1/{manifest.json,manifest.json.sig,<table files>}
 ```
+
+The export commands here, like the restore test, were derived from the code and
+are verified only in the live acceptance.
 
 **Publish** to the public-read STACKIT Object Storage bucket with `rclone`.
 Upload the version directory first and `latest` last, so no client sees a
@@ -332,5 +398,8 @@ Before the first public dump, one open point must be settled: the dump
 currently contains personal names (`source.responsible_person`,
 `rights_classification.classified_by`).
 
-`python -m normly_core.exchange info` prints the imported dump version (or
-`none`); the rollout and the backup record it.
+`python -m normly_core.exchange verify (--from DIR | --fetch VERSION)
+[--public-key PATH]` runs the same checks without a database; `normly-deploy
+rollback` uses it as a preflight. `python -m normly_core.exchange info`
+prints the imported dump version (or `none`); the rollout and the backup
+record it.

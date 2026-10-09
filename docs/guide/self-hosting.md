@@ -130,8 +130,10 @@ docker compose run --rm kb-import 2026.10.1    # a fixed version
 
 Before anything is written, the import checks the Ed25519 signature of the
 dump manifest against normly's public signing key (committed to the repository
-and packaged with the code; until that key is published, pass it explicitly with
-`--public-key PATH`), the embedding model
+and packaged with the code; until that key is published, supply it with
+`--public-key PATH` or by mounting it and setting `NORMLY_KB_PUBLIC_KEY_FILE`,
+for example `docker compose run --rm -v /path/key.pem:/kb-key.pem:ro -e
+NORMLY_KB_PUBLIC_KEY_FILE=/kb-key.pem kb-import latest`), the embedding model
 revision (embeddings from another revision are incompatible with this
 installation), and the SHA-256 checksum of every table file. A dump that fails
 any check is refused and the database stays unchanged.

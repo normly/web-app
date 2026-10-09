@@ -368,9 +368,7 @@ Dieses Kapitel definiert Anforderungen an die Bereitstellung, Konfiguration und 
 
 **Abnahmekriterium:** Neues System kann aus leerer Umgebung automatisiert bereitgestellt werden.
 
-**Weitere Informationen:** Infrastructure as Code empfohlen.
-
-**Weitere Informationen:** Umsetzung: ADR-024 (`normly-deploy`).
+**Weitere Informationen:** Infrastructure as Code empfohlen. Umsetzung: ADR-024 (`normly-deploy`).
 
 #### REQ-INST-003 — Konfigurationsmanagement über Umgebungsvariablen
 
@@ -400,9 +398,7 @@ Dieses Kapitel definiert Anforderungen an die Bereitstellung, Konfiguration und 
 
 **Abnahmekriterium:** Rollback wird erfolgreich in Testumgebung durchgeführt.
 
-**Weitere Informationen:** Blue-Green oder vergleichbare Strategien zulässig.
-
-**Weitere Informationen:** Umsetzung: ADR-024 (`normly-deploy`); der Rollback stellt Images und Datenstand wieder her und verwirft Nutzerdaten seit dem Rollout (mit Warnung und Bestätigung).
+**Weitere Informationen:** Blue-Green oder vergleichbare Strategien zulässig. Umsetzung: ADR-024 (`normly-deploy`); der Rollback stellt Images und Datenstand wieder her und verwirft Nutzerdaten seit dem Rollout (mit Warnung und Bestätigung).
 
 ### 3.5.2 Build and Delivery
 

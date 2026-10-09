@@ -905,7 +905,10 @@ Start prüft (REQ-GIT-005).
    damals aktiven Dump-Version importieren (vor den Nutzerdaten, wegen der
    Fremdschlüssel), Nutzerdaten mit `pg_restore --data-only`, vorheriges
    Release starten. Vorab prüft das Skript, dass die Alembic-Revision der
-   Sicherung dem Alembic-Head des vorherigen Images entspricht, und verlangt
+   Sicherung dem Alembic-Head des vorherigen Images entspricht und dass der
+   aufgezeichnete Wissensbestand-Dump abrufbar und prüfbar ist (Signatur,
+   Modell, Prüfsummen; ohne nutzbaren öffentlichen Schlüssel Abbruch, bevor
+   etwas verändert wird), und verlangt
    die Eingabe des Ziel-Tags (oder `--yes`). Der private Schlüssel wird nur
    für den Lauf bereitgestellt (`--age-identity FILE`). Scheitert der
    Rollback nach dem Verwerfen, gibt das Skript Hinweise zur Wiederherstellung;
@@ -935,7 +938,9 @@ Start prüft (REQ-GIT-005).
 - *Nur Nutzerdaten sichern:* Der Wissensbestand ist über den Dump
   (ADR-025) reproduzierbar; ein täglicher Gesamtdump wäre bei zweistelligen GB
   verschwendet, die Nutzerdaten sind dagegen klein und unersetzlich.
-- *Schlüsseltrennung:* Die VM kann Sicherungen schreiben, aber nicht lesen.
+- *Schlüsseltrennung:* Die VM kann Sicherungen schreiben, aber nicht
+  entschlüsseln (der Bucket-Zugang der VM umfasst Lesen, weil der Rollback
+  die Sicherung herunterlädt; der private Schlüssel fehlt).
   Auch bei kompromittierter VM bleiben die Sicherungen geschützt, anders als
   bei serverseitiger Verschlüsselung, deren Schlüssel beim Anbieter neben den
   Daten liegt (CLAUDE.md: Schlüssel nie neben den Daten).
@@ -997,7 +1002,9 @@ ein Rollback können ihn reproduzieren.
    (`KnowledgeExchangeRepository`), nicht über Postgres-Werkzeuge.
 3. **Signatur:** Ed25519 in Python (`cryptography`), im Kern geprüft. Der
    öffentliche Schlüssel liegt im Repository. Die Schlüsselzeremonie steht noch
-   aus; bis dahin ist `--public-key` beim Import erforderlich.
+   aus; bis dahin muss der Schlüssel angegeben werden. Er wird in dieser
+   Reihenfolge aufgelöst: `--public-key`, Umgebungsvariable
+   `NORMLY_KB_PUBLIC_KEY_FILE`, mitgepackter Schlüssel.
 4. **Verteilung:** öffentlich lesbarer STACKIT-Object-Storage-Bucket mit
    Kalenderversion `kb/<version>/` und `kb/latest`. Eine Version ist
    unveränderlich. `fetch` lädt nur von `NORMLY_KB_BASE_URL` (https, für
@@ -1011,6 +1018,10 @@ ein Rollback können ihn reproduzieren.
 6. **Prüfungen beim Import:** Signatur, Austauschschema-Version, Modellname
    **und** Modellrevision (`NORMLY_EMBEDDING_MODEL_REVISION`), Dimension,
    Prüfsummen. Bei Abweichung Abbruch, keine stillen falschen Einbettungen.
+   Dieselben Prüfungen laufen ohne Datenbank als Unterbefehl `verify
+   (--from DIR | --fetch VERSION)`; der Rollback ruft ihn vor dem ersten
+   destruktiven Schritt auf, damit ein nicht prüfbarer Dump nicht erst nach
+   dem Verwerfen der Tabellen auffällt.
 7. **Export-Gate:** die Rechteklassifikation als einziges Tor, über alle
    Rechtsräume hinweg ausgewertet. Exportiert wird, was eine nicht
    widerrufene Klassifikation mit `may_process` und `may_export_free` hat,
