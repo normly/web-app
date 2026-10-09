@@ -83,3 +83,27 @@ PY
     fi
   done
 }
+
+# normly_check_tombstones FILE
+#   Host-side sanity check of a tombstone support document (format 1: a JSON
+#   object whose "rows" holds exactly the five tables, each a list). Prints the
+#   reason on stderr and returns non-zero when it does not hold. Used before an
+#   irreversible step on both sides: backup (before encrypting and uploading) and
+#   rollback (before the database is dropped).
+normly_check_tombstones() {
+  python3 -c '
+import json, sys
+TABLES = ["source", "delivery", "work", "document", "edge"]
+try:
+    with open(sys.argv[1], encoding="utf-8") as handle:
+        doc = json.load(handle)
+except (OSError, ValueError) as error:
+    sys.exit("not readable JSON (%s)" % error)
+if not isinstance(doc, dict) or doc.get("format") != 1:
+    sys.exit("not a format-1 document")
+rows = doc.get("rows")
+if not isinstance(rows, dict) or sorted(rows) != sorted(TABLES):
+    sys.exit("rows must hold exactly: " + ", ".join(TABLES))
+if not all(isinstance(rows[name], list) for name in TABLES):
+    sys.exit("every table must be a list")' "$1"
+}

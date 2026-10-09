@@ -24,6 +24,7 @@ fail_on="FAKE_$(basename "$0" | tr 'a-z-' 'A-Z_')_FAIL_ON"
 if [ -n "${!fail_on:-}" ]; then
   case " $* " in *"${!fail_on}"*) exit 1 ;; esac
 fi
+tomb_default='{"format": 1, "created_at": "2026-10-09T00:00:00+00:00", "rows": {"source": [], "delivery": [], "work": [], "document": [], "edge": []}}'
 digest="sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 case "$(basename "$0")" in
   cosign)
@@ -38,6 +39,8 @@ case "$(basename "$0")" in
         else ref="${!#}"; printf '["%s@%s"]\\n' "${ref%:*}" "$digest"; fi
         exit 0 ;;
       *ScriptDirectory*) printf '%s\\n' "${FAKE_DOCKER_HEAD_OUT:-rev1}"; exit 0 ;;
+      *" export-tombstones "*)
+        printf '%s\\n' "${FAKE_DOCKER_TOMBSTONES_OUT-$tomb_default}"; exit 0 ;;
       *" import-tombstones "*)
         # record what arrived on stdin so tests can assert on it
         if [ -n "${FAKE_DOCKER_STDIN_FILE:-}" ]; then cat > "$FAKE_DOCKER_STDIN_FILE"; fi ;;
@@ -51,7 +54,8 @@ case "$(basename "$0")" in
       case "$2" in *:*) case "$3" in *:*) ;; *meta.json)
         meta="${FAKE_RCLONE_META:-}"
         [ -n "$meta" ] || meta='{"alembic_revision": "rev1"}'
-        printf '%s' "$meta" > "$3" ;; esac ;; esac
+        printf '%s' "$meta" > "$3" ;;
+      *tombstones.age) printf '%s' "${FAKE_RCLONE_TOMBSTONES-$tomb_default}" > "$3" ;; esac ;; esac
     fi ;;
 esac
 out="FAKE_$(basename "$0" | tr 'a-z-' 'A-Z_')_OUT"
@@ -65,7 +69,9 @@ case "$(basename "$0")" in
             cp "$2" "$FAKE_RCLONE_KEEP_DIR/$(basename "$3")"
           fi ;;
   pg_dump) for a in "$@"; do case "$a" in --file=*) : > "${a#--file=}";; esac; done ;;
-  age) prev=""; for a in "$@"; do [ "$prev" = "-o" ] && echo cipher > "$a"; prev="$a"; done ;;
+  age) prev=""; for a in "$@"; do [ "$prev" = "-o" ] && echo cipher > "$a"; prev="$a"; done
+       # a decrypted tombstone file is its (seeded, recognisable) input
+       case " $* " in *" -d "*) for a in "$@"; do case "$a" in *tombstones.age) cp "$a" "${a%.age}.json" ;; esac; done ;; esac ;;
 esac
 exit 0
 """

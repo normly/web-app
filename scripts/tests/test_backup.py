@@ -333,3 +333,30 @@ def test_prune_removes_an_orphaned_tombstone_file_and_keeps_a_young_one(harness)
     result = harness.run("normly-backup", "prune", extra_env={"FAKE_RCLONE_OUT": listing})
     assert result.returncode == 0, result.stderr
     assert deletes(harness) == [f"{old}-daily.tombstones.age"]
+
+
+def test_run_aborts_when_the_tombstone_export_is_empty_or_malformed(harness, tmp_path):
+    for bad in ("", "not json", '{"format": 1, "rows": {"work": []}}'):
+        result = harness.run(
+            "normly-backup", "run", "--kind", "daily",
+            extra_env={"FAKE_DOCKER_OUT": "account", "FAKE_DOCKER_TOMBSTONES_OUT": bad,
+                       "TMPDIR": str(tmp_path)},
+        )
+        _aborted_without_upload(harness, result)
+        assert "tombstone export is invalid" in result.stderr
+        assert not any("tombstones.age" in c for c in harness.calls() if c.startswith("age "))
+        assert not list(tmp_path.glob("normly-backup.*"))
+
+
+def test_prune_does_not_log_a_failure_for_objects_an_old_backup_never_had(harness):
+    bases = [f"2026100{d}T100000Z-pre-0.1.{d}" for d in range(1, 5)]
+    old = [f"{bases[0]}.dump.age", f"{bases[0]}.meta.json", f"{bases[0]}.sha256"]
+    listing = lsf(*old, *[n for b in bases[1:] for n in committed(b)])
+    result = harness.run(
+        "normly-backup", "prune",
+        extra_env={"FAKE_RCLONE_OUT": listing, "FAKE_RCLONE_FAIL_ON": f"{bases[0]}.tombstones.age"},
+    )
+    assert result.returncode == 0, result.stderr
+    assert deletes(harness) == [f"{bases[0]}.sha256", f"{bases[0]}.meta.json", f"{bases[0]}.dump.age"]
+    assert "failed to delete" not in result.stderr
+    assert f"pruned {bases[0]}" in result.stderr

@@ -64,6 +64,10 @@ run_backup() {
   $COMPOSE run --rm --no-deps -T --entrypoint python pipeline \
     -m normly_core.exchange export-tombstones > "$work/$base.tombstones.json" \
     || { echo "cannot export the tombstone support rows; aborting backup" >&2; exit 1; }
+  # An empty or malformed export that still exits 0 must not be committed.
+  local tomb_problem
+  tomb_problem="$(normly_check_tombstones "$work/$base.tombstones.json" 2>&1)" \
+    || { echo "tombstone export is invalid: $tomb_problem; aborting backup" >&2; exit 1; }
   age -r "$NORMLY_BACKUP_AGE_RECIPIENT" -o "$work/$base.tombstones.age" "$work/$base.tombstones.json"
   rm -f "$work/$base.tombstones.json"   # no plaintext beyond this point
 
@@ -107,8 +111,10 @@ stamp_epoch() {
 # Delete one backup's objects, commit marker first: an interrupted deletion
 # leaves an orphan (cleaned up later), never a marker without its data.
 delete_backup() {
-  local base="$1" suffix failed=0
+  local base="$1" listing="$2" suffix failed=0
   for suffix in sha256 meta.json tombstones.age dump.age; do
+    # Backups from before the tombstone file have no such object: nothing to delete.
+    printf '%s\n' "$listing" | grep -qxF "$base.$suffix" || continue
     rclone deletefile "$NORMLY_BACKUP_REMOTE/backups/$base.$suffix" </dev/null || failed=1
   done
   if [ "$failed" -eq 0 ]; then
@@ -132,7 +138,7 @@ prune() {
   local doomed
   doomed="$(printf '%s' "$committed_names" | python3 "$HERE/normly-backup-retention.py")"
   while IFS= read -r base; do
-    if [ -n "$base" ]; then delete_backup "$base"; fi
+    if [ -n "$base" ]; then delete_backup "$base" "$listing"; fi
   done <<< "$doomed"
 
   # Orphans (no .sha256) older than a day are failed uploads; younger ones may
