@@ -126,9 +126,14 @@ check_pulled_digests() {
 extract_assets() {
   local tag="$1" container target image
   target="$RELEASES/$tag"
+  # Recover from a crash in the swap below: a lone .old is the release folder
+  # that was moved aside, so put it back; anything else left over is stale.
+  if [ ! -e "$target" ] && [ -d "$target.old" ]; then
+    mv "$target.old" "$target"
+  fi
+  rm -rf "$target.old" "$target.new"
   # Extract beside the release folder and swap it in only on success: the folder
   # of the rollback target may be the only one a later rollback can use.
-  rm -rf "$target.new"
   mkdir -p "$target.new"
   container="$(docker create "$REGISTRY/pipeline@${DIGESTS[pipeline]}")" \
     || { rm -rf "$target.new"; die "could not create a container from pipeline:$tag; no release folder was changed"; }
@@ -142,8 +147,13 @@ extract_assets() {
   for image in "${IMAGES[@]}"; do
     printf '%s %s\n' "$image" "${DIGESTS[$image]}"
   done > "$target.new/verified-digests"
-  rm -rf "$target"
+  # Crash-safe swap: at every instant either $target or $target.old holds a
+  # complete release folder (restored at the start of the next call).
+  if [ -e "$target" ]; then
+    mv "$target" "$target.old"
+  fi
   mv "$target.new" "$target"
+  rm -rf "$target.old"
 }
 
 deploy() {

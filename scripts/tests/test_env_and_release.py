@@ -4,6 +4,7 @@
 """Compose-dialect .env handling, release folder safety, empty-KB banner."""
 
 import os
+import shutil
 import subprocess
 
 from conftest import SCRIPTS
@@ -158,3 +159,106 @@ def test_rollback_warns_when_the_knowledge_base_will_be_empty(harness):
     assert "the knowledge base will be EMPTY after this rollback" in result.stderr
     assert "only the Flex backup can restore it" in result.stderr
     assert "aborted" in result.stderr  # confirmation is still required
+
+
+# --- loader fails loudly -----------------------------------------------------
+
+
+def _run_loader(harness, *, path_env=None):
+    script = (
+        f'set -euo pipefail; . "{SCRIPTS}/normly-env.sh"; normly_load_env "{harness.dir}/.env"; '
+        'echo "rc-continued=[${NORMLY_DATABASE_URL-UNSET}]"'
+    )
+    env = {"PATH": path_env if path_env is not None else os.environ["PATH"]}
+    return subprocess.run(
+        [shutil.which("bash"), "-c", script], env=env, capture_output=True, text=True
+    )
+
+
+def test_loader_keeps_the_first_key_after_a_utf8_bom(harness):
+    _write_env(harness, "﻿NORMLY_DATABASE_URL=postgresql://u:p@db/n\n")
+    got = _load(harness, "NORMLY_DATABASE_URL")
+    assert got["NORMLY_DATABASE_URL"] == "[postgresql://u:p@db/n]"
+
+
+def test_loader_without_python3_fails_with_a_clear_message(harness):
+    _write_env(harness, "NORMLY_DATABASE_URL=postgresql://u:p@db/n\n")
+    empty = harness.dir / "emptybin"
+    empty.mkdir()
+    out = _run_loader(harness, path_env=str(empty))
+    assert out.returncode != 0
+    assert "python3" in out.stderr
+    assert "rc-continued" not in out.stdout
+
+
+def test_loader_with_unreadable_env_file_fails_with_a_clear_message(harness):
+    if os.geteuid() == 0:
+        import pytest
+
+        pytest.skip("root can read any file")
+    _write_env(harness, "NORMLY_DATABASE_URL=postgresql://u:p@db/n\n")
+    (harness.dir / ".env").chmod(0)
+    out = _run_loader(harness)
+    assert out.returncode != 0
+    assert ".env" in out.stderr
+    assert "rc-continued" not in out.stdout
+
+
+def test_loader_accepts_a_missing_env_file(harness):
+    out = _run_loader(harness)
+    assert out.returncode == 0
+    assert "rc-continued=[UNSET]" in out.stdout
+
+
+def test_loader_strips_an_inline_comment_after_a_quoted_value(harness):
+    _write_env(
+        harness,
+        'NORMLY_DATABASE_URL="postgresql://u:p@db/n" # prod\n'
+        "NORMLY_BACKUP_REMOTE='a #b'   # note\n",
+    )
+    got = _load(harness, "NORMLY_DATABASE_URL", "NORMLY_BACKUP_REMOTE")
+    assert got["NORMLY_DATABASE_URL"] == "[postgresql://u:p@db/n]"
+    assert got["NORMLY_BACKUP_REMOTE"] == "[a #b]"
+
+
+def test_extraction_restores_a_release_folder_left_as_old_by_a_crash(harness):
+    releases = harness.dir / "releases"
+    old = releases / "0.1.1.old"
+    old.mkdir(parents=True)
+    (old / "compose.yaml").write_text("keep\n")
+    (releases / "0.1.1.new").mkdir()
+
+    result = harness.run(
+        "normly-deploy", "deploy", "0.1.1", extra_env={"FAKE_DOCKER_EXIT_ON": "cp"}
+    )
+
+    assert result.returncode != 0
+    assert (releases / "0.1.1" / "compose.yaml").read_text() == "keep\n"
+    assert not old.exists()
+    assert not (releases / "0.1.1.new").exists()
+
+
+def test_extraction_discards_stale_old_and_new_next_to_a_release_folder(harness):
+    releases = harness.dir / "releases"
+    (releases / "0.1.1").mkdir(parents=True)
+    (releases / "0.1.1" / "compose.yaml").write_text("current\n")
+    (releases / "0.1.1.old").mkdir()
+    (releases / "0.1.1.old" / "compose.yaml").write_text("stale\n")
+    (releases / "0.1.1.new").mkdir()
+
+    result = harness.run(
+        "normly-deploy", "deploy", "0.1.1", extra_env={"FAKE_DOCKER_EXIT_ON": "cp"}
+    )
+
+    assert result.returncode != 0
+    assert (releases / "0.1.1" / "compose.yaml").read_text() == "current\n"
+    assert not (releases / "0.1.1.old").exists()
+    assert not (releases / "0.1.1.new").exists()
+
+
+def test_successful_extraction_leaves_no_old_or_new_folder(harness):
+    release = harness.dir / "releases" / "0.1.2"
+    release.mkdir(parents=True)
+    assert harness.run("normly-deploy", "deploy", "0.1.2").returncode == 0
+    assert not (harness.dir / "releases" / "0.1.2.old").exists()
+    assert not (harness.dir / "releases" / "0.1.2.new").exists()
