@@ -745,9 +745,10 @@ Plattform für das künftige Hosting der Normen-Wissensbasis vorgesehen, ist
 überholt. Die Wissensbasis wird als signierter Dump in einem öffentlich
 lesbaren STACKIT-Object-Storage-Bucket verteilt (ADR-025); die Trennung von
 Code und Daten aus ADR-010 bleibt davon unberührt. Das Repository
-`jwokittel/normly-webapp` hat damit keine Aufgabe mehr. Ob es archiviert oder
-gelöscht wird, ist offen und eine getrennte Entscheidung (siehe „Offene
-Punkte“). Der ursprüngliche Wortlaut bleibt als Entscheidungsverlauf stehen.
+`jwokittel/normly-webapp` hat damit keine Aufgabe mehr. **Entschieden
+(2026-10-09): Das Repository wird gelöscht**, nicht archiviert; der Betreiber
+führt das im STACKIT-Portal aus. Der Git-Remote `stackit` ist damit hinfällig.
+Der ursprüngliche Wortlaut bleibt als Entscheidungsverlauf stehen.
 
 ---
 
@@ -1070,12 +1071,21 @@ Git-Manifest als Verlauf (zweites System); NDJSON.
 - Das Export-Gate liest die Rechteklassifikation und führt keinen zweiten
   Prüfpfad ein.
 
+**Personennamen (entschieden 2026-10-09):** Der Export ersetzt Personennamen
+durch die Rolle `normly maintainers`. Betroffen sind
+`source.responsible_person` und `rights_classification.classified_by`; beide
+Spalten tragen in jeder exportierten Zeile die Konstante `PUBLISHED_ROLE`. Die
+Ersetzung geschieht im Export-Statement der Repository-Schicht, also an der
+Stelle des Export-Gates, und ändert weder Manifest noch Austauschschema (keine
+Versionserhöhung). Die echten Namen bleiben ausschließlich in der lokalen
+Ingestion-Datenbank. Ein Import überschreibt die beiden Spalten mit dem
+Rollenlabel: Produktion, die den öffentlichen Dump einspielt, trägt daher das
+Label, nie Namen; ein erneuter Export eines importierten Stands ist zeilengleich.
+Ein Test sucht einen eindeutigen Namen in allen Zeilen, allen Parquet-Dateien
+und im Manifest.
+
 **Offene Punkte:**
 
-- **Personennamen im öffentlichen Dump:** `source.responsible_person` und
-  `rights_classification.classified_by` enthalten Namen. Vor dem ersten
-  öffentlichen Dump ist eine Entscheidung nach DSGVO und Datenminimierung nötig
-  (Entfernen, Pseudonymisieren oder Rechtsgrundlage dokumentieren).
 - **Blockierende Nutzerdaten-Verweise:** Verweisen Nutzerdaten
   (`chat_message_citation`, `notification`, `notified_edge`) auf Abschnitte oder
   Kanten, die eine neue Version ersetzt, blockiert der Import. Wie das fachlich
@@ -1103,8 +1113,8 @@ Details: `docs/superpowers/specs/2026-10-09-tp4-deployment-automation-design.md`
 | Rechtliche Bewertung je Rechtsraum | laufende Aufgabe | Braucht mittelfristig eine zuständige Rolle, keine einmalige Klärung |
 | Apple-Provision bei digitalen Abos | offen | In der EU inzwischen Alternativen über externe Zahlungswege — vor Store-Release prüfen |
 | Aufbewahrungsfristen der Sicherungskopien | offen | Bestimmt, wie lange ein vernichteter Schlüssel vorgehalten werden muss, bevor Backups auslaufen |
-| STACKIT-Repository `jwokittel/normly-webapp` | offen | Archivieren oder löschen; durch ADR-025 ohne Aufgabe (Nachtrag zu ADR-021), Entscheidung beim Nutzer |
-| Personennamen im öffentlichen Wissensbestand-Dump | offen | `source.responsible_person` und `rights_classification.classified_by`: DSGVO-Entscheidung vor dem ersten öffentlichen Dump (ADR-025) |
+| STACKIT-Repository `jwokittel/normly-webapp` | entschieden (2026-10-09): löschen | Der Betreiber löscht es im STACKIT-Portal (Nachtrag zu ADR-021); danach den Eintrag streichen |
+| Personennamen im öffentlichen Wissensbestand-Dump | entschieden (2026-10-09): Rolle `normly maintainers` | Umgesetzt im Export (ADR-025); Eintrag nach dem ersten öffentlichen Dump streichen |
 | Blockierende Nutzerdaten-Verweise beim Dump-Import | offen | Produktentscheidung, wie Verweise auf ersetzte Abschnitte und Kanten aufzulösen sind (ADR-025) |
 | Signaturschlüssel des Wissensbestand-Dumps | offen | Schlüsselzeremonie, öffentlichen Schlüssel ins Repository einchecken (ADR-025) |
 | Sicherungen bei lizenzierten Beständen | offen | Kryptographisches Löschen (ADR-014) für die kommerzielle Schicht; Flex-PITR und Objektsperre klären (ADR-024) |

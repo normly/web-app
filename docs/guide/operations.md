@@ -74,10 +74,10 @@ DIGEST="$(cosign verify \
   | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["critical"]["image"]["docker-manifest-digest"])')"
 echo "$DIGEST"      # sha256:...
 
-CID="$(docker create "ghcr.io/normly/web-app/pipeline@$DIGEST")"
+CID="$(sudo docker create "ghcr.io/normly/web-app/pipeline@$DIGEST")"
 sudo docker cp "$CID:/app/deploy/scripts/." /opt/normly/bin/
 sudo docker cp "$CID:/app/deploy/systemd/." /etc/systemd/system/
-docker rm "$CID"
+sudo docker rm "$CID"
 sudo chmod 755 /opt/normly/bin/normly-deploy /opt/normly/bin/normly-backup \
   /opt/normly/bin/normly-backup-retention.py
 ```
@@ -90,10 +90,28 @@ successful deploy if the scripts changed.
 
 The scripts read `/opt/normly/.env` with their own small parser
 (`normly-env.sh`), not with the shell, because Compose accepts values the shell
-does not (`NORMLY_BRAND_COLOR_HSL=222 89% 55%`). They take only the keys they
-need (`NORMLY_DATABASE_URL`, `NORMLY_BACKUP_*`, `NORMLY_KB_*`, `RCLONE_*`,
-`AWS_*`); nothing in the file is evaluated. A variable that is already set in
-the environment of the call wins over the file.
+does not (`NORMLY_BRAND_COLOR_HSL=222 89% 55%`). They take only these keys
+from the file, and nothing in it is evaluated:
+
+- exactly `NORMLY_DATABASE_URL`, `NORMLY_BACKUP_AGE_RECIPIENT`,
+  `NORMLY_BACKUP_REMOTE`, `NORMLY_KB_PUBLIC_KEY_FILE` and `NORMLY_KB_BASE_URL`;
+- every key starting with `RCLONE_` or `AWS_` (rclone credentials).
+
+Other variables the scripts understand, such as `NORMLY_BACKUP_BIN`, are
+overrides of the process environment only; putting them in `.env` has no
+effect. A variable that is already set in the environment of the call wins over
+the file. If `python3` is missing or `.env` exists but cannot be read, the
+scripts stop with a message instead of continuing with an empty configuration;
+a missing `.env` file is allowed.
+
+Compose and the scripts read `.env` in slightly different dialects:
+
+- Compose interpolates `$` in unquoted and double-quoted values; the scripts
+  read every value literally. A password containing `$` therefore has to be
+  single-quoted (`PASSWORD='pa$word'`) to mean the same to both.
+- After a quoted value, the scripts strip a trailing ` # comment`, as they do
+  for unquoted values, and keep the value without the quotes.
+- A UTF-8 byte order mark at the start of the file is ignored.
 
 Create `/opt/normly/.env` from `.env.example` (production-style settings, see
 [Self-Hosting](self-hosting.md#production-style-setup)) and add the backup
@@ -432,9 +450,11 @@ still references a knowledge-base row that the new version removes, and names
 the blocking references. How to resolve such cases is an open product decision
 ([ADR-025](../adr/README.md#adr-025-wissensbestand-dump-als-austauschformat)).
 
-Before the first public dump, one open point must be settled: the dump
-currently contains personal names (`source.responsible_person`,
-`rights_classification.classified_by`).
+The dump contains no personal names: the export replaces
+`source.responsible_person` and `rights_classification.classified_by` with the
+role `normly maintainers` in every row. The real names exist only in the local
+ingestion database. An import writes the role label into those columns, so a
+production database that imports the public dump carries the label, not names.
 
 `python -m normly_core.exchange verify (--from DIR | --fetch VERSION)
 [--public-key PATH]` runs the same checks without a database; `normly-deploy

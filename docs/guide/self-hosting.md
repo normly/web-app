@@ -138,6 +138,9 @@ revision (embeddings from another revision are incompatible with this
 installation), and the SHA-256 checksum of every table file. A dump that fails
 any check is refused and the database stays unchanged.
 
+The dump carries no personal names: the columns `source.responsible_person`
+and `rights_classification.classified_by` hold the role `normly maintainers`.
+
 The import is idempotent: running it again with the same dump changes nothing.
 It also stops without writing if user data (watchlists, notifications, chat
 citations) still points at rows the new dump removes.
