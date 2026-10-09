@@ -239,7 +239,9 @@ rollback() {
   current="$(read_state current_tag)"; previous="$(read_state previous_tag)"
   backup="$(read_state pre_rollout_backup)"; kb_version="$(read_state pre_rollout_kb_version)"
   failed="$(read_state failed_rollout)"
-  [ -n "$previous" ] && [ -n "$backup" ] || die "no previous release recorded; nothing to roll back to"
+  if [ -z "$previous" ] || [ -z "$backup" ]; then
+    die "no previous release recorded; nothing to roll back to"
+  fi
   recover_release_folder "$previous"
   [ -d "$RELEASES/$previous" ] || die "release files for $previous are missing in $RELEASES"
   take_lock

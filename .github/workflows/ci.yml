@@ -88,6 +88,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       # The harness runs the real bash scripts with fake docker/cosign/rclone/age/pg_* binaries on PATH: no Docker socket, no database needed.
+      # The python:3.12 image is Debian bookworm, whose shellcheck is 0.9.0. Newer
+      # releases (0.11) no longer report some info-level findings (e.g. SC2015),
+      # so check locally with: docker run --rm -v "$PWD":/mnt -w /mnt koalaman/shellcheck:v0.9.0 <files>
       - run: apt-get update && apt-get install -y --no-install-recommends shellcheck && rm -rf /var/lib/apt/lists/*
       - run: shellcheck scripts/normly-deploy scripts/normly-backup scripts/normly-env.sh
       - run: pip install "pytest==8.4.2" && python -m pytest scripts/tests -q
