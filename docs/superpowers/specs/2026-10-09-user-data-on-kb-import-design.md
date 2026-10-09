@@ -1,6 +1,6 @@
 # Design: Nutzerdaten beim Import des Wissensbestands
 
-Stand: 2026-10-09 · Status: Entwurf, wartet auf Review. Folgt auf TP4
+Stand: 2026-10-09 · Status: umgesetzt. Folgt auf TP4
 (`docs/superpowers/specs/2026-10-09-tp4-deployment-automation-design.md`,
 ADR-025). Teil B (Lebenszyklus der Nutzerdaten insgesamt) ist ein eigener,
 späterer Entwurf.
@@ -83,7 +83,7 @@ ersten Schreibzugriff (`ImportRefused`); `allow_empty=True` bzw. CLI-Flag
 `--allow-empty` hebt das auf. Der Schutz verhindert, dass ein fehlerhafter
 oder leerer Export alle Dokumente auf einmal zurückzieht.
 
-`ImportBlockedError` bleibt als letzte Sicherung für einen **unerwarteten**
+`ImportBlockedError` (mit `.step`) bleibt als letzte Sicherung für einen **unerwarteten**
 Fremdschlüssel bestehen, wird im regulären Betrieb nicht mehr ausgelöst.
 Idempotenz bleibt: ein zweiter Import derselben Version ändert nichts
 (insbesondere nicht `retired_at`).

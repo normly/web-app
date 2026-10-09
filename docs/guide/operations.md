@@ -445,10 +445,18 @@ before any table file is downloaded, so a spoofed bucket cannot make the
 client fetch an unbounded amount of data. The import then verifies the
 signature again, the exchange schema version, the embedding
 model name **and** revision, the vector dimension and every file checksum before
-it writes. It is atomic and idempotent. It stops without changes if user data
-still references a knowledge-base row that the new version removes, and names
-the blocking references. How to resolve such cases is an open product decision
-([ADR-025](../adr/README.md#adr-025-wissensbestand-dump-als-austauschformat)).
+it writes. It is atomic and idempotent. A takedown always wins and user data never
+blocks an import: what the new version no longer contains loses its content
+(designations, titles, rights classification, segments, embeddings are deleted),
+while works, documents and edges stay as tombstones marked `retired_at` (edges
+are also revoked) and missing deliveries are marked withdrawn. User data such as
+watchlists, notifications and chat history is kept; chat citations only lose
+their segment reference. A tombstone that returns in a later dump becomes active
+again. Watchers of a withdrawn document get a "no longer available"
+notification the next time `notify-watchers` runs. An import of a dump without
+any documents is refused while the database holds documents; pass
+`--allow-empty` to apply it deliberately
+([ADR-026](../adr/README.md#adr-026-umgang-mit-nutzerdaten-beim-wissensbestand-import)).
 
 The dump contains no personal names: the export replaces
 `source.responsible_person` and `rights_classification.classified_by` with the
