@@ -13,7 +13,13 @@ import sqlalchemy as sa
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
+from normly_core import retention
 from normly_core.graph.postgres.repositories import (
+    PostgresAccountRepository,
+    PostgresAccountSessionRepository,
+    PostgresAccountTokenRepository,
+    PostgresChatRepository,
+    PostgresDeletionLogRepository,
     PostgresNotificationRepository,
     PostgresSourceRepository,
 )
@@ -66,6 +72,32 @@ def build_adapter(source: str, *, directory: Path, session: Session) -> SourceAd
     raise ValueError(f"unknown source: {source!r}")
 
 
+def _cleanup_user_data(session: Session, now: datetime) -> str:
+    """Applies every retention period; returns the summary line (counts only)."""
+    sessions = PostgresAccountSessionRepository(session).delete_sessions_expired_before(
+        now - retention.ACCOUNT_SESSION_GRACE
+    )
+    tokens = PostgresAccountTokenRepository(session).delete_tokens_done_before(
+        now - retention.ACCOUNT_TOKEN_GRACE
+    )
+    unverified = PostgresAccountRepository(session).delete_unverified_accounts_created_before(
+        now - retention.UNVERIFIED_ACCOUNT_MAX_AGE
+    )
+    notifications = PostgresNotificationRepository(session)
+    read = notifications.delete_read_before(now - retention.READ_NOTIFICATION_MAX_AGE)
+    unread = notifications.delete_unread_before(now - retention.UNREAD_NOTIFICATION_MAX_AGE)
+    anonymous_chats = PostgresChatRepository(session).delete_anonymous_chat_sessions()
+    # Last: this run's own entries are far newer than the cutoff.
+    log = PostgresDeletionLogRepository(session).delete_older_than(
+        now - retention.DELETION_LOG_MAX_AGE
+    )
+    return (
+        f"sessions={sessions} tokens={tokens} unverified_accounts={unverified} "
+        f"notifications_read={read} notifications_unread={unread} "
+        f"anonymous_chats={anonymous_chats} deletion_log={log}"
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m normly_core.pipeline")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -80,6 +112,8 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("backfill-document-embeddings")
 
     subparsers.add_parser("cleanup-notifications")
+
+    subparsers.add_parser("cleanup-user-data")
 
     subparsers.add_parser("notify-watchers")
 
@@ -114,6 +148,9 @@ def main(argv: list[str] | None = None) -> int:
                 deleted = PostgresNotificationRepository(session).delete_read_before(cutoff)
                 session.commit()
                 print(f"notifications_deleted={deleted}")
+            elif args.command == "cleanup-user-data":
+                print(_cleanup_user_data(session, datetime.now(timezone.utc)))
+                session.commit()
             elif args.command == "notify-watchers":
                 smtp_host = os.environ.get("NORMLY_SMTP_HOST")
                 if smtp_host:

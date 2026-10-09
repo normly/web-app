@@ -101,3 +101,8 @@ def test_designations_and_titles_are_purged_not_retained():
     # collide on their natural unique keys. No user data references them.
     assert tables.RETAINED_TABLES == ("source", "delivery")
     assert {"document_designation", "document_title"} <= set(tables.PURGE_TABLES)
+
+
+def test_deletion_log_is_a_user_table_without_foreign_keys():
+    assert "deletion_log" in tables.USER_TABLES
+    assert _foreign_targets("deletion_log") == set()

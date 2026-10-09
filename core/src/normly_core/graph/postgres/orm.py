@@ -718,6 +718,22 @@ class NotifiedRetirementORM(Base):
     )
 
 
+class DeletionLogORM(Base):
+    __tablename__ = "deletion_log"
+
+    # Which deletions must be replayed after a rollback to an older backup.
+    # Carries no personal data and, deliberately, no foreign key: the
+    # identifiers point at rows that no longer exist.
+    kind: Mapped[str] = mapped_column(sa.String(12), primary_key=True)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    deleted_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        sa.CheckConstraint("kind IN ('account', 'chat_session')", name="deletion_log_kind"),
+        sa.Index("ix_deletion_log_deleted_at", "deleted_at"),
+    )
+
+
 class ChatSessionORM(Base):
     __tablename__ = "chat_session"
 

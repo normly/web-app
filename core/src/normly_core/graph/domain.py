@@ -748,6 +748,10 @@ class NotificationRepository(Protocol):
         """
         ...
 
+    def delete_read_before(self, cutoff: datetime) -> int: ...
+
+    def delete_unread_before(self, cutoff: datetime) -> int: ...
+
 
 @dataclass(frozen=True)
 class RightsNotificationBaseline:
@@ -993,6 +997,16 @@ class ChatRepository(Protocol):
 
     def link_account(self, session_id: uuid.UUID, account_id: uuid.UUID) -> None: ...
 
+    def delete_anonymous_chat_sessions(self) -> int:
+        """Deletes every session without an account (legacy rows); returns the count."""
+        ...
+
+    def delete_chat_session(self, session_id: uuid.UUID, account_id: uuid.UUID) -> bool:
+        """Deletes the session only if it belongs to account_id; True if deleted."""
+        ...
+
+    def delete_chat_sessions_for_account(self, account_id: uuid.UUID) -> int: ...
+
     def create_message(
         self, *, session_id: uuid.UUID, role: ChatMessageRole, content: str,
         answer_type: ChatAnswerType | None, created_at: datetime,
@@ -1114,7 +1128,26 @@ class AccountRepository(Protocol):
 
     def clear_avatar(self, account_id: uuid.UUID) -> None: ...
 
-    def delete_account(self, account_id: uuid.UUID) -> None: ...
+    def delete_account(self, account_id: uuid.UUID) -> None:
+        """Deletes the account and everything it owns; writes a deletion_log entry."""
+        ...
+
+    def delete_unverified_accounts_created_before(self, cutoff: datetime) -> int:
+        """Same cascade as delete_account, for accounts never email-verified."""
+        ...
+
+
+class DeletionLogRepository(Protocol):
+    """
+    Identifiers of deleted accounts and chat sessions, no personal data. Lets a
+    rollback to an older backup delete them again. `record` is idempotent.
+    """
+
+    def record(self, *, kind: str, entity_id: uuid.UUID, deleted_at: datetime) -> None: ...
+
+    def entries_since(self, since: datetime) -> list[tuple[str, uuid.UUID, datetime]]: ...
+
+    def delete_older_than(self, cutoff: datetime) -> int: ...
 
 
 class EmailAlreadyRegisteredError(Exception):
@@ -1172,6 +1205,8 @@ class AccountSessionRepository(Protocol):
 
     def revoke_session_by_id(self, session_id: uuid.UUID, account_id: uuid.UUID) -> bool: ...
 
+    def delete_sessions_expired_before(self, cutoff: datetime) -> int: ...
+
 
 class AccountTokenRepository(Protocol):
     """
@@ -1201,6 +1236,10 @@ class AccountTokenRepository(Protocol):
     def consume_token(
         self, token: str, purpose: AccountTokenPurpose
     ) -> AccountToken | None: ...
+
+    def delete_tokens_done_before(self, cutoff: datetime) -> int:
+        """Deletes tokens whose expires_at or used_at lies before cutoff."""
+        ...
 
 
 class OAuthStateRepository(Protocol):
