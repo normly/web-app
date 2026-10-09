@@ -6,7 +6,7 @@
 
 **Ausführungsreihenfolge:** Task 1, 2, 4, 5, dann Task 3 (Dokumentation zuletzt, weil ADR-026 die Meldung beschreibt).
 
-**Architecture:** Klassen-Konstanten in `normly_core/exchange/tables.py` (reine Daten, mit Fail-closed-Test gegen die ORM-Fremdschlüssel); Migration 0033 und ORM-Spalte `retired_at` auf drei Tabellen, die aus dem Austauschformat ausgeschlossen bleibt; `replace_knowledge_base` wird von drei Lösch-/Einfügedurchläufen auf einen Ablauf „Zitate lösen → Inhalt löschen → einfügen → Tombstones setzen“ umgestellt. Spec: `docs/superpowers/specs/2026-10-09-user-data-on-kb-import-design.md`.
+**Architecture:** Klassen-Konstanten in `normly_core/exchange/tables.py` (reine Daten, mit Fail-closed-Test gegen die ORM-Fremdschlüssel); Migration 0033 und ORM-Spalte `retired_at` auf drei Tabellen, die aus dem Austauschformat ausgeschlossen bleibt; `replace_knowledge_base` wird von drei Lösch-/Einfügedurchläufen auf einen Ablauf „Zitate lösen → Inhalt löschen → Tombstones setzen → einfügen“ umgestellt. Spec: `docs/superpowers/specs/2026-10-09-user-data-on-kb-import-design.md`.
 
 **Tech Stack:** Python 3.11+, SQLAlchemy 2 Core, Alembic, pytest + testcontainers (Postgres/pgvector).
 
@@ -19,7 +19,7 @@
 - `retired_at` ist keine Austauschspalte: Der Dump, `exchange_columns` und `iter_exportable_rows` enthalten sie nicht; `EXCHANGE_SCHEMA_VERSION` und das Dump-Layout bleiben unverändert.
 - Verarbeitungsschritte idempotent: ein zweiter Import derselben Version ändert nichts (auch nicht `retired_at`/`withdrawn_at`).
 - Abstammung: `delivery_id` bleibt in jeder Zeile; `delivery`/`source` werden nie gelöscht.
-- Klassen (verbindlich): Tombstone = `work`, `document`, `edge` (mit dem Dokument bleiben `document_designation`, `document_title` unangetastet); Herkunft = `source`, `delivery` (fehlende Lieferung erhält `withdrawn_at`, falls leer); Inhalt/Ableitung = `segment`, `embedding`, `document_embedding`, `rights_classification` (werden gelöscht).
+- Klassen (verbindlich): Tombstone = `work`, `document`, `edge` (eine zurückgezogene Kante wird zusätzlich widerrufen: `revoked_at = COALESCE(revoked_at, Importzeit)`); Herkunft = `source`, `delivery` (fehlende Lieferung erhält `withdrawn_at`, falls leer); Inhalt/Ableitung = `document_designation`, `document_title`, `rights_classification`, `segment`, `embedding`, `document_embedding` (werden gelöscht). Ablauf: Schlüssel laden → Zitate lösen → Inhalt löschen (rückwärts) → Tombstones setzen → Lieferungen → Einfügen → Importvermerk. Ein leerer Dump (keine Dokumente) wird bei gefüllter Datenbank verweigert, außer mit `allow_empty`/`--allow-empty`.
 - Löseregeln für Nutzerverweise (verbindlich): `chat_message_citation.segment_id` → `NULL` für Segmente, die der Dump nicht mehr enthält. Alle anderen Verweise von Nutzerdaten/Pipeline-Zustand zeigen auf Tombstone- oder Herkunftsklassen und brauchen keine Regel.
 - Tests: `cd core && ../.venv/bin/pytest <pfad>`; Skript-Tests separat (`.venv/bin/pytest scripts/tests` im Repo-Root), die beiden conftest-Module dürfen nicht in einem Lauf gemischt werden.
 - Dokumentation: ADRs, Spec, Plan, SRS, CLAUDE.md auf Deutsch; `docs/guide/*` auf Englisch.
@@ -54,8 +54,8 @@
 **Interfaces:**
 - Produces in `tables.py`:
   - `TOMBSTONE_TABLES: tuple[str, ...] = ("work", "document", "edge")`
-  - `RETAINED_TABLES: tuple[str, ...] = ("source", "delivery", "document_designation", "document_title")`
-  - `PURGE_TABLES: tuple[str, ...] = ("rights_classification", "segment", "embedding", "document_embedding")` — in der Reihenfolge von `KNOWLEDGE_TABLES` (Eltern zuerst); Löschen läuft rückwärts.
+  - `RETAINED_TABLES: tuple[str, ...] = ("source", "delivery")`
+  - `PURGE_TABLES: tuple[str, ...] = ("document_designation", "document_title", "rights_classification", "segment", "embedding", "document_embedding")` — in der Reihenfolge von `KNOWLEDGE_TABLES` (Eltern zuerst); Löschen läuft rückwärts.
   - `DETACHED_REFERENCES: dict[tuple[str, str], str] = {("chat_message_citation", "segment_id"): "segment"}` (Kindtabelle, Spalte → Elterntabelle)
   - `EXCLUDED_EXCHANGE_COLUMNS: dict[str, tuple[str, ...]] = {"work": ("retired_at",), "document": ("retired_at",), "edge": ("retired_at",)}`
 - Produces: ORM-Attribut `retired_at: Mapped[datetime | None]` auf den drei Tabellen; `exchange_columns(table)` und `iter_exportable_rows(table)` liefern `retired_at` nicht.
@@ -162,24 +162,19 @@ Am Ende von `core/src/normly_core/exchange/tables.py` (vor `group_tables` oder d
 
 #: Identifier rows without content. They stay with `retired_at` set, so that
 #: user data pointing at them (watchlist, notification, citation) stays valid.
-#: `document_designation` and `document_title` hang on the document and are
-#: left untouched. They belong to RETAINED_TABLES.
 TOMBSTONE_TABLES: tuple[str, ...] = ("work", "document", "edge")
 
 #: Provenance and identifier-only rows that are never deleted by an import
 #: (tombstones reference them). A missing delivery gets `withdrawn_at`.
-RETAINED_TABLES: tuple[str, ...] = (
-    "source",
-    "delivery",
-    "document_designation",
-    "document_title",
-)
+RETAINED_TABLES: tuple[str, ...] = ("source", "delivery")
 
 #: Content and derivations. Physically deleted when missing from the dump, so
 #: withdrawn text can no longer be read (also not from backups once they
 #: expire). Same relative order as KNOWLEDGE_TABLES (parents first); deletes
 #: run in reverse.
 PURGE_TABLES: tuple[str, ...] = (
+    "document_designation",
+    "document_title",
     "rights_classification",
     "segment",
     "embedding",
@@ -292,11 +287,13 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 **Ablauf (verbindlich, in dieser Reihenfolge):**
 1. `_load_keys` (Schlüssel aus dem Dump in temporäre Tabellen).
 2. `_detach_missing_references`: für jeden Eintrag in `DETACHED_REFERENCES`: `UPDATE child SET column = NULL WHERE column IS NOT NULL AND NOT EXISTS (Schlüssel in keep_parent)`.
-3. Inhalt löschen, rückwärts durch `PURGE_TABLES`: `DELETE ... WHERE NOT EXISTS (Schlüssel in keep)` — **vor** dem Einfügen, damit natürliche Eindeutigkeitsschlüssel (`segment(document_id, sequence_number)`, `embedding(segment_id, model_name)`) nicht mit alten, ausgedienten Zeilen kollidieren.
-4. Einfügen/Aktualisieren in `KNOWLEDGE_TABLES`-Reihenfolge (`_upsert`); für `TOMBSTONE_TABLES` wird `retired_at = NULL` mitgeschrieben (Wiederkehr).
-5. Tombstones: für jede Tabelle in `TOMBSTONE_TABLES`: `UPDATE t SET retired_at = :now WHERE retired_at IS NULL AND NOT EXISTS (Schlüssel in keep)`; `now = record.imported_at`.
-6. Fehlende Lieferungen: `UPDATE delivery SET withdrawn_at = :now WHERE withdrawn_at IS NULL AND NOT EXISTS (Schlüssel in keep)`.
+3. Inhalt löschen, rückwärts durch `PURGE_TABLES`: `DELETE ... WHERE NOT EXISTS (Schlüssel in keep)` — **vor** dem Einfügen, damit natürliche Eindeutigkeitsschlüssel (`segment(document_id, sequence_number)`, `embedding(segment_id, model_name)`, Bezeichnung/Titel) nicht mit alten, ausgedienten Zeilen kollidieren.
+4. Tombstones **vor dem Einfügen**: für jede Tabelle in `TOMBSTONE_TABLES`: `UPDATE t SET retired_at = :now WHERE retired_at IS NULL AND NOT EXISTS (Schlüssel in keep)`; `now = record.imported_at`. Für `edge` zusätzlich `revoked_at = COALESCE(revoked_at, :now)` (einziges Lesetor der Kanten; gibt den partiellen Eindeutigkeitsindex aktiver Kanten für eine neu gelieferte Kante frei).
+5. Fehlende Lieferungen: `UPDATE delivery SET withdrawn_at = :now WHERE withdrawn_at IS NULL AND NOT EXISTS (Schlüssel in keep)`.
+6. Einfügen/Aktualisieren in `KNOWLEDGE_TABLES`-Reihenfolge (`_upsert`); für `TOMBSTONE_TABLES` wird `retired_at = NULL` mitgeschrieben (Wiederkehr); eine wiederkehrende Kante erhält `revoked_at` aus dem Dump (`NULL`).
 7. `_write_record(record)`; temporäre Tabellen droppen. Der Aufrufer committet.
+
+Zusätzlich: `import_dump(..., allow_empty=False)` verweigert (`ImportRefused`) einen Dump ohne `document`-Zeilen, wenn `repository.has_documents()`; CLI-Flag `--allow-empty` auf `import`.
 
 Jeder `IntegrityError` in den Schritten 2–6 wird zu `ImportBlockedError(<Tabelle>, <erste Zeile der Fehlermeldung>)` (letzte Sicherung für unerwartete Fremdschlüssel, im Regelbetrieb nicht ausgelöst).
 
@@ -496,12 +493,12 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 - [ ] **Step 1: ADR-026 schreiben** (Format der Nachbar-ADRs: `## ADR-026 — …`, Status/Datum, Kontext, Entscheidung, Begründung, Verworfen, Folgen). Inhalt:
   - **Titel:** „Umgang mit Nutzerdaten beim Wissensbestand-Import“; Status angenommen 2026-10-09.
   - **Kontext:** `ImportBlockedError` blockierte Importe an Nutzerverweisen; eine rechtlich gebotene Rücknahme darf nicht an Nutzerdaten scheitern (CLAUDE.md „Abstammung mitführen“). Befund: keine Nutzerdaten-Tabelle speichert urheberrechtlich geschützten Inhalt, nur Verweise.
-  - **Entscheidung:** Klassen (Tombstone: `work`, `document`, `edge`; Herkunft: `source`, `delivery`, `document_designation`, `document_title`; Inhalt/Ableitung: `segment`, `embedding`, `document_embedding`, `rights_classification` → gelöscht); `retired_at` (nicht im Austauschformat); Wiederkehr; Zitate verlieren `segment_id`; Fail-closed-Test für Fremdschlüssel; `retired_at` ist keine Filterpflicht, weil das Rechtetor (gelöschte Klassifikation) die Dokumente aus allen tor-gebundenen Abfragen nimmt; Reihenfolge Löschen vor Einfügen wegen natürlicher Schlüssel.
+  - **Entscheidung:** Klassen (Tombstone: `work`, `document`, `edge`, Kanten zusätzlich widerrufen; Herkunft: `source`, `delivery`; Inhalt/Ableitung: `document_designation`, `document_title`, `rights_classification`, `segment`, `embedding`, `document_embedding` → gelöscht); Schutz vor leerem Dump (`allow_empty`/`--allow-empty`); `retired_at` (nicht im Austauschformat); Wiederkehr; Zitate verlieren `segment_id`; Fail-closed-Test für Fremdschlüssel; `retired_at` ist keine Filterpflicht, weil das Rechtetor (gelöschte Klassifikation) die Dokumente aus allen tor-gebundenen Abfragen nimmt; Reihenfolge Löschen und Zurückziehen vor Einfügen wegen natürlicher Schlüssel (Neulieferung mit neuen IDs).
   - **Begründung:** Rücknahme gewinnt immer; keine Textreste in Produktion und Sicherungen nach Ablauf; keine Nutzerdaten gehen verloren.
   - **Verworfen:** Blockieren mit Bereinigungswerkzeug (Rücknahme wartet auf einen Menschen); Nutzerverweise anpassen/löschen (Datenverlust ohne Nutzen, da nur Verweise); reine Tombstones auch für Inhalt (Rücknahme nur logisch, Text bliebe lesbar in DB/Sicherungen).
   - **Folgen / offen:** (1) In Produktion verschwindet bei einem Widerruf die Klassifikation; `notify-watchers` (RIGHTS_CHANGE) sieht dann nichts mehr — eine Meldung „nicht mehr verfügbar“ auf Basis von `retired_at` ist Folgearbeit (Produktentscheidung); (2) Aufbewahrung/Alterung von Tombstones offen (Teil B); (3) Dumps müssen aus einer Abstammungslinie mit stabilen IDs stammen: Ein Neuaufbau der Produzenten-Datenbank mit neuen IDs kollidiert mit stehengebliebenen Tombstones (partielle Eindeutigkeit von Kanten, Bezeichner) und bricht mit `ImportBlockedError` ab; (4) Tombstones bleiben in der Datenbank sichtbar für Pipeline-Lesewege ohne Rechtetor (`*_unchecked`); diese dürfen sie nicht als Inhalt ausliefern.
   Folge (1) lautet nach Task 4/5 nicht mehr „offen“: Der Widerruf wird in Produktion als Benachrichtigung `no_longer_available` gemeldet (Erkennung aus `retired_at`, Dedup über `notified_retirement`); offen bleibt nur die RIGHTS_CHANGE-Meldung im engeren Sinn (Rechtewerte ändern sich, ohne dass das Dokument verschwindet) — die entsteht weiter beim Produzenten. Dokumentiere das so.
-  Übertrage in ADR-025 den Verweis auf ADR-026 (Import: „Zitate lösen → Inhalt löschen → einfügen → Tombstones setzen“; Blockierregel und der offene Punkt „Nutzerdaten, die auf ersetzte Segmente/Kanten verweisen, können Importe blockieren“ entfallen).
+  Übertrage in ADR-025 den Verweis auf ADR-026 (Import: „Zitate lösen → Inhalt löschen → Tombstones setzen → einfügen“; Blockierregel und der offene Punkt „Nutzerdaten, die auf ersetzte Segmente/Kanten verweisen, können Importe blockieren“ entfallen).
 - [ ] **Step 2: TP4-Spec Teil 3 Schritt 4, `docs/guide/operations.md`:** Importverhalten (Tombstones, Wiederkehr, was nach einer Rücknahme in den Nutzerdaten passiert) in zwei bis vier Sätzen beschreiben (Guide Englisch); Spec-Status der neuen Spec auf „umgesetzt“ setzen.
 - [ ] **Step 3: Docs-Build wie in CI** (docker `python:3.12` mit `pip install "zensical==0.0.60" "mkdocstrings==1.0.6" "mkdocstrings-python==2.0.8" "griffelib==2.3.0"`, dann `zensical build`; Ausgabe muss eine Zeile `3 issues found` enthalten; mit `--user "$(id -u):$(id -g)"` und beschreibbarem HOME laufen lassen und danach `site/` und `.cache/` entfernen, damit keine root-eigenen Dateien bleiben).
 - [ ] **Step 4: Commit**

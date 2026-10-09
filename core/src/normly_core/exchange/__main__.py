@@ -143,6 +143,10 @@ def main(argv: list[str] | None = None) -> int:
         "with this build"
     )
     imp.add_argument("--public-key", type=Path, help=key_help)
+    imp.add_argument(
+        "--allow-empty", action="store_true",
+        help="apply a dump without documents even though the database holds some",
+    )
 
     ver = sub.add_parser("verify", help="check a dump (no database needed)")
     ver_source = ver.add_mutually_exclusive_group(required=True)
@@ -219,6 +223,7 @@ def main(argv: list[str] | None = None) -> int:
                     record = import_dump(
                         repository, dump_dir=dump_dir, public_key_pem=public_pem,
                         expected_model_name=MODEL_NAME, expected_model_revision=revision,
+                        allow_empty=args.allow_empty,
                     )
                 except (ImportRefused, ImportBlockedError) as exc:
                     session.rollback()

@@ -99,12 +99,15 @@ def import_dump(
     expected_model_name: str,
     expected_model_revision: str,
     now: datetime | None = None,
+    allow_empty: bool = False,
 ) -> ImportRecord:
     """
     Verify the dump (see verify_dump) and replace the knowledge base with it.
     A takedown always wins (ADR-026): what the dump no longer contains is
     deleted (content) or retired (identifiers); user data never blocks the
-    import, only an unexpected foreign key raises ImportBlockedError.
+    import, only an unexpected foreign key raises ImportBlockedError. An
+    empty dump (no documents) is refused while the database holds documents,
+    unless `allow_empty` is set.
 
     All checks run before the first write, so ImportRefused leaves the
     database untouched. This function never commits: the caller owns the
@@ -118,6 +121,14 @@ def import_dump(
         expected_model_name=expected_model_name,
         expected_model_revision=expected_model_revision,
     )
+
+    if not allow_empty and repository.has_documents():
+        if sum(entry.rows for entry in manifest.tables["document"]) == 0:
+            raise ImportRefused(
+                "the dump contains no documents, but this database holds some; "
+                "importing it would take every document down. Pass allow_empty=True "
+                "(--allow-empty) to apply it anyway"
+            )
 
     def batches(name: str):
         def produce():

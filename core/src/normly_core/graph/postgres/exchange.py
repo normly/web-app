@@ -286,6 +286,9 @@ class PostgresKnowledgeExchangeRepository:
         )
         return [(str(i), publisher, category.value) for i, publisher, category in rows]
 
+    def has_documents(self) -> bool:
+        return self._session.execute(select(sa.exists().where(DocumentORM.id.is_not(None)))).scalar_one()
+
     def imported_version(self) -> ImportRecord | None:
         row = self._session.execute(select(KnowledgeBaseImportORM)).scalar_one_or_none()
         if row is None:
@@ -318,21 +321,25 @@ class PostgresKnowledgeExchangeRepository:
         connection = self._session.connection()
         now = record.imported_at or datetime.now(timezone.utc)
         keep_tables = self._load_keys(connection, tables)
-        step = "load"
+        step = ""
         try:
             step = "detach"
             self._detach_missing_references(connection, keep_tables)
             for name in reversed(PURGE_TABLES):
                 step = name
                 self._delete_missing(connection, name, keep_tables)
-            for name in KNOWLEDGE_TABLES:
-                step = name
-                self._upsert(connection, name, tables[name])
+            # Retire before the upsert: a retired edge is revoked, which frees
+            # the partial unique index on active edges for a re-delivered edge
+            # with the same endpoints but a new id. "Missing" depends on the
+            # key tables only, so the order does not change which rows retire.
             for name in TOMBSTONE_TABLES:
                 step = name
                 self._retire_missing(connection, name, keep_tables, now)
             step = "delivery"
             self._withdraw_missing_deliveries(connection, keep_tables, now)
+            for name in KNOWLEDGE_TABLES:
+                step = name
+                self._upsert(connection, name, tables[name])
         except IntegrityError as exc:
             raise ImportBlockedError(step, str(exc.orig).splitlines()[0]) from exc
         self._write_record(record)
@@ -398,13 +405,18 @@ class PostgresKnowledgeExchangeRepository:
         self, connection, name: str, keep_tables: Mapping[str, sa.Table], now: datetime
     ) -> None:
         sa_table = Base.metadata.tables[name]
+        values: dict[str, Any] = {"retired_at": now}
+        if name == "edge":
+            # revoked_at is the single read gate for edges; a retired edge
+            # must disappear from every edge read, also between live documents.
+            values["revoked_at"] = sa.func.coalesce(sa_table.c.revoked_at, now)
         connection.execute(
             sa.update(sa_table)
             .where(
                 sa_table.c.retired_at.is_(None),
                 self._missing(sa_table, keep_tables[name]),
             )
-            .values(retired_at=now)
+            .values(values)
         )
 
     def _withdraw_missing_deliveries(

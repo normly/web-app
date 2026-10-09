@@ -30,9 +30,9 @@ behandelt:
 
 | Klasse | Tabellen | Behandlung |
 |---|---|---|
-| Tombstone (Kennung, kein Inhalt) | `work`, `document`, `edge`; mit dem Dokument `document_designation`, `document_title` | Zeile bleibt; Spalte `retired_at` wird gesetzt. Nutzerverweise bleiben gültig. Kommt die Zeile später wieder im Dump vor, wird `retired_at` wieder `NULL`. |
+| Tombstone (Kennung, kein Inhalt) | `work`, `document`, `edge` | Zeile bleibt; Spalte `retired_at` wird gesetzt. Nutzerverweise bleiben gültig. Kommt die Zeile später wieder im Dump vor, wird `retired_at` wieder `NULL`. Eine zurückgezogene **Kante** wird zusätzlich widerrufen (`revoked_at = COALESCE(revoked_at, Importzeit)`), weil `revoked_at` das einzige Lesetor für Kanten ist; kehrt sie zurück, schreibt der Upsert `revoked_at` aus dem Dump (`NULL`) zurück. |
 | Herkunft | `delivery`, `source` | Bleibt (Tombstones verweisen darauf). Eine im Dump fehlende Lieferung erhält `withdrawn_at`, falls noch leer. |
-| Inhalt/Ableitung | `segment`, `embedding`, `document_embedding`, `rights_classification` | Wird **physisch gelöscht**. Zitate (`chat_message_citation`) verlieren dabei die `segment_id` (bereits nullable); das Dokument bleibt als Tombstone. |
+| Inhalt/Ableitung | `document_designation`, `document_title`, `rights_classification`, `segment`, `embedding`, `document_embedding` | Wird **physisch gelöscht**. (Bezeichnungen und Titel gehören hierher: kein Nutzerverweis zeigt darauf, das Dokument behält Herausgeber/Nummer/Ausgabe als Kennung, und eine Neulieferung legt sie mit neuen IDs wieder an, was alte Zeilen an den natürlichen Eindeutigkeitsschlüsseln kollidieren ließe.)  Zitate (`chat_message_citation`) verlieren dabei die `segment_id` (bereits nullable); das Dokument bleibt als Tombstone. |
 
 Damit kann ein zurückgezogener Text nirgends mehr gelesen werden (auch nicht aus
 Sicherungen nach deren Ablauf), und kein Nutzerverweis geht verloren.
@@ -57,17 +57,31 @@ importierenden Instanz und wird beim Export ausgeschlossen
 **`replace_knowledge_base`** (ersetzt die drei Durchläufe aus der
 TP4-Umsetzung):
 
-1. Einfügen/Aktualisieren in FK-Reihenfolge; für Zeilen der Tombstone-Klassen
-   aus dem Dump wird `retired_at` auf `NULL` gesetzt (Wiederkehr).
+1. Schlüssel des Dumps in temporäre Tabellen laden.
 2. `chat_message_citation.segment_id` wird auf `NULL` gesetzt für Segmente, die
    der Dump nicht mehr enthält.
 3. Löschen der Inhalts-/Ableitungsklasse in umgekehrter FK-Reihenfolge
-   (`document_embedding`, `embedding`, `segment`, `rights_classification`) für
-   alle Schlüssel, die nicht im Dump stehen.
-4. Tombstones: `retired_at = Importzeit` für fehlende, noch nicht
-   zurückgezogene `work`/`document`/`edge`; fehlende `delivery` erhält
-   `withdrawn_at`.
-5. Importvermerk schreiben; der Aufrufer committet wie bisher.
+   (`document_embedding`, `embedding`, `segment`, `rights_classification`,
+   `document_title`, `document_designation`) für alle Schlüssel, die nicht im
+   Dump stehen.
+4. Tombstones **vor dem Einfügen**: `retired_at = Importzeit` für fehlende,
+   noch nicht zurückgezogene `work`/`document`/`edge` (Kanten zusätzlich
+   `revoked_at`, siehe Tabelle). Das gibt den partiellen Eindeutigkeitsindex
+   aktiver Kanten frei, bevor eine neu gelieferte Kante mit gleichen
+   Endpunkten und neuer ID eingefügt wird. „Fehlend“ hängt nur von den
+   Schlüsseltabellen ab, die Reihenfolge ändert also nicht, welche Zeilen
+   zurückgezogen werden.
+5. Fehlende `delivery` erhält `withdrawn_at`.
+6. Einfügen/Aktualisieren in FK-Reihenfolge; für Zeilen der Tombstone-Klassen
+   aus dem Dump wird `retired_at` auf `NULL` gesetzt (Wiederkehr), für Kanten
+   gilt `revoked_at` aus dem Dump.
+7. Importvermerk schreiben; der Aufrufer committet wie bisher.
+
+**Schutz vor leerem Dump:** Enthält der Dump keine `document`-Zeile, während
+die Datenbank Dokumente hält, verweigert `import_dump` den Import vor dem
+ersten Schreibzugriff (`ImportRefused`); `allow_empty=True` bzw. CLI-Flag
+`--allow-empty` hebt das auf. Der Schutz verhindert, dass ein fehlerhafter
+oder leerer Export alle Dokumente auf einmal zurückzieht.
 
 `ImportBlockedError` bleibt als letzte Sicherung für einen **unerwarteten**
 Fremdschlüssel bestehen, wird im regulären Betrieb nicht mehr ausgelöst.

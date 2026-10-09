@@ -137,3 +137,16 @@ def test_fetch_failure_exits_1_with_message(monkeypatch, capsys, fake_db):
     assert "fetch failed: HTTP 404" in capsys.readouterr().err
     (session,) = _FakeSession.instances
     assert session.rolled_back and not session.committed
+
+
+@pytest.mark.parametrize("flags,expected", [([], False), (["--allow-empty"], True)])
+def test_import_passes_allow_empty_through(monkeypatch, tmp_path, fake_db, flags, expected):
+    seen = {}
+
+    def fake_import(*args, **kwargs):
+        seen.update(kwargs)
+        return types.SimpleNamespace(dump_version="v")
+
+    monkeypatch.setattr(cli, "import_dump", fake_import)
+    assert main(["import", "--from", str(tmp_path), "--public-key", str(fake_db), *flags]) == 0
+    assert seen["allow_empty"] is expected

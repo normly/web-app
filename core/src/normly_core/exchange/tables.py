@@ -68,20 +68,17 @@ TOMBSTONE_TABLES: tuple[str, ...] = ("work", "document", "edge")
 
 #: Provenance and identifier-only rows that are never deleted by an import
 #: (tombstones reference them). A missing delivery gets `withdrawn_at`.
-#: `document_designation` and `document_title` hang on the document and are
-#: left untouched.
-RETAINED_TABLES: tuple[str, ...] = (
-    "source",
-    "delivery",
-    "document_designation",
-    "document_title",
-)
+RETAINED_TABLES: tuple[str, ...] = ("source", "delivery")
 
 #: Content and derivations. Physically deleted when missing from the dump, so
 #: withdrawn text can no longer be read (also not from backups once they
-#: expire). Same relative order as KNOWLEDGE_TABLES (parents first); deletes
+#: expire). Designations and titles belong here too: no user data points at
+#: them, and a re-delivery recreates them with new ids, which would collide on
+#: their natural unique keys if stale rows stayed. Same relative order as KNOWLEDGE_TABLES (parents first); deletes
 #: run in reverse.
 PURGE_TABLES: tuple[str, ...] = (
+    "document_designation",
+    "document_title",
     "rights_classification",
     "segment",
     "embedding",

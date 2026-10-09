@@ -1215,9 +1215,9 @@ class ImportBlockedError(Exception):
     methods never commit, and the transaction is left in a failed state.
     """
 
-    def __init__(self, table: str, detail: str):
-        super().__init__(f"import blocked while deleting from {table}: {detail}")
-        self.table = table
+    def __init__(self, step: str, detail: str):
+        super().__init__(f"import blocked at step {step}: {detail}")
+        self.step = step
         self.detail = detail
 
 
@@ -1258,6 +1258,10 @@ class KnowledgeExchangeRepository(Protocol):
         gets `withdrawn_at`. User data never blocks the import; only an
         unexpected foreign key raises ImportBlockedError. Never commits.
         """
+        ...
+
+    def has_documents(self) -> bool:
+        """True when the database holds at least one document (retired or not)."""
         ...
 
     def imported_version(self) -> ImportRecord | None: ...

@@ -94,3 +94,10 @@ def test_detached_references_point_at_purge_tables():
     for (child, column), parent in tables.DETACHED_REFERENCES.items():
         assert parent in tables.PURGE_TABLES
         assert column in Base.metadata.tables[child].columns
+
+
+def test_designations_and_titles_are_purged_not_retained():
+    # Re-delivery creates them again with new ids; keeping stale rows would
+    # collide on their natural unique keys. No user data references them.
+    assert tables.RETAINED_TABLES == ("source", "delivery")
+    assert {"document_designation", "document_title"} <= set(tables.PURGE_TABLES)

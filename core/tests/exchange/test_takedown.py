@@ -21,6 +21,7 @@ from normly_core.graph.postgres.exchange import PostgresKnowledgeExchangeReposit
 from normly_core.graph.postgres.repositories import (
     PostgresAccountRepository,
     PostgresChatRepository,
+    PostgresDeliveryRepository,
     PostgresDocumentEmbeddingRepository,
     PostgresDocumentRepository,
     PostgresEdgeRepository,
@@ -340,3 +341,118 @@ def test_natural_key_collision_with_a_purged_row_does_not_block(db_session):
         )
     }
     assert ids == {replacement["id"]}
+
+
+def _live_edge_scenario(db_session):
+    source = make_source(db_session)
+    delivery = make_delivery(db_session, source, "le")
+    a = make_document(db_session, delivery, "A")
+    b = make_document(db_session, delivery, "B")
+    edge = PostgresEdgeRepository(db_session).create_edge(
+        from_document_id=a.id, to_document_id=b.id, edge_type=EdgeType.REFERENCES,
+        jurisdiction=None, layer=Layer.FREE, delivery_id=delivery.id,
+    )
+    repository = PostgresKnowledgeExchangeRepository(db_session)
+    full = _dump(repository)
+    without = dict(full, edge=[r for r in full["edge"] if r["id"] != str(edge.id)])
+    return repository, a, edge, full, without
+
+
+def _visible_edges(db_session, repository, document):
+    edges = PostgresEdgeRepository(db_session)
+    return {
+        "all": edges.list_edges_for_jurisdiction(document.id, "DE"),
+        "free": edges.list_free_layer_edges_for_jurisdiction(document.id, "DE"),
+        "exportable": edges.list_exportable_edges_for_jurisdiction(document.id, "DE"),
+        "dump": [r for b in repository.iter_exportable_rows("edge") for r in b],
+    }
+
+
+def test_retired_edge_between_live_documents_is_unreadable_until_it_returns(db_session):
+    repository, a, edge, full, without = _live_edge_scenario(db_session)
+    assert all(_visible_edges(db_session, repository, a).values())
+
+    repository.replace_knowledge_base(_frozen(without), record=RECORD)
+    db_session.expire_all()
+    assert not any(_visible_edges(db_session, repository, a).values())
+    row = db_session.execute(
+        sa.text("SELECT retired_at, revoked_at FROM edge WHERE id = :i"), {"i": edge.id}
+    ).one()
+    assert row.retired_at is not None and row.revoked_at == RECORD.imported_at
+
+    repository.replace_knowledge_base(_frozen(full), record=LATER)
+    db_session.expire_all()
+    assert all(_visible_edges(db_session, repository, a).values())
+    row = db_session.execute(
+        sa.text("SELECT retired_at, revoked_at FROM edge WHERE id = :i"), {"i": edge.id}
+    ).one()
+    assert row.retired_at is None and row.revoked_at is None
+
+
+def test_redelivery_with_new_ids_does_not_block_on_natural_keys(db_session):
+    source = make_source(db_session)
+    d1 = make_delivery(db_session, source, "r1")
+    d2 = make_delivery(db_session, source, "r2")
+    a = make_document(db_session, d1, "A")
+    b = make_document(db_session, d1, "B")
+    documents = PostgresDocumentRepository(db_session)
+    edges = PostgresEdgeRepository(db_session)
+
+    def add_all(delivery):
+        documents.add_title(document_id=a.id, language="de", title="Titel", delivery_id=delivery.id)
+        documents.add_designation(
+            document_id=a.id, issuer="BAuA", designation="A 1", language="de",
+            edition="2026", is_primary=True, delivery_id=delivery.id,
+        )
+        return edges.create_edge(
+            from_document_id=a.id, to_document_id=b.id, edge_type=EdgeType.REFERENCES,
+            jurisdiction=None, layer=Layer.FREE, delivery_id=delivery.id,
+        )
+
+    old_edge = add_all(d1)
+    repository = PostgresKnowledgeExchangeRepository(db_session)
+    dump_a = _dump(repository)
+
+    # Producer side, rolled back afterwards: d1 is revoked upstream and the
+    # re-delivery d2 recreates edge, title and designation with new ids.
+    producer = db_session.begin_nested()
+    PostgresDeliveryRepository(db_session).revoke_delivery(d1.id)
+    db_session.execute(
+        sa.text("UPDATE document SET created_via_delivery_id = :d"), {"d": d2.id}
+    )
+    from normly_core.graph.postgres.repositories import PostgresRightsRepository
+    for document in (a, b):
+        PostgresRightsRepository(db_session).classify(
+            document_id=document.id, jurisdiction="DE", may_process=True,
+            may_index_fulltext=True, may_cite_passages=True, may_export_free=True,
+            legal_basis_reference="§ 5 UrhG", classified_at=NOW,
+            classified_by="Test Reviewer", delivery_id=d2.id,
+        )
+    new_edge = add_all(d2)
+    dump_b = _dump(repository)
+    producer.rollback()
+    assert new_edge.id != old_edge.id
+    assert {r["id"] for r in dump_b["edge"]} == {str(new_edge.id)}
+
+    repository.replace_knowledge_base(_frozen(dump_a), record=RECORD)
+    repository.replace_knowledge_base(_frozen(dump_b), record=LATER)
+
+    ids = lambda q: {str(r[0]) for r in db_session.execute(sa.text(q))}  # noqa: E731
+    assert str(new_edge.id) in ids("SELECT id FROM edge WHERE retired_at IS NULL AND revoked_at IS NULL")
+    assert str(old_edge.id) in ids("SELECT id FROM edge WHERE retired_at IS NOT NULL")
+    assert len(ids("SELECT id FROM document_title")) == 1
+    assert len(ids("SELECT id FROM document_designation")) == 1
+
+
+def test_stale_designations_and_titles_of_a_retired_document_are_gone(db_session):
+    s = _scenario(db_session)
+    documents = PostgresDocumentRepository(db_session)
+    documents.add_title(document_id=s.drop.id, language="de", title="T", delivery_id=s.delivery.id)
+    documents.add_designation(
+        document_id=s.drop.id, issuer="BAuA", designation="D 1", language="de",
+        edition="2026", is_primary=True, delivery_id=s.delivery.id,
+    )
+    full = _dump(s.repository)
+    s.repository.replace_knowledge_base(_frozen(_without_document(full, s.drop.id)), record=RECORD)
+    for table in ("document_title", "document_designation"):
+        assert _count(db_session, table, "document_id = :d", d=s.drop.id) == 0
