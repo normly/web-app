@@ -3,6 +3,7 @@
 
 """Compose-dialect .env handling, release folder safety, empty-KB banner."""
 
+import os
 import subprocess
 
 from conftest import SCRIPTS
@@ -36,7 +37,7 @@ def _load(harness, *names, extra_env=None):
         f'. "{SCRIPTS}/normly-env.sh"; normly_load_env "{harness.dir}/.env"; '
         + "; ".join(f'printf "%s=[%s]\\n" {n} "${{{n}-UNSET}}"' for n in names)
     )
-    env = {"PATH": "/usr/bin:/bin", **(extra_env or {})}
+    env = {"PATH": os.environ["PATH"], **(extra_env or {})}
     out = subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True)
     assert out.returncode == 0, out.stderr
     return dict(line.split("=", 1) for line in out.stdout.splitlines())

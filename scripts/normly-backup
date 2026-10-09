@@ -16,7 +16,7 @@ set -euo pipefail
 
 NORMLY_DIR="${NORMLY_DIR:-/opt/normly}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=normly-env.sh
+# shellcheck disable=SC1091  # sourced helper, linted on its own
 . "$HERE/normly-env.sh"
 normly_load_env "$NORMLY_DIR/.env"
 : "${NORMLY_DATABASE_URL:?}" "${NORMLY_BACKUP_AGE_RECIPIENT:?}" "${NORMLY_BACKUP_REMOTE:?}"

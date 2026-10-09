@@ -22,7 +22,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKUP_BIN="${NORMLY_BACKUP_BIN:-$HERE/normly-backup}"
 OIDC_ISSUER="https://token.actions.githubusercontent.com"
 HEALTH_TIMEOUT="${NORMLY_HEALTH_TIMEOUT:-600}"
-# shellcheck source=normly-env.sh
+# shellcheck disable=SC1091  # sourced helper, linted on its own
 . "$HERE/normly-env.sh"
 
 # Alembic head of a release image, printed by the image's own migration files.
