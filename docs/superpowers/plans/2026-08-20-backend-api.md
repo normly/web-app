@@ -487,7 +487,7 @@ def _seed_document(db_session, *, jurisdiction="DE"):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="DGUV", retrieval_path="https://www.dguv.de/publikationen",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash="sha256:api-search-fixture",
@@ -832,7 +832,7 @@ def _seed_two_documents_with_an_edge(db_session, *, edge_type=EdgeType.BASED_ON_
     source = PostgresSourceRepository(db_session).create_source(
         publisher="EUR-Lex", retrieval_path="https://single-market-economy.ec.europa.eu",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="EU",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash="sha256:api-edges-fixture",
@@ -1043,7 +1043,7 @@ def _seed_classified_document(db_session, *, jurisdiction="DE"):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="DGUV", retrieval_path="https://www.dguv.de/publikationen",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash="sha256:api-validity-fixture",
@@ -1581,7 +1581,7 @@ def test_full_read_path_across_all_endpoints_for_a_realistic_graph(client, db_se
     source = PostgresSourceRepository(db_session).create_source(
         publisher="EUR-Lex", retrieval_path="https://single-market-economy.ec.europa.eu",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="EU",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash="sha256:capstone-fixture",

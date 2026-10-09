@@ -72,7 +72,7 @@ def test_full_read_path_across_all_endpoints_for_a_realistic_graph(client, db_se
     source = PostgresSourceRepository(db_session).create_source(
         publisher="EUR-Lex", retrieval_path="https://single-market-economy.ec.europa.eu",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="EU",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash="sha256:capstone-fixture",

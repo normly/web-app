@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 normly contributors
+#
+# Encrypted backup of the user-data tables (TP4 spec, Teil 2).
+#
+#   normly-backup run [--kind daily|pre-<tag>]   dump, encrypt, upload; the
+#                                                last stdout line is the base name
+#   normly-backup prune                          apply the retention policy
+#
+# The VM only knows the age PUBLIC key (NORMLY_BACKUP_AGE_RECIPIENT): it can
+# write backups but not read them. The private key lives in the Secrets Manager
+# and offline with the operator. Only the user-data group is dumped; the
+# knowledge base is reproducible from its dump version (ADR-025).
+set -euo pipefail
+
+NORMLY_DIR="${NORMLY_DIR:-/opt/normly}"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091  # sourced helper, linted on its own
+. "$HERE/normly-env.sh"
+normly_load_env "$NORMLY_DIR/.env"
+: "${NORMLY_DATABASE_URL:?}" "${NORMLY_BACKUP_AGE_RECIPIENT:?}" "${NORMLY_BACKUP_REMOTE:?}"
+COMPOSE="${NORMLY_COMPOSE:-docker compose -f $NORMLY_DIR/current/compose.yaml --project-directory $NORMLY_DIR/current}"
+DATABASE_URL="${NORMLY_DATABASE_URL/+psycopg/}"
+
+user_tables() {
+  # shellcheck disable=SC2086 # COMPOSE is a command line and must word-split
+  $COMPOSE run --rm --no-deps -T --entrypoint python pipeline \
+    -m normly_core.exchange tables user
+}
+
+run_backup() {
+  local kind="$1"
+  if ! [[ "$kind" =~ ^(daily|pre-[0-9A-Za-z.-]+)$ ]]; then
+    echo "unknown --kind: $kind" >&2
+    exit 2
+  fi
+
+  local stamp base work
+  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  base="${stamp}-${kind}"
+  work="$(mktemp -d -t normly-backup.XXXXXX)"
+  chmod 700 "$work"
+  # shellcheck disable=SC2064 # expand $work now: the trap must outlive this scope
+  trap "rm -rf '$work'" EXIT
+
+  # A failed lookup must abort: a partial table list would yield a partial backup.
+  local tables table_args=() table
+  tables="$(user_tables)"
+  while IFS= read -r table; do
+    if [ -n "$table" ]; then table_args+=("--table=public.$table"); fi
+  done <<< "$tables"
+  [ "${#table_args[@]}" -gt 0 ] || { echo "no user tables resolved" >&2; exit 1; }
+
+  pg_dump --dbname="$DATABASE_URL" --format=custom --data-only \
+    --file="$work/$base.dump" "${table_args[@]}"
+  age -r "$NORMLY_BACKUP_AGE_RECIPIENT" -o "$work/$base.dump.age" "$work/$base.dump"
+  rm -f "$work/$base.dump"   # no plaintext beyond this point
+
+  local revision image_tag kb_version
+  # The rollback compares these values: an empty or guessed one makes the backup
+  # silently unusable, so a failed lookup aborts the run.
+  revision="$(psql "$DATABASE_URL" -Atc 'SELECT version_num FROM alembic_version')" \
+    || { echo "cannot read the Alembic revision; aborting backup" >&2; exit 1; }
+  [ -n "$revision" ] || { echo "empty Alembic revision; aborting backup" >&2; exit 1; }
+  image_tag="$(cat "$NORMLY_DIR/state/current_tag" 2>/dev/null || echo unknown)"
+  # shellcheck disable=SC2086 # COMPOSE is a command line and must word-split
+  kb_version="$($COMPOSE run --rm --no-deps -T --entrypoint python pipeline \
+    -m normly_core.exchange info | tail -n 1)" \
+    || { echo "cannot read the knowledge-base version; aborting backup" >&2; exit 1; }
+  [ -n "$kb_version" ] || { echo "empty knowledge-base version; aborting backup" >&2; exit 1; }
+  REVISION="$revision" IMAGE_TAG="$image_tag" KB_VERSION="$kb_version" python3 -c '
+import json, os
+print(json.dumps({
+    "alembic_revision": os.environ["REVISION"],
+    "image_tag": os.environ["IMAGE_TAG"],
+    "kb_version": os.environ["KB_VERSION"],
+}))' > "$work/$base.meta.json"
+  (cd "$work" && sha256sum "$base.dump.age" > "$base.sha256")
+
+  # The .sha256 goes up LAST: it is the commit marker. A backup only counts
+  # once it exists; prune ignores (and eventually removes) anything without it.
+  local suffix
+  for suffix in meta.json dump.age sha256; do
+    rclone copyto "$work/$base.$suffix" "$NORMLY_BACKUP_REMOTE/backups/$base.$suffix"
+  done
+  echo "$base"
+}
+
+# Seconds since the epoch for a base name's <YYYYMMDD>T<HHMMSS>Z stamp.
+stamp_epoch() {
+  local s="$1"
+  date -u -d "${s:0:8} ${s:9:2}:${s:11:2}:${s:13:2}" +%s
+}
+
+# Delete one backup's objects, commit marker first: an interrupted deletion
+# leaves an orphan (cleaned up later), never a marker without its data.
+delete_backup() {
+  local base="$1" suffix failed=0
+  for suffix in sha256 meta.json dump.age; do
+    rclone deletefile "$NORMLY_BACKUP_REMOTE/backups/$base.$suffix" </dev/null || failed=1
+  done
+  if [ "$failed" -eq 0 ]; then
+    echo "pruned $base" >&2
+  else
+    echo "prune: failed to delete some objects of $base" >&2
+  fi
+}
+
+prune() {
+  local listing committed name base now epoch
+  # A failed listing must not be read as "nothing there": abort, delete nothing.
+  listing="$(rclone lsf "$NORMLY_BACKUP_REMOTE/backups")"
+  committed="$(printf '%s\n' "$listing" | sed -n 's/\.sha256$//p')"
+
+  # Retention only sees committed backups.
+  local committed_names=""
+  while IFS= read -r base; do
+    if [ -n "$base" ]; then committed_names+="$base.dump.age"$'\n'; fi
+  done <<< "$committed"
+  local doomed
+  doomed="$(printf '%s' "$committed_names" | python3 "$HERE/normly-backup-retention.py")"
+  while IFS= read -r base; do
+    if [ -n "$base" ]; then delete_backup "$base"; fi
+  done <<< "$doomed"
+
+  # Orphans (no .sha256) older than a day are failed uploads; younger ones may
+  # still be in flight and are left alone.
+  now="$(date -u +%s)"
+  while IFS= read -r name; do
+    case "$name" in
+      *.dump.age) base="${name%.dump.age}" ;;
+      *.meta.json) base="${name%.meta.json}" ;;
+      *) continue ;;
+    esac
+    if printf '%s\n' "$committed" | grep -qxF "$base"; then continue; fi
+    [[ "$base" =~ ^[0-9]{8}T[0-9]{6}Z- ]] || continue
+    if ! epoch="$(stamp_epoch "$base" 2>/dev/null)"; then
+      echo "prune: skipping $name (invalid timestamp)" >&2
+      continue
+    fi
+    if [ $((now - epoch)) -gt 86400 ]; then
+      if rclone deletefile "$NORMLY_BACKUP_REMOTE/backups/$name" </dev/null; then
+        echo "pruned orphan $name" >&2
+      else
+        echo "prune: failed to delete orphan $name" >&2
+      fi
+    fi
+  done <<< "$listing"
+}
+
+case "${1:-}" in
+  run)
+    shift
+    kind=daily
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --kind) kind="${2:?}"; shift 2 ;;
+        *) echo "unknown argument: $1" >&2; exit 2 ;;
+      esac
+    done
+    run_backup "$kind"
+    ;;
+  prune) prune ;;
+  *) echo "usage: normly-backup {run [--kind daily|pre-<tag>]|prune}" >&2; exit 2 ;;
+esac

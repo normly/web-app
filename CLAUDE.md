@@ -18,8 +18,9 @@ Aufgabe: nachfragen, nicht umgehen.
   Container-Registry des freien Kerns liegen auf GitHub
   (`github.com/normly/web-app`) — einfachere Kollaboration war der
   ausschlaggebende Grund. STACKIT Git (`jwokittel/normly-webapp`) wird
-  dafür nicht mehr genutzt und ist stattdessen für das künftige Hosting der
-  Normen-Wissensbasis vorgesehen. → ADR-021 (löst ADR-019 ab)
+  dafür nicht mehr genutzt, ist für die Wissensbasis nicht mehr
+  vorgesehen (ADR-025) und wird gelöscht; die Wissensbasis liegt als Dump
+  im STACKIT Object Storage. → ADR-021 (löst ADR-019 ab)
 - **Kein Scraping kommerziell verwerteter Katalogbestände** (DIN Media/Nautos
   und vergleichbare). Nur vertraglich beziehen. Gilt auch bei öffentlicher
   Zugänglichkeit. → ADR-012

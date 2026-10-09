@@ -236,7 +236,7 @@ def test_backfill_document_embeddings_command_creates_embeddings(committed_db, c
         source = PostgresSourceRepository(session).create_source(
             publisher="EUR-Lex", retrieval_path="https://single-market-economy.ec.europa.eu",
             legal_basis_category=LegalBasisCategory.A, jurisdiction="EU",
-            reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+            reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
         )
         delivery = PostgresDeliveryRepository(session).record_delivery(
             source_id=source.id, content_hash="sha256:cli-backfill",
@@ -286,7 +286,7 @@ def test_main_notify_watchers_without_smtp_configured_does_not_mark_emails_sent(
         source = PostgresSourceRepository(session).create_source(
             publisher="DGUV", retrieval_path="https://publikationen.dguv.de",
             legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
-            reviewed_at=date(2026, 1, 1), responsible_person="J. Weber",
+            reviewed_at=date(2026, 1, 1), responsible_person="Test Reviewer",
         )
         delivery = PostgresDeliveryRepository(session).record_delivery(
             source_id=source.id, content_hash="sha256:cli-null-email",

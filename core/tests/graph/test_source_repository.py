@@ -18,7 +18,7 @@ def test_create_and_get_source(db_session):
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="EU",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
     )
 
     fetched = repo.get_source(source.id)
@@ -35,7 +35,7 @@ def test_category_d_source_cannot_be_marked_as_commercial_catalog(db_session):
             legal_basis_category=LegalBasisCategory.D,
             jurisdiction="DE",
             reviewed_at=date(2026, 1, 15),
-            responsible_person="J. Weber",
+            responsible_person="Test Reviewer",
             commercial_catalog=True,
         )
 
@@ -50,7 +50,7 @@ def test_category_c_source_without_contract_reference_is_rejected(db_session):
             legal_basis_category=LegalBasisCategory.C,
             jurisdiction="AT",
             reviewed_at=date(2026, 1, 15),
-            responsible_person="J. Weber",
+            responsible_person="Test Reviewer",
             contract_reference=None,
         )
 
@@ -64,7 +64,7 @@ def test_category_c_source_with_contract_reference_succeeds(db_session):
         legal_basis_category=LegalBasisCategory.C,
         jurisdiction="AT",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
         contract_reference="CONTRACT-2026-001",
     )
 

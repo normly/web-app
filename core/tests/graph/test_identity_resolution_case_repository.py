@@ -16,7 +16,7 @@ def _make_delivery(db_session, content_hash="sha256:identity-case-fixture"):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="EUR-Lex", retrieval_path="https://single-market-economy.ec.europa.eu",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="EU",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     return PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash=content_hash, ingested_at=datetime.now(timezone.utc)
@@ -50,7 +50,7 @@ def test_resolve_case(db_session):
         reason="ambiguous_match",
     )
 
-    resolved = repo.resolve_case(case.id, resolved_document_id=document.id, resolved_by="J. Weber")
+    resolved = repo.resolve_case(case.id, resolved_document_id=document.id, resolved_by="Test Reviewer")
 
     assert resolved.status == IdentityResolutionStatus.RESOLVED
     assert resolved.resolved_document_id == document.id
@@ -65,7 +65,7 @@ def test_reject_case(db_session):
         reason="unparseable_designation",
     )
 
-    rejected = repo.reject_case(case.id, resolved_by="J. Weber")
+    rejected = repo.reject_case(case.id, resolved_by="Test Reviewer")
 
     assert rejected.status == IdentityResolutionStatus.REJECTED
     assert case.id not in {c.id for c in repo.list_pending_cases()}

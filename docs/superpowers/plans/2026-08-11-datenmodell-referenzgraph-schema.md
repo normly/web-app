@@ -734,7 +734,7 @@ def test_create_and_get_source(db_session):
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="EU",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
     )
 
     fetched = repo.get_source(source.id)
@@ -751,7 +751,7 @@ def test_category_d_source_cannot_be_marked_as_commercial_catalog(db_session):
             legal_basis_category=LegalBasisCategory.D,
             jurisdiction="DE",
             reviewed_at=date(2026, 1, 15),
-            responsible_person="J. Weber",
+            responsible_person="Test Reviewer",
             commercial_catalog=True,
         )
 
@@ -766,7 +766,7 @@ def test_category_c_source_without_contract_reference_is_rejected(db_session):
             legal_basis_category=LegalBasisCategory.C,
             jurisdiction="AT",
             reviewed_at=date(2026, 1, 15),
-            responsible_person="J. Weber",
+            responsible_person="Test Reviewer",
             contract_reference=None,
         )
 
@@ -780,7 +780,7 @@ def test_category_c_source_with_contract_reference_succeeds(db_session):
         legal_basis_category=LegalBasisCategory.C,
         jurisdiction="AT",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
         contract_reference="CONTRACT-2026-001",
     )
 
@@ -1040,7 +1040,7 @@ def _make_source(db_session):
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="EU",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
     )
 
 
@@ -1284,7 +1284,7 @@ def _make_delivery(db_session):
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="EU",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
     )
     return PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id,
@@ -1493,7 +1493,7 @@ def _make_delivery(db_session, content_hash="sha256:designation-fixture"):
         legal_basis_category=LegalBasisCategory.B,
         jurisdiction="EU",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
     )
     return PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash=content_hash, ingested_at=datetime.now(timezone.utc)
@@ -1810,7 +1810,7 @@ def _make_document(db_session, content_hash="sha256:rights-fixture"):
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="DE",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash=content_hash, ingested_at=datetime.now(timezone.utc)
@@ -1847,7 +1847,7 @@ def test_classified_document_is_readable_for_its_jurisdiction(db_session):
         may_export_free=True,
         legal_basis_reference="§ 5 UrhG",
         classified_at=datetime.now(timezone.utc),
-        classified_by="J. Weber",
+        classified_by="Test Reviewer",
         delivery_id=delivery.id,
     )
 
@@ -1873,7 +1873,7 @@ def test_classification_does_not_grant_access_in_other_jurisdictions(db_session)
         may_export_free=True,
         legal_basis_reference="§ 5 UrhG",
         classified_at=datetime.now(timezone.utc),
-        classified_by="J. Weber",
+        classified_by="Test Reviewer",
         delivery_id=delivery.id,
     )
 
@@ -1894,7 +1894,7 @@ def test_may_process_false_still_blocks_read(db_session):
         may_export_free=False,
         legal_basis_reference="unklar, in Prüfung",
         classified_at=datetime.now(timezone.utc),
-        classified_by="J. Weber",
+        classified_by="Test Reviewer",
         delivery_id=delivery.id,
     )
 
@@ -2138,7 +2138,7 @@ def _make_two_documents(db_session):
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="DE",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id,
@@ -2223,7 +2223,7 @@ def test_edges_only_listed_when_target_is_rights_classified(db_session):
         may_export_free=True,
         legal_basis_reference="§ 5 UrhG",
         classified_at=datetime.now(timezone.utc),
-        classified_by="J. Weber",
+        classified_by="Test Reviewer",
         delivery_id=delivery.id,
     )
 
@@ -2485,7 +2485,7 @@ def _setup(db_session):
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="DE",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
     )
     delivery_repo = PostgresDeliveryRepository(db_session)
     delivery_a = delivery_repo.record_delivery(
@@ -2514,7 +2514,7 @@ def test_revoking_a_delivery_locks_only_its_own_edges(db_session):
     rights_repo.classify(
         document_id=other.id, jurisdiction="DE", may_process=True, may_index_fulltext=True,
         may_cite_passages=True, may_export_free=True, legal_basis_reference="§ 5 UrhG",
-        classified_at=datetime.now(timezone.utc), classified_by="J. Weber",
+        classified_at=datetime.now(timezone.utc), classified_by="Test Reviewer",
         delivery_id=delivery_a.id,
     )
     edge_from_a = edge_repo.create_edge(
@@ -2540,7 +2540,7 @@ def test_document_stays_readable_when_a_second_delivery_still_supports_it(db_ses
     rights_repo.classify(
         document_id=document.id, jurisdiction="DE", may_process=True, may_index_fulltext=True,
         may_cite_passages=True, may_export_free=True, legal_basis_reference="§ 5 UrhG",
-        classified_at=datetime.now(timezone.utc), classified_by="J. Weber",
+        classified_at=datetime.now(timezone.utc), classified_by="Test Reviewer",
         delivery_id=delivery_a.id,
     )
     doc_repo.add_title(
@@ -2665,7 +2665,7 @@ def test_two_jurisdiction_exports_differ(db_session):
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="EU",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id,
@@ -2687,19 +2687,19 @@ def test_two_jurisdiction_exports_differ(db_session):
     rights_repo.classify(
         document_id=de_only.id, jurisdiction="DE", may_process=True, may_index_fulltext=True,
         may_cite_passages=True, may_export_free=True, legal_basis_reference="§ 5 UrhG",
-        classified_at=datetime.now(timezone.utc), classified_by="J. Weber",
+        classified_at=datetime.now(timezone.utc), classified_by="Test Reviewer",
         delivery_id=delivery.id,
     )
     rights_repo.classify(
         document_id=both.id, jurisdiction="DE", may_process=True, may_index_fulltext=True,
         may_cite_passages=True, may_export_free=True, legal_basis_reference="freie Lizenz",
-        classified_at=datetime.now(timezone.utc), classified_by="J. Weber",
+        classified_at=datetime.now(timezone.utc), classified_by="Test Reviewer",
         delivery_id=delivery.id,
     )
     rights_repo.classify(
         document_id=both.id, jurisdiction="US", may_process=True, may_index_fulltext=True,
         may_cite_passages=True, may_export_free=True, legal_basis_reference="freie Lizenz",
-        classified_at=datetime.now(timezone.utc), classified_by="J. Weber",
+        classified_at=datetime.now(timezone.utc), classified_by="Test Reviewer",
         delivery_id=delivery.id,
     )
 

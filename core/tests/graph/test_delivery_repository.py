@@ -19,7 +19,7 @@ def _make_source(db_session):
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="EU",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
     )
 
 

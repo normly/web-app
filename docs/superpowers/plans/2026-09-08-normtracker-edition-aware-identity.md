@@ -438,7 +438,7 @@ def test_find_by_designation_returns_the_newest_edition_when_none_is_specified(d
     source = PostgresSourceRepository(db_session).create_source(
         publisher="DGUV", retrieval_path="https://publikationen.dguv.de",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash="sha256:newest-edition",
@@ -472,7 +472,7 @@ def test_find_by_designation_with_edition_matches_exactly(db_session):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="DGUV", retrieval_path="https://publikationen.dguv.de",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash="sha256:edition-exact-match",
@@ -511,7 +511,7 @@ def test_find_by_designation_without_edition_still_matches_a_single_edition_desi
     source = PostgresSourceRepository(db_session).create_source(
         publisher="EUR-Lex", retrieval_path="https://single-market-economy.ec.europa.eu",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="EU",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash="sha256:no-edition-regression",
@@ -722,7 +722,7 @@ def test_resolve_finds_the_same_edition_already_ingested(db_session):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="DGUV", retrieval_path="https://publikationen.dguv.de",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash="sha256:resolve-same-edition",
@@ -750,7 +750,7 @@ def test_resolve_reports_a_new_edition_of_a_known_designation(db_session):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="DGUV", retrieval_path="https://publikationen.dguv.de",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash="sha256:resolve-new-edition",

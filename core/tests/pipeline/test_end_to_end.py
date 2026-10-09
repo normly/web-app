@@ -22,7 +22,7 @@ def _make_source(db_session, *, jurisdiction: str):
     return PostgresSourceRepository(db_session).create_source(
         publisher="Test", retrieval_path="file:///dev/null",
         legal_basis_category=LegalBasisCategory.A, jurisdiction=jurisdiction,
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
 
 

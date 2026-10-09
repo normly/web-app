@@ -23,7 +23,7 @@ def _seed_a_contractually_processed_but_not_export_free_document(db_session):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="DIN Media", retrieval_path="https://www.din.de/de/service/din-media",
         legal_basis_category=LegalBasisCategory.C, jurisdiction="EU",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
         contract_reference="Vertrag Nr. 2026-014",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(

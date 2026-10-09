@@ -3,8 +3,7 @@
 normly ships as container images plus a Compose setup that starts a
 working instance with one command ([ADR-010](../adr/README.md#adr-010-auslieferung-als-container-daten-getrennt-vom-image)).
 The knowledge base is **not** part of the images; it arrives as a
-separately versioned dump (import tooling follows in a later release, see
-"Known gaps").
+separately versioned dump (see "Importing the knowledge base").
 
 ## Requirements
 
@@ -119,6 +118,33 @@ commit it was built from. Provenance and SBOM are visible with
 `docker buildx imagetools inspect ghcr.io/normly/web-app/api:0.1.0 --format '{{ json .Provenance }}'`
 (and `.SBOM`).
 
+## Importing the knowledge base
+
+The images contain no knowledge base. Set `NORMLY_KB_BASE_URL` in `.env` to the
+public location of the versioned dumps, then run:
+
+```bash
+docker compose run --rm kb-import              # newest dump
+docker compose run --rm kb-import 2026.10.1    # a fixed version
+```
+
+Before anything is written, the import checks the Ed25519 signature of the
+dump manifest against normly's public signing key (committed to the repository
+and packaged with the code; until that key is published, supply it with
+`--public-key PATH` or by mounting it and setting `NORMLY_KB_PUBLIC_KEY_FILE`,
+for example `docker compose run --rm -v /path/key.pem:/kb-key.pem:ro -e
+NORMLY_KB_PUBLIC_KEY_FILE=/kb-key.pem kb-import latest`), the embedding model
+revision (embeddings from another revision are incompatible with this
+installation), and the SHA-256 checksum of every table file. A dump that fails
+any check is refused and the database stays unchanged.
+
+The dump carries no personal names: the columns `source.responsible_person`
+and `rights_classification.classified_by` hold the role `normly maintainers`.
+
+The import is idempotent: running it again with the same dump changes nothing.
+It also stops without writing if user data (watchlists, notifications, chat
+citations) still points at rows the new dump removes.
+
 ## Ingesting documents
 
 ```bash
@@ -131,7 +157,4 @@ Sources: `eur-lex`, `dguv`, `baua`. Other maintenance commands:
 
 ## Known gaps
 
-- No versioned knowledge-base dump yet — ingestion runs locally with the
-  `pipeline` image; the dump import is the next deliverable of the
-  deployment roadmap.
 - No Helm chart. Kubernetes is not a target for the free core right now.
