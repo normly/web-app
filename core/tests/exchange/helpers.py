@@ -14,11 +14,14 @@ from normly_core.graph.postgres.repositories import (
 NOW = datetime(2026, 10, 9, tzinfo=timezone.utc)
 
 
-def make_source(session, category=LegalBasisCategory.A, commercial=False, publisher="BAuA"):
+def make_source(
+    session, category=LegalBasisCategory.A, commercial=False, publisher="BAuA",
+    responsible_person="J. Weber",
+):
     return PostgresSourceRepository(session).create_source(
         publisher=publisher, retrieval_path="https://example.org",
         legal_basis_category=category, jurisdiction="DE", reviewed_at=date(2026, 1, 1),
-        responsible_person="J. Weber", commercial_catalog=commercial,
+        responsible_person=responsible_person, commercial_catalog=commercial,
         contract_reference="V-1" if category == LegalBasisCategory.C else None,
     )
 
@@ -29,7 +32,10 @@ def make_delivery(session, source, tag):
     )
 
 
-def make_document(session, delivery, number, *, export=True, process=True, jurisdiction="DE"):
+def make_document(
+    session, delivery, number, *, export=True, process=True, jurisdiction="DE",
+    classified_by="J. Weber",
+):
     document = PostgresDocumentRepository(session).create_document(
         origin_issuer="BAuA", origin_number=number, edition="2026", part=None,
         delivery_id=delivery.id,
@@ -37,7 +43,7 @@ def make_document(session, delivery, number, *, export=True, process=True, juris
     PostgresRightsRepository(session).classify(
         document_id=document.id, jurisdiction=jurisdiction, may_process=process,
         may_index_fulltext=True, may_cite_passages=True, may_export_free=export,
-        legal_basis_reference="§ 5 UrhG", classified_at=NOW, classified_by="J. Weber",
+        legal_basis_reference="§ 5 UrhG", classified_at=NOW, classified_by=classified_by,
         delivery_id=delivery.id,
     )
     return document

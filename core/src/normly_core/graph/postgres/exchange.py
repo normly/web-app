@@ -50,6 +50,19 @@ from normly_core.graph.postgres.orm import (
 _FREE_CATEGORIES = (LegalBasisCategory.A, LegalBasisCategory.B, LegalBasisCategory.D)
 _WRITE_BATCH = 2000
 
+PUBLISHED_ROLE = "normly maintainers"
+"""
+Role label published in place of personal names. The dump is public, so the
+columns listed in ``_PERSONAL_NAME_COLUMNS`` leave the database as this
+constant; the real names exist only in the local ingestion database. An
+import therefore overwrites them with the label as well (ADR-025).
+"""
+
+_PERSONAL_NAME_COLUMNS = {
+    "source": "responsible_person",
+    "rights_classification": "classified_by",
+}
+
 
 def _eligible_deliveries():
     return (
@@ -222,7 +235,20 @@ class PostgresKnowledgeExchangeRepository:
         self, table: str, *, batch_size: int = 5000
     ) -> Iterator[list[dict[str, Any]]]:
         sa_table = Base.metadata.tables[table]
-        statement = _statement(table).order_by(*_primary_key(sa_table))
+        statement = _statement(table)
+        masked = _PERSONAL_NAME_COLUMNS.get(table)
+        if masked is not None:
+            # The name never leaves the database: the column is replaced in
+            # the statement itself, so the export gate stays in one place.
+            statement = statement.with_only_columns(
+                *(
+                    sa.literal(PUBLISHED_ROLE, type_=column.type).label(column.name)
+                    if column.name == masked
+                    else column
+                    for column in sa_table.columns
+                )
+            )
+        statement = statement.order_by(*_primary_key(sa_table))
         # Per-statement options: Connection.execution_options() would mutate
         # the shared session connection and break its savepoint handling.
         result = self._session.connection().execute(

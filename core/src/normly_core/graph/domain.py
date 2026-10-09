@@ -1231,6 +1231,11 @@ class KnowledgeExchangeRepository(Protocol):
     the rights classification itself (may_process AND may_export_free, not
     revoked, delivery not withdrawn, source category A/B/D and not a
     commercial catalogue), evaluated across all jurisdictions.
+
+    Exported rows never carry personal names: `source.responsible_person` and
+    `rights_classification.classified_by` are replaced by the constant role
+    label `PUBLISHED_ROLE` ("normly maintainers"). The names stay in the local
+    ingestion database; an import overwrites them with the label.
     """
 
     def exchange_columns(self, table: str) -> list[ExchangeColumn]: ...
