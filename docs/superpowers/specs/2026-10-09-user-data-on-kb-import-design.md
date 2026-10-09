@@ -152,6 +152,26 @@ Nicht enthalten: Detailseite oder Link für zurückgezogene Dokumente,
 Alterung von Tombstones. Der Rechteänderungs-Pfad bleibt für den Produzenten
 unverändert.
 
+## Rollback und Tombstones (Erweiterung 2)
+
+Die Abschlussprüfung zeigte: Der Rollback aus TP4 baut die Datenbank neu auf,
+importiert die ältere Dump-Version und spielt die Nutzerdaten ein. Tombstones
+stehen in keinem Dump; Nutzerzeilen, die auf sie zeigen, verletzen dann beim
+Einspielen den Fremdschlüssel (nach dem Löschen der Tabellen). Entscheidung
+des Nutzers: vollständig lösen.
+
+- Die Sicherung nimmt die **zurückgezogenen Kennungen samt Fremdschlüssel-
+  Eltern** als eigene, `age`-verschlüsselte JSON-Datei
+  (`<base>.tombstones.age`) mit: alle Zeilen mit `retired_at` in `work`,
+  `document`, `edge` plus der Abschluss über die Fremdschlüssel innerhalb von
+  `source`, `delivery`, `work`, `document`, `edge`. Nie Inhalt, nie Rechte.
+- `export-tombstones` / `import-tombstones` im Kern (Repository-Schicht,
+  `ON CONFLICT DO NOTHING`, eingefügte Zeilen gelten als zurückgezogen).
+- `normly-backup` lädt die Datei vor der `.sha256`-Marke hoch; `normly-deploy
+  rollback` spielt sie nach dem Wissensbestand-Import und vor den
+  Nutzerdaten ein. Ältere Sicherungen ohne Datei bleiben nutzbar, mit
+  deutlicher Warnung.
+
 ## Nicht-Ziele
 
 - Alterung und Aufräumen von Tombstones.
