@@ -1207,9 +1207,11 @@ class ImportRecord:
 
 class ImportBlockedError(Exception):
     """
-    The import would delete a knowledge-base row that user data still points
-    at (e.g. a watched Work the new dump no longer contains). Nothing is
-    changed once the caller has rolled back (or used a savepoint): the
+    Last guard of the import (ADR-026): a statement hit a foreign key nobody
+    anticipated. User data no longer blocks an import -- missing identifier
+    rows become tombstones and citations of purged segments are detached --
+    so this signals a table that is missing from the import classes. Nothing
+    is changed once the caller has rolled back (or used a savepoint): the
     methods never commit, and the transaction is left in a failed state.
     """
 
@@ -1248,6 +1250,14 @@ class KnowledgeExchangeRepository(Protocol):
 
     def replace_knowledge_base(
         self, tables: Mapping[str, RowBatches], *, record: ImportRecord
-    ) -> None: ...
+    ) -> None:
+        """
+        Replace the knowledge base with the dump; a takedown always wins.
+        Content missing from the dump is deleted, missing identifier rows
+        (work, document, edge) are kept with `retired_at`, a missing delivery
+        gets `withdrawn_at`. User data never blocks the import; only an
+        unexpected foreign key raises ImportBlockedError. Never commits.
+        """
+        ...
 
     def imported_version(self) -> ImportRecord | None: ...

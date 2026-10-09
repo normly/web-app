@@ -26,7 +26,13 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from normly_core.exchange.tables import EXCLUDED_EXCHANGE_COLUMNS, KNOWLEDGE_TABLES
+from normly_core.exchange.tables import (
+    DETACHED_REFERENCES,
+    EXCLUDED_EXCHANGE_COLUMNS,
+    KNOWLEDGE_TABLES,
+    PURGE_TABLES,
+    TOMBSTONE_TABLES,
+)
 from normly_core.graph.domain import (
     ExchangeColumn,
     ImportBlockedError,
@@ -293,31 +299,42 @@ class PostgresKnowledgeExchangeRepository:
         self, tables: Mapping[str, RowBatches], *, record: ImportRecord
     ) -> None:
         """
-        Three passes, so that a kept row whose foreign key moves to a new
-        parent (work merge, classification switching delivery) never causes a
-        false block:
+        A takedown always wins: user data never blocks an import (ADR-026).
+        What the dump no longer contains is handled by class:
 
-        1. reverse order: delete rows missing from the dump, except those a
-           kept row still points at (they are deferred);
-        2. forward order: upsert the dump, which moves those foreign keys;
-        3. reverse order: delete every missing row now. Whatever still
-           refuses to go is referenced by user data (watchlist, notification,
-           chat citation) and raises ImportBlockedError.
+        * content and derivations (PURGE_TABLES) are deleted physically,
+          after user references to purged segments were cleared;
+        * identifier rows (TOMBSTONE_TABLES) stay with `retired_at` set, so
+          watchlists, notifications and citations keep their targets; a row
+          that returns clears `retired_at` again;
+        * provenance (delivery, source) stays; a missing delivery gets
+          `withdrawn_at`.
 
-        Nothing is committed. After ImportBlockedError the caller must roll
-        back (or use a savepoint); only then is the data unchanged.
+        Content is deleted BEFORE the upsert so that a purged row cannot
+        collide with a new row on a natural unique key. Nothing is committed.
+        ImportBlockedError remains only as a last guard for an unexpected
+        foreign key; after it the caller must roll back (or use a savepoint).
         """
         connection = self._session.connection()
+        now = record.imported_at or datetime.now(timezone.utc)
         keep_tables = self._load_keys(connection, tables)
-        for defer_kept_references in (True, False):
-            for name in reversed(KNOWLEDGE_TABLES):
-                try:
-                    self._delete_missing(connection, name, keep_tables, defer_kept_references)
-                except IntegrityError as exc:
-                    raise ImportBlockedError(name, str(exc.orig).splitlines()[0]) from exc
-            if defer_kept_references:
-                for name in KNOWLEDGE_TABLES:
-                    self._upsert(connection, name, tables[name])
+        step = "load"
+        try:
+            step = "detach"
+            self._detach_missing_references(connection, keep_tables)
+            for name in reversed(PURGE_TABLES):
+                step = name
+                self._delete_missing(connection, name, keep_tables)
+            for name in KNOWLEDGE_TABLES:
+                step = name
+                self._upsert(connection, name, tables[name])
+            for name in TOMBSTONE_TABLES:
+                step = name
+                self._retire_missing(connection, name, keep_tables, now)
+            step = "delivery"
+            self._withdraw_missing_deliveries(connection, keep_tables, now)
+        except IntegrityError as exc:
+            raise ImportBlockedError(step, str(exc.orig).splitlines()[0]) from exc
         self._write_record(record)
         # The caller owns the transaction, so ON COMMIT DROP alone would leave
         # the temp tables in place for a second call in the same transaction.
@@ -346,44 +363,72 @@ class PostgresKnowledgeExchangeRepository:
             keep_tables[name] = keep
         return keep_tables
 
+    @staticmethod
+    def _missing(sa_table: sa.Table, keep: sa.Table):
+        match = sa.and_(*[keep.c[c.name] == c for c in _primary_key(sa_table)])
+        return ~sa.exists().where(match)
+
     def _delete_missing(
-        self, connection, name: str, keep_tables: Mapping[str, sa.Table],
-        defer_kept_references: bool,
+        self, connection, name: str, keep_tables: Mapping[str, sa.Table]
     ) -> None:
         sa_table = Base.metadata.tables[name]
-        keep = keep_tables[name]
-        match = sa.and_(*[keep.c[c.name] == c for c in _primary_key(sa_table)])
-        condition = ~sa.exists().where(match)
-        if defer_kept_references:
-            # Skip rows that a row of the new dump still references; the
-            # upsert will move that reference, the final pass deletes them.
-            for child_name in KNOWLEDGE_TABLES:
-                child_table = Base.metadata.tables[child_name]
-                child_keep = keep_tables[child_name]
-                # A self-referencing table must be aliased: otherwise SQLAlchemy
-                # correlates the child with the outer DELETE target and the
-                # deferral silently never matches.
-                child = child_table.alias() if child_table is sa_table else child_table
-                child_match = sa.and_(
-                    *[child_keep.c[c.name] == child.c[c.name] for c in _primary_key(child_table)]
+        connection.execute(
+            sa.delete(sa_table).where(self._missing(sa_table, keep_tables[name]))
+        )
+
+    def _detach_missing_references(
+        self, connection, keep_tables: Mapping[str, sa.Table]
+    ) -> None:
+        for (child_name, column_name), parent_name in DETACHED_REFERENCES.items():
+            child = Base.metadata.tables[child_name]
+            parent = Base.metadata.tables[parent_name]
+            keep = keep_tables[parent_name]
+            (parent_key,) = _primary_key(parent)
+            referenced = child.c[column_name]
+            connection.execute(
+                sa.update(child)
+                .where(
+                    referenced.is_not(None),
+                    ~sa.exists().where(keep.c[parent_key.name] == referenced),
                 )
-                for foreign_key in child_table.foreign_keys:
-                    if foreign_key.column.table is not sa_table:
-                        continue
-                    condition = sa.and_(
-                        condition,
-                        ~sa.exists().where(
-                            child.c[foreign_key.parent.name] == foreign_key.column,
-                            child_match,
-                        ),
-                    )
-        connection.execute(sa.delete(sa_table).where(condition))
+                .values({column_name: None})
+            )
+
+    def _retire_missing(
+        self, connection, name: str, keep_tables: Mapping[str, sa.Table], now: datetime
+    ) -> None:
+        sa_table = Base.metadata.tables[name]
+        connection.execute(
+            sa.update(sa_table)
+            .where(
+                sa_table.c.retired_at.is_(None),
+                self._missing(sa_table, keep_tables[name]),
+            )
+            .values(retired_at=now)
+        )
+
+    def _withdraw_missing_deliveries(
+        self, connection, keep_tables: Mapping[str, sa.Table], now: datetime
+    ) -> None:
+        delivery = Base.metadata.tables["delivery"]
+        connection.execute(
+            sa.update(delivery)
+            .where(
+                delivery.c.withdrawn_at.is_(None),
+                self._missing(delivery, keep_tables["delivery"]),
+            )
+            .values(withdrawn_at=now)
+        )
 
     def _upsert(self, connection, name: str, batches: RowBatches) -> None:
         sa_table = Base.metadata.tables[name]
         key_names = [c.name for c in _primary_key(sa_table)]
         exchange_columns = _exchange_columns(sa_table)
+        # retired_at is not in the dump; a row that is present again is alive.
+        retired_at = sa_table.c.retired_at if name in TOMBSTONE_TABLES else None
         value_columns = [c for c in exchange_columns if c.name not in key_names]
+        if retired_at is not None:
+            value_columns.append(retired_at)
         self_reference = "merged_into_work_id" if name == "work" else None
         deferred: list[dict[str, Any]] = []
         for batch in batches():
@@ -391,6 +436,9 @@ class PostgresKnowledgeExchangeRepository:
                 {c.name: _from_exchange(c, row[c.name]) for c in exchange_columns}
                 for row in batch
             ]
+            if retired_at is not None:
+                for row in rows:
+                    row["retired_at"] = None
             if self_reference:
                 for row in rows:
                     if row[self_reference] is not None:

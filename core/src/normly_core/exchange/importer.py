@@ -102,6 +102,9 @@ def import_dump(
 ) -> ImportRecord:
     """
     Verify the dump (see verify_dump) and replace the knowledge base with it.
+    A takedown always wins (ADR-026): what the dump no longer contains is
+    deleted (content) or retired (identifiers); user data never blocks the
+    import, only an unexpected foreign key raises ImportBlockedError.
 
     All checks run before the first write, so ImportRefused leaves the
     database untouched. This function never commits: the caller owns the
