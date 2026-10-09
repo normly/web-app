@@ -142,8 +142,7 @@ Schlüssel auf einer Maschine und widerspräche dem Schlüsselkonzept.
 ### Befund Flex-Sicherung (2026-10-09, Screenshot des Portals)
 
 - Tägliche Sicherung um 11:45 (UTC), Ablauf nach 30 Tagen (Start 08.10.,
-  Ablauf 07.11.). Ein zusätzlicher Eintrag am 08.10. um 23:56 stammt aus
-  unbekanntem Anlass (vermutlich Änderung an der Instanz) — offen.
+  Ablauf 07.11.).
 - Größe aktuell 3,66 MB; der Wissensbestand fehlt noch.
 - **Nicht geprüft:** Punkt-in-Zeit-Wiederherstellung (PITR), Verschlüsselung
   der Flex-Sicherungen. Beides ist vor dem Bau in der STACKIT-Dokumentation zu
@@ -218,7 +217,6 @@ bauen.
 - PITR und Verschlüsselung der Flex-Sicherungen klären (siehe Befund); kann
   die Aufbewahrung ändern.
 - Objektsperre im Backup-Bucket: Verfügbarkeit prüfen.
-- Anlass des zweiten Flex-Sicherungseintrags am 08.10. um 23:56.
 - Kryptographisches Löschen bei Vertragsende (ADR-014): Der tägliche Dump
   enthält Nutzerdaten, aber keine lizenzierten Bestände. Sobald lizenzierte
   Bestände in Postgres liegen, müssen sie von Sicherungen ausgenommen oder
