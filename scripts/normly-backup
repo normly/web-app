@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 normly contributors
+#
+# Encrypted backup of the user-data tables (TP4 spec, Teil 2).
+#
+#   normly-backup run [--kind daily|pre-<tag>]   dump, encrypt, upload; the
+#                                                last stdout line is the base name
+#   normly-backup prune                          apply the retention policy
+#
+# The VM only knows the age PUBLIC key (NORMLY_BACKUP_AGE_RECIPIENT): it can
+# write backups but not read them. The private key lives in the Secrets Manager
+# and offline with the operator. Only the user-data group is dumped; the
+# knowledge base is reproducible from its dump version (ADR-025).
+set -euo pipefail
+
+NORMLY_DIR="${NORMLY_DIR:-/opt/normly}"
+if [ -f "$NORMLY_DIR/.env" ]; then
+  set -a
+  # shellcheck disable=SC1091 # the VM's env file does not exist at lint time
+  . "$NORMLY_DIR/.env"
+  set +a
+fi
+: "${NORMLY_DATABASE_URL:?}" "${NORMLY_BACKUP_AGE_RECIPIENT:?}" "${NORMLY_BACKUP_REMOTE:?}"
+COMPOSE="${NORMLY_COMPOSE:-docker compose -f $NORMLY_DIR/current/compose.yaml --project-directory $NORMLY_DIR/current}"
+DATABASE_URL="${NORMLY_DATABASE_URL/+psycopg/}"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+user_tables() {
+  # shellcheck disable=SC2086 # COMPOSE is a command line and must word-split
+  $COMPOSE run --rm --no-deps -T --entrypoint python pipeline \
+    -m normly_core.exchange tables user
+}
+
+run_backup() {
+  local kind="$1"
+  case "$kind" in
+    daily|pre-*) ;;
+    *) echo "unknown --kind: $kind" >&2; exit 2 ;;
+  esac
+
+  local stamp base work
+  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  base="${stamp}-${kind}"
+  work="$(mktemp -d -t normly-backup.XXXXXX)"
+  chmod 700 "$work"
+  # shellcheck disable=SC2064 # expand $work now: the trap must outlive this scope
+  trap "rm -rf '$work'" EXIT
+
+  local table_args=() table
+  while IFS= read -r table; do
+    if [ -n "$table" ]; then table_args+=("--table=public.$table"); fi
+  done < <(user_tables)
+  [ "${#table_args[@]}" -gt 0 ] || { echo "no user tables resolved" >&2; exit 1; }
+
+  pg_dump --dbname="$DATABASE_URL" --format=custom --data-only \
+    --file="$work/$base.dump" "${table_args[@]}"
+  age -r "$NORMLY_BACKUP_AGE_RECIPIENT" -o "$work/$base.dump.age" "$work/$base.dump"
+  rm -f "$work/$base.dump"   # no plaintext beyond this point
+
+  local revision image_tag kb_version
+  revision="$(psql "$DATABASE_URL" -Atc 'SELECT version_num FROM alembic_version' || true)"
+  image_tag="$(cat "$NORMLY_DIR/state/current_tag" 2>/dev/null || echo unknown)"
+  # shellcheck disable=SC2086 # COMPOSE is a command line and must word-split
+  kb_version="$($COMPOSE run --rm --no-deps -T --entrypoint python pipeline \
+    -m normly_core.exchange info 2>/dev/null || echo none)"
+  printf '{"alembic_revision":"%s","image_tag":"%s","kb_version":"%s"}\n' \
+    "$revision" "$image_tag" "$kb_version" > "$work/$base.meta.json"
+  (cd "$work" && sha256sum "$base.dump.age" > "$base.sha256")
+
+  local suffix
+  for suffix in dump.age meta.json sha256; do
+    rclone copyto "$work/$base.$suffix" "$NORMLY_BACKUP_REMOTE/backups/$base.$suffix"
+  done
+  echo "$base"
+}
+
+prune() {
+  local names
+  names="$(rclone lsf "$NORMLY_BACKUP_REMOTE/backups" | grep '\.dump\.age$' || true)"
+  printf '%s\n' "$names" | python3 "$HERE/normly-backup-retention.py" | while IFS= read -r base; do
+    for suffix in dump.age meta.json sha256; do
+      rclone deletefile "$NORMLY_BACKUP_REMOTE/backups/$base.$suffix" || true
+    done
+    echo "pruned $base" >&2
+  done
+}
+
+case "${1:-}" in
+  run)
+    shift
+    kind=daily
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --kind) kind="${2:?}"; shift 2 ;;
+        *) echo "unknown argument: $1" >&2; exit 2 ;;
+      esac
+    done
+    run_backup "$kind"
+    ;;
+  prune) prune ;;
+  *) echo "usage: normly-backup {run [--kind daily|pre-<tag>]|prune}" >&2; exit 2 ;;
+esac
