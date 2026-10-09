@@ -1,6 +1,6 @@
 [project]
 name = "normly-chat"
-version = "0.1.0"
+version = "0.1.1"
 description = "normly free core: natural-language chat over the reference graph"
 requires-python = ">=3.11"
 license = { text = "AGPL-3.0-or-later" }
