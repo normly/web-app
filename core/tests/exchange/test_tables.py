@@ -8,7 +8,6 @@ from normly_core.graph.postgres import orm  # noqa: F401  (registers all tables)
 from normly_core.graph.postgres.orm import Base
 
 
-@pytest.mark.xfail(strict=True, reason="knowledge_base_import arrives in Task 3")
 def test_every_orm_table_belongs_to_exactly_one_group():
     groups = [
         set(tables.KNOWLEDGE_TABLES),

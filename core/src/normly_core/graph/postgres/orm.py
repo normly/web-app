@@ -762,3 +762,17 @@ class RateLimitBucketORM(Base):
     # window_start and runs on every request; without this index that
     # filter forces a full table scan each time.
     __table_args__ = (sa.Index("ix_rate_limit_bucket_window_start", "window_start"),)
+
+
+class KnowledgeBaseImportORM(Base):
+    """Single-row record of which knowledge-base dump is currently imported."""
+
+    __tablename__ = "knowledge_base_import"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    dump_version: Mapped[str]
+    exchange_schema_version: Mapped[int]
+    embedding_model_revision: Mapped[str]
+    imported_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
+
+    __table_args__ = (sa.CheckConstraint("id = 1", name="ck_knowledge_base_import_single_row"),)
