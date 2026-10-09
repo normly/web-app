@@ -197,8 +197,8 @@ normly-backup.timer`, start it again afterwards): the timer does not take the
 deploy lock, and a backup in the middle of a rollback would capture a
 half-restored database.
 
-Before it changes anything, the script runs two checks and refuses (nothing
-changed) if either fails:
+Before it changes anything, the script runs three checks and refuses (nothing
+changed) if any fails:
 
 - The `alembic_revision` in the backup's `meta.json` must equal the Alembic
   head of the **previous** image (a dump and a schema that do not fit together
@@ -210,6 +210,14 @@ changed) if either fails:
   embedding model and revision, checksums. If the dump or the public key
   cannot be verified, the rollback stops before the banner, the prompt, and
   the `DROP`.
+- The tombstone file of the backup (see "Backups") is downloaded, decrypted
+  and validated (a JSON object, `format` 1, `rows` with exactly the five
+  tables, each a list). If the backup's `meta.json` says `"tombstones": true`
+  but `<base>.tombstones.age` is missing, the backup is treated as damaged and
+  the rollback aborts. A backup from before the tombstone file existed has no
+  such flag: the script prints a clear warning (a foreign-key error is
+  possible while restoring user data that points at withdrawn documents) and
+  the rollback continues.
 
 **Public key.** The signature is checked against the public key, resolved in
 this order: `--public-key PATH`, the environment variable
@@ -241,8 +249,19 @@ Then it:
    foreign key). The import fetches from `NORMLY_KB_BASE_URL`, so that variable
    must be set in `.env`. The duration grows with the size of the knowledge
    base;
-5. restores the user data with `pg_restore --data-only`;
-6. starts the previous release and waits for it to become healthy.
+5. restores the retired identifiers from the tombstone file
+   (`python -m normly_core.exchange import-tombstones`, JSON on stdin, in the
+   previous release's image), before the user data, because user rows such as
+   watchlists and notifications may point at documents the older dump no
+   longer contains. Rows are inserted with `ON CONFLICT DO NOTHING`, so
+   existing rows are never changed. The inserted work, document and edge rows
+   count as retired and have no rights classification, so every rights-gated
+   read hides them; a later normal import that contains the row makes it
+   active again. Only identifiers come back, never the content or rights of
+   withdrawn documents. This step is skipped (with the warning above) for
+   backups without a tombstone file;
+6. restores the user data with `pg_restore --data-only`;
+7. starts the previous release and waits for it to become healthy.
 
 If a step fails after the tables were dropped, the script prints a recovery
 message: the database is incomplete, services may be stopped or partly
@@ -255,7 +274,8 @@ marker is cleared.
 `normly-backup` dumps **only the user-data tables** (`python -m
 normly_core.exchange tables user` lists them): accounts, chats, watchlists,
 notifications, rate-limit buckets. The knowledge base is not backed up; it is
-reproduced from its dump version. Flex's own daily backup of the whole database
+reproduced from its dump version. The only knowledge-base rows a backup adds
+are the retired identifiers described below. Flex's own daily backup of the whole database
 (30 days) remains the operational safety net.
 
 Add to `/opt/normly/.env`:
@@ -272,8 +292,8 @@ Object Storage. The daily timer runs as **root** (the systemd units set no
 `User=`), so the config belongs in root's `~/.config/rclone/rclone.conf`; for
 manual runs it must be readable by the user who runs them. The bucket
 credentials on the VM need **list and write** (upload, prune), **delete**
-(prune) and **read** (rollback downloads `meta.json` and `dump.age` with
-rclone). What the VM cannot do is *decrypt*: the private age key is not there.
+(prune) and **read** (rollback downloads `meta.json`, `dump.age` and
+`tombstones.age` with rclone). What the VM cannot do is *decrypt*: the private age key is not there.
 Create the bucket as **private**.
 
 Generate the key pair once, on the operator's machine, not on the VM:
@@ -300,17 +320,35 @@ systemctl list-timers normly-backup.timer
 Manual runs: `normly-backup run [--kind daily|pre-<tag>]` (the last line of
 output is the backup's base name) and `normly-backup prune`.
 
-Each backup is three objects under `backups/` in the bucket, uploaded in this
+Each backup is four objects under `backups/` in the bucket, uploaded in this
 order: `<stamp>-<kind>.meta.json` (Alembic revision, image tag, knowledge-base
-version), `<stamp>-<kind>.dump.age`, and `<stamp>-<kind>.sha256`. The checksum
-file goes up last and is the commit marker: a backup without it does not
-count.
+version, and `"tombstones": true`), `<stamp>-<kind>.dump.age`,
+`<stamp>-<kind>.tombstones.age`, and `<stamp>-<kind>.sha256`. The checksum
+file covers both encrypted files, goes up last and is the commit marker: a
+backup without it does not count.
+
+The **tombstone file** holds the identifier rows of withdrawn works, documents
+and edges (those with `retired_at`) plus the rows they reference by foreign
+key within `source`, `delivery`, `work`, `document` and `edge`, as JSON
+(`format` 1, `created_at`, `rows` per table, all columns including
+`retired_at` and `revoked_at`). It never contains content, rights
+classifications or user data. A retired edge's `revoked_at` is the time of the
+import that retired it, not the time of the producer's revocation. The file may
+contain `source.responsible_person`; on a production instance that is the
+published role label, and the file is only ever written inside the
+age-encrypted backup. `normly-backup` creates it inside the container
+(`python -m normly_core.exchange export-tombstones`, stdout), checks it on the
+host before encrypting (an empty or malformed export aborts the backup, and
+nothing is uploaded) and removes the plaintext right after encryption.
 
 **Retention** (applied by `normly-backup prune`): the newest backup of each of
 the 7 most recent days with a daily backup; the newest daily backup of each of
-the 2 most recent calendar months; the 3 newest pre-rollout backups. Prune
-only counts committed backups and deletes uncommitted leftovers once they are
-older than one day.
+the 2 most recent calendar months; the 3 newest pre-rollout backups. Retention
+applies to all objects of a backup. Prune deletes `.sha256`, `meta.json`,
+`tombstones.age` and `dump.age` in that order and skips objects that are not
+in the listing, so older backups without a tombstone file are handled. It only
+counts committed backups and deletes uncommitted leftovers once they are older
+than one day.
 
 ## Restore test
 
@@ -326,13 +364,15 @@ deployment work) as their verification and correct this section if needed.
 rclone lsf stackit:normly-backups/backups | tail
 BASE=20261009T033000Z-daily
 rclone copyto stackit:normly-backups/backups/$BASE.dump.age ./$BASE.dump.age
+rclone copyto stackit:normly-backups/backups/$BASE.tombstones.age ./$BASE.tombstones.age
 rclone copyto stackit:normly-backups/backups/$BASE.sha256   ./$BASE.sha256
 rclone copyto stackit:normly-backups/backups/$BASE.meta.json ./$BASE.meta.json
 sha256sum -c $BASE.sha256
-cat $BASE.meta.json        # alembic_revision, image_tag, kb_version
+cat $BASE.meta.json        # alembic_revision, image_tag, kb_version, tombstones
 
-# 2. Decrypt
+# 2. Decrypt both files (the tombstone file like the dump)
 age -d -i normly-backup.key -o $BASE.dump $BASE.dump.age
+age -d -i normly-backup.key -o $BASE.tombstones.json $BASE.tombstones.age
 
 # 3. Start a throw-away PostgreSQL with pgvector, reachable over TCP
 #    (any PostgreSQL 16 with the vector extension works; this is one way)
@@ -360,16 +400,26 @@ docker run --rm --network host --entrypoint python \
   ghcr.io/normly/web-app/pipeline:0.2.0 \
   -m normly_core.exchange import --fetch 2026.10.1     # the kb_version
 
-# 6. Restore the user data
+# 6. Restore the retired identifiers BEFORE the user data: user rows may point
+#    at documents the older dump no longer contains.
+docker run --rm -i --network host --entrypoint python \
+  -e NORMLY_DATABASE_URL="$APPURL" \
+  ghcr.io/normly/web-app/pipeline:0.2.0 \
+  -m normly_core.exchange import-tombstones < $BASE.tombstones.json
+
+# 7. Restore the user data
 pg_restore --dbname="$PGURL" --data-only --exit-on-error $BASE.dump
 
-# 7. Look at it
+# 8. Look at it
 psql "$PGURL" -c "SELECT relname, n_live_tup FROM pg_stat_user_tables ORDER BY relname"
 psql "$PGURL" -c 'SELECT count(*) FROM account'
 ```
 
 Replace `NORMLY_KB_BASE_URL` with the real public dump URL. If `kb_version` is
-`none`, skip step 5. For exact counts, run `SELECT count(*)` for each table
+`none`, skip step 5. A backup from before the tombstone file existed has no
+`.tombstones.age` (and no `"tombstones": true` in its `meta.json`); skip the
+tombstone download, decryption and import, and expect a foreign-key error in step 7 if user data points at
+withdrawn documents. For exact counts, run `SELECT count(*)` for each table
 that `python -m normly_core.exchange tables user` lists and compare with
 production. Clean up afterwards: `docker rm -f restore-test`, and delete the
 decrypted dump.
@@ -445,10 +495,19 @@ before any table file is downloaded, so a spoofed bucket cannot make the
 client fetch an unbounded amount of data. The import then verifies the
 signature again, the exchange schema version, the embedding
 model name **and** revision, the vector dimension and every file checksum before
-it writes. It is atomic and idempotent. It stops without changes if user data
-still references a knowledge-base row that the new version removes, and names
-the blocking references. How to resolve such cases is an open product decision
-([ADR-025](../adr/README.md#adr-025-wissensbestand-dump-als-austauschformat)).
+it writes. It is atomic and idempotent. A takedown always wins and user data never
+blocks an import: what the new version no longer contains loses its content
+(designations, titles, rights classification, segments, embeddings are deleted),
+while works, documents and edges stay as tombstones marked `retired_at` (edges
+are also revoked) and missing deliveries are marked withdrawn. User data such as
+watchlists, notifications and chat history is kept; chat citations only lose
+their segment reference. A tombstone that returns in a later dump becomes active
+again. Watchers of a withdrawn document get a "no longer available"
+notification the next time `notify-watchers` runs, but only watchers whose
+watch is older than the withdrawal and who have notifications enabled. An import of a dump without
+any documents is refused while the database holds documents; pass
+`--allow-empty` to apply it deliberately
+([ADR-026](../adr/README.md#adr-026-umgang-mit-nutzerdaten-beim-wissensbestand-import)).
 
 The dump contains no personal names: the export replaces
 `source.responsible_person` and `rights_classification.classified_by` with the

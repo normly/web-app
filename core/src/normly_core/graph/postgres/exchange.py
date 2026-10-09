@@ -15,7 +15,7 @@ documents, so no exported row can point at a missing parent.
 import enum
 import uuid
 from collections.abc import Iterator, Mapping
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 
 import sqlalchemy as sa
@@ -26,7 +26,14 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from normly_core.exchange.tables import KNOWLEDGE_TABLES
+from normly_core.exchange.tables import (
+    DETACHED_REFERENCES,
+    EXCLUDED_EXCHANGE_COLUMNS,
+    KNOWLEDGE_TABLES,
+    PURGE_TABLES,
+    TOMBSTONE_SUPPORT_TABLES,
+    TOMBSTONE_TABLES,
+)
 from normly_core.graph.domain import (
     ExchangeColumn,
     ImportBlockedError,
@@ -222,6 +229,11 @@ def _from_exchange(column: sa.Column, value: Any) -> Any:
     return value
 
 
+def _exchange_columns(sa_table: sa.Table) -> list[sa.Column]:
+    excluded = set(EXCLUDED_EXCHANGE_COLUMNS.get(sa_table.name, ()))
+    return [c for c in sa_table.columns if c.name not in excluded]
+
+
 def _primary_key(table: sa.Table) -> list[sa.Column]:
     return list(table.primary_key.columns)
 
@@ -231,7 +243,7 @@ class PostgresKnowledgeExchangeRepository:
         self._session = session
 
     def exchange_columns(self, table: str) -> list[ExchangeColumn]:
-        return [ExchangeColumn(c.name, _kind(c)) for c in Base.metadata.tables[table].columns]
+        return [ExchangeColumn(c.name, _kind(c)) for c in _exchange_columns(Base.metadata.tables[table])]
 
     def iter_exportable_rows(
         self, table: str, *, batch_size: int = 5000
@@ -239,20 +251,20 @@ class PostgresKnowledgeExchangeRepository:
         sa_table = Base.metadata.tables[table]
         statement = _statement(table)
         masked_name = _PERSONAL_NAME_COLUMNS.get(table)
-        if masked_name is not None:
-            # Fail closed: a renamed column raises KeyError instead of
-            # silently exporting the real value.
-            masked = sa_table.c[masked_name]
-            # The name never leaves the database: the column is replaced in
-            # the statement itself, so the export gate stays in one place.
-            statement = statement.with_only_columns(
-                *(
-                    sa.literal(PUBLISHED_ROLE, type_=column.type).label(column.name)
-                    if column is masked
-                    else column
-                    for column in sa_table.columns
-                )
+        # Fail closed: a renamed column raises KeyError instead of silently
+        # exporting the real value.
+        masked = sa_table.c[masked_name] if masked_name is not None else None
+        # The name never leaves the database: the column is replaced in the
+        # statement itself, so the export gate stays in one place. Columns
+        # outside the exchange format (retired_at) are not selected at all.
+        statement = statement.with_only_columns(
+            *(
+                sa.literal(PUBLISHED_ROLE, type_=column.type).label(column.name)
+                if column is masked
+                else column
+                for column in _exchange_columns(sa_table)
             )
+        )
         statement = statement.order_by(*_primary_key(sa_table))
         # Per-statement options: Connection.execution_options() would mutate
         # the shared session connection and break its savepoint handling.
@@ -275,6 +287,9 @@ class PostgresKnowledgeExchangeRepository:
         )
         return [(str(i), publisher, category.value) for i, publisher, category in rows]
 
+    def has_documents(self) -> bool:
+        return self._session.execute(select(sa.exists().where(DocumentORM.id.is_not(None)))).scalar_one()
+
     def imported_version(self) -> ImportRecord | None:
         row = self._session.execute(select(KnowledgeBaseImportORM)).scalar_one_or_none()
         if row is None:
@@ -288,31 +303,49 @@ class PostgresKnowledgeExchangeRepository:
         self, tables: Mapping[str, RowBatches], *, record: ImportRecord
     ) -> None:
         """
-        Three passes, so that a kept row whose foreign key moves to a new
-        parent (work merge, classification switching delivery) never causes a
-        false block:
+        A takedown always wins: user data never blocks an import (ADR-026).
+        What the dump no longer contains is handled by class:
 
-        1. reverse order: delete rows missing from the dump, except those a
-           kept row still points at (they are deferred);
-        2. forward order: upsert the dump, which moves those foreign keys;
-        3. reverse order: delete every missing row now. Whatever still
-           refuses to go is referenced by user data (watchlist, notification,
-           chat citation) and raises ImportBlockedError.
+        * content and derivations (PURGE_TABLES) are deleted physically,
+          after user references to purged segments were cleared;
+        * identifier rows (TOMBSTONE_TABLES) stay with `retired_at` set, so
+          watchlists, notifications and citations keep their targets; an edge
+          is also revoked (`revoked_at`) when it is retired; a row that
+          returns clears `retired_at` again;
+        * provenance (delivery, source) stays; a missing delivery gets
+          `withdrawn_at`.
 
-        Nothing is committed. After ImportBlockedError the caller must roll
-        back (or use a savepoint); only then is the data unchanged.
+        Content is deleted and missing identifier rows are retired BEFORE the
+        upsert, so that a purged or retired row cannot collide with a new row
+        on a natural unique key (a revoked edge frees the partial unique index
+        on active edges). Nothing is committed.
+        ImportBlockedError remains only as a last guard for an unexpected
+        foreign key; after it the caller must roll back (or use a savepoint).
         """
         connection = self._session.connection()
+        now = record.imported_at or datetime.now(timezone.utc)
         keep_tables = self._load_keys(connection, tables)
-        for defer_kept_references in (True, False):
-            for name in reversed(KNOWLEDGE_TABLES):
-                try:
-                    self._delete_missing(connection, name, keep_tables, defer_kept_references)
-                except IntegrityError as exc:
-                    raise ImportBlockedError(name, str(exc.orig).splitlines()[0]) from exc
-            if defer_kept_references:
-                for name in KNOWLEDGE_TABLES:
-                    self._upsert(connection, name, tables[name])
+        step = ""
+        try:
+            step = "detach"
+            self._detach_missing_references(connection, keep_tables)
+            for name in reversed(PURGE_TABLES):
+                step = name
+                self._delete_missing(connection, name, keep_tables)
+            # Retire before the upsert: a retired edge is revoked, which frees
+            # the partial unique index on active edges for a re-delivered edge
+            # with the same endpoints but a new id. "Missing" depends on the
+            # key tables only, so the order does not change which rows retire.
+            for name in TOMBSTONE_TABLES:
+                step = name
+                self._retire_missing(connection, name, keep_tables, now)
+            step = "delivery"
+            self._withdraw_missing_deliveries(connection, keep_tables, now)
+            for name in KNOWLEDGE_TABLES:
+                step = name
+                self._upsert(connection, name, tables[name])
+        except IntegrityError as exc:
+            raise ImportBlockedError(step, str(exc.orig).splitlines()[0]) from exc
         self._write_record(record)
         # The caller owns the transaction, so ON COMMIT DROP alone would leave
         # the temp tables in place for a second call in the same transaction.
@@ -341,50 +374,87 @@ class PostgresKnowledgeExchangeRepository:
             keep_tables[name] = keep
         return keep_tables
 
+    @staticmethod
+    def _missing(sa_table: sa.Table, keep: sa.Table):
+        match = sa.and_(*[keep.c[c.name] == c for c in _primary_key(sa_table)])
+        return ~sa.exists().where(match)
+
     def _delete_missing(
-        self, connection, name: str, keep_tables: Mapping[str, sa.Table],
-        defer_kept_references: bool,
+        self, connection, name: str, keep_tables: Mapping[str, sa.Table]
     ) -> None:
         sa_table = Base.metadata.tables[name]
-        keep = keep_tables[name]
-        match = sa.and_(*[keep.c[c.name] == c for c in _primary_key(sa_table)])
-        condition = ~sa.exists().where(match)
-        if defer_kept_references:
-            # Skip rows that a row of the new dump still references; the
-            # upsert will move that reference, the final pass deletes them.
-            for child_name in KNOWLEDGE_TABLES:
-                child_table = Base.metadata.tables[child_name]
-                child_keep = keep_tables[child_name]
-                # A self-referencing table must be aliased: otherwise SQLAlchemy
-                # correlates the child with the outer DELETE target and the
-                # deferral silently never matches.
-                child = child_table.alias() if child_table is sa_table else child_table
-                child_match = sa.and_(
-                    *[child_keep.c[c.name] == child.c[c.name] for c in _primary_key(child_table)]
+        connection.execute(
+            sa.delete(sa_table).where(self._missing(sa_table, keep_tables[name]))
+        )
+
+    def _detach_missing_references(
+        self, connection, keep_tables: Mapping[str, sa.Table]
+    ) -> None:
+        for (child_name, column_name), parent_name in DETACHED_REFERENCES.items():
+            child = Base.metadata.tables[child_name]
+            parent = Base.metadata.tables[parent_name]
+            keep = keep_tables[parent_name]
+            (parent_key,) = _primary_key(parent)
+            referenced = child.c[column_name]
+            connection.execute(
+                sa.update(child)
+                .where(
+                    referenced.is_not(None),
+                    ~sa.exists().where(keep.c[parent_key.name] == referenced),
                 )
-                for foreign_key in child_table.foreign_keys:
-                    if foreign_key.column.table is not sa_table:
-                        continue
-                    condition = sa.and_(
-                        condition,
-                        ~sa.exists().where(
-                            child.c[foreign_key.parent.name] == foreign_key.column,
-                            child_match,
-                        ),
-                    )
-        connection.execute(sa.delete(sa_table).where(condition))
+                .values({column_name: None})
+            )
+
+    def _retire_missing(
+        self, connection, name: str, keep_tables: Mapping[str, sa.Table], now: datetime
+    ) -> None:
+        sa_table = Base.metadata.tables[name]
+        values: dict[str, Any] = {"retired_at": now}
+        if name == "edge":
+            # revoked_at is the single read gate for edges; a retired edge
+            # must disappear from every edge read, also between live documents.
+            values["revoked_at"] = sa.func.coalesce(sa_table.c.revoked_at, now)
+        connection.execute(
+            sa.update(sa_table)
+            .where(
+                sa_table.c.retired_at.is_(None),
+                self._missing(sa_table, keep_tables[name]),
+            )
+            .values(values)
+        )
+
+    def _withdraw_missing_deliveries(
+        self, connection, keep_tables: Mapping[str, sa.Table], now: datetime
+    ) -> None:
+        delivery = Base.metadata.tables["delivery"]
+        connection.execute(
+            sa.update(delivery)
+            .where(
+                delivery.c.withdrawn_at.is_(None),
+                self._missing(delivery, keep_tables["delivery"]),
+            )
+            .values(withdrawn_at=now)
+        )
 
     def _upsert(self, connection, name: str, batches: RowBatches) -> None:
         sa_table = Base.metadata.tables[name]
         key_names = [c.name for c in _primary_key(sa_table)]
-        value_columns = [c for c in sa_table.columns if c.name not in key_names]
+        exchange_columns = _exchange_columns(sa_table)
+        # retired_at is not in the dump; a row that is present again is alive.
+        retired_at = sa_table.c.retired_at if name in TOMBSTONE_TABLES else None
+        value_columns = [c for c in exchange_columns if c.name not in key_names]
+        if retired_at is not None:
+            value_columns.append(retired_at)
         self_reference = "merged_into_work_id" if name == "work" else None
         deferred: list[dict[str, Any]] = []
         for batch in batches():
             rows = [
-                {c.name: _from_exchange(c, row[c.name]) for c in sa_table.columns}
+                {c.name: _from_exchange(c, row[c.name]) for c in exchange_columns}
                 for row in batch
             ]
+            if retired_at is not None:
+                for row in rows:
+                    row["retired_at"] = None
             if self_reference:
                 for row in rows:
                     if row[self_reference] is not None:
@@ -409,6 +479,125 @@ class PostgresKnowledgeExchangeRepository:
                     {self_reference: item[self_reference]}
                 )
             )
+
+    # --- tombstone support (ADR-026, Erweiterung 2) -------------------------
+
+    def export_tombstone_support(self) -> dict[str, list[dict[str, Any]]]:
+        connection = self._session.connection()
+        tables = {name: Base.metadata.tables[name] for name in TOMBSTONE_SUPPORT_TABLES}
+        for table in tables.values():
+            if len(_primary_key(table)) != 1:
+                raise ValueError(f"{table.name}: expected a single-column primary key")
+        # Foreign keys between the support tables, read from the ORM metadata.
+        parents: dict[str, list[tuple[str, str]]] = {name: [] for name in tables}
+        for name, table in tables.items():
+            for foreign_key in table.foreign_keys:
+                parent = foreign_key.column.table.name
+                if parent in tables:
+                    parents[name].append((foreign_key.parent.name, parent))
+
+        included: dict[str, set[Any]] = {name: set() for name in tables}
+        for name in TOMBSTONE_TABLES:
+            table = tables[name]
+            (key,) = _primary_key(table)
+            included[name].update(
+                connection.execute(select(key).where(table.c.retired_at.is_not(None))).scalars()
+            )
+        changed = True
+        while changed:
+            changed = False
+            for name, links in parents.items():
+                if not links:
+                    continue
+                table = tables[name]
+                (key,) = _primary_key(table)
+                ids = list(included[name])
+                for start in range(0, len(ids), _WRITE_BATCH):
+                    chunk = ids[start:start + _WRITE_BATCH]
+                    for column_name, parent in links:
+                        found = set(
+                            connection.execute(
+                                select(table.c[column_name])
+                                .where(key.in_(chunk), table.c[column_name].is_not(None))
+                                .distinct()
+                            ).scalars()
+                        )
+                        if not found <= included[parent]:
+                            included[parent] |= found
+                            changed = True
+
+        result: dict[str, list[dict[str, Any]]] = {}
+        for name, table in tables.items():
+            (key,) = _primary_key(table)
+            ids = list(included[name])
+            rows: list[dict[str, Any]] = []
+            for start in range(0, len(ids), _WRITE_BATCH):
+                chunk = ids[start:start + _WRITE_BATCH]
+                for row in connection.execute(select(table).where(key.in_(chunk))):
+                    rows.append({k: _to_exchange(v) for k, v in row._mapping.items()})
+            rows.sort(key=lambda r: str(r[key.name]))
+            result[name] = rows
+        return result
+
+    @staticmethod
+    def _from_backup(column: sa.Column, value: Any) -> Any:
+        if isinstance(value, str):
+            kind = _kind(column)
+            if kind == "timestamp":
+                return datetime.fromisoformat(value)
+            if kind == "date":
+                return date.fromisoformat(value)
+        return _from_exchange(column, value)
+
+    def restore_tombstone_support(
+        self, rows: Mapping[str, list[dict[str, Any]]], *, restored_at: datetime
+    ) -> None:
+        unknown = set(rows) - set(TOMBSTONE_SUPPORT_TABLES)
+        if unknown:
+            raise ValueError(f"unknown tombstone support tables: {sorted(unknown)}")
+        connection = self._session.connection()
+        for name in TOMBSTONE_SUPPORT_TABLES:
+            sa_table = Base.metadata.tables[name]
+            (key,) = _primary_key(sa_table)
+            columns = {c.name: c for c in sa_table.columns}
+            prepared: list[dict[str, Any]] = []
+            for row in rows.get(name, []):
+                if set(row) != set(columns):
+                    raise ValueError(
+                        f"{name}: row columns do not match the table "
+                        f"(difference: {sorted(set(row) ^ set(columns))})"
+                    )
+                values = {n: self._from_backup(columns[n], v) for n, v in row.items()}
+                if name in TOMBSTONE_TABLES and values["retired_at"] is None:
+                    # A live parent the older dump does not know: it counts as
+                    # retired now, so a later import that has it clears this.
+                    values["retired_at"] = restored_at
+                    if name == "edge" and values["revoked_at"] is None:
+                        values["revoked_at"] = restored_at
+                prepared.append(values)
+            # work.merged_into_work_id points into the same table: insert with
+            # NULL first and set it after all rows exist, only for new rows.
+            deferred: dict[Any, Any] = {}
+            if name == "work":
+                for values in prepared:
+                    if values["merged_into_work_id"] is not None:
+                        deferred[values["id"]] = values["merged_into_work_id"]
+                        values["merged_into_work_id"] = None
+            inserted: set[Any] = set()
+            for start in range(0, len(prepared), _WRITE_BATCH):
+                statement = (
+                    pg_insert(sa_table).on_conflict_do_nothing().returning(key)
+                )
+                inserted.update(
+                    connection.execute(statement, prepared[start:start + _WRITE_BATCH]).scalars()
+                )
+            for work_id, target in deferred.items():
+                if work_id in inserted:
+                    connection.execute(
+                        sa.update(sa_table)
+                        .where(sa_table.c.id == work_id, sa_table.c.merged_into_work_id.is_(None))
+                        .values(merged_into_work_id=target)
+                    )
 
     def _write_record(self, record: ImportRecord) -> None:
         insert = pg_insert(KnowledgeBaseImportORM.__table__).values(

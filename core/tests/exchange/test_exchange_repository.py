@@ -3,7 +3,6 @@
 
 from datetime import date
 
-import pytest
 import sqlalchemy as sa
 
 from .helpers import (
@@ -16,7 +15,6 @@ from .helpers import (
 from normly_core.exchange.tables import KNOWLEDGE_TABLES
 from normly_core.graph.domain import (
     EdgeType,
-    ImportBlockedError,
     ImportRecord,
     Layer,
     LegalBasisCategory,
@@ -119,9 +117,11 @@ def test_row_types_are_exchange_types(db_session):
 _SNAPSHOT_QUERIES = {
     "source": "SELECT id::text FROM source",
     "delivery": "SELECT id::text FROM delivery",
-    "document": "SELECT id::text, work_id::text FROM document",
+    "document": "SELECT id::text, work_id::text, retired_at FROM document",
+    "edge": "SELECT id::text, retired_at FROM edge",
     "segment": "SELECT id::text FROM segment",
-    "work": "SELECT id::text, status, merged_into_work_id::text FROM work",
+    "withdrawn": "SELECT id::text, withdrawn_at FROM delivery",
+    "work": "SELECT id::text, status, merged_into_work_id::text, retired_at FROM work",
     "rights": (
         "SELECT document_id::text, jurisdiction, delivery_id::text "
         "FROM rights_classification"
@@ -144,7 +144,7 @@ def _record():
     return ImportRecord("2026.10.1", 1, "rev", NOW)
 
 
-def test_replace_is_idempotent_and_removes_missing_rows(db_session):
+def test_replace_is_idempotent_and_retires_missing_rows(db_session):
     source = _source(db_session)
     delivery = _delivery(db_session, source, "r")
     keep = _document(db_session, delivery, "KEEP")
@@ -156,7 +156,7 @@ def test_replace_is_idempotent_and_removes_missing_rows(db_session):
     repository = PostgresKnowledgeExchangeRepository(db_session)
     dump = {t: _all_rows(repository, t) for t in KNOWLEDGE_TABLES}
 
-    # remove one document from the dump; the import must delete it
+    # remove one document from the dump; the import must retire it
     dump["document"] = [r for r in dump["document"] if r["id"] != str(drop.id)]
     dump["rights_classification"] = [
         r for r in dump["rights_classification"] if r["document_id"] != str(drop.id)
@@ -168,12 +168,16 @@ def test_replace_is_idempotent_and_removes_missing_rows(db_session):
     repository.replace_knowledge_base(frozen, record=_record())
 
     assert _snapshot(db_session) == first
-    assert str(drop.id) not in _ids(first, "document")
-    assert str(keep.id) in _ids(first, "document")
+    # identifier row stays as a tombstone, its rights classification is gone
+    documents = {row[0]: row for row in first["document"]}
+    assert documents[str(drop.id)][2] is not None
+    assert documents[str(keep.id)][2] is None
+    assert str(drop.id) not in {row[0] for row in first["rights"]}
+    assert str(keep.id) in {row[0] for row in first["rights"]}
     assert repository.imported_version().dump_version == "2026.10.1"
 
 
-def test_replace_blocks_when_user_data_still_references_a_row(db_session):
+def test_user_data_never_blocks_an_import(db_session):
     source = _source(db_session)
     delivery = _delivery(db_session, source, "b")
     document = _document(db_session, delivery, "A")
@@ -186,14 +190,16 @@ def test_replace_blocks_when_user_data_still_references_a_row(db_session):
     )
     repository = PostgresKnowledgeExchangeRepository(db_session)
     empty = {t: (lambda: iter([])) for t in KNOWLEDGE_TABLES}
+    watch_query = sa.text("SELECT id::text, account_id::text, work_id::text FROM watchlist")
+    watches = sorted(tuple(r) for r in db_session.execute(watch_query))
 
-    before = _snapshot(db_session)
-    with pytest.raises(ImportBlockedError) as blocked:
-        with db_session.begin_nested():
-            repository.replace_knowledge_base(empty, record=_record())
-    assert "work" in blocked.value.table or "document" in blocked.value.table
-    assert _snapshot(db_session) == before
-    assert repository.imported_version() is None
+    repository.replace_knowledge_base(empty, record=_record())
+
+    assert sorted(tuple(r) for r in db_session.execute(watch_query)) == watches
+    snapshot = _snapshot(db_session)
+    works = {row[0]: row for row in snapshot["work"]}
+    assert works[str(work.id)][3] is not None
+    assert repository.imported_version().dump_version == "2026.10.1"
 
 
 def _dump(repository):
@@ -228,15 +234,14 @@ def test_work_merge_exports_merged_work_and_reimports_cleanly(db_session):
     repository.replace_knowledge_base(_frozen(after), record=_record())
     assert _snapshot(db_session) != pre_merge
 
-    # a dump that no longer mentions the merged-away work at all deletes it
-    # once its documents have moved to the target (deferred delete pass)
-    # (the resolved merge case is curation data pointing at the work; drop it
-    # so only the knowledge-base reference remains)
-    db_session.execute(sa.text("DELETE FROM identity_resolution_case"))
+    # a dump that no longer mentions the merged-away work at all retires it
+    # (tombstone); its documents have already moved to the target
     trimmed = dict(after)
     trimmed["work"] = [r for r in after["work"] if r["id"] != str(doc_s.work_id)]
     repository.replace_knowledge_base(_frozen(trimmed), record=_record())
-    assert str(doc_s.work_id) not in _ids(_snapshot(db_session), "work")
+    works = {row[0]: row for row in _snapshot(db_session)["work"]}
+    assert works[str(doc_s.work_id)][3] is not None
+    assert works[str(doc_t.work_id)][3] is None
 
 
 def test_classification_switching_delivery_does_not_block_import(db_session):
@@ -266,15 +271,17 @@ def test_classification_switching_delivery_does_not_block_import(db_session):
     repository.replace_knowledge_base(_frozen(dump_b), record=_record())
 
     snapshot = _snapshot(db_session)
-    assert str(d1.id) not in _ids(snapshot, "delivery")
+    # the delivery stays as provenance, marked withdrawn
+    withdrawn = {row[0]: row for row in snapshot["withdrawn"]}
+    assert withdrawn[str(d1.id)][1] is not None
     assert snapshot["rights"] == [(str(document.id), "DE", str(d2.id))]
 
 
-def test_unmerge_in_the_dump_does_not_falsely_block_deleting_the_old_target(db_session):
+def test_unmerge_in_the_dump_does_not_falsely_block_retiring_the_old_target(db_session):
     """
     A kept work X points (merged_into) at work S, which the new dump drops
-    while X's pointer moves. The deferral must see X as a referencing row;
-    with the child table auto-correlated to the DELETE target it never did.
+    while X's pointer moves. S is retired (tombstone) and X's pointer is
+    cleared by the upsert; nothing may block.
     """
     source = _source(db_session)
     delivery = _delivery(db_session, source, "u")
@@ -296,6 +303,7 @@ def test_unmerge_in_the_dump_does_not_falsely_block_deleting_the_old_target(db_s
     repository.replace_knowledge_base(_frozen(dump), record=_record())
 
     snapshot = _snapshot(db_session)
-    assert str(doc_s.work_id) not in _ids(snapshot, "work")
-    kept = {row[0]: row for row in snapshot["work"]}[str(doc_x.work_id)]
-    assert kept[2] is None
+    works = {row[0]: row for row in snapshot["work"]}
+    assert works[str(doc_s.work_id)][3] is not None  # tombstone, not deleted
+    assert works[str(doc_x.work_id)][2] is None
+    assert works[str(doc_x.work_id)][3] is None

@@ -43,6 +43,7 @@ USER_TABLES: tuple[str, ...] = (
     "notification",
     "rights_notification_baseline",
     "notified_edge",
+    "notified_retirement",
     "chat_session",
     "chat_message",
     "chat_message_citation",
@@ -56,6 +57,54 @@ SYSTEM_TABLES: tuple[str, ...] = ("knowledge_base_import",)
 
 #: Exists in the database but not in the ORM metadata.
 UNMANAGED_TABLES: tuple[str, ...] = ("alembic_version",)
+
+
+# --- Import classes (ADR-026) -------------------------------------------------
+# What an import does with a knowledge-base row that the new dump no longer
+# contains. A takedown always wins: user references never block an import.
+
+#: Identifier rows without content. They stay with `retired_at` set, so that
+#: user data pointing at them (watchlist, notification, citation) stays valid.
+TOMBSTONE_TABLES: tuple[str, ...] = ("work", "document", "edge")
+
+#: Tables of the tombstone support file (parents first): the retired identifier
+#: rows plus their foreign-key parents (ADR-026, Erweiterung 2).
+TOMBSTONE_SUPPORT_TABLES: tuple[str, ...] = ("source", "delivery", "work", "document", "edge")
+
+#: Provenance only: source and delivery. Never deleted by an import (the
+#: tombstone rows reference them). A missing delivery gets `withdrawn_at`.
+#: Identifier rows without content are TOMBSTONE_TABLES, not part of this.
+RETAINED_TABLES: tuple[str, ...] = ("source", "delivery")
+
+#: Content and derivations. Physically deleted when missing from the dump, so
+#: withdrawn text can no longer be read (also not from backups once they
+#: expire). Designations and titles belong here too: no user data points at
+#: them, and a re-delivery recreates them with new ids, which would collide on
+#: their natural unique keys if stale rows stayed. Same relative order as KNOWLEDGE_TABLES (parents first); deletes
+#: run in reverse.
+PURGE_TABLES: tuple[str, ...] = (
+    "document_designation",
+    "document_title",
+    "rights_classification",
+    "segment",
+    "embedding",
+    "document_embedding",
+)
+
+#: (child table, column) -> purge table it points at. The column is set to
+#: NULL when the target row is purged. Every foreign key from outside the
+#: knowledge base into a purge table must be listed here (test_tables.py).
+DETACHED_REFERENCES: dict[tuple[str, str], str] = {
+    ("chat_message_citation", "segment_id"): "segment",
+}
+
+#: Columns that exist in the database but are not part of the exchange format:
+#: instance state of the importing side, never exported.
+EXCLUDED_EXCHANGE_COLUMNS: dict[str, tuple[str, ...]] = {
+    "work": ("retired_at",),
+    "document": ("retired_at",),
+    "edge": ("retired_at",),
+}
 
 
 def group_tables(name: str) -> tuple[str, ...]:

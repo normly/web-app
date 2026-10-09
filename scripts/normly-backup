@@ -57,6 +57,20 @@ run_backup() {
   age -r "$NORMLY_BACKUP_AGE_RECIPIENT" -o "$work/$base.dump.age" "$work/$base.dump"
   rm -f "$work/$base.dump"   # no plaintext beyond this point
 
+  # Retired identifiers (tombstones) are in no knowledge-base dump, but user
+  # rows may point at them: a rollback needs them back before the user data.
+  # The container prints the document on stdout (no mount); a failure aborts.
+  # shellcheck disable=SC2086 # COMPOSE is a command line and must word-split
+  $COMPOSE run --rm --no-deps -T --entrypoint python pipeline \
+    -m normly_core.exchange export-tombstones > "$work/$base.tombstones.json" \
+    || { echo "cannot export the tombstone support rows; aborting backup" >&2; exit 1; }
+  # An empty or malformed export that still exits 0 must not be committed.
+  local tomb_problem
+  tomb_problem="$(normly_check_tombstones "$work/$base.tombstones.json" 2>&1)" \
+    || { echo "tombstone export is invalid: $tomb_problem; aborting backup" >&2; exit 1; }
+  age -r "$NORMLY_BACKUP_AGE_RECIPIENT" -o "$work/$base.tombstones.age" "$work/$base.tombstones.json"
+  rm -f "$work/$base.tombstones.json"   # no plaintext beyond this point
+
   local revision image_tag kb_version
   # The rollback compares these values: an empty or guessed one makes the backup
   # silently unusable, so a failed lookup aborts the run.
@@ -75,13 +89,14 @@ print(json.dumps({
     "alembic_revision": os.environ["REVISION"],
     "image_tag": os.environ["IMAGE_TAG"],
     "kb_version": os.environ["KB_VERSION"],
+    "tombstones": True,
 }))' > "$work/$base.meta.json"
-  (cd "$work" && sha256sum "$base.dump.age" > "$base.sha256")
+  (cd "$work" && sha256sum "$base.dump.age" "$base.tombstones.age" > "$base.sha256")
 
   # The .sha256 goes up LAST: it is the commit marker. A backup only counts
   # once it exists; prune ignores (and eventually removes) anything without it.
   local suffix
-  for suffix in meta.json dump.age sha256; do
+  for suffix in meta.json dump.age tombstones.age sha256; do
     rclone copyto "$work/$base.$suffix" "$NORMLY_BACKUP_REMOTE/backups/$base.$suffix"
   done
   echo "$base"
@@ -96,8 +111,10 @@ stamp_epoch() {
 # Delete one backup's objects, commit marker first: an interrupted deletion
 # leaves an orphan (cleaned up later), never a marker without its data.
 delete_backup() {
-  local base="$1" suffix failed=0
-  for suffix in sha256 meta.json dump.age; do
+  local base="$1" listing="$2" suffix failed=0
+  for suffix in sha256 meta.json tombstones.age dump.age; do
+    # Backups from before the tombstone file have no such object: nothing to delete.
+    grep -qxF "$base.$suffix" <<< "$listing" || continue
     rclone deletefile "$NORMLY_BACKUP_REMOTE/backups/$base.$suffix" </dev/null || failed=1
   done
   if [ "$failed" -eq 0 ]; then
@@ -121,7 +138,7 @@ prune() {
   local doomed
   doomed="$(printf '%s' "$committed_names" | python3 "$HERE/normly-backup-retention.py")"
   while IFS= read -r base; do
-    if [ -n "$base" ]; then delete_backup "$base"; fi
+    if [ -n "$base" ]; then delete_backup "$base" "$listing"; fi
   done <<< "$doomed"
 
   # Orphans (no .sha256) older than a day are failed uploads; younger ones may
@@ -131,9 +148,10 @@ prune() {
     case "$name" in
       *.dump.age) base="${name%.dump.age}" ;;
       *.meta.json) base="${name%.meta.json}" ;;
+      *.tombstones.age) base="${name%.tombstones.age}" ;;
       *) continue ;;
     esac
-    if printf '%s\n' "$committed" | grep -qxF "$base"; then continue; fi
+    if grep -qxF "$base" <<< "$committed"; then continue; fi
     [[ "$base" =~ ^[0-9]{8}T[0-9]{6}Z- ]] || continue
     if ! epoch="$(stamp_epoch "$base" 2>/dev/null)"; then
       echo "prune: skipping $name (invalid timestamp)" >&2

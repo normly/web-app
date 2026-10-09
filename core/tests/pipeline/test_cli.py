@@ -46,6 +46,7 @@ _WRITTEN_TABLES = (
     "segment",
     "notification",
     "notified_edge",
+    "notified_retirement",
     "watchlist",
     "edge",
     "rights_classification",

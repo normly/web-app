@@ -249,6 +249,7 @@ rollback() {
   from="${failed:-$current}"
 
   local database_url drop_sql down_tag="$current" backup_rev head_rev verify_out
+  local has_tombstones=0 backup_listing meta_flag tomb_problem
   local -a key_args=()
   WORK="$(mktemp -d -t normly-rollback.XXXXXX)"; chmod 700 "$WORK"
   normly_load_env "$NORMLY_DIR/.env"
@@ -274,6 +275,30 @@ print(json.load(sys.stdin)["alembic_revision"])' < "$WORK/meta.json")" \
     || die "cannot read the Alembic head of $previous; nothing was changed"
   if [ -z "$backup_rev" ] || [ "$backup_rev" != "$head_rev" ]; then
     die "backup $backup was taken at schema revision '$backup_rev' but $previous expects '$head_rev'; refusing to roll back, nothing was changed"
+  fi
+
+  # Backups from before the tombstone file existed have none: warn early, the
+  # rollback stays possible. A failed listing must not read as "missing".
+  backup_listing="$(rclone lsf "$NORMLY_BACKUP_REMOTE/backups")" \
+    || die "cannot list the backups; nothing was changed"
+  if grep -qxF "$backup.tombstones.age" <<< "$backup_listing"; then
+    has_tombstones=1
+    # Fetch, decrypt and check now: import-tombstones would only reject a bad
+    # file after the DROP.
+    rclone copyto "$NORMLY_BACKUP_REMOTE/backups/$backup.tombstones.age" "$WORK/tombstones.age" \
+      || die "cannot fetch the tombstone file of backup $backup; nothing was changed"
+    age -d -i "$identity" -o "$WORK/tombstones.json" "$WORK/tombstones.age" \
+      || die "cannot decrypt the tombstone file of backup $backup; nothing was changed"
+    tomb_problem="$(normly_check_tombstones "$WORK/tombstones.json" 2>&1)" \
+      || die "tombstone file in backup $backup is invalid: $tomb_problem; nothing was changed"
+  else
+    meta_flag="$(python3 -c '
+import json, sys
+print("yes" if json.load(sys.stdin).get("tombstones") is True else "no")' < "$WORK/meta.json")" \
+      || die "backup $backup has unreadable metadata; nothing was changed"
+    [ "$meta_flag" = no ] \
+      || die "backup $backup is damaged: its metadata promises a tombstone file but $backup.tombstones.age is missing; nothing was changed"
+    echo "WARNING: backup has no tombstone file; a foreign-key error is possible while restoring user data that points at withdrawn documents" >&2
   fi
 
   # The knowledge-base dump must be fetchable and valid BEFORE the database is
@@ -320,6 +345,11 @@ EOF
   if [ "$kb_version" != "none" ] && [ -n "$kb_version" ]; then
     compose "$previous" run --rm --no-deps ${key_args[@]+"${key_args[@]}"} \
       --entrypoint python pipeline -m normly_core.exchange import --fetch "$kb_version"
+  fi
+  # Retired identifiers first: user rows may point at them (foreign keys).
+  if [ "$has_tombstones" -eq 1 ]; then
+    compose "$previous" run --rm --no-deps -T --entrypoint python pipeline \
+      -m normly_core.exchange import-tombstones < "$WORK/tombstones.json"
   fi
   pg_restore --dbname="$database_url" --data-only --exit-on-error "$WORK/dump"
   compose "$previous" up -d --no-build --wait --wait-timeout "$HEALTH_TIMEOUT"

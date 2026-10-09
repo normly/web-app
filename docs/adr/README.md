@@ -904,26 +904,38 @@ Start prüft (REQ-GIT-005).
    (Liste aus der Datenbank, das Schema bleibt, damit pgvector erhalten
    bleibt), `migrate` mit dem vorherigen Image, Wissensbestand in der
    damals aktiven Dump-Version importieren (vor den Nutzerdaten, wegen der
-   Fremdschlüssel), Nutzerdaten mit `pg_restore --data-only`, vorheriges
-   Release starten. Vorab prüft das Skript, dass die Alembic-Revision der
-   Sicherung dem Alembic-Head des vorherigen Images entspricht und dass der
-   aufgezeichnete Wissensbestand-Dump abrufbar und prüfbar ist (Signatur,
-   Modell, Prüfsummen; ohne nutzbaren öffentlichen Schlüssel Abbruch, bevor
-   etwas verändert wird), und verlangt
+   Fremdschlüssel), die zurückgezogenen Kennungen der Sicherung
+   (`exchange import-tombstones`, siehe ADR-026), Nutzerdaten mit
+   `pg_restore --data-only`, vorheriges Release starten. Vorab prüft das
+   Skript, dass die Alembic-Revision der Sicherung dem Alembic-Head des
+   vorherigen Images entspricht, dass der aufgezeichnete Wissensbestand-Dump
+   abrufbar und prüfbar ist (Signatur, Modell, Prüfsummen; ohne nutzbaren
+   öffentlichen Schlüssel Abbruch, bevor etwas verändert wird) und dass die
+   Tombstone-Datei der Sicherung abrufbar, entschlüsselbar und gültig ist
+   (eine Sicherung, deren `meta.json` die Datei zusagt, der sie aber fehlt,
+   gilt als beschädigt: Abbruch; eine ältere Sicherung ohne Zusage führt zu
+   einer Warnung, der Rollback läuft weiter), und verlangt
    die Eingabe des Ziel-Tags (oder `--yes`). Der private Schlüssel wird nur
    für den Lauf bereitgestellt (`--age-identity FILE`). Scheitert der
    Rollback nach dem Verwerfen, gibt das Skript Hinweise zur Wiederherstellung;
    ein erneuter Aufruf ist gefahrlos.
-5. **Sicherung:** nur die Nutzerdaten-Tabellen (`exchange tables user`),
-   `age`-verschlüsselt auf der VM mit dem öffentlichen Schlüssel, Upload per
-   `rclone` in einen privaten STACKIT-Object-Storage-Bucket. Der private
+5. **Sicherung:** die Nutzerdaten-Tabellen (`exchange tables user`) und, als
+   zweite verschlüsselte Datei, die zurückgezogenen Kennungen
+   (`<base>.tombstones.age`, ADR-026; nie Inhalt, Rechte oder Nutzerdaten).
+   Beide `age`-verschlüsselt auf der VM mit dem öffentlichen Schlüssel, Upload
+   per `rclone` in einen privaten STACKIT-Object-Storage-Bucket. Der private
    Schlüssel liegt nie auf der VM. Reihenfolge des Uploads: `meta.json`,
-   `dump.age`, `.sha256`; die Prüfsumme ist die Commit-Markierung, erst mit
-   ihr zählt eine Sicherung.
+   `dump.age`, `tombstones.age`, `.sha256`; die Prüfsumme deckt beide
+   verschlüsselten Dateien ab und ist die Commit-Markierung, erst mit ihr
+   zählt eine Sicherung. `meta.json` trägt `"tombstones": true`.
 6. **Aufbewahrung:** 7 tägliche, 2 monatliche (jeweils der neueste tägliche
    Stand der beiden jüngsten Kalendermonate), 3 Pre-Rollout-Stände. Die
-   Bereinigung zählt nur committete Sicherungen und löscht Waisen (ohne
-   `.sha256`) erst nach einem Tag. Zusätzlich bleibt die 30-Tage-Sicherung
+   Aufbewahrung gilt für beide Dateien einer Sicherung: die Bereinigung löscht
+   `.sha256`, `meta.json`, `tombstones.age`, `dump.age` in dieser Reihenfolge
+   und überspringt Objekte, die nicht im Bucket liegen (ältere Sicherungen
+   ohne Tombstone-Datei). Sie zählt nur committete Sicherungen und löscht
+   Waisen (ohne `.sha256`, auch eine einzelne `tombstones.age`) erst nach
+   einem Tag. Zusätzlich bleibt die 30-Tage-Sicherung
    der Gesamtdatenbank durch Flex das Betriebsnetz.
 7. **Restore-Test:** manuell und dokumentiert (`docs/guide/operations.md`),
    nach dem Bau einmal, danach monatliche Erinnerung.
@@ -1010,12 +1022,13 @@ ein Rollback können ihn reproduzieren.
    Kalenderversion `kb/<version>/` und `kb/latest`. Eine Version ist
    unveränderlich. `fetch` lädt nur von `NORMLY_KB_BASE_URL` (https, für
    localhost auch http) und prüft Version und Pfade.
-5. **Import:** atomar und idempotent, in drei Durchgängen: (a) fehlende Zeilen
-   löschen, die keine behaltene Zeile mehr referenziert; (b) einfügen oder
-   aktualisieren; (c) die zurückgestellten fehlenden Zeilen löschen. Verweist
-   eine Nutzerdaten-Zeile noch auf eine zu löschende Zeile, bricht der Import
-   mit `ImportBlockedError` ohne Änderung ab. Der Aufrufer committet. Die
-   importierte Version wird in der Datenbank festgehalten.
+5. **Import:** atomar und idempotent; der Aufrufer committet, die
+   importierte Version wird in der Datenbank festgehalten. Was die neue Version
+   nicht mehr enthält, wird nach ADR-026 behandelt, nie blockiert durch
+   Nutzerdaten: Zitate lösen, Inhalt löschen, Tombstones setzen, Lieferungen
+   zurückziehen, dann einfügen oder aktualisieren. Ein Dump ohne Dokumente
+   wird abgelehnt, solange die Datenbank Dokumente hält, es sei denn
+   `--allow-empty` ist gesetzt.
 6. **Prüfungen beim Import:** Signatur, Austauschschema-Version, Modellname
    **und** Modellrevision (`NORMLY_EMBEDDING_MODEL_REVISION`), Dimension,
    Prüfsummen. Bei Abweichung Abbruch, keine stillen falschen Einbettungen.
@@ -1056,8 +1069,7 @@ ein Rollback können ihn reproduzieren.
 - *Object Storage statt Git:* große Binärdateien und anonymer Zugriff sind in
   einem Git-Repository unhandlich; die Wissensbasis bleibt damit auf STACKIT
   (CLAUDE.md).
-- *Dreistufiger Import:* Reines „zuerst löschen“ würde fälschlich blockieren,
-  obwohl keine Nutzerdaten beteiligt sind (z. B. nach einem Work-Merge).
+- *Import mit Tombstones statt Blockieren:* siehe ADR-026.
 
 **Verworfen:** `pg_dump` des Wissensbestands; Delta-Dumps (das Format lässt
 sie offen, gebaut werden sie nicht); STACKIT Git als Ablage; ein zusätzliches
@@ -1093,16 +1105,155 @@ und im Manifest.
 
 **Offene Punkte:**
 
-- **Blockierende Nutzerdaten-Verweise:** Verweisen Nutzerdaten
-  (`chat_message_citation`, `notification`, `notified_edge`) auf Abschnitte oder
-  Kanten, die eine neue Version ersetzt, blockiert der Import. Wie das fachlich
-  aufzulösen ist (Verweise lösen, Zeilen behalten, Nutzer informieren), ist
-  eine offene Produktentscheidung.
 - **Delta-Dumps** sind nicht gebaut.
 - **Schlüsselzeremonie:** Erzeugung, Verwahrung und Veröffentlichung des
   Signaturschlüssels stehen aus.
 
 Details: `docs/superpowers/specs/2026-10-09-tp4-deployment-automation-design.md`.
+
+---
+
+## ADR-026 — Umgang mit Nutzerdaten beim Wissensbestand-Import
+
+**Status:** beschlossen (2026-10-09); ersetzt die Blockierregel des Imports
+aus ADR-025
+
+**Kontext:** Der Import eines Wissensbestand-Dumps brach mit
+`ImportBlockedError` ab, sobald Nutzerdaten (`watchlist`, `notification`,
+`notified_edge`, `chat_message_citation`) auf eine Zeile verwiesen, die der neue
+Dump nicht mehr enthält. Für eine rechtlich gebotene Rücknahme (Lieferung
+zurückgezogen, Klassifikation widerrufen) ist das falsch: Sie darf nicht an
+Nutzerdaten scheitern (CLAUDE.md, „Abstammung mitführen“). Befund aus dem Code:
+Keine Nutzerdaten-Tabelle speichert urheberrechtlich geschützten Inhalt, es
+sind nur Verweise (`work_id`, `edge_id`, `document_id`, `segment_id`); der Text
+eines Zitats wird erst beim Lesen aus `segment` geholt.
+
+**Entscheidung:** Eine Rücknahme gewinnt immer; ein Nutzerverweis blockiert nie
+einen Import. Was der Dump nicht mehr enthält, wird nach Klasse behandelt:
+
+| Klasse | Tabellen | Behandlung |
+|---|---|---|
+| Tombstone (Kennung, kein Inhalt) | `work`, `document`, `edge` | Zeile bleibt, `retired_at` wird gesetzt; Kanten werden zusätzlich widerrufen (`revoked_at`). Nutzerverweise bleiben gültig. |
+| Herkunft | `source`, `delivery` | Werden nie gelöscht; eine fehlende Lieferung erhält `withdrawn_at`. |
+| Inhalt/Ableitung | `document_designation`, `document_title`, `rights_classification`, `segment`, `embedding`, `document_embedding` | Werden physisch gelöscht. |
+
+Ablauf in `replace_knowledge_base`, in dieser Reihenfolge: Schlüssel des Dumps
+laden; Zitate lösen (`chat_message_citation.segment_id` wird `NULL` für Segmente,
+die der Dump nicht enthält); fehlenden Inhalt in umgekehrter
+Fremdschlüssel-Reihenfolge löschen; fehlende Tombstones zurückziehen; fehlende
+Lieferungen mit `withdrawn_at` versehen; den Dump einfügen oder aktualisieren
+(Zeilen der Tombstone-Klassen aus dem Dump erhalten `retired_at = NULL`:
+Wiederkehr); Importvermerk schreiben. Löschen und Zurückziehen laufen **vor**
+dem Einfügen, damit eine Neulieferung mit neuen IDs nicht an natürlichen
+Eindeutigkeitsschlüsseln kollidiert (Bezeichner, Titel, partieller Index aktiver
+Kanten). `ImportBlockedError` (mit `.step`) bleibt nur als letzte Sicherung für
+einen unerwarteten Fremdschlüssel.
+
+- `retired_at` (Migration 0033; `work`, `document`, `edge`) ist keine
+  Austauschspalte: Dumpformat und `EXCHANGE_SCHEMA_VERSION` bleiben unverändert.
+- `retired_at` ist keine Filterpflicht. Ein zurückgezogenes Dokument hat keine
+  Rechteklassifikation mehr; jede tor-gebundene Lesestelle (das einzige Tor)
+  schließt es damit aus. Es entsteht kein zweiter Prüfpfad.
+- Schutz vor leerem Dump: Ein Dump ohne Dokumente wird abgelehnt, solange die
+  Datenbank Dokumente hält (`allow_empty` bzw. `--allow-empty` hebt das auf).
+- Ein Test geht alle Fremdschlüssel jeder Tabelle außerhalb des Wissensbestands
+  auf den Wissensbestand durch (fail-closed), nicht nur die der
+  Nutzerdaten-Tabellen, also auch `identity_resolution_case`: Jedes Ziel muss
+  zu einer Klasse gehören oder eine ausdrückliche Löseregel haben.
+- Meldung: Ein Widerruf löscht in Produktion die Klassifikation, der
+  Rechteänderungs-Pfad von `notify-watchers` sähe also nichts. Neuer
+  Benachrichtigungstyp `no_longer_available` (Migration 0034, Tabelle
+  `notified_retirement`, `trigger_type` auf VARCHAR(19)): `notify-watchers`
+  erzeugt eine Meldung je zurückgezogenem Dokument eines beobachteten Werks, nur
+  für Rücknahmen nach Beginn der Beobachtung; Dedup-Schlüssel enthält
+  `retired_at` (eine erneute Rücknahme nach Wiederkehr wird neu gemeldet). Kein
+  Link; E-Mail-Betreff „Ein beobachtetes Regelwerk ist nicht mehr verfügbar“;
+  Glocke „Nicht mehr verfügbar“ / „No longer available“. `delete_account`
+  entfernt die `notified_retirement`-Zeilen des Kontos.
+
+**Begründung:** Die zugesagte Rücknahme darf nie von einem Menschen oder von
+Nutzerdaten abhängen. Gelöschter Inhalt ist auch in Produktion und nach Ablauf
+der Sicherungen nicht mehr lesbar; Tombstones tragen nur Kennungen. Kein
+Nutzerverweis geht verloren, weil sich der Wissensbestand ändert.
+
+**Verworfen:**
+
+- Blockieren mit Bereinigungswerkzeug: Die Rücknahme wartete auf einen Menschen.
+- Nutzerverweise anpassen oder löschen: Datenverlust ohne Nutzen, da nur
+  Verweise betroffen sind.
+- Reine Tombstones auch für Inhalt: Die Rücknahme wäre nur logisch, der Text
+  bliebe in Datenbank und Sicherungen lesbar.
+- Bezeichner und Titel als Teil des Tombstones: Sie kollidieren bei einer
+  Neulieferung mit den natürlichen Eindeutigkeitsschlüsseln (Befund im Review);
+  das Dokument behält Herausgeber, Nummer, Ausgabe und Teil als Kennung.
+
+**Rollback und Sicherung (Erweiterung 2):** `normly-deploy rollback` (ADR-024)
+baut die Datenbank neu auf und importiert die ältere Dump-Version. Tombstones
+stehen in keinem Dump; Nutzerzeilen, die auf sie zeigen, verletzten beim
+Einspielen den Fremdschlüssel. Deshalb enthält jede Sicherung eine zweite,
+`age`-verschlüsselte Datei `<base>.tombstones.age`:
+
+- *Inhalt:* JSON (`format` 1, `created_at`, `rows` je Tabelle in
+  Fremdschlüssel-Reihenfolge) mit allen Zeilen aus `work`, `document` und
+  `edge`, deren `retired_at` gesetzt ist, plus dem Abschluss über die
+  Fremdschlüssel-Eltern innerhalb von `source`, `delivery`, `work`, `document`,
+  `edge`. Der Abschluss wird aus den ORM-Fremdschlüsseln berechnet, nicht
+  hartverdrahtet, und nimmt nur Eltern auf, nie Kinder. Alle Spalten, auch
+  `retired_at` und `revoked_at`. Nie Inhalt, Rechte oder Nutzerdaten.
+  `source.responsible_person` kann enthalten sein; in Produktion ist es die
+  veröffentlichte Rollenbezeichnung (Importe überschreiben es), ein Klarname
+  nur in einer Datei aus einer Ingestion-Datenbank. Er liegt nur in der
+  verschlüsselten Sicherung.
+- *Erzeugung und Prüfung:* im Container (`exchange export-tombstones`, stdout),
+  auf dem Host vor dem Verschlüsseln geprüft (JSON-Objekt, `format` 1, `rows`
+  mit genau den fünf Tabellen, je eine Liste). Eine ungültige Ausgabe bricht
+  die Sicherung ab.
+- *Einspielen:* im Rollback nach dem Wissensbestand-Import und **vor**
+  `pg_restore` (`exchange import-tombstones`, JSON auf stdin, im Image des
+  vorherigen Release). Einfügen in Fremdschlüssel-Reihenfolge mit
+  `ON CONFLICT DO NOTHING`; vorhandene Zeilen bleiben unverändert;
+  `work.merged_into_work_id` wird aufgeschoben. Eingefügte Zeilen aus `work`,
+  `document`, `edge` erhalten `retired_at` (gesicherter Wert, bei lebenden
+  Eltern `created_at` der Datei) und gelten damit als zurückgezogen. Sie haben
+  keine Klassifikation, jede tor-gebundene Lesestelle schließt sie aus. Ein
+  späterer normaler Import, der die Zeile enthält, setzt `retired_at` wieder
+  auf `NULL`.
+- *Vorabprüfung:* Der Rollback lädt, entschlüsselt und prüft die
+  Tombstone-Datei vor dem Banner, den Dump nach der Bestätigung und vor dem
+  Stopp; vor dem Löschen ist beides vorhanden und entschlüsselt. Sagt
+  `meta.json` `"tombstones": true`, fehlt aber die Datei, gilt die Sicherung als
+  beschädigt (Abbruch). Eine ältere Sicherung ohne Zusage bleibt nutzbar: Der
+  Rollback warnt deutlich (ein Fremdschlüsselfehler ist möglich, wenn
+  Nutzerdaten auf zurückgezogene Dokumente zeigen) und läuft weiter.
+- *Nicht wiederhergestellt:* Inhalt und Rechte zurückgezogener Dokumente; nur
+  Kennungen. Das ist gewollt, die Rücknahme bleibt wirksam.
+- *`revoked_at`:* An einer zurückgezogenen Kante ist `revoked_at` der
+  **Importzeitpunkt**, nicht der Zeitpunkt des Widerrufs beim Produzenten. Es
+  ist kein Ereignisdatum und so nicht zu lesen.
+
+**Folgen / offen:**
+
+- Ein Tombstone behält nur `origin_issuer`, `origin_number`, `edition` und
+  `part`. Jede Oberfläche, die Tombstones auflistet, muss darauf zurückfallen.
+- Die Ingestion legt bei Neulieferung nach einem Widerruf einen **neuen**
+  Dokumentknoten an (Bezeichner sind gelöscht, `find_by_designation` findet
+  nichts). Beobachtungen und Meldungen bleiben am Tombstone und gehen nicht auf
+  den neuen Knoten über. Produkt- und Identitätsentscheidung, offen.
+- Das Export-Gate des Produzenten lässt ein Dokument aus, dessen erzeugende
+  Lieferung widerrufen wurde, auch nach einer Neulieferung. Offen.
+- Dumps müssen aus einer Abstammungslinie mit stabilen IDs stammen. Eine neu
+  aufgebaute Produzenten-Datenbank mit neuen IDs kann mit stehengebliebenen
+  Tombstones kollidieren (partieller Index aktiver Kanten u. a.) und endet in
+  `ImportBlockedError`.
+- Aufbewahrung und Alterung von Tombstones sind offen (Teil B, Lebenszyklus der
+  Nutzerdaten).
+- Die Rechteänderungs-Meldung (`RIGHTS_CHANGE`) für reine Änderungen von
+  Rechtewerten, ohne dass das Dokument verschwindet, entsteht weiter beim
+  Produzenten, nicht in Produktion.
+- Der Schutz vor leerem Dump vertraut den Zeilenzahlen des Manifests; das
+  Manifest ist signiert.
+
+Details: `docs/superpowers/specs/2026-10-09-user-data-on-kb-import-design.md`.
 
 ---
 
@@ -1122,7 +1273,8 @@ Details: `docs/superpowers/specs/2026-10-09-tp4-deployment-automation-design.md`
 | Aufbewahrungsfristen der Sicherungskopien | offen | Bestimmt, wie lange ein vernichteter Schlüssel vorgehalten werden muss, bevor Backups auslaufen |
 | STACKIT-Repository `jwokittel/normly-webapp` | entschieden (2026-10-09): löschen | Der Betreiber löscht es im STACKIT-Portal (Nachtrag zu ADR-021); danach den Eintrag streichen |
 | Personennamen im öffentlichen Wissensbestand-Dump | entschieden (2026-10-09): Rolle `normly maintainers` | Umgesetzt im Export (ADR-025); Eintrag nach dem ersten öffentlichen Dump streichen |
-| Blockierende Nutzerdaten-Verweise beim Dump-Import | offen | Produktentscheidung, wie Verweise auf ersetzte Abschnitte und Kanten aufzulösen sind (ADR-025) |
+| Aufbewahrung und Alterung von Tombstones | offen | Wird mit dem Lebenszyklus der Nutzerdaten (Teil B) entschieden (ADR-026) |
+| Identität bei Neulieferung nach Widerruf | offen | Neue Dokumentknoten übernehmen Beobachtungen der Tombstones nicht; Produkt- und Identitätsentscheidung (ADR-026) |
 | Signaturschlüssel des Wissensbestand-Dumps | offen | Schlüsselzeremonie, öffentlichen Schlüssel ins Repository einchecken (ADR-025) |
 | Sicherungen bei lizenzierten Beständen | offen | Kryptographisches Löschen (ADR-014) für die kommerzielle Schicht; Flex-PITR und Objektsperre klären (ADR-024) |
 

@@ -93,6 +93,7 @@ class Document:
     work_id: uuid.UUID
     created_via_delivery_id: uuid.UUID
     created_at: datetime
+    retired_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -822,6 +823,34 @@ class NotifiedEdgeRepository(Protocol):
     ) -> None: ...
 
 
+class NotifiedRetirementRepository(Protocol):
+    """
+    Pure internal bookkeeping for the notify-watchers NO_LONGER_AVAILABLE
+    dedup check. Like NotifiedEdgeRepository, kept apart from Notification so
+    cleanup of read notifications never causes a re-notification. The
+    retirement timestamp is part of the key: a retirement after a return of
+    the document is a new event and notifies again.
+    """
+
+    def has_been_notified(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        document_id: uuid.UUID,
+        retired_at: datetime,
+    ) -> bool: ...
+
+    def mark_notified(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        document_id: uuid.UUID,
+        retired_at: datetime,
+    ) -> None: ...
+
+
 class ContradictoryWorkMergeError(Exception):
     def __init__(self, source_work_id: uuid.UUID, target_work_id: uuid.UUID):
         self.source_work_id = source_work_id
@@ -988,6 +1017,7 @@ class NotificationTriggerType(str, Enum):
     NEW_EDITION = "new_edition"
     NATIONAL_ADOPTION = "national_adoption"
     RIGHTS_CHANGE = "rights_change"
+    NO_LONGER_AVAILABLE = "no_longer_available"
 
 
 @dataclass(frozen=True)
@@ -1207,15 +1237,17 @@ class ImportRecord:
 
 class ImportBlockedError(Exception):
     """
-    The import would delete a knowledge-base row that user data still points
-    at (e.g. a watched Work the new dump no longer contains). Nothing is
-    changed once the caller has rolled back (or used a savepoint): the
+    Last guard of the import (ADR-026): a statement hit a foreign key nobody
+    anticipated. User data no longer blocks an import -- missing identifier
+    rows become tombstones and citations of purged segments are detached --
+    so this signals a table that is missing from the import classes. Nothing
+    is changed once the caller has rolled back (or used a savepoint): the
     methods never commit, and the transaction is left in a failed state.
     """
 
-    def __init__(self, table: str, detail: str):
-        super().__init__(f"import blocked while deleting from {table}: {detail}")
-        self.table = table
+    def __init__(self, step: str, detail: str):
+        super().__init__(f"import blocked at step {step}: {detail}")
+        self.step = step
         self.detail = detail
 
 
@@ -1248,6 +1280,38 @@ class KnowledgeExchangeRepository(Protocol):
 
     def replace_knowledge_base(
         self, tables: Mapping[str, RowBatches], *, record: ImportRecord
-    ) -> None: ...
+    ) -> None:
+        """
+        Replace the knowledge base with the dump; a takedown always wins.
+        Content missing from the dump is deleted, missing identifier rows
+        (work, document, edge) are kept with `retired_at`, a missing delivery
+        gets `withdrawn_at`. User data never blocks the import; only an
+        unexpected foreign key raises ImportBlockedError. Never commits.
+        """
+        ...
+
+    def has_documents(self) -> bool:
+        """True when the database holds at least one document (retired or not)."""
+        ...
+
+    def export_tombstone_support(self) -> dict[str, list[dict[str, Any]]]:
+        """
+        All retired identifier rows (work, document, edge) plus their foreign-key
+        parents among source, delivery, work, document, edge, with every column
+        (also retired_at / revoked_at), per table sorted by primary key. Never
+        content, never user data. Used by the backup so a rollback can restore
+        the identifiers that no dump contains (ADR-026).
+        """
+        ...
+
+    def restore_tombstone_support(
+        self, rows: Mapping[str, list[dict[str, Any]]], *, restored_at: datetime
+    ) -> None:
+        """
+        Insert the rows in foreign-key order, never changing an existing row.
+        Inserted identifier rows without `retired_at` get `restored_at`, so they
+        count as retired. Never commits.
+        """
+        ...
 
     def imported_version(self) -> ImportRecord | None: ...

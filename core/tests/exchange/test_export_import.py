@@ -6,6 +6,7 @@ import shutil
 from datetime import datetime, timezone
 
 import pytest
+import sqlalchemy as sa
 
 from normly_core.exchange.exporter import export_dump
 from normly_core.exchange.importer import ImportRefused, import_dump
@@ -175,3 +176,31 @@ def test_import_maps_broken_manifest_to_refusal(exported, damage):
         _resign(dump_dir, private_pem, lambda raw: raw.pop("dump_version"))
     with pytest.raises(ImportRefused, match="manifest|signature"):
         _import(repository, dump_dir, public_pem)
+
+
+def test_empty_dump_is_refused_when_the_database_holds_documents(db_session, tmp_path):
+    private_pem, public_pem = generate_keypair()
+    repository = PostgresKnowledgeExchangeRepository(db_session)
+    empty_dir = export_dump(
+        repository, out_dir=tmp_path, dump_version="2026.10.1",
+        private_key_pem=private_pem, embedding_model_revision=REVISION, now=NOW,
+    )
+    # an empty database imports an empty dump without the flag
+    _import(repository, empty_dir, public_pem)
+    assert repository.imported_version() is not None
+
+    make_document(db_session, make_delivery(db_session, make_source(db_session), "g"), "A")
+    with pytest.raises(ImportRefused, match="no documents"):
+        _import(repository, empty_dir, public_pem)
+    assert db_session.execute(sa.text("SELECT count(*) FROM document")).scalar_one() == 1
+    assert db_session.execute(sa.text("SELECT count(*) FROM rights_classification")).scalar_one() == 1
+
+    import_dump(
+        repository, dump_dir=empty_dir, public_key_pem=public_pem,
+        expected_model_name=MODEL, expected_model_revision=REVISION, now=NOW,
+        allow_empty=True,
+    )
+    retired = db_session.execute(
+        sa.text("SELECT count(*) FROM document WHERE retired_at IS NOT NULL")
+    ).scalar_one()
+    assert retired == 1

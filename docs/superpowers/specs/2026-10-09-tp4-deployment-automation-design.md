@@ -111,9 +111,13 @@ bestehen; der Rollback baut das Schema deshalb **neu auf**:
    verweisen per Fremdschlüssel auf Wissensbestand-Zeilen (`watchlist` →
    `work`, `notification` → `edge`/`document`, `chat_message_citation` →
    `document`/`segment`).
-4. Nutzerdaten aus dem Pre-Rollout-Dump einspielen (`--data-only`; Schema und
+4. Zurückgezogene Kennungen aus der Tombstone-Datei der Sicherung einspielen
+   (`exchange import-tombstones`; Nutzerzeilen können auf Tombstones zeigen,
+   die in keinem Dump stehen; siehe ADR-026). Ältere Sicherungen ohne Datei:
+   Warnung, der Rollback läuft weiter.
+5. Nutzerdaten aus dem Pre-Rollout-Dump einspielen (`--data-only`; Schema und
    Dump stammen vom selben Alembic-Stand).
-5. `previous` starten, Gesundheit prüfen.
+6. `previous` starten, Gesundheit prüfen.
 
 Die Dauer von Schritt 3 steigt mit dem Bestand; das Skript nennt sie vorab.
 Scheitert der Rollback nach dem Verwerfen, meldet das Skript, dass die
@@ -150,7 +154,7 @@ fehlschlagen). Es gibt drei Gruppen: **Wissensbestand** (`source`,
 `rights_classification`, `edge`, `segment`, `embedding`,
 `document_embedding`), **Nutzerdaten** (`account*`, `oauth_state`,
 `watchlist`, `notification`, `rights_notification_baseline`,
-`notified_edge`, `chat_*`, `rate_limit_bucket`) und **Pipeline-Zustand**
+`notified_edge`, `notified_retirement`, `chat_*`, `rate_limit_bucket`) und **Pipeline-Zustand**
 (`identity_resolution_case`: Prüfwarteschlange der lokalen Ingestion, in
 Produktion leer, weder exportiert noch gesichert). Nutzerdaten verweisen per
 Fremdschlüssel auf Wissensbestand-Zeilen; der Dump muss deshalb die
@@ -166,7 +170,9 @@ gegen STACKIT Object Storage); kein US-Dienst, nur ein Client.
 **Ablauf:** Dump → auf der VM mit dem öffentlichen `age`-Schlüssel
 verschlüsseln (temporäre Datei in einem 0700-Verzeichnis, kein Klartext
 danach) → Upload nach `backups/<UTC-Zeitstempel>-<art>.dump.age`
-(`daily` oder `pre-<tag>`) → Prüfsumme daneben. Eine Sicherung gilt erst
+(`daily` oder `pre-<tag>`) → zweite verschlüsselte Datei
+`<base>.tombstones.age` mit den zurückgezogenen Kennungen (siehe ADR-026) →
+Prüfsumme daneben, sie deckt beide Dateien ab. Eine Sicherung gilt erst
 nach bestätigtem Upload; Bereinigung läuft erst danach.
 
 **Schlüssel:** Der private `age`-Schlüssel liegt im Secrets Manager und als
@@ -245,21 +251,20 @@ Images mit cosign (Teil 1) bleibt davon unberührt.
 3. Prüfsummen prüfen, über die Repository-Schicht einspielen.
 4. **Idempotent:** Wiederholung derselben Version erzeugt keinen
    abweichenden Stand; Zeilen sind über stabile Schlüssel identifiziert,
-   in der neuen Version fehlende Zeilen werden entfernt, in drei
-   Durchgängen: (a) in umgekehrter Abhängigkeitsreihenfolge fehlende Zeilen
-   löschen, die keine behaltene Zeile mehr referenziert; (b) in
-   Abhängigkeitsreihenfolge einfügen oder aktualisieren (verschiebt
+   in der neuen Version fehlende Zeilen werden nach ADR-026 behandelt:
+   Zitate in Chats verlieren ihren Abschnittsverweis, Inhalt und Ableitungen
+   (Bezeichnungen, Titel, Rechteklassifikation, Abschnitte, Einbettungen)
+   werden gelöscht, `work`/`document`/`edge` bleiben als Tombstone mit
+   `retired_at` (Kanten zusätzlich widerrufen), fehlende Lieferungen erhalten
+   `withdrawn_at`; danach wird eingefügt oder aktualisiert (verschiebt
    Fremdschlüssel, z. B. `document.work_id` nach einem Work-Merge oder
-   `rights_classification.delivery_id` auf eine neue Lieferung); (c) die in
-   (a) zurückgestellten fehlenden Zeilen löschen. Reines „zuerst löschen"
-   würde sonst fälschlich blockieren, obwohl keine Nutzerdaten beteiligt
-   sind. Ein Work-Merge exportiert die zusammengeführte Work samt Ziel, damit
-   die Weiterleitung beim Import erhalten bleibt. Der Austausch ist atomar, die
-   Anwendung sieht nie einen halben Bestand. Verweist eine Nutzerdaten-Zeile
-   noch auf eine zu löschende Wissensbestand-Zeile (z. B. eine beobachtete
-   `work`, die die neue Version nicht mehr enthält), bricht der Import
-   **ohne Änderung** ab und nennt die blockierenden Verweise; wie solche
-   Fälle fachlich aufzulösen sind, ist eine spätere Entscheidung.
+   `rights_classification.delivery_id` auf eine neue Lieferung; kehrt eine Zeile
+   zurück, wird `retired_at` wieder `NULL`). Ein Work-Merge exportiert die
+   zusammengeführte Work samt Ziel, damit die Weiterleitung beim Import
+   erhalten bleibt. Der Austausch ist atomar, die Anwendung sieht nie einen
+   halben Bestand. Nutzerdaten blockieren den Import nicht; ein Dump ohne
+   Dokumente wird abgelehnt, solange die Datenbank Dokumente hält (Flag
+   `--allow-empty`). Siehe ADR-026.
 5. Die importierte Version wird in einer kleinen Tabelle festgehalten;
    Rollout und Rollback lesen sie dort.
 
