@@ -21,6 +21,13 @@
 ARG PYTHON_IMAGE=python:3.12-slim@sha256:05cda9777409a9c3ffddd94a4c476b79f0769a0b4857f0c7ed9226b6800b0d6f
 ARG UV_IMAGE=ghcr.io/astral-sh/uv:0.12.23@sha256:61d393e44e249f2e4b526b6c7ddcecce245946826e608e11c93ad4f5bba55b21
 
+# The e5 revision is defined here, once: the weights stage downloads it and the
+# pipeline stage records it in every dump manifest. Commit SHA resolved
+# 2026-10-08 from the Hugging Face API. Change deliberately, in a commit of
+# its own, and re-embed the knowledge base afterwards. ARGs declared before
+# the first FROM are visible to stages only after a bare `ARG E5_REVISION`.
+ARG E5_REVISION=3d7cfbdacd47fdda877c5cd8a79fbcc4f2a574f3
+
 FROM ${UV_IMAGE} AS uv
 
 # ---------------------------------------------------------------------------
@@ -72,7 +79,8 @@ FROM deps AS weights
 # 2026-10-08 from the Hugging Face API (what `main` resp. tag v2.3.0
 # pointed to that day). Change deliberately, in a commit of its own, and
 # re-embed the knowledge base afterwards (embeddings depend on e5).
-ARG E5_REVISION=3d7cfbdacd47fdda877c5cd8a79fbcc4f2a574f3
+# Defined once before the first FROM (see top); redeclared here to import it.
+ARG E5_REVISION
 ARG DOCLING_LAYOUT_REVISION=8f39ad3c0b4c58e9c2d2c84a38465abf757272d8
 ARG DOCLING_LAYOUT_ONNX_REVISION=40bde044036bb181c130ddf6c51792187268748f
 ARG DOCLING_MODELS_REVISION=fc0f2d45e2218ea24bce5045f58a389aed16dc23
@@ -156,7 +164,11 @@ CMD ["uvicorn", "normly_accounts.main:app", "--host", "0.0.0.0", "--port", "8000
 
 # ---------------------------------------------------------------------------
 FROM base AS pipeline
+# The revision is recorded in every dump manifest and checked on import:
+# embeddings from another e5 revision live in a different vector space.
+ARG E5_REVISION
 ENV NORMLY_DOCLING_ARTIFACTS_PATH=/opt/models/docling \
-    NORMLY_CORE_DIR=/app/core
+    NORMLY_CORE_DIR=/app/core \
+    NORMLY_EMBEDDING_MODEL_REVISION=${E5_REVISION}
 USER normly
 ENTRYPOINT ["python", "-m", "normly_core.pipeline"]
