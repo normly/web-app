@@ -1208,8 +1208,9 @@ class ImportRecord:
 class ImportBlockedError(Exception):
     """
     The import would delete a knowledge-base row that user data still points
-    at (e.g. a watched Work the new dump no longer contains). Nothing was
-    changed.
+    at (e.g. a watched Work the new dump no longer contains). Nothing is
+    changed once the caller has rolled back (or used a savepoint): the
+    methods never commit, and the transaction is left in a failed state.
     """
 
     def __init__(self, table: str, detail: str):

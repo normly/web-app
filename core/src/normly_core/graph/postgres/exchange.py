@@ -24,7 +24,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session
 
 from normly_core.exchange.tables import KNOWLEDGE_TABLES
 from normly_core.graph.domain import (
@@ -81,15 +81,23 @@ def _eligible_documents():
 
 
 def _eligible_works():
-    reached = (
-        select(DocumentORM.work_id.label("id"))
-        .where(DocumentORM.id.in_(_eligible_documents()))
-        .cte("exportable_work", recursive=True)
+    """
+    Works of exportable documents, their merge targets, and every Work that
+    was merged into one of those. The merged-away Works have no document
+    pointing at them any more, but importing instances must still see them
+    so the single-hop redirect (get_work) keeps resolving.
+    """
+    document_works = select(DocumentORM.work_id.label("id")).where(
+        DocumentORM.id.in_(_eligible_documents())
     )
-    parent = select(WorkORM.merged_into_work_id).join(reached, WorkORM.id == reached.c.id).where(
-        WorkORM.merged_into_work_id.is_not(None)
+    targets = select(WorkORM.merged_into_work_id.label("id")).where(
+        WorkORM.id.in_(document_works),
+        WorkORM.merged_into_work_id.is_not(None),
     )
-    reached = reached.union(parent)
+    base = sa.union(document_works, targets).subquery()
+    reached = select(base.c.id).cte("exportable_work", recursive=True)
+    merged_away = select(WorkORM.id).join(reached, WorkORM.merged_into_work_id == reached.c.id)
+    reached = reached.union(merged_away)
     return select(reached.c.id)
 
 
@@ -127,20 +135,16 @@ def _statement(table_name: str):
             rc.document_id.in_(_eligible_documents()),
         )
     if table_name == "edge":
-        left = aliased(RightsClassificationORM, name="left_rights")
-        right = aliased(RightsClassificationORM, name="right_rights")
+        left = _exportable_rights().subquery("left_rights")
+        right = _exportable_rights().subquery("right_rights")
         shared = (
             select(sa.literal(1))
             .select_from(left)
-            .join(right, right.jurisdiction == left.jurisdiction)
+            .join(right, right.c.jurisdiction == left.c.jurisdiction)
             .where(
-                left.document_id == EdgeORM.from_document_id,
-                right.document_id == EdgeORM.to_document_id,
-                left.may_process.is_(True), left.may_export_free.is_(True),
-                left.revoked_at.is_(None),
-                right.may_process.is_(True), right.may_export_free.is_(True),
-                right.revoked_at.is_(None),
-                sa.or_(EdgeORM.jurisdiction.is_(None), EdgeORM.jurisdiction == left.jurisdiction),
+                left.c.document_id == EdgeORM.from_document_id,
+                right.c.document_id == EdgeORM.to_document_id,
+                sa.or_(EdgeORM.jurisdiction.is_(None), EdgeORM.jurisdiction == left.c.jurisdiction),
             )
             .exists()
         )
@@ -252,15 +256,32 @@ class PostgresKnowledgeExchangeRepository:
     def replace_knowledge_base(
         self, tables: Mapping[str, RowBatches], *, record: ImportRecord
     ) -> None:
+        """
+        Three passes, so that a kept row whose foreign key moves to a new
+        parent (work merge, classification switching delivery) never causes a
+        false block:
+
+        1. reverse order: delete rows missing from the dump, except those a
+           kept row still points at (they are deferred);
+        2. forward order: upsert the dump, which moves those foreign keys;
+        3. reverse order: delete every missing row now. Whatever still
+           refuses to go is referenced by user data (watchlist, notification,
+           chat citation) and raises ImportBlockedError.
+
+        Nothing is committed. After ImportBlockedError the caller must roll
+        back (or use a savepoint); only then is the data unchanged.
+        """
         connection = self._session.connection()
         keep_tables = self._load_keys(connection, tables)
-        try:
+        for defer_kept_references in (True, False):
             for name in reversed(KNOWLEDGE_TABLES):
-                self._delete_missing(connection, name, keep_tables[name])
-        except IntegrityError as exc:
-            raise ImportBlockedError(name, str(exc.orig).splitlines()[0]) from exc
-        for name in KNOWLEDGE_TABLES:
-            self._upsert(connection, name, tables[name])
+                try:
+                    self._delete_missing(connection, name, keep_tables, defer_kept_references)
+                except IntegrityError as exc:
+                    raise ImportBlockedError(name, str(exc.orig).splitlines()[0]) from exc
+            if defer_kept_references:
+                for name in KNOWLEDGE_TABLES:
+                    self._upsert(connection, name, tables[name])
         self._write_record(record)
         # The caller owns the transaction, so ON COMMIT DROP alone would leave
         # the temp tables in place for a second call in the same transaction.
@@ -277,6 +298,7 @@ class PostgresKnowledgeExchangeRepository:
                 *[sa.Column(c.name, c.type) for c in key_columns],
                 prefixes=["TEMPORARY"], postgresql_on_commit="DROP",
             )
+            keep.drop(connection, checkfirst=True)
             keep.create(connection)
             for batch in tables[name]():
                 rows = [
@@ -288,10 +310,33 @@ class PostgresKnowledgeExchangeRepository:
             keep_tables[name] = keep
         return keep_tables
 
-    def _delete_missing(self, connection, name: str, keep: sa.Table) -> None:
+    def _delete_missing(
+        self, connection, name: str, keep_tables: Mapping[str, sa.Table],
+        defer_kept_references: bool,
+    ) -> None:
         sa_table = Base.metadata.tables[name]
+        keep = keep_tables[name]
         match = sa.and_(*[keep.c[c.name] == c for c in _primary_key(sa_table)])
-        connection.execute(sa.delete(sa_table).where(~sa.exists().where(match)))
+        condition = ~sa.exists().where(match)
+        if defer_kept_references:
+            # Skip rows that a row of the new dump still references; the
+            # upsert will move that reference, the final pass deletes them.
+            for child_name in KNOWLEDGE_TABLES:
+                child = Base.metadata.tables[child_name]
+                child_keep = keep_tables[child_name]
+                child_match = sa.and_(
+                    *[child_keep.c[c.name] == c for c in _primary_key(child)]
+                )
+                for foreign_key in child.foreign_keys:
+                    if foreign_key.column.table is not sa_table:
+                        continue
+                    condition = sa.and_(
+                        condition,
+                        ~sa.exists().where(
+                            foreign_key.parent == foreign_key.column, child_match
+                        ),
+                    )
+        connection.execute(sa.delete(sa_table).where(condition))
 
     def _upsert(self, connection, name: str, batches: RowBatches) -> None:
         sa_table = Base.metadata.tables[name]

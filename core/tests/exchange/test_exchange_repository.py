@@ -27,6 +27,8 @@ from normly_core.graph.postgres.repositories import (
     PostgresDeliveryRepository,
     PostgresDocumentRepository,
     PostgresEdgeRepository,
+    PostgresIdentityResolutionRepository,
+    PostgresRightsRepository,
     PostgresSegmentRepository,
     PostgresWatchlistRepository,
     PostgresWorkRepository,
@@ -114,13 +116,28 @@ def test_row_types_are_exchange_types(db_session):
     assert kinds["vector"] == "vector" and kinds["id"] == "string"
 
 
+_SNAPSHOT_QUERIES = {
+    "source": "SELECT id::text FROM source",
+    "delivery": "SELECT id::text FROM delivery",
+    "document": "SELECT id::text, work_id::text FROM document",
+    "segment": "SELECT id::text FROM segment",
+    "work": "SELECT id::text, status, merged_into_work_id::text FROM work",
+    "rights": (
+        "SELECT document_id::text, jurisdiction, delivery_id::text "
+        "FROM rights_classification"
+    ),
+}
+
+
 def _snapshot(session):
     return {
-        table: sorted(
-            session.execute(sa.text(f'SELECT id::text FROM "{table}"')).scalars()
-        )
-        for table in ("source", "delivery", "document", "segment")
+        name: sorted(tuple(row) for row in session.execute(sa.text(query)))
+        for name, query in _SNAPSHOT_QUERIES.items()
     }
+
+
+def _ids(snapshot, name):
+    return {row[0] for row in snapshot[name]}
 
 
 def _record():
@@ -151,8 +168,8 @@ def test_replace_is_idempotent_and_removes_missing_rows(db_session):
     repository.replace_knowledge_base(frozen, record=_record())
 
     assert _snapshot(db_session) == first
-    assert str(drop.id) not in first["document"]
-    assert str(keep.id) in first["document"]
+    assert str(drop.id) not in _ids(first, "document")
+    assert str(keep.id) in _ids(first, "document")
     assert repository.imported_version().dump_version == "2026.10.1"
 
 
@@ -170,6 +187,84 @@ def test_replace_blocks_when_user_data_still_references_a_row(db_session):
     repository = PostgresKnowledgeExchangeRepository(db_session)
     empty = {t: (lambda: iter([])) for t in KNOWLEDGE_TABLES}
 
+    before = _snapshot(db_session)
     with pytest.raises(ImportBlockedError) as blocked:
-        repository.replace_knowledge_base(empty, record=_record())
+        with db_session.begin_nested():
+            repository.replace_knowledge_base(empty, record=_record())
     assert "work" in blocked.value.table or "document" in blocked.value.table
+    assert _snapshot(db_session) == before
+    assert repository.imported_version() is None
+
+
+def _dump(repository):
+    return {t: _all_rows(repository, t) for t in KNOWLEDGE_TABLES}
+
+
+def _frozen(dump):
+    return {t: (lambda rows=rows: iter([rows])) for t, rows in dump.items()}
+
+
+def test_work_merge_exports_merged_work_and_reimports_cleanly(db_session):
+    source = _source(db_session)
+    delivery = _delivery(db_session, source, "m")
+    doc_s = _document(db_session, delivery, "S")
+    doc_t = _document(db_session, delivery, "T")
+    repository = PostgresKnowledgeExchangeRepository(db_session)
+    before = _dump(repository)
+
+    identity = PostgresIdentityResolutionRepository(db_session)
+    case = identity.enqueue_work_merge_case(
+        delivery_id=delivery.id, source_work_id=doc_s.work_id,
+        target_work_id=doc_t.work_id, reason="duplicate",
+    )
+    identity.resolve_work_merge_case(case.id, resolved_by="J. Weber")
+    after = _dump(repository)
+
+    merged_away = {r["id"]: r for r in after["work"]}[str(doc_s.work_id)]
+    assert merged_away["merged_into_work_id"] == str(doc_t.work_id)
+
+    repository.replace_knowledge_base(_frozen(before), record=_record())
+    pre_merge = _snapshot(db_session)
+    repository.replace_knowledge_base(_frozen(after), record=_record())
+    assert _snapshot(db_session) != pre_merge
+
+    # a dump that no longer mentions the merged-away work at all deletes it
+    # once its documents have moved to the target (deferred delete pass)
+    # (the resolved merge case is curation data pointing at the work; drop it
+    # so only the knowledge-base reference remains)
+    db_session.execute(sa.text("DELETE FROM identity_resolution_case"))
+    trimmed = dict(after)
+    trimmed["work"] = [r for r in after["work"] if r["id"] != str(doc_s.work_id)]
+    repository.replace_knowledge_base(_frozen(trimmed), record=_record())
+    assert str(doc_s.work_id) not in _ids(_snapshot(db_session), "work")
+
+
+def test_classification_switching_delivery_does_not_block_import(db_session):
+    source = _source(db_session)
+    d1 = _delivery(db_session, source, "d1")
+    d2 = _delivery(db_session, source, "d2")
+    document = _document(db_session, d2, "A")
+    rights = PostgresRightsRepository(db_session)
+
+    def classify(delivery):
+        rights.classify(
+            document_id=document.id, jurisdiction="DE", may_process=True,
+            may_index_fulltext=True, may_cite_passages=True, may_export_free=True,
+            legal_basis_reference="§ 5 UrhG", classified_at=NOW,
+            classified_by="J. Weber", delivery_id=delivery.id,
+        )
+
+    classify(d1)
+    repository = PostgresKnowledgeExchangeRepository(db_session)
+    dump_a = _dump(repository)
+    classify(d2)
+    PostgresDeliveryRepository(db_session).revoke_delivery(d1.id)
+    dump_b = _dump(repository)
+    assert str(d1.id) not in {r["id"] for r in dump_b["delivery"]}
+
+    repository.replace_knowledge_base(_frozen(dump_a), record=_record())
+    repository.replace_knowledge_base(_frozen(dump_b), record=_record())
+
+    snapshot = _snapshot(db_session)
+    assert str(d1.id) not in _ids(snapshot, "delivery")
+    assert snapshot["rights"] == [(str(document.id), "DE", str(d2.id))]

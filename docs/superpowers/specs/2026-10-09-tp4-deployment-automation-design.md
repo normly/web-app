@@ -211,8 +211,16 @@ Images mit cosign (Teil 1) bleibt davon unberührt.
 3. Prüfsummen prüfen, über die Repository-Schicht einspielen.
 4. **Idempotent:** Wiederholung derselben Version erzeugt keinen
    abweichenden Stand; Zeilen sind über stabile Schlüssel identifiziert,
-   in der neuen Version fehlende Zeilen werden entfernt (zuerst löschen,
-   dann einfügen oder aktualisieren). Der Austausch ist atomar, die
+   in der neuen Version fehlende Zeilen werden entfernt, in drei
+   Durchgängen: (a) in umgekehrter Abhängigkeitsreihenfolge fehlende Zeilen
+   löschen, die keine behaltene Zeile mehr referenziert; (b) in
+   Abhängigkeitsreihenfolge einfügen oder aktualisieren (verschiebt
+   Fremdschlüssel, z. B. `document.work_id` nach einem Work-Merge oder
+   `rights_classification.delivery_id` auf eine neue Lieferung); (c) die in
+   (a) zurückgestellten fehlenden Zeilen löschen. Reines „zuerst löschen"
+   würde sonst fälschlich blockieren, obwohl keine Nutzerdaten beteiligt
+   sind. Ein Work-Merge exportiert die zusammengeführte Work samt Ziel, damit
+   die Weiterleitung beim Import erhalten bleibt. Der Austausch ist atomar, die
    Anwendung sieht nie einen halben Bestand. Verweist eine Nutzerdaten-Zeile
    noch auf eine zu löschende Wissensbestand-Zeile (z. B. eine beobachtete
    `work`, die die neue Version nicht mehr enthält), bricht der Import
