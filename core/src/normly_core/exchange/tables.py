@@ -67,6 +67,10 @@ UNMANAGED_TABLES: tuple[str, ...] = ("alembic_version",)
 #: user data pointing at them (watchlist, notification, citation) stays valid.
 TOMBSTONE_TABLES: tuple[str, ...] = ("work", "document", "edge")
 
+#: Tables of the tombstone support file (parents first): the retired identifier
+#: rows plus their foreign-key parents (ADR-026, Erweiterung 2).
+TOMBSTONE_SUPPORT_TABLES: tuple[str, ...] = ("source", "delivery", "work", "document", "edge")
+
 #: Provenance and identifier-only rows that are never deleted by an import
 #: (tombstones reference them). A missing delivery gets `withdrawn_at`.
 RETAINED_TABLES: tuple[str, ...] = ("source", "delivery")

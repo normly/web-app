@@ -15,7 +15,7 @@ documents, so no exported row can point at a missing parent.
 import enum
 import uuid
 from collections.abc import Iterator, Mapping
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 
 import sqlalchemy as sa
@@ -31,6 +31,7 @@ from normly_core.exchange.tables import (
     EXCLUDED_EXCHANGE_COLUMNS,
     KNOWLEDGE_TABLES,
     PURGE_TABLES,
+    TOMBSTONE_SUPPORT_TABLES,
     TOMBSTONE_TABLES,
 )
 from normly_core.graph.domain import (
@@ -475,6 +476,125 @@ class PostgresKnowledgeExchangeRepository:
                     {self_reference: item[self_reference]}
                 )
             )
+
+    # --- tombstone support (ADR-026, Erweiterung 2) -------------------------
+
+    def export_tombstone_support(self) -> dict[str, list[dict[str, Any]]]:
+        connection = self._session.connection()
+        tables = {name: Base.metadata.tables[name] for name in TOMBSTONE_SUPPORT_TABLES}
+        for table in tables.values():
+            if len(_primary_key(table)) != 1:
+                raise ValueError(f"{table.name}: expected a single-column primary key")
+        # Foreign keys between the support tables, read from the ORM metadata.
+        parents: dict[str, list[tuple[str, str]]] = {name: [] for name in tables}
+        for name, table in tables.items():
+            for foreign_key in table.foreign_keys:
+                parent = foreign_key.column.table.name
+                if parent in tables:
+                    parents[name].append((foreign_key.parent.name, parent))
+
+        included: dict[str, set[Any]] = {name: set() for name in tables}
+        for name in TOMBSTONE_TABLES:
+            table = tables[name]
+            (key,) = _primary_key(table)
+            included[name].update(
+                connection.execute(select(key).where(table.c.retired_at.is_not(None))).scalars()
+            )
+        changed = True
+        while changed:
+            changed = False
+            for name, links in parents.items():
+                if not links:
+                    continue
+                table = tables[name]
+                (key,) = _primary_key(table)
+                ids = list(included[name])
+                for start in range(0, len(ids), _WRITE_BATCH):
+                    chunk = ids[start:start + _WRITE_BATCH]
+                    for column_name, parent in links:
+                        found = set(
+                            connection.execute(
+                                select(table.c[column_name])
+                                .where(key.in_(chunk), table.c[column_name].is_not(None))
+                                .distinct()
+                            ).scalars()
+                        )
+                        if not found <= included[parent]:
+                            included[parent] |= found
+                            changed = True
+
+        result: dict[str, list[dict[str, Any]]] = {}
+        for name, table in tables.items():
+            (key,) = _primary_key(table)
+            ids = list(included[name])
+            rows: list[dict[str, Any]] = []
+            for start in range(0, len(ids), _WRITE_BATCH):
+                chunk = ids[start:start + _WRITE_BATCH]
+                for row in connection.execute(select(table).where(key.in_(chunk))):
+                    rows.append({k: _to_exchange(v) for k, v in row._mapping.items()})
+            rows.sort(key=lambda r: str(r[key.name]))
+            result[name] = rows
+        return result
+
+    @staticmethod
+    def _from_backup(column: sa.Column, value: Any) -> Any:
+        if isinstance(value, str):
+            kind = _kind(column)
+            if kind == "timestamp":
+                return datetime.fromisoformat(value)
+            if kind == "date":
+                return date.fromisoformat(value)
+        return _from_exchange(column, value)
+
+    def restore_tombstone_support(
+        self, rows: Mapping[str, list[dict[str, Any]]], *, restored_at: datetime
+    ) -> None:
+        unknown = set(rows) - set(TOMBSTONE_SUPPORT_TABLES)
+        if unknown:
+            raise ValueError(f"unknown tombstone support tables: {sorted(unknown)}")
+        connection = self._session.connection()
+        for name in TOMBSTONE_SUPPORT_TABLES:
+            sa_table = Base.metadata.tables[name]
+            (key,) = _primary_key(sa_table)
+            columns = {c.name: c for c in sa_table.columns}
+            prepared: list[dict[str, Any]] = []
+            for row in rows.get(name, []):
+                if set(row) != set(columns):
+                    raise ValueError(
+                        f"{name}: row columns do not match the table "
+                        f"(difference: {sorted(set(row) ^ set(columns))})"
+                    )
+                values = {n: self._from_backup(columns[n], v) for n, v in row.items()}
+                if name in TOMBSTONE_TABLES and values["retired_at"] is None:
+                    # A live parent the older dump does not know: it counts as
+                    # retired now, so a later import that has it clears this.
+                    values["retired_at"] = restored_at
+                    if name == "edge" and values["revoked_at"] is None:
+                        values["revoked_at"] = restored_at
+                prepared.append(values)
+            # work.merged_into_work_id points into the same table: insert with
+            # NULL first and set it after all rows exist, only for new rows.
+            deferred: dict[Any, Any] = {}
+            if name == "work":
+                for values in prepared:
+                    if values["merged_into_work_id"] is not None:
+                        deferred[values["id"]] = values["merged_into_work_id"]
+                        values["merged_into_work_id"] = None
+            inserted: set[Any] = set()
+            for start in range(0, len(prepared), _WRITE_BATCH):
+                statement = (
+                    pg_insert(sa_table).on_conflict_do_nothing().returning(key)
+                )
+                inserted.update(
+                    connection.execute(statement, prepared[start:start + _WRITE_BATCH]).scalars()
+                )
+            for work_id, target in deferred.items():
+                if work_id in inserted:
+                    connection.execute(
+                        sa.update(sa_table)
+                        .where(sa_table.c.id == work_id, sa_table.c.merged_into_work_id.is_(None))
+                        .values(merged_into_work_id=target)
+                    )
 
     def _write_record(self, record: ImportRecord) -> None:
         insert = pg_insert(KnowledgeBaseImportORM.__table__).values(

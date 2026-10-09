@@ -2,7 +2,8 @@
 # Copyright (C) 2026 normly contributors
 
 """
-python -m normly_core.exchange {keygen|export|import|verify|info|tables}
+python -m normly_core.exchange
+    {keygen|export|import|verify|info|tables|export-tombstones|import-tombstones}
 
 The knowledge-base dump tooling (ADR-025). Commits happen here, never in the
 repository.
@@ -12,6 +13,7 @@ import argparse
 import os
 import sys
 import tempfile
+from datetime import datetime, timezone
 from importlib import resources
 from pathlib import Path
 
@@ -23,6 +25,7 @@ from normly_core.exchange.fetch import FetchError, fetch_dump
 from normly_core.exchange.importer import ImportRefused, import_dump, verify_dump
 from normly_core.exchange.signing import generate_keypair
 from normly_core.exchange.tables import group_tables
+from normly_core.exchange.tombstones import build_document, parse_document, row_count
 from normly_core.graph.domain import ImportBlockedError
 from normly_core.graph.postgres.exchange import PostgresKnowledgeExchangeRepository
 
@@ -121,6 +124,42 @@ def _verify(args) -> int:
     return 0
 
 
+def _export_tombstones(database_url: str) -> int:
+    engine = create_engine(database_url)
+    try:
+        with Session(engine) as session:
+            rows = PostgresKnowledgeExchangeRepository(session).export_tombstone_support()
+            document = build_document(rows, created_at=datetime.now(timezone.utc))
+    finally:
+        engine.dispose()
+    sys.stdout.write(document)
+    return 0
+
+
+def _import_tombstones(database_url: str) -> int:
+    try:
+        rows, created_at = parse_document(sys.stdin.read())
+    except ValueError as exc:
+        print(f"invalid tombstone document: {exc}", file=sys.stderr)
+        return 1
+    engine = create_engine(database_url)
+    try:
+        with Session(engine) as session:
+            try:
+                PostgresKnowledgeExchangeRepository(session).restore_tombstone_support(
+                    rows, restored_at=created_at
+                )
+            except ValueError as exc:
+                session.rollback()
+                print(f"invalid tombstone document: {exc}", file=sys.stderr)
+                return 1
+            session.commit()
+            print(f"restored tombstone support: {row_count(rows)} rows")
+            return 0
+    finally:
+        engine.dispose()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m normly_core.exchange")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -155,6 +194,14 @@ def main(argv: list[str] | None = None) -> int:
     ver.add_argument("--public-key", type=Path, help=key_help)
 
     sub.add_parser("info")
+    sub.add_parser(
+        "export-tombstones",
+        help="print the retired identifier rows and their parents as JSON (backup)",
+    )
+    sub.add_parser(
+        "import-tombstones",
+        help="restore the tombstone support JSON read from stdin (rollback)",
+    )
 
     tables = sub.add_parser("tables")
     tables.add_argument("group", choices=["knowledge", "user", "pipeline", "all"])
@@ -173,6 +220,10 @@ def main(argv: list[str] | None = None) -> int:
     database_url = _require_env("NORMLY_DATABASE_URL")
     if not database_url:
         return 1
+    if args.command == "export-tombstones":
+        return _export_tombstones(database_url)
+    if args.command == "import-tombstones":
+        return _import_tombstones(database_url)
     revision = None
     if args.command != "info":
         revision = _require_env(_MODEL_REVISION_ENV)

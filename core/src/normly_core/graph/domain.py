@@ -1294,4 +1294,24 @@ class KnowledgeExchangeRepository(Protocol):
         """True when the database holds at least one document (retired or not)."""
         ...
 
+    def export_tombstone_support(self) -> dict[str, list[dict[str, Any]]]:
+        """
+        All retired identifier rows (work, document, edge) plus their foreign-key
+        parents among source, delivery, work, document, edge, with every column
+        (also retired_at / revoked_at), per table sorted by primary key. Never
+        content, never user data. Used by the backup so a rollback can restore
+        the identifiers that no dump contains (ADR-026).
+        """
+        ...
+
+    def restore_tombstone_support(
+        self, rows: Mapping[str, list[dict[str, Any]]], *, restored_at: datetime
+    ) -> None:
+        """
+        Insert the rows in foreign-key order, never changing an existing row.
+        Inserted identifier rows without `retired_at` get `restored_at`, so they
+        count as retired. Never commits.
+        """
+        ...
+
     def imported_version(self) -> ImportRecord | None: ...
