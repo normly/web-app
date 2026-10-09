@@ -38,6 +38,9 @@ case "$(basename "$0")" in
         else ref="${!#}"; printf '["%s@%s"]\\n' "${ref%:*}" "$digest"; fi
         exit 0 ;;
       *ScriptDirectory*) printf '%s\\n' "${FAKE_DOCKER_HEAD_OUT:-rev1}"; exit 0 ;;
+      *" import-tombstones "*)
+        # record what arrived on stdin so tests can assert on it
+        if [ -n "${FAKE_DOCKER_STDIN_FILE:-}" ]; then cat > "$FAKE_DOCKER_STDIN_FILE"; fi ;;
       *"exchange info"*)
         [ -z "${FAKE_DOCKER_INFO_EMPTY:-}" ] || exit 0
         printf '%s\\n' "${FAKE_DOCKER_INFO_OUT:-${FAKE_DOCKER_OUT:-2026.10.1}}"; exit 0 ;;

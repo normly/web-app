@@ -87,3 +87,88 @@ def test_rollback_refuses_a_missing_key_file_before_anything_destructive(harness
     assert result.returncode != 0
     assert "NORMLY_KB_PUBLIC_KEY_FILE" in result.stderr
     assert not any(" down" in c for c in harness.calls())
+
+
+BACKUP = "20261009T100000Z-pre-0.1.2"
+TOMB_LISTING = f"{BACKUP}.tombstones.age"
+
+
+def test_rollback_restores_tombstones_after_kb_import_and_before_user_data(harness, tmp_path):
+    _seed(harness)
+    stdin_file = tmp_path / "tombstones-stdin"
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_RCLONE_OUT": TOMB_LISTING, "FAKE_PSQL_OUT": "account",
+                   "FAKE_DOCKER_STDIN_FILE": str(stdin_file)},
+    )
+    assert result.returncode == 0, result.stderr
+    calls = harness.calls()
+    drop = next(i for i, c in enumerate(calls) if c.startswith("psql") and "DROP TABLE" in c)
+    migrate = next(i for i, c in enumerate(calls) if "migrate" in c)
+    kb_import = next(i for i, c in enumerate(calls) if "exchange import --fetch" in c)
+    tombs = next(i for i, c in enumerate(calls) if "exchange import-tombstones" in c)
+    restore = next(i for i, c in enumerate(calls) if c.startswith("pg_restore"))
+    assert drop < migrate < kb_import < tombs < restore
+    assert "run --rm --no-deps -T --entrypoint python pipeline" in calls[tombs]
+    # the decrypted file arrives on stdin
+    assert stdin_file.read_text() == "cipher\n"
+    assert any(c.startswith("age -d") and "tombstones.age" in c for c in calls)
+    assert "no tombstone file" not in result.stderr
+
+
+def test_rollback_without_tombstone_file_warns_before_the_prompt_and_continues(harness):
+    _seed(harness)
+    result = _rollback(harness, input_text="0.1.1\n")
+    assert result.returncode == 0, result.stderr
+    assert "backup has no tombstone file" in result.stderr
+    assert result.stderr.index("no tombstone file") < result.stderr.index("Type the target tag")
+    calls = harness.calls()
+    assert not any("import-tombstones" in c for c in calls)
+    assert any(c.startswith("pg_restore") for c in calls)
+
+
+def test_rollback_aborts_before_the_drop_when_the_tombstone_download_fails(harness):
+    state = _seed(harness)
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_RCLONE_OUT": TOMB_LISTING, "FAKE_RCLONE_FAIL_ON": "tombstones.age "},
+    )
+    assert result.returncode != 0
+    assert "dropped and is incomplete" not in result.stderr
+    calls = harness.calls()
+    assert not any(c.startswith(("psql", "pg_restore")) or " down" in c for c in calls)
+    assert (state / "current_tag").read_text().strip() == "0.1.2"
+
+
+def test_rollback_aborts_before_the_drop_when_the_tombstone_listing_fails(harness):
+    _seed(harness)
+    result = _rollback(
+        harness, "--yes", extra_env={"FAKE_RCLONE_FAIL_ON": "lsf"},
+    )
+    assert result.returncode != 0
+    assert not any(c.startswith(("psql", "pg_restore")) for c in harness.calls())
+
+
+def test_rollback_tombstone_import_failure_prints_recovery_guidance(harness):
+    state = _seed(harness)
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_RCLONE_OUT": TOMB_LISTING, "FAKE_DOCKER_FAIL_ON": "import-tombstones"},
+    )
+    assert result.returncode != 0
+    assert "dropped and is incomplete" in result.stderr
+    assert "current_tag is still 0.1.2" in result.stderr
+    assert not any(c.startswith("pg_restore") for c in harness.calls())
+    assert not (state / "deploy.lock").exists()
+    assert (state / "current_tag").read_text().strip() == "0.1.2"
+    assert (state / "previous_tag").read_text().strip() == "0.1.1"
+
+
+def test_rollback_leaves_no_decrypted_tombstones_behind(harness, tmp_path):
+    _seed(harness)
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_RCLONE_OUT": TOMB_LISTING, "TMPDIR": str(tmp_path)},
+    )
+    assert result.returncode == 0, result.stderr
+    assert not list(tmp_path.glob("normly-rollback.*"))
