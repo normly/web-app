@@ -14,7 +14,10 @@ import urllib.request
 from pathlib import Path, PurePosixPath
 from urllib.parse import quote, urlsplit
 
+from cryptography.exceptions import UnsupportedAlgorithm
+
 from normly_core.exchange.manifest import Manifest
+from normly_core.exchange.signing import SignatureError, verify
 
 _TIMEOUT_SECONDS = 60
 _LATEST_MAX_BYTES = 1024
@@ -83,9 +86,22 @@ def _safe_target(dump_dir: Path, relative: str) -> Path:
 
 
 def fetch_dump(
-    base_url: str, version: str, destination: Path, *, opener=urllib.request.urlopen
+    base_url: str,
+    version: str,
+    destination: Path,
+    *,
+    public_key_pem: bytes | None = None,
+    opener=urllib.request.urlopen,
 ) -> Path:
-    """Download a dump into destination/<version>. Verifies nothing: import_dump does."""
+    """
+    Download a dump into destination/<version>.
+
+    With ``public_key_pem`` the manifest signature is checked right after the
+    manifest and its signature arrive and BEFORE any table part is requested:
+    an unverified manifest decides how many files of what size would be
+    fetched, which a spoofed bucket could abuse to fill the disk. Without a
+    key nothing is verified here; import_dump/verify_dump still do it later.
+    """
     base = base_url.rstrip("/")
     _check_base_url(base)
     if version == "latest":
@@ -96,6 +112,17 @@ def fetch_dump(
     dump_dir = destination / version
     for name in ("manifest.json", "manifest.json.sig"):
         _download(f"{base}/{quote(version)}/{name}", dump_dir / name, opener)
+    if public_key_pem is not None:
+        try:
+            verify(
+                public_key_pem,
+                (dump_dir / "manifest.json").read_bytes(),
+                (dump_dir / "manifest.json.sig").read_bytes(),
+            )
+        except SignatureError as exc:
+            raise FetchError(f"signature check failed for dump {version}: {exc}") from exc
+        except (ValueError, UnsupportedAlgorithm) as exc:
+            raise FetchError(f"the public key is not a usable Ed25519 key: {exc}") from exc
     try:
         manifest = Manifest.from_bytes((dump_dir / "manifest.json").read_bytes())
         paths = [e.path for entries in manifest.tables.values() for e in entries]

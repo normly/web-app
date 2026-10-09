@@ -103,13 +103,15 @@ def test_verify_command_fetches_into_a_temp_dir(cli_env, monkeypatch, capsys):
     dump_dir, key = cli_env
     seen = {}
 
-    def fake_fetch(base, version, scratch):
+    def fake_fetch(base, version, scratch, **kwargs):
         seen["args"] = (base, version)
+        seen["key"] = kwargs.get("public_key_pem")
         return dump_dir
 
     monkeypatch.setattr(cli, "fetch_dump", fake_fetch)
     assert main(["verify", "--fetch", "2026.10.1", "--public-key", str(key)]) == 0
     assert seen["args"] == ("https://kb.example", "2026.10.1")
+    assert seen["key"] == key.read_bytes()  # the signature is checked while fetching
 
 
 def test_verify_command_reports_refusal_with_exit_1(cli_env, tmp_path, capsys):

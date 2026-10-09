@@ -97,8 +97,11 @@ def harness(tmp_path):
 
     class Harness:
         def run(self, script, *args, extra_env=None, input_text=None):
+            merged = {**env, **(extra_env or {})}
+            # a None value removes the variable (e.g. to force a read from .env)
+            merged = {k: v for k, v in merged.items() if v is not None}
             return subprocess.run(
-                [str(SCRIPTS / script), *args], env={**env, **(extra_env or {})},
+                [str(SCRIPTS / script), *args], env=merged,
                 capture_output=True, text=True, input=input_text,
             )
 

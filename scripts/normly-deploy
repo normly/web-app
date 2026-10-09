@@ -22,6 +22,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKUP_BIN="${NORMLY_BACKUP_BIN:-$HERE/normly-backup}"
 OIDC_ISSUER="https://token.actions.githubusercontent.com"
 HEALTH_TIMEOUT="${NORMLY_HEALTH_TIMEOUT:-600}"
+# shellcheck source=normly-env.sh
+. "$HERE/normly-env.sh"
 
 # Alembic head of a release image, printed by the image's own migration files.
 HEAD_PY='
@@ -55,7 +57,7 @@ cleanup() {
   if [ "$DESTRUCTIVE" -eq 1 ] && [ "$rc" -ne 0 ]; then
     cat >&2 <<EOF
 normly-deploy: ROLLBACK FAILED AFTER THE DESTRUCTIVE STEP.
-  The database was dropped and is incomplete; services are stopped.
+  The database was dropped and is incomplete; services may be stopped or partly running.
   current_tag is still $(read_state current_tag); no state file was changed.
   Re-run: normly-deploy rollback --age-identity ${ROLLBACK_IDENTITY:-<file>}
   (safe to repeat: it rebuilds the schema from the backup each time).
@@ -124,18 +126,24 @@ check_pulled_digests() {
 extract_assets() {
   local tag="$1" container target image
   target="$RELEASES/$tag"
-  rm -rf "$target"   # no stale files from an earlier attempt
-  mkdir -p "$target"
-  container="$(docker create "$REGISTRY/pipeline@${DIGESTS[pipeline]}")"
-  if ! docker cp "$container:/app/deploy/." "$target/"; then
+  # Extract beside the release folder and swap it in only on success: the folder
+  # of the rollback target may be the only one a later rollback can use.
+  rm -rf "$target.new"
+  mkdir -p "$target.new"
+  container="$(docker create "$REGISTRY/pipeline@${DIGESTS[pipeline]}")" \
+    || { rm -rf "$target.new"; die "could not create a container from pipeline:$tag; no release folder was changed"; }
+  if ! docker cp "$container:/app/deploy/." "$target.new/"; then
     docker rm "$container" > /dev/null 2>&1 || true
-    die "could not extract deploy assets from pipeline:$tag; nothing was changed"
+    rm -rf "$target.new"
+    die "could not extract deploy assets from pipeline:$tag; no release folder was changed"
   fi
   docker rm "$container" > /dev/null
-  ln -sfn "$NORMLY_DIR/.env" "$target/.env"
+  ln -sfn "$NORMLY_DIR/.env" "$target.new/.env"
   for image in "${IMAGES[@]}"; do
     printf '%s %s\n' "$image" "${DIGESTS[$image]}"
-  done > "$target/verified-digests"
+  done > "$target.new/verified-digests"
+  rm -rf "$target"
+  mv "$target.new" "$target"
 }
 
 deploy() {
@@ -223,8 +231,7 @@ rollback() {
   local database_url drop_sql down_tag="$current" backup_rev head_rev verify_out
   local -a key_args=()
   WORK="$(mktemp -d -t normly-rollback.XXXXXX)"; chmod 700 "$WORK"
-  # shellcheck disable=SC1091  # .env is a runtime file on the VM
-  if [ -f "$NORMLY_DIR/.env" ]; then set -a; . "$NORMLY_DIR/.env"; set +a; fi
+  normly_load_env "$NORMLY_DIR/.env"
   database_url="${NORMLY_DATABASE_URL:?}"; database_url="${database_url/+psycopg/}"
   if [ -n "${NORMLY_KB_PUBLIC_KEY_FILE:-}" ]; then
     [ -f "$NORMLY_KB_PUBLIC_KEY_FILE" ] \
@@ -264,6 +271,9 @@ Rollback $from -> $previous
   Steps: stop services, drop all tables, migrate with $previous, import the
   knowledge base (${kb_version:-none}), restore user data.
 EOF
+  if [ "$kb_version" = "none" ] || [ -z "$kb_version" ]; then
+    echo "  WARNING: the knowledge base will be EMPTY after this rollback; only the Flex backup can restore it." >&2
+  fi
   if [ "$assume_yes" -ne 1 ]; then
     printf 'Type the target tag (%s) to continue: ' "$previous" >&2
     read -r answer || answer=""

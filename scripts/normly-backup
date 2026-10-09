@@ -15,16 +15,13 @@
 set -euo pipefail
 
 NORMLY_DIR="${NORMLY_DIR:-/opt/normly}"
-if [ -f "$NORMLY_DIR/.env" ]; then
-  set -a
-  # shellcheck disable=SC1091 # the VM's env file does not exist at lint time
-  . "$NORMLY_DIR/.env"
-  set +a
-fi
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=normly-env.sh
+. "$HERE/normly-env.sh"
+normly_load_env "$NORMLY_DIR/.env"
 : "${NORMLY_DATABASE_URL:?}" "${NORMLY_BACKUP_AGE_RECIPIENT:?}" "${NORMLY_BACKUP_REMOTE:?}"
 COMPOSE="${NORMLY_COMPOSE:-docker compose -f $NORMLY_DIR/current/compose.yaml --project-directory $NORMLY_DIR/current}"
 DATABASE_URL="${NORMLY_DATABASE_URL/+psycopg/}"
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 user_tables() {
   # shellcheck disable=SC2086 # COMPOSE is a command line and must word-split
@@ -69,7 +66,7 @@ run_backup() {
   image_tag="$(cat "$NORMLY_DIR/state/current_tag" 2>/dev/null || echo unknown)"
   # shellcheck disable=SC2086 # COMPOSE is a command line and must word-split
   kb_version="$($COMPOSE run --rm --no-deps -T --entrypoint python pipeline \
-    -m normly_core.exchange info)" \
+    -m normly_core.exchange info | tail -n 1)" \
     || { echo "cannot read the knowledge-base version; aborting backup" >&2; exit 1; }
   [ -n "$kb_version" ] || { echo "empty knowledge-base version; aborting backup" >&2; exit 1; }
   REVISION="$revision" IMAGE_TAG="$image_tag" KB_VERSION="$kb_version" python3 -c '

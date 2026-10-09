@@ -5,6 +5,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+from cryptography.exceptions import UnsupportedAlgorithm
+
 from normly_core.exchange.manifest import (
     EMBEDDING_DIMENSION,
     EXCHANGE_SCHEMA_VERSION,
@@ -45,6 +47,8 @@ def verify_dump(
         verify(public_key_pem, manifest_bytes, signature)
     except SignatureError as exc:
         raise ImportRefused(f"signature check failed: {exc}") from exc
+    except (ValueError, UnsupportedAlgorithm) as exc:
+        raise ImportRefused(f"the public key is not a usable Ed25519 key: {exc}") from exc
 
     try:
         manifest = Manifest.from_bytes(manifest_bytes)

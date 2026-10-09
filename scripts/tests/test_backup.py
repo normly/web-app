@@ -84,7 +84,7 @@ def test_run_failing_encryption_leaves_nothing(harness, tmp_path):
     assert not any(c.startswith("rclone") for c in harness.calls())
 
 
-def test_meta_json_is_valid_json_for_multiline_kb_version(harness, tmp_path):
+def test_meta_json_takes_the_last_line_of_the_kb_version_and_escapes_quotes(harness, tmp_path):
     keep = tmp_path / "uploaded"
     keep.mkdir()
     result = harness.run(
@@ -96,7 +96,7 @@ def test_meta_json_is_valid_json_for_multiline_kb_version(harness, tmp_path):
     )
     assert result.returncode == 0, result.stderr
     meta = json.loads(next(keep.glob("*.meta.json")).read_text())
-    assert "second" in meta["kb_version"] and "\n" in meta["kb_version"]
+    assert meta["kb_version"] == 'second "quoted" line'
 
 
 def test_upload_order_puts_commit_marker_last(harness):

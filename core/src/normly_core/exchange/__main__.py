@@ -100,7 +100,10 @@ def _verify(args) -> int:
     with tempfile.TemporaryDirectory() as scratch:
         if args.fetch:
             try:
-                dump_dir = fetch_dump(os.environ["NORMLY_KB_BASE_URL"], args.fetch, Path(scratch))
+                dump_dir = fetch_dump(
+                    os.environ["NORMLY_KB_BASE_URL"], args.fetch, Path(scratch),
+                    public_key_pem=public_pem,
+                )
             except FetchError as exc:
                 print(f"fetch failed: {exc}", file=sys.stderr)
                 return 1
@@ -203,7 +206,8 @@ def main(argv: list[str] | None = None) -> int:
                 if args.fetch:
                     try:
                         dump_dir = fetch_dump(
-                            os.environ["NORMLY_KB_BASE_URL"], args.fetch, Path(scratch)
+                            os.environ["NORMLY_KB_BASE_URL"], args.fetch, Path(scratch),
+                            public_key_pem=public_pem,
                         )
                     except FetchError as exc:
                         session.rollback()
