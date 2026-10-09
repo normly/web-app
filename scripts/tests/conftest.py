@@ -39,6 +39,7 @@ case "$(basename "$0")" in
         exit 0 ;;
       *ScriptDirectory*) printf '%s\\n' "${FAKE_DOCKER_HEAD_OUT:-rev1}"; exit 0 ;;
       *"exchange info"*)
+        [ -z "${FAKE_DOCKER_INFO_EMPTY:-}" ] || exit 0
         printf '%s\\n' "${FAKE_DOCKER_INFO_OUT:-${FAKE_DOCKER_OUT:-2026.10.1}}"; exit 0 ;;
     esac ;;
   rclone)
@@ -84,6 +85,7 @@ def harness(tmp_path):
         **os.environ,
         "PATH": f"{bin_dir}:{os.environ['PATH']}",
         "CALLS": str(calls),
+        "FAKE_PSQL_OUT": "rev0001",  # default Alembic head for normly-backup's lookup
         "NORMLY_DIR": str(tmp_path / "normly"),
         "NORMLY_DATABASE_URL": "postgresql+psycopg://u:p@db:5432/normly",
         "NORMLY_BACKUP_AGE_RECIPIENT": "age1recipient",

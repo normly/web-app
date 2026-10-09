@@ -120,6 +120,72 @@ def test_failed_marker_upload_fails_run_with_no_output(harness):
     assert len(uploads) == 3 and uploads[-1].endswith(".sha256")  # marker attempted last
 
 
+def _aborted_without_upload(harness, result):
+    assert result.returncode != 0
+    assert result.stdout.strip() == ""
+    assert not any(c.startswith("rclone") for c in harness.calls())
+
+
+def test_run_aborts_when_revision_lookup_fails(harness):
+    result = harness.run(
+        "normly-backup", "run", "--kind", "daily",
+        extra_env={"FAKE_DOCKER_OUT": "account", "FAKE_PSQL_EXIT": "1"},
+    )
+    _aborted_without_upload(harness, result)
+    assert "Alembic revision" in result.stderr
+
+
+def test_run_aborts_when_revision_is_empty(harness):
+    result = harness.run(
+        "normly-backup", "run", "--kind", "daily",
+        extra_env={"FAKE_DOCKER_OUT": "account", "FAKE_PSQL_OUT": ""},
+    )
+    _aborted_without_upload(harness, result)
+
+
+def test_run_aborts_when_kb_info_fails(harness):
+    result = harness.run(
+        "normly-backup", "run", "--kind", "daily",
+        extra_env={"FAKE_DOCKER_OUT": "account", "FAKE_DOCKER_FAIL_ON": "exchange info"},
+    )
+    _aborted_without_upload(harness, result)
+    assert "knowledge-base version" in result.stderr
+
+
+def test_run_aborts_when_kb_info_prints_nothing(harness):
+    result = harness.run(
+        "normly-backup", "run", "--kind", "daily",
+        extra_env={"FAKE_DOCKER_OUT": "account", "FAKE_DOCKER_INFO_EMPTY": "1"},
+    )
+    _aborted_without_upload(harness, result)
+
+
+def test_run_accepts_kb_info_none_and_records_revision(harness, tmp_path):
+    keep = tmp_path / "uploaded"
+    keep.mkdir()
+    result = harness.run(
+        "normly-backup", "run", "--kind", "daily",
+        extra_env={"FAKE_DOCKER_OUT": "account", "FAKE_DOCKER_INFO_OUT": "none",
+                   "FAKE_RCLONE_KEEP_DIR": str(keep)},
+    )
+    assert result.returncode == 0, result.stderr
+    meta = json.loads(next(keep.glob("*.meta.json")).read_text())
+    assert meta["alembic_revision"] == "rev0001"
+    assert meta["kb_version"] == "none"
+
+
+def test_prune_invalid_date_orphan_does_not_stop_pruning(harness):
+    old = stamp(timedelta(days=2))
+    listing = lsf(
+        "20261399T250000Z-daily.dump.age",  # matches the stamp shape, not a real date
+        f"{old}-daily.dump.age",
+    )
+    result = harness.run("normly-backup", "prune", extra_env={"FAKE_RCLONE_OUT": listing})
+    assert result.returncode == 0, result.stderr
+    assert deletes(harness) == [f"{old}-daily.dump.age"]
+    assert "invalid timestamp" in result.stderr
+
+
 def committed(base):
     return [f"{base}.dump.age", f"{base}.meta.json", f"{base}.sha256"]
 

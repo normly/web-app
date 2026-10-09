@@ -61,11 +61,17 @@ run_backup() {
   rm -f "$work/$base.dump"   # no plaintext beyond this point
 
   local revision image_tag kb_version
-  revision="$(psql "$DATABASE_URL" -Atc 'SELECT version_num FROM alembic_version' || true)"
+  # The rollback compares these values: an empty or guessed one makes the backup
+  # silently unusable, so a failed lookup aborts the run.
+  revision="$(psql "$DATABASE_URL" -Atc 'SELECT version_num FROM alembic_version')" \
+    || { echo "cannot read the Alembic revision; aborting backup" >&2; exit 1; }
+  [ -n "$revision" ] || { echo "empty Alembic revision; aborting backup" >&2; exit 1; }
   image_tag="$(cat "$NORMLY_DIR/state/current_tag" 2>/dev/null || echo unknown)"
   # shellcheck disable=SC2086 # COMPOSE is a command line and must word-split
   kb_version="$($COMPOSE run --rm --no-deps -T --entrypoint python pipeline \
-    -m normly_core.exchange info 2>/dev/null || echo none)"
+    -m normly_core.exchange info)" \
+    || { echo "cannot read the knowledge-base version; aborting backup" >&2; exit 1; }
+  [ -n "$kb_version" ] || { echo "empty knowledge-base version; aborting backup" >&2; exit 1; }
   REVISION="$revision" IMAGE_TAG="$image_tag" KB_VERSION="$kb_version" python3 -c '
 import json, os
 print(json.dumps({
@@ -105,7 +111,7 @@ delete_backup() {
 }
 
 prune() {
-  local listing committed name base now
+  local listing committed name base now epoch
   # A failed listing must not be read as "nothing there": abort, delete nothing.
   listing="$(rclone lsf "$NORMLY_BACKUP_REMOTE/backups")"
   committed="$(printf '%s\n' "$listing" | sed -n 's/\.sha256$//p')"
@@ -132,7 +138,11 @@ prune() {
     esac
     if printf '%s\n' "$committed" | grep -qxF "$base"; then continue; fi
     [[ "$base" =~ ^[0-9]{8}T[0-9]{6}Z- ]] || continue
-    if [ $((now - $(stamp_epoch "$base"))) -gt 86400 ]; then
+    if ! epoch="$(stamp_epoch "$base" 2>/dev/null)"; then
+      echo "prune: skipping $name (invalid timestamp)" >&2
+      continue
+    fi
+    if [ $((now - epoch)) -gt 86400 ]; then
       if rclone deletefile "$NORMLY_BACKUP_REMOTE/backups/$name" </dev/null; then
         echo "pruned orphan $name" >&2
       else
