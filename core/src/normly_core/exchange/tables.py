@@ -71,8 +71,9 @@ TOMBSTONE_TABLES: tuple[str, ...] = ("work", "document", "edge")
 #: rows plus their foreign-key parents (ADR-026, Erweiterung 2).
 TOMBSTONE_SUPPORT_TABLES: tuple[str, ...] = ("source", "delivery", "work", "document", "edge")
 
-#: Provenance and identifier-only rows that are never deleted by an import
-#: (tombstones reference them). A missing delivery gets `withdrawn_at`.
+#: Provenance only: source and delivery. Never deleted by an import (the
+#: tombstone rows reference them). A missing delivery gets `withdrawn_at`.
+#: Identifier rows without content are TOMBSTONE_TABLES, not part of this.
 RETAINED_TABLES: tuple[str, ...] = ("source", "delivery")
 
 #: Content and derivations. Physically deleted when missing from the dump, so

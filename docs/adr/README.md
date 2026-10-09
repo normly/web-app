@@ -904,26 +904,38 @@ Start prüft (REQ-GIT-005).
    (Liste aus der Datenbank, das Schema bleibt, damit pgvector erhalten
    bleibt), `migrate` mit dem vorherigen Image, Wissensbestand in der
    damals aktiven Dump-Version importieren (vor den Nutzerdaten, wegen der
-   Fremdschlüssel), Nutzerdaten mit `pg_restore --data-only`, vorheriges
-   Release starten. Vorab prüft das Skript, dass die Alembic-Revision der
-   Sicherung dem Alembic-Head des vorherigen Images entspricht und dass der
-   aufgezeichnete Wissensbestand-Dump abrufbar und prüfbar ist (Signatur,
-   Modell, Prüfsummen; ohne nutzbaren öffentlichen Schlüssel Abbruch, bevor
-   etwas verändert wird), und verlangt
+   Fremdschlüssel), die zurückgezogenen Kennungen der Sicherung
+   (`exchange import-tombstones`, siehe ADR-026), Nutzerdaten mit
+   `pg_restore --data-only`, vorheriges Release starten. Vorab prüft das
+   Skript, dass die Alembic-Revision der Sicherung dem Alembic-Head des
+   vorherigen Images entspricht, dass der aufgezeichnete Wissensbestand-Dump
+   abrufbar und prüfbar ist (Signatur, Modell, Prüfsummen; ohne nutzbaren
+   öffentlichen Schlüssel Abbruch, bevor etwas verändert wird) und dass die
+   Tombstone-Datei der Sicherung abrufbar, entschlüsselbar und gültig ist
+   (eine Sicherung, deren `meta.json` die Datei zusagt, der sie aber fehlt,
+   gilt als beschädigt: Abbruch; eine ältere Sicherung ohne Zusage führt zu
+   einer Warnung, der Rollback läuft weiter), und verlangt
    die Eingabe des Ziel-Tags (oder `--yes`). Der private Schlüssel wird nur
    für den Lauf bereitgestellt (`--age-identity FILE`). Scheitert der
    Rollback nach dem Verwerfen, gibt das Skript Hinweise zur Wiederherstellung;
    ein erneuter Aufruf ist gefahrlos.
-5. **Sicherung:** nur die Nutzerdaten-Tabellen (`exchange tables user`),
-   `age`-verschlüsselt auf der VM mit dem öffentlichen Schlüssel, Upload per
-   `rclone` in einen privaten STACKIT-Object-Storage-Bucket. Der private
+5. **Sicherung:** die Nutzerdaten-Tabellen (`exchange tables user`) und, als
+   zweite verschlüsselte Datei, die zurückgezogenen Kennungen
+   (`<base>.tombstones.age`, ADR-026; nie Inhalt, Rechte oder Nutzerdaten).
+   Beide `age`-verschlüsselt auf der VM mit dem öffentlichen Schlüssel, Upload
+   per `rclone` in einen privaten STACKIT-Object-Storage-Bucket. Der private
    Schlüssel liegt nie auf der VM. Reihenfolge des Uploads: `meta.json`,
-   `dump.age`, `.sha256`; die Prüfsumme ist die Commit-Markierung, erst mit
-   ihr zählt eine Sicherung.
+   `dump.age`, `tombstones.age`, `.sha256`; die Prüfsumme deckt beide
+   verschlüsselten Dateien ab und ist die Commit-Markierung, erst mit ihr
+   zählt eine Sicherung. `meta.json` trägt `"tombstones": true`.
 6. **Aufbewahrung:** 7 tägliche, 2 monatliche (jeweils der neueste tägliche
    Stand der beiden jüngsten Kalendermonate), 3 Pre-Rollout-Stände. Die
-   Bereinigung zählt nur committete Sicherungen und löscht Waisen (ohne
-   `.sha256`) erst nach einem Tag. Zusätzlich bleibt die 30-Tage-Sicherung
+   Aufbewahrung gilt für beide Dateien einer Sicherung: die Bereinigung löscht
+   `.sha256`, `meta.json`, `tombstones.age`, `dump.age` in dieser Reihenfolge
+   und überspringt Objekte, die nicht im Bucket liegen (ältere Sicherungen
+   ohne Tombstone-Datei). Sie zählt nur committete Sicherungen und löscht
+   Waisen (ohne `.sha256`, auch eine einzelne `tombstones.age`) erst nach
+   einem Tag. Zusätzlich bleibt die 30-Tage-Sicherung
    der Gesamtdatenbank durch Flex das Betriebsnetz.
 7. **Restore-Test:** manuell und dokumentiert (`docs/guide/operations.md`),
    nach dem Bau einmal, danach monatliche Erinnerung.
@@ -1144,9 +1156,10 @@ einen unerwarteten Fremdschlüssel.
   schließt es damit aus. Es entsteht kein zweiter Prüfpfad.
 - Schutz vor leerem Dump: Ein Dump ohne Dokumente wird abgelehnt, solange die
   Datenbank Dokumente hält (`allow_empty` bzw. `--allow-empty` hebt das auf).
-- Ein Test geht alle Fremdschlüssel von Nutzerdaten-Tabellen auf den
-  Wissensbestand durch (fail-closed): Jedes Ziel muss zu einer Klasse gehören
-  oder eine ausdrückliche Löseregel haben.
+- Ein Test geht alle Fremdschlüssel jeder Tabelle außerhalb des Wissensbestands
+  auf den Wissensbestand durch (fail-closed), nicht nur die der
+  Nutzerdaten-Tabellen, also auch `identity_resolution_case`: Jedes Ziel muss
+  zu einer Klasse gehören oder eine ausdrückliche Löseregel haben.
 - Meldung: Ein Widerruf löscht in Produktion die Klassifikation, der
   Rechteänderungs-Pfad von `notify-watchers` sähe also nichts. Neuer
   Benachrichtigungstyp `no_longer_available` (Migration 0034, Tabelle
@@ -1173,6 +1186,49 @@ Nutzerverweis geht verloren, weil sich der Wissensbestand ändert.
 - Bezeichner und Titel als Teil des Tombstones: Sie kollidieren bei einer
   Neulieferung mit den natürlichen Eindeutigkeitsschlüsseln (Befund im Review);
   das Dokument behält Herausgeber, Nummer, Ausgabe und Teil als Kennung.
+
+**Rollback und Sicherung (Erweiterung 2):** `normly-deploy rollback` (ADR-024)
+baut die Datenbank neu auf und importiert die ältere Dump-Version. Tombstones
+stehen in keinem Dump; Nutzerzeilen, die auf sie zeigen, verletzten beim
+Einspielen den Fremdschlüssel. Deshalb enthält jede Sicherung eine zweite,
+`age`-verschlüsselte Datei `<base>.tombstones.age`:
+
+- *Inhalt:* JSON (`format` 1, `created_at`, `rows` je Tabelle in
+  Fremdschlüssel-Reihenfolge) mit allen Zeilen aus `work`, `document` und
+  `edge`, deren `retired_at` gesetzt ist, plus dem Abschluss über die
+  Fremdschlüssel-Eltern innerhalb von `source`, `delivery`, `work`, `document`,
+  `edge`. Der Abschluss wird aus den ORM-Fremdschlüsseln berechnet, nicht
+  hartverdrahtet, und nimmt nur Eltern auf, nie Kinder. Alle Spalten, auch
+  `retired_at` und `revoked_at`. Nie Inhalt, Rechte oder Nutzerdaten.
+  `source.responsible_person` kann enthalten sein; in Produktion ist es die
+  veröffentlichte Rollenbezeichnung (Importe überschreiben es), ein Klarname
+  nur in einer Datei aus einer Ingestion-Datenbank. Er liegt nur in der
+  verschlüsselten Sicherung.
+- *Erzeugung und Prüfung:* im Container (`exchange export-tombstones`, stdout),
+  auf dem Host vor dem Verschlüsseln geprüft (JSON-Objekt, `format` 1, `rows`
+  mit genau den fünf Tabellen, je eine Liste). Eine ungültige Ausgabe bricht
+  die Sicherung ab.
+- *Einspielen:* im Rollback nach dem Wissensbestand-Import und **vor**
+  `pg_restore` (`exchange import-tombstones`, JSON auf stdin, im Image des
+  vorherigen Release). Einfügen in Fremdschlüssel-Reihenfolge mit
+  `ON CONFLICT DO NOTHING`; vorhandene Zeilen bleiben unverändert;
+  `work.merged_into_work_id` wird aufgeschoben. Eingefügte Zeilen aus `work`,
+  `document`, `edge` erhalten `retired_at` (gesicherter Wert, bei lebenden
+  Eltern `created_at` der Datei) und gelten damit als zurückgezogen. Sie haben
+  keine Klassifikation, jede tor-gebundene Lesestelle schließt sie aus. Ein
+  späterer normaler Import, der die Zeile enthält, setzt `retired_at` wieder
+  auf `NULL`.
+- *Vorabprüfung:* Der Rollback lädt und entschlüsselt beide Objekte und
+  prüft die Datei, bevor Banner, Bestätigung, Stopp oder `DROP` kommen. Sagt
+  `meta.json` `"tombstones": true`, fehlt aber die Datei, gilt die Sicherung als
+  beschädigt (Abbruch). Eine ältere Sicherung ohne Zusage bleibt nutzbar: Der
+  Rollback warnt deutlich (ein Fremdschlüsselfehler ist möglich, wenn
+  Nutzerdaten auf zurückgezogene Dokumente zeigen) und läuft weiter.
+- *Nicht wiederhergestellt:* Inhalt und Rechte zurückgezogener Dokumente; nur
+  Kennungen. Das ist gewollt, die Rücknahme bleibt wirksam.
+- *`revoked_at`:* An einer zurückgezogenen Kante ist `revoked_at` der
+  **Importzeitpunkt**, nicht der Zeitpunkt des Widerrufs beim Produzenten. Es
+  ist kein Ereignisdatum und so nicht zu lesen.
 
 **Folgen / offen:**
 

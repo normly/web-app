@@ -309,13 +309,16 @@ class PostgresKnowledgeExchangeRepository:
         * content and derivations (PURGE_TABLES) are deleted physically,
           after user references to purged segments were cleared;
         * identifier rows (TOMBSTONE_TABLES) stay with `retired_at` set, so
-          watchlists, notifications and citations keep their targets; a row
-          that returns clears `retired_at` again;
+          watchlists, notifications and citations keep their targets; an edge
+          is also revoked (`revoked_at`) when it is retired; a row that
+          returns clears `retired_at` again;
         * provenance (delivery, source) stays; a missing delivery gets
           `withdrawn_at`.
 
-        Content is deleted BEFORE the upsert so that a purged row cannot
-        collide with a new row on a natural unique key. Nothing is committed.
+        Content is deleted and missing identifier rows are retired BEFORE the
+        upsert, so that a purged or retired row cannot collide with a new row
+        on a natural unique key (a revoked edge frees the partial unique index
+        on active edges). Nothing is committed.
         ImportBlockedError remains only as a last guard for an unexpected
         foreign key; after it the caller must roll back (or use a savepoint).
         """

@@ -154,6 +154,8 @@ unverändert.
 
 ## Rollback und Tombstones (Erweiterung 2)
 
+Status: umgesetzt.
+
 Die Abschlussprüfung zeigte: Der Rollback aus TP4 baut die Datenbank neu auf,
 importiert die ältere Dump-Version und spielt die Nutzerdaten ein. Tombstones
 stehen in keinem Dump; Nutzerzeilen, die auf sie zeigen, verletzen dann beim
@@ -175,7 +177,8 @@ des Nutzers: vollständig lösen.
 ## Nicht-Ziele
 
 - Alterung und Aufräumen von Tombstones.
-- Anzeige „nicht mehr verfügbar“ in der Oberfläche.
+- Link oder Detailseite für zurückgezogene Dokumente (der Glockeneintrag
+  „Nicht mehr verfügbar“ ist ausgeliefert).
 - Lebenszyklus der Nutzerdaten insgesamt (Aufbewahrung, Kontolöschung,
   Auskunft/Export, Wirkung in Sicherungen): eigener Entwurf, Teil B.
 - Änderung des Austauschformats oder der Exportregeln.
@@ -184,6 +187,7 @@ des Nutzers: vollständig lösen.
 
 - Aufbewahrung von Tombstones (heute unbegrenzt; Identifikatoren, kein
   Inhalt): wird in Teil B mitentschieden.
-- Ob Tombstones in der Oberfläche sichtbar werden sollen (Benachrichtigung
-  „Dokument nicht mehr verfügbar“): Produktentscheidung, nicht Teil dieser
-  Änderung.
+- Ob zurückgezogene Dokumente einen Link oder eine Detailseite bekommen: Die
+  Glocke zeigt den Eintrag „Nicht mehr verfügbar“ (ausgeliefert, siehe
+  „Meldung“); ein Ziel für den Klick ist eine Produktentscheidung, nicht Teil
+  dieser Änderung.
