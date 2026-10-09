@@ -220,11 +220,19 @@ rollback() {
   ROLLBACK_IDENTITY="$identity"
   from="${failed:-$current}"
 
-  local database_url drop_sql down_tag="$current" backup_rev head_rev
+  local database_url drop_sql down_tag="$current" backup_rev head_rev verify_out
+  local -a key_args=()
   WORK="$(mktemp -d -t normly-rollback.XXXXXX)"; chmod 700 "$WORK"
   # shellcheck disable=SC1091  # .env is a runtime file on the VM
   if [ -f "$NORMLY_DIR/.env" ]; then set -a; . "$NORMLY_DIR/.env"; set +a; fi
   database_url="${NORMLY_DATABASE_URL:?}"; database_url="${database_url/+psycopg/}"
+  if [ -n "${NORMLY_KB_PUBLIC_KEY_FILE:-}" ]; then
+    [ -f "$NORMLY_KB_PUBLIC_KEY_FILE" ] \
+      || die "NORMLY_KB_PUBLIC_KEY_FILE ($NORMLY_KB_PUBLIC_KEY_FILE) is not a file; nothing was changed"
+    # The key lives on the host; the container sees it at a fixed path. The -e
+    # overrides the host path that .env passes in through env_file.
+    key_args=(-v "$NORMLY_KB_PUBLIC_KEY_FILE:/kb-key.pem:ro" -e NORMLY_KB_PUBLIC_KEY_FILE=/kb-key.pem)
+  fi
 
   # Preflight, before anything destructive: the backup must come from the
   # schema the previous release expects, or the data-only restore would not fit.
@@ -239,6 +247,14 @@ print(json.load(sys.stdin)["alembic_revision"])' < "$WORK/meta.json")" \
     || die "cannot read the Alembic head of $previous; nothing was changed"
   if [ -z "$backup_rev" ] || [ "$backup_rev" != "$head_rev" ]; then
     die "backup $backup was taken at schema revision '$backup_rev' but $previous expects '$head_rev'; refusing to roll back, nothing was changed"
+  fi
+
+  # The knowledge-base dump must be fetchable and valid BEFORE the database is
+  # dropped: the import comes after the drop and could not be undone.
+  if [ "$kb_version" != "none" ] && [ -n "$kb_version" ]; then
+    verify_out="$(compose "$previous" run --rm --no-deps -T ${key_args[@]+"${key_args[@]}"} \
+      --entrypoint python pipeline -m normly_core.exchange verify --fetch "$kb_version" 2>&1)" \
+      || die "knowledge-base dump $kb_version cannot be verified: $verify_out; nothing was changed"
   fi
 
   cat >&2 <<EOF
@@ -272,8 +288,8 @@ EOF
   fi
   compose "$previous" run --rm migrate
   if [ "$kb_version" != "none" ] && [ -n "$kb_version" ]; then
-    compose "$previous" run --rm --no-deps --entrypoint python pipeline \
-      -m normly_core.exchange import --fetch "$kb_version"
+    compose "$previous" run --rm --no-deps ${key_args[@]+"${key_args[@]}"} \
+      --entrypoint python pipeline -m normly_core.exchange import --fetch "$kb_version"
   fi
   pg_restore --dbname="$database_url" --data-only --exit-on-error "$WORK/dump"
   compose "$previous" up -d --no-build --wait --wait-timeout "$HEALTH_TIMEOUT"

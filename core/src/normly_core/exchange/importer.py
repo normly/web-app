@@ -21,24 +21,17 @@ class ImportRefused(Exception):
     """The dump cannot be imported; nothing was changed."""
 
 
-def import_dump(
-    repository: KnowledgeExchangeRepository,
-    *,
+def verify_dump(
     dump_dir: Path,
+    *,
     public_key_pem: bytes,
     expected_model_name: str,
     expected_model_revision: str,
-    now: datetime | None = None,
-) -> ImportRecord:
+) -> Manifest:
     """
-    Verify the dump (signature, versions, embedding model, checksums,
-    dimensions) and replace the knowledge base with it.
-
-    All checks run before the first write, so ImportRefused leaves the
-    database untouched. This function never commits: the caller owns the
-    transaction and must commit on success and roll back on any exception
-    (ImportBlockedError from the repository included), otherwise no
-    half-imported state is avoided.
+    Everything that can be checked without a database: signature, versions,
+    embedding model and revision, tables, path guard, checksums and vector
+    dimensions. Raises ImportRefused; returns the verified manifest.
     """
     try:
         manifest_bytes = (dump_dir / "manifest.json").read_bytes()
@@ -90,6 +83,34 @@ def import_dump(
                 raise ImportRefused(f"checksum mismatch for {entry.path}")
             if name in ("embedding", "document_embedding") and not vector_dimension_ok(path):
                 raise ImportRefused(f"vector dimension mismatch in {entry.path}")
+
+    return manifest
+
+
+def import_dump(
+    repository: KnowledgeExchangeRepository,
+    *,
+    dump_dir: Path,
+    public_key_pem: bytes,
+    expected_model_name: str,
+    expected_model_revision: str,
+    now: datetime | None = None,
+) -> ImportRecord:
+    """
+    Verify the dump (see verify_dump) and replace the knowledge base with it.
+
+    All checks run before the first write, so ImportRefused leaves the
+    database untouched. This function never commits: the caller owns the
+    transaction and must commit on success and roll back on any exception
+    (ImportBlockedError from the repository included), otherwise no
+    half-imported state is avoided.
+    """
+    manifest = verify_dump(
+        dump_dir,
+        public_key_pem=public_key_pem,
+        expected_model_name=expected_model_name,
+        expected_model_revision=expected_model_revision,
+    )
 
     def batches(name: str):
         def produce():
