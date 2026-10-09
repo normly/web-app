@@ -190,6 +190,20 @@ services:
       - ./data:/data
     restart: "no"
 
+  kb-import:
+    build:
+      <<: *python-build
+      target: pipeline
+    image: ghcr.io/normly/web-app/pipeline:${NORMLY_IMAGE_TAG:-edge}
+    profiles: ["tools"]
+    entrypoint: ["python", "-m", "normly_core.exchange", "import", "--fetch"]
+    command: ["latest"]
+    env_file: .env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
 volumes:
   postgres-data:
   ollama-data:

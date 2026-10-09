@@ -4,10 +4,11 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
-from typing import Protocol
+from typing import Any, Protocol
 
 
 class LegalBasisCategory(str, Enum):
@@ -1188,3 +1189,60 @@ class OAuthStateRepository(Protocol):
     def consume_state(self, state: str) -> OAuthState | None: ...
 
     def delete_states_before(self, cutoff: datetime) -> None: ...
+
+
+@dataclass(frozen=True)
+class ExchangeColumn:
+    name: str
+    kind: str  # "string"|"bool"|"int"|"float"|"timestamp"|"date"|"vector"
+
+
+@dataclass(frozen=True)
+class ImportRecord:
+    dump_version: str
+    exchange_schema_version: int
+    embedding_model_revision: str
+    imported_at: datetime
+
+
+class ImportBlockedError(Exception):
+    """
+    The import would delete a knowledge-base row that user data still points
+    at (e.g. a watched Work the new dump no longer contains). Nothing is
+    changed once the caller has rolled back (or used a savepoint): the
+    methods never commit, and the transaction is left in a failed state.
+    """
+
+    def __init__(self, table: str, detail: str):
+        super().__init__(f"import blocked while deleting from {table}: {detail}")
+        self.table = table
+        self.detail = detail
+
+
+RowBatches = Callable[[], Iterator[list[dict[str, Any]]]]
+
+
+class KnowledgeExchangeRepository(Protocol):
+    """
+    Bulk access to the free knowledge base for the versioned dump (ADR-025).
+
+    Deliberately no `get_`/`list_` names: those prefixes trigger the
+    jurisdiction guard in test_architecture.py, and the export gate here is
+    the rights classification itself (may_process AND may_export_free, not
+    revoked, delivery not withdrawn, source category A/B/D and not a
+    commercial catalogue), evaluated across all jurisdictions.
+    """
+
+    def exchange_columns(self, table: str) -> list[ExchangeColumn]: ...
+
+    def iter_exportable_rows(
+        self, table: str, *, batch_size: int = 5000
+    ) -> Iterator[list[dict[str, Any]]]: ...
+
+    def exportable_deliveries(self) -> list[tuple[str, str, str]]: ...
+
+    def replace_knowledge_base(
+        self, tables: Mapping[str, RowBatches], *, record: ImportRecord
+    ) -> None: ...
+
+    def imported_version(self) -> ImportRecord | None: ...

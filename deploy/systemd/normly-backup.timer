@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 normly contributors
+[Unit]
+Description=normly daily user-data backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

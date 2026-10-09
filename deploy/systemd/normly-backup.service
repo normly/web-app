@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 normly contributors
+[Unit]
+Description=normly daily user-data backup
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/normly/bin/normly-backup run --kind daily
+ExecStartPost=/opt/normly/bin/normly-backup prune
