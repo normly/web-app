@@ -23,13 +23,12 @@ No credentials for the VM exist on GitHub.
 | `rclone` | uploading and downloading backups (S3-compatible, STACKIT Object Storage) |
 | `postgresql-client` | `pg_dump`, `psql`, `pg_restore` |
 | `python3` | digest parsing and the retention policy (standard library only) |
-| `git` | fetching the systemd unit files from the release tag (see "Backups") |
 
 On Ubuntu:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y age rclone postgresql-client python3 git
+sudo apt-get install -y age rclone postgresql-client python3
 # Docker Engine with the Compose plugin: https://docs.docker.com/engine/install/ubuntu/
 # cosign: https://docs.sigstore.dev/cosign/system_config/installation/
 docker compose version   # must print v2.20 or newer
@@ -51,7 +50,7 @@ Two limits to know about:
 ```text
 /opt/normly/
   .env          configuration and secrets (read by the scripts and by Compose)
-  bin/          normly-deploy, normly-backup, normly-backup-retention.py
+  bin/          normly-deploy, normly-backup, normly-backup-retention.py, normly-env.sh
   releases/     one directory per deployed tag, taken from the signed pipeline image
   state/        current_tag, previous_tag, pre_rollout_backup, pre_rollout_kb_version,
                 failed_rollout (only after a failed rollout), deploy.lock (during a run)
@@ -60,27 +59,41 @@ Two limits to know about:
 
 ## Installing the scripts
 
-The scripts ship inside the signed `pipeline` image. Verify the image first,
-then copy them out. Replace `0.2.0` with the release you install:
+The scripts and the systemd units ship inside the signed `pipeline` image.
+Verify the image, take its **digest** from the verification output, and copy
+the files out of exactly that digest, not out of the tag (a tag can be
+re-pointed between the check and the copy). Replace `0.2.0` with the release
+you install:
 
 ```bash
 sudo mkdir -p /opt/normly/bin /opt/normly/releases /opt/normly/state
-cosign verify \
+DIGEST="$(cosign verify \
   --certificate-identity-regexp '^https://github\.com/normly/web-app/\.github/workflows/images\.yml@refs/tags/v0\.2\.0$' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  ghcr.io/normly/web-app/pipeline:0.2.0
+  ghcr.io/normly/web-app/pipeline:0.2.0 \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["critical"]["image"]["docker-manifest-digest"])')"
+echo "$DIGEST"      # sha256:...
 
-for f in normly-deploy normly-backup normly-backup-retention.py; do
-  docker run --rm --entrypoint cat ghcr.io/normly/web-app/pipeline:0.2.0 \
-    /app/deploy/scripts/$f | sudo tee /opt/normly/bin/$f > /dev/null
-  sudo chmod 755 /opt/normly/bin/$f
-done
+CID="$(docker create "ghcr.io/normly/web-app/pipeline@$DIGEST")"
+sudo docker cp "$CID:/app/deploy/scripts/." /opt/normly/bin/
+sudo docker cp "$CID:/app/deploy/systemd/." /etc/systemd/system/
+docker rm "$CID"
+sudo chmod 755 /opt/normly/bin/normly-deploy /opt/normly/bin/normly-backup \
+  /opt/normly/bin/normly-backup-retention.py
 ```
 
 The first installation is a manual step, because the script that verifies
 releases cannot verify itself. Later releases carry their own copy in
-`releases/<tag>/scripts/`; update `/opt/normly/bin` from there after a
+`releases/<tag>/scripts/` (the digests that were verified are in
+`releases/<tag>/verified-digests`); update `/opt/normly/bin` from there after a
 successful deploy if the scripts changed.
+
+The scripts read `/opt/normly/.env` with their own small parser
+(`normly-env.sh`), not with the shell, because Compose accepts values the shell
+does not (`NORMLY_BRAND_COLOR_HSL=222 89% 55%`). They take only the keys they
+need (`NORMLY_DATABASE_URL`, `NORMLY_BACKUP_*`, `NORMLY_KB_*`, `RCLONE_*`,
+`AWS_*`); nothing in the file is evaluated. A variable that is already set in
+the environment of the call wins over the file.
 
 Create `/opt/normly/.env` from `.env.example` (production-style settings, see
 [Self-Hosting](self-hosting.md#production-style-setup)) and add the backup
@@ -117,6 +130,13 @@ What happens, in order:
    (up to `NORMLY_HEALTH_TIMEOUT` seconds, default 600).
 7. On success the state files and the `current` symlink are updated.
 
+**Transition for a VM that already holds a knowledge base.** The first
+scripted deploy records the knowledge-base version through `info`, which reads
+the import record. Before the first scripted deploy on such a VM, export the
+knowledge base, publish it, and import it via `kb-import`, so that `info`
+reports a version (see "Knowledge-base dumps"). Otherwise `none` is recorded
+and a later rollback leaves the knowledge base empty.
+
 `status` shows what the script has recorded:
 
 ```bash
@@ -128,6 +148,12 @@ the script records the failed tag in `state/failed_rollout`, keeps the old tag
 as the rollback target, and tells you so. It refuses further `deploy` calls
 until you have rolled back. To override that deliberately, remove the marker
 file (`/opt/normly/state/failed_rollout`); the error message says so.
+
+The override has a price. After `rm state/failed_rollout` and a fresh deploy,
+`pre_rollout_backup` points to a backup taken at the **newer** schema, so the
+scripted rollback's Alembic check will refuse. The older, valid pre-rollout
+backup is still in the bucket (the 3 newest are kept) and can be restored by
+the manual procedure in "Restore test".
 
 If `migrate` fails half-way, the pre-rollout backup is the way back.
 
@@ -147,6 +173,11 @@ Manager or your offline copy; do not leave it on the VM afterwards:
 /opt/normly/bin/normly-deploy rollback --age-identity /root/normly-backup.key
 shred -u /root/normly-backup.key
 ```
+
+Stop the backup timer while a rollback runs (`sudo systemctl stop
+normly-backup.timer`, start it again afterwards): the timer does not take the
+deploy lock, and a backup in the middle of a rollback would capture a
+half-restored database.
 
 Before it changes anything, the script runs two checks and refuses (nothing
 changed) if either fails:
@@ -172,6 +203,10 @@ file and mounts it read-only into the container for the verify and import
 steps. Without a key, a rollback that has to re-import a knowledge base
 refuses.
 
+If the recorded knowledge-base version is `none`, the banner says so
+explicitly: the knowledge base will be **empty** after the rollback, and only
+the Flex backup can restore it. The confirmation is still required.
+
 It then prints what will be discarded and asks you to type the target tag
 **without** the `v` (for example `0.1.0`); `--yes` skips the question for
 scripted runs.
@@ -192,8 +227,8 @@ Then it:
 6. starts the previous release and waits for it to become healthy.
 
 If a step fails after the tables were dropped, the script prints a recovery
-message: the database is incomplete, services are stopped, `current_tag` is
-unchanged. Running the same `rollback` command again is safe, because it
+message: the database is incomplete, services may be stopped or partly
+running, `current_tag` is unchanged. Running the same `rollback` command again is safe, because it
 rebuilds the schema from the backup each time. On success the failed-rollout
 marker is cleared.
 
@@ -234,11 +269,11 @@ Only the public key goes into `.env`. Losing the private key makes every backup
 unreadable, so test the offline copy (see "Restore test").
 
 Enable the daily timer (03:30 UTC; it runs the backup, then prune). The unit
-files are not part of the images; take them from a checkout of the release tag:
+files ship in the signed image and were copied to `/etc/systemd/system/` in
+"Installing the scripts" (later releases carry them in
+`releases/<tag>/systemd/`):
 
 ```bash
-git clone --depth 1 --branch v0.2.0 https://github.com/normly/web-app.git /tmp/normly-src
-sudo cp /tmp/normly-src/deploy/systemd/normly-backup.* /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now normly-backup.timer
 systemctl list-timers normly-backup.timer
@@ -387,7 +422,10 @@ docker compose run --rm kb-import              # kb/latest
 docker compose run --rm kb-import 2026.10.1    # a fixed version
 ```
 
-The import verifies the signature, the exchange schema version, the embedding
+The signature of the manifest is checked right after the manifest arrives and
+before any table file is downloaded, so a spoofed bucket cannot make the
+client fetch an unbounded amount of data. The import then verifies the
+signature again, the exchange schema version, the embedding
 model name **and** revision, the vector dimension and every file checksum before
 it writes. It is atomic and idempotent. It stops without changes if user data
 still references a knowledge-base row that the new version removes, and names

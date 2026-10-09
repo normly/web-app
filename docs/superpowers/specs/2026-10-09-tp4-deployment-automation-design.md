@@ -1,6 +1,6 @@
 # Design: Deployment-Automatisierung (STACKIT-Deployment, Teilprojekt 4/4)
 
-Stand: 2026-10-09 · Status: Entwurf, wartet auf Review. Roadmap und
+Stand: 2026-10-09 · Status: umgesetzt bis auf die Live-Abnahme (Task 9). Roadmap und
 Grundsatzentscheidungen E1–E8:
 `docs/superpowers/specs/2026-09-23-stackit-deployment-roadmap-design.md`.
 Vorgänger: `docs/superpowers/specs/2026-10-08-tp2-image-pipeline-design.md`
@@ -208,7 +208,8 @@ und lizenzierte Bestände sind nie enthalten.
 `manifest.json` mit: Austauschschema-Version (unabhängig von Alembic),
 Dump-Version (Kalender, z. B. `2026.10.1`) und Zeitpunkt, Einbettungsmodell
 mit gepinnter Revision und Dimension, enthaltene Quelllieferungen mit
-Kategorie und Rechtsgrundlage, Prüfsumme und Zeilenzahl je Datei. Jede Zeile
+Herausgeber und Kategorie (die Rechtsgrundlage je Dokument steht in den
+Zeilen von `rights_classification`), Prüfsumme und Zeilenzahl je Datei. Jede Zeile
 führt ihre Quelllieferung (Abstammung).
 
 **Export (`normly-kb export`):** lokal bei der Ingestion, über die

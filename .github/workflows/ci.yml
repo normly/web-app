@@ -80,3 +80,14 @@ jobs:
           # Regression guard: fail if the accepted warning baseline (3 known
           # [[wiki-link]] false positives in docs/superpowers/specs/) changes.
           grep -q "^3 issues found" /tmp/build.log
+
+  test-scripts:
+    runs-on: ubuntu-latest
+    container: python:3.12
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      # The harness runs the real bash scripts with fake docker/cosign/rclone/age/pg_* binaries on PATH: no Docker socket, no database needed.
+      - run: apt-get update && apt-get install -y --no-install-recommends shellcheck && rm -rf /var/lib/apt/lists/*
+      - run: shellcheck scripts/normly-deploy scripts/normly-backup scripts/normly-env.sh
+      - run: pip install "pytest==8.4.2" && python -m pytest scripts/tests -q
