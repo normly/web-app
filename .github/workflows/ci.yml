@@ -48,7 +48,11 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
-      - run: apt-get update && apt-get install -y --no-install-recommends libgl1 && rm -rf /var/lib/apt/lists/*
+      # libgl1: docling -> opencv. fonts-liberation: the fixtures use non-embedded
+      # Helvetica; without a metric-compatible system font pdfium renders the page
+      # with a fallback font and the layout model misclassifies the title line as
+      # page_header (the 4 DGUV test failures seen since 2026-09-14).
+      - run: apt-get update && apt-get install -y --no-install-recommends libgl1 fonts-liberation && rm -rf /var/lib/apt/lists/*
       - run: pip install "uv==${UV_VERSION}" && uv sync --locked --all-packages --all-extras
       - run: cd core && ../.venv/bin/pytest
 

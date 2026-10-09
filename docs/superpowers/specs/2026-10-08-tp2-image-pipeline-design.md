@@ -518,9 +518,14 @@ Alle Schritte des Verifikationsplans sind gelaufen; gemessen, nicht angenommen.
 
 **Folgearbeiten (nicht Teil von TP2):**
 
-- `test-core` rot: mit den jetzt gepinnten Docling-Modellen prüfen, ob die
-  vier DGUV-Tests im `pipeline`-Image bestehen; falls ja, die CI auf
-  dieselben Modellrevisionen umstellen statt auf den jeweils neuesten Stand.
+- `test-core` rot: **geklärt 2026-10-08.** Nicht die Modellrevision (lokaler
+  Cache und CI hatten dieselben Commits), sondern fehlende Systemschriften:
+  die Fixture bettet Helvetica nicht ein, pdfium rendert im fontlosen
+  Container mit einer Ersatzschrift, und das Layout-Modell stuft die
+  Titelzeile als `page_header` (FURNITURE) ein. Nachgewiesen durch
+  Einzelvariablen-Tests (Locale, Threads, Determinismus: kein Effekt;
+  `fonts-liberation` installiert: identisch zum Host, 30/30 Tests grün).
+  Fix: `fonts-liberation` in CI-Job und Image; eigener PR.
 - Gewichte-Stufe auf ein schlankes Eltern-Image umstellen (Lock-Änderung
   lädt heute die Gewichte neu); `api`/`chat`/`accounts` ohne Docling-Modelle;
   `uv` aus den Laufzeit-Images; SBOM-Scanner-Image pinnen; `latest` nur
