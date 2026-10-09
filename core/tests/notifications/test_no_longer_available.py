@@ -188,3 +188,78 @@ def test_retired_document_does_not_disturb_the_rights_change_path(db_session):
     assert summary.notifications_created == 1
     (notification,) = _notifications(db_session, account)
     assert notification.trigger_type == NotificationTriggerType.NO_LONGER_AVAILABLE
+
+
+# --- end to end through the real importer -----------------------------------
+
+from datetime import timedelta  # noqa: E402
+
+from normly_core.graph.domain import ImportRecord  # noqa: E402
+
+from exchange.test_takedown import _frozen, _scenario  # noqa: E402
+
+
+def _import(scenario, dump, imported_at):
+    scenario.repository.replace_knowledge_base(
+        _frozen(dump), record=ImportRecord("2026.10.2", 1, "rev", imported_at)
+    )
+
+
+def _retirement_notifications(db_session, scenario):
+    return [
+        n for n in _notifications(db_session, scenario.account)
+        if n.trigger_type == NotificationTriggerType.NO_LONGER_AVAILABLE
+    ]
+
+
+def _scan(db_session):
+    return run_notify_watchers(db_session, RecordingEmailSender())
+
+
+def _watch_created_at(db_session, scenario):
+    return db_session.execute(
+        sa.select(WatchlistORM.created_at).where(WatchlistORM.id == scenario.watch.id)
+    ).scalar_one()
+
+
+def test_importer_takedown_notifies_watchers_once_and_again_after_return(db_session):
+    s = _scenario(db_session)
+    PostgresAccountRepository(db_session).update_notification_preference(
+        s.account.id, preference=NotificationPreference.IN_APP
+    )
+    watched = _watch_created_at(db_session, s)
+    first, second, third = (watched + timedelta(days=d) for d in (1, 2, 3))
+
+    _import(s, s.full, first)
+    _scan(db_session)
+    assert _retirement_notifications(db_session, s) == []
+
+    _import(s, s.without, first)
+    _scan(db_session)
+    (notification,) = _retirement_notifications(db_session, s)
+    assert notification.trigger_document_id == s.drop.id
+    assert notification.work_id == s.drop.work_id
+
+    _import(s, s.without, second)
+    _scan(db_session)
+    assert len(_retirement_notifications(db_session, s)) == 1
+
+    _import(s, s.full, second)
+    _scan(db_session)
+    _import(s, s.without, third)
+    _scan(db_session)
+    assert len(_retirement_notifications(db_session, s)) == 2
+
+
+def test_importer_takedown_before_the_watch_does_not_notify(db_session):
+    s = _scenario(db_session)
+    PostgresAccountRepository(db_session).update_notification_preference(
+        s.account.id, preference=NotificationPreference.IN_APP
+    )
+    before_watch = _watch_created_at(db_session, s) - timedelta(days=1)
+
+    _import(s, s.full, before_watch)
+    _import(s, s.without, before_watch)
+    _scan(db_session)
+
+    assert _retirement_notifications(db_session, s) == []
