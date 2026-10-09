@@ -360,3 +360,16 @@ def test_prune_does_not_log_a_failure_for_objects_an_old_backup_never_had(harnes
     assert deletes(harness) == [f"{bases[0]}.sha256", f"{bases[0]}.meta.json", f"{bases[0]}.dump.age"]
     assert "failed to delete" not in result.stderr
     assert f"pruned {bases[0]}" in result.stderr
+
+
+def test_prune_still_deletes_with_a_listing_larger_than_the_pipe_buffer(harness):
+    # The looked-up object sits at the START of a >64 KiB listing: a
+    # `printf | grep -q` pipeline dies of SIGPIPE (141) under pipefail.
+    bases = [f"2026100{d}T100000Z-pre-0.1.{d}" for d in range(1, 5)]
+    padding = [f"padding-{i:05d}-{'x' * 30}" for i in range(2000)]
+    listing = lsf(*[n for b in bases for n in committed(b)], *padding)
+    assert len(listing) > 65536
+    result = harness.run("normly-backup", "prune", extra_env={"FAKE_RCLONE_OUT": listing})
+    assert result.returncode == 0, result.stderr
+    assert len(deletes(harness)) == 4
+    assert "failed to delete" not in result.stderr

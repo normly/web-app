@@ -1218,8 +1218,9 @@ Einspielen den Fremdschlüssel. Deshalb enthält jede Sicherung eine zweite,
   keine Klassifikation, jede tor-gebundene Lesestelle schließt sie aus. Ein
   späterer normaler Import, der die Zeile enthält, setzt `retired_at` wieder
   auf `NULL`.
-- *Vorabprüfung:* Der Rollback lädt und entschlüsselt beide Objekte und
-  prüft die Datei, bevor Banner, Bestätigung, Stopp oder `DROP` kommen. Sagt
+- *Vorabprüfung:* Der Rollback lädt, entschlüsselt und prüft die
+  Tombstone-Datei vor dem Banner, den Dump nach der Bestätigung und vor dem
+  Stopp; vor dem Löschen ist beides vorhanden und entschlüsselt. Sagt
   `meta.json` `"tombstones": true`, fehlt aber die Datei, gilt die Sicherung als
   beschädigt (Abbruch). Eine ältere Sicherung ohne Zusage bleibt nutzbar: Der
   Rollback warnt deutlich (ein Fremdschlüsselfehler ist möglich, wenn

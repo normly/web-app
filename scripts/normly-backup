@@ -114,7 +114,7 @@ delete_backup() {
   local base="$1" listing="$2" suffix failed=0
   for suffix in sha256 meta.json tombstones.age dump.age; do
     # Backups from before the tombstone file have no such object: nothing to delete.
-    printf '%s\n' "$listing" | grep -qxF "$base.$suffix" || continue
+    grep -qxF "$base.$suffix" <<< "$listing" || continue
     rclone deletefile "$NORMLY_BACKUP_REMOTE/backups/$base.$suffix" </dev/null || failed=1
   done
   if [ "$failed" -eq 0 ]; then
@@ -151,7 +151,7 @@ prune() {
       *.tombstones.age) base="${name%.tombstones.age}" ;;
       *) continue ;;
     esac
-    if printf '%s\n' "$committed" | grep -qxF "$base"; then continue; fi
+    if grep -qxF "$base" <<< "$committed"; then continue; fi
     [[ "$base" =~ ^[0-9]{8}T[0-9]{6}Z- ]] || continue
     if ! epoch="$(stamp_epoch "$base" 2>/dev/null)"; then
       echo "prune: skipping $name (invalid timestamp)" >&2

@@ -281,7 +281,7 @@ print(json.load(sys.stdin)["alembic_revision"])' < "$WORK/meta.json")" \
   # rollback stays possible. A failed listing must not read as "missing".
   backup_listing="$(rclone lsf "$NORMLY_BACKUP_REMOTE/backups")" \
     || die "cannot list the backups; nothing was changed"
-  if printf '%s\n' "$backup_listing" | grep -qxF "$backup.tombstones.age"; then
+  if grep -qxF "$backup.tombstones.age" <<< "$backup_listing"; then
     has_tombstones=1
     # Fetch, decrypt and check now: import-tombstones would only reject a bad
     # file after the DROP.
