@@ -170,5 +170,10 @@ ARG E5_REVISION
 ENV NORMLY_DOCLING_ARTIFACTS_PATH=/opt/models/docling \
     NORMLY_CORE_DIR=/app/core \
     NORMLY_EMBEDDING_MODEL_REVISION=${E5_REVISION}
+# Deploy assets: normly-deploy extracts /app/deploy/. with `docker cp` into
+# releases/<tag>/ on the VM, so the files always match the images they ship in.
+COPY --chown=normly:normly compose.yaml /app/deploy/compose.yaml
+COPY --chown=normly:normly docker/caddy/Caddyfile /app/deploy/docker/caddy/Caddyfile
+COPY --chown=normly:normly scripts/normly-deploy scripts/normly-backup scripts/normly-backup-retention.py /app/deploy/scripts/
 USER normly
 ENTRYPOINT ["python", "-m", "normly_core.pipeline"]

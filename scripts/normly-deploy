@@ -1,0 +1,210 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 normly contributors
+#
+# Pull-based rollout and rollback on the VM (TP4 spec, Teil 1; ADR-024).
+#
+#   normly-deploy deploy <vX.Y.Z>
+#   normly-deploy rollback --age-identity FILE [--yes]
+#   normly-deploy status
+#
+# No STACKIT credentials live on GitHub: the VM pulls signed images, verifies
+# them with cosign, and starts them. A manual call (over SSH) is the trigger;
+# the interface is timer-ready but no timer exists.
+set -euo pipefail
+
+NORMLY_DIR="${NORMLY_DIR:-/opt/normly}"
+STATE="$NORMLY_DIR/state"
+RELEASES="$NORMLY_DIR/releases"
+REGISTRY="${NORMLY_REGISTRY:-ghcr.io/normly/web-app}"
+IMAGES=(api chat accounts pipeline frontend)
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKUP_BIN="${NORMLY_BACKUP_BIN:-$HERE/normly-backup}"
+OIDC_ISSUER="https://token.actions.githubusercontent.com"
+HEALTH_TIMEOUT="${NORMLY_HEALTH_TIMEOUT:-600}"
+
+die() { echo "normly-deploy: $*" >&2; exit "${2:-1}"; }
+
+# One cleanup path for every exit. The lock is released only if THIS run took
+# it (a refused second run must leave the first run's lock alone). The scratch
+# directory of a rollback is removed here too, so no later trap can overwrite
+# this one.
+LOCK_HELD=0
+WORK=""
+cleanup() {
+  if [ -n "$WORK" ]; then rm -rf "$WORK"; fi
+  rm -f "$STATE/pre_rollout_backup.new" "$STATE/pre_rollout_kb_version.new"
+  if [ "$LOCK_HELD" -eq 1 ]; then rmdir "$STATE/deploy.lock" 2>/dev/null || true; fi
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+normalise_tag() {
+  local tag="${1#v}"
+  [[ "$tag" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "not a release tag: $1 (expected vX.Y.Z)" 2
+  echo "$tag"
+}
+
+read_state() { cat "$STATE/$1" 2>/dev/null || true; }
+
+compose() {  # compose <tag> <args...>
+  local tag="$1"; shift
+  NORMLY_IMAGE_TAG="$tag" docker compose \
+    -f "$RELEASES/$tag/compose.yaml" --project-directory "$RELEASES/$tag" "$@"
+}
+
+take_lock() {
+  mkdir -p "$STATE"
+  mkdir "$STATE/deploy.lock" 2>/dev/null \
+    || die "another run is already running (remove $STATE/deploy.lock if stale)" 3
+  LOCK_HELD=1
+}
+
+verify_images() {
+  local tag="$1" image
+  for image in "${IMAGES[@]}"; do
+    cosign verify \
+      --certificate-identity-regexp "^https://github\\.com/normly/web-app/\\.github/workflows/images\\.yml@refs/tags/v${tag//./\\.}\$" \
+      --certificate-oidc-issuer "$OIDC_ISSUER" \
+      "$REGISTRY/$image:$tag" > /dev/null \
+      || die "signature verification failed for $image:$tag; nothing was changed"
+  done
+}
+
+extract_assets() {
+  local tag="$1" container target
+  target="$RELEASES/$tag"
+  mkdir -p "$target"
+  container="$(docker create "$REGISTRY/pipeline:$tag")"
+  docker cp "$container:/app/deploy/." "$target/"
+  docker rm "$container" > /dev/null
+  ln -sfn "$NORMLY_DIR/.env" "$target/.env"
+}
+
+deploy() {
+  local tag
+  tag="$(normalise_tag "${1:?usage: normly-deploy deploy <vX.Y.Z>}")"
+  take_lock
+
+  verify_images "$tag"
+  extract_assets "$tag"
+
+  local current kb_version="none" backup_base
+  current="$(read_state current_tag)"
+  if [ -n "$current" ]; then
+    # Knowledge-base version of the release that is running NOW (not the new
+    # one); a rollback re-imports exactly this version. "none" skips the import.
+    if [ -d "$RELEASES/$current" ]; then
+      kb_version="$(compose "$current" run --rm --no-deps -T --entrypoint python pipeline \
+        -m normly_core.exchange info 2>/dev/null | tail -n 1)" || kb_version="none"
+      [ -n "$kb_version" ] || kb_version="none"
+    else
+      echo "normly-deploy: warning: no release files for $current; knowledge base version unknown" >&2
+    fi
+    # Not "$(backup | tail)": a pipeline would mask the backup's exit status.
+    backup_base="$("$BACKUP_BIN" run --kind "pre-$tag")" \
+      || die "pre-rollout backup failed; nothing was changed"
+    backup_base="$(printf '%s\n' "$backup_base" | tail -n 1)"
+    [ -n "$backup_base" ] || die "pre-rollout backup returned no name; nothing was changed"
+    printf '%s\n' "$backup_base" > "$STATE/pre_rollout_backup.new"
+    printf '%s\n' "$kb_version" > "$STATE/pre_rollout_kb_version.new"
+  fi
+
+  compose "$tag" pull || die "pull failed for $tag; nothing was changed"
+  if ! compose "$tag" up -d --wait --wait-timeout "$HEALTH_TIMEOUT"; then
+    if [ -n "$current" ]; then
+      # The new release may already have migrated the database, so the backup
+      # is now the way back. The rollback target is the release that ran
+      # before this attempt, i.e. $current.
+      mv "$STATE/pre_rollout_backup.new" "$STATE/pre_rollout_backup"
+      mv "$STATE/pre_rollout_kb_version.new" "$STATE/pre_rollout_kb_version"
+      printf '%s\n' "$current" > "$STATE/previous_tag"
+    fi
+    die "rollout of $tag did not become healthy. Inspect: docker compose logs. To go back: normly-deploy rollback --age-identity <file> (current_tag is still ${current:-unset})"
+  fi
+
+  if [ -n "$current" ]; then
+    mv "$STATE/pre_rollout_backup.new" "$STATE/pre_rollout_backup"
+    mv "$STATE/pre_rollout_kb_version.new" "$STATE/pre_rollout_kb_version"
+    printf '%s\n' "$current" > "$STATE/previous_tag"
+  fi
+  printf '%s\n' "$tag" > "$STATE/current_tag"
+  ln -sfn "$RELEASES/$tag" "$NORMLY_DIR/current"
+  echo "deployed $tag"
+}
+
+rollback() {
+  local identity="" assume_yes=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --age-identity) identity="${2:?}"; shift 2 ;;
+      --yes) assume_yes=1; shift ;;
+      *) die "unknown argument: $1" 2 ;;
+    esac
+  done
+  [ -f "$identity" ] || die "--age-identity FILE is required (the private backup key, supplied only for this run)" 2
+
+  local current previous backup kb_version answer
+  current="$(read_state current_tag)"; previous="$(read_state previous_tag)"
+  backup="$(read_state pre_rollout_backup)"; kb_version="$(read_state pre_rollout_kb_version)"
+  [ -n "$previous" ] && [ -n "$backup" ] || die "no previous release recorded; nothing to roll back to"
+  [ -d "$RELEASES/$previous" ] || die "release files for $previous are missing in $RELEASES"
+  take_lock
+
+  cat >&2 <<EOF
+Rollback $current -> $previous
+  Database state after backup '$backup' is DISCARDED (accounts, chats, watchlists
+  created or changed since the rollout are lost).
+  Steps: stop services, drop all tables, migrate with $previous, import the
+  knowledge base (${kb_version:-none}), restore user data.
+EOF
+  if [ "$assume_yes" -ne 1 ]; then
+    printf 'Type the target tag (%s) to continue: ' "$previous" >&2
+    read -r answer || answer=""
+    [ "$answer" = "$previous" ] || die "aborted"
+  fi
+
+  local database_url drop_sql down_tag="$current"
+  WORK="$(mktemp -d -t normly-rollback.XXXXXX)"; chmod 700 "$WORK"
+  # shellcheck disable=SC1091  # .env is a runtime file on the VM
+  if [ -f "$NORMLY_DIR/.env" ]; then set -a; . "$NORMLY_DIR/.env"; set +a; fi
+  database_url="${NORMLY_DATABASE_URL:?}"; database_url="${database_url/+psycopg/}"
+
+  rclone copyto "${NORMLY_BACKUP_REMOTE:?}/backups/$backup.dump.age" "$WORK/dump.age"
+  age -d -i "$identity" -o "$WORK/dump" "$WORK/dump.age"
+
+  # The project name is fixed in compose.yaml, so any release file can stop it.
+  [ -d "$RELEASES/$down_tag" ] || down_tag="$previous"
+  compose "$down_tag" down --remove-orphans
+  # Drop tables, never the schema: that would take the pgvector extension along.
+  drop_sql="$(compose "$previous" run --rm --no-deps -T --entrypoint python pipeline \
+    -m normly_core.exchange tables all)"
+  drop_sql="$(printf '%s\n' "$drop_sql" | sed 's/.*/DROP TABLE IF EXISTS "&" CASCADE;/')"
+  psql "$database_url" -v ON_ERROR_STOP=1 -c "$drop_sql"
+  compose "$previous" run --rm migrate
+  if [ "$kb_version" != "none" ] && [ -n "$kb_version" ]; then
+    compose "$previous" run --rm --no-deps --entrypoint python pipeline \
+      -m normly_core.exchange import --fetch "$kb_version"
+  fi
+  pg_restore --dbname="$database_url" --data-only --exit-on-error "$WORK/dump"
+  compose "$previous" up -d --wait --wait-timeout "$HEALTH_TIMEOUT"
+
+  printf '%s\n' "$previous" > "$STATE/current_tag"
+  : > "$STATE/previous_tag"
+  ln -sfn "$RELEASES/$previous" "$NORMLY_DIR/current"
+  echo "rolled back to $previous"
+}
+
+status() {
+  echo "current:  $(read_state current_tag)"
+  echo "previous: $(read_state previous_tag)"
+  echo "last pre-rollout backup: $(read_state pre_rollout_backup)"
+}
+
+case "${1:-}" in
+  deploy) shift; deploy "$@" ;;
+  rollback) shift; rollback "$@" ;;
+  status) status ;;
+  *) echo "usage: normly-deploy {deploy <vX.Y.Z>|rollback --age-identity FILE [--yes]|status}" >&2; exit 2 ;;
+esac
