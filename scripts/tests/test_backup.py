@@ -106,7 +106,10 @@ def test_upload_order_puts_commit_marker_last(harness):
     )
     assert result.returncode == 0, result.stderr
     uploads = [c.split()[-1] for c in harness.calls() if c.startswith("rclone copyto")]
-    assert [u.rsplit(".", 1)[-1] for u in uploads] == ["json", "age", "sha256"]
+    assert [u.rsplit(".", 1)[-1] for u in uploads] == ["json", "age", "age", "sha256"]
+    assert [u.rsplit("/", 1)[-1].split(".", 1)[1] for u in uploads] == [
+        "meta.json", "dump.age", "tombstones.age", "sha256",
+    ]
 
 
 def test_failed_marker_upload_fails_run_with_no_output(harness):
@@ -117,7 +120,7 @@ def test_failed_marker_upload_fails_run_with_no_output(harness):
     assert result.returncode != 0
     assert result.stdout.strip() == ""
     uploads = [c for c in harness.calls() if c.startswith("rclone copyto")]
-    assert len(uploads) == 3 and uploads[-1].endswith(".sha256")  # marker attempted last
+    assert len(uploads) == 4 and uploads[-1].endswith(".sha256")  # marker attempted last
 
 
 def _aborted_without_upload(harness, result):
@@ -187,7 +190,7 @@ def test_prune_invalid_date_orphan_does_not_stop_pruning(harness):
 
 
 def committed(base):
-    return [f"{base}.dump.age", f"{base}.meta.json", f"{base}.sha256"]
+    return [f"{base}.dump.age", f"{base}.tombstones.age", f"{base}.meta.json", f"{base}.sha256"]
 
 
 def test_prune_deletes_marker_first_then_siblings(harness):
@@ -198,6 +201,7 @@ def test_prune_deletes_marker_first_then_siblings(harness):
     assert deletes(harness) == [
         "20261001T100000Z-pre-0.1.1.sha256",
         "20261001T100000Z-pre-0.1.1.meta.json",
+        "20261001T100000Z-pre-0.1.1.tombstones.age",
         "20261001T100000Z-pre-0.1.1.dump.age",
     ]
     assert "pruned 20261001T100000Z-pre-0.1.1" in result.stderr
@@ -224,13 +228,15 @@ def test_prune_removes_old_orphans_and_keeps_young_ones(harness):
     old = stamp(timedelta(days=2))
     young = stamp(timedelta(hours=2))
     listing = lsf(
-        f"{old}-daily.dump.age", f"{old}-daily.meta.json",
-        f"{young}-daily.dump.age", f"{young}-daily.meta.json",
+        f"{old}-daily.dump.age", f"{old}-daily.meta.json", f"{old}-daily.tombstones.age",
+        f"{young}-daily.dump.age", f"{young}-daily.meta.json", f"{young}-daily.tombstones.age",
         *committed("20261001T033000Z-daily"),
     )
     result = harness.run("normly-backup", "prune", extra_env={"FAKE_RCLONE_OUT": listing})
     assert result.returncode == 0, result.stderr
-    assert sorted(deletes(harness)) == [f"{old}-daily.dump.age", f"{old}-daily.meta.json"]
+    assert sorted(deletes(harness)) == [
+        f"{old}-daily.dump.age", f"{old}-daily.meta.json", f"{old}-daily.tombstones.age",
+    ]
 
 
 def test_prune_logs_failed_delete_truthfully_and_still_succeeds(harness):
@@ -252,3 +258,118 @@ def test_failed_dump_upload_never_uploads_the_marker(harness):
     )
     assert result.returncode != 0
     assert not any(c.startswith("rclone copyto") and c.endswith(".sha256") for c in harness.calls())
+
+
+def test_run_exports_tombstones_in_the_container_after_the_dump_and_encrypts_them(harness):
+    result = harness.run(
+        "normly-backup", "run", "--kind", "daily", extra_env={"FAKE_DOCKER_OUT": "account"}
+    )
+    assert result.returncode == 0, result.stderr
+    calls = harness.calls()
+    dump = next(i for i, c in enumerate(calls) if c.startswith("pg_dump"))
+    dump_age = next(i for i, c in enumerate(calls) if c.startswith("age ") and ".dump.age" in c)
+    export = next(i for i, c in enumerate(calls) if "exchange export-tombstones" in c)
+    tomb_age = next(i for i, c in enumerate(calls) if c.startswith("age ") and "tombstones.age" in c)
+    assert dump < dump_age < export < tomb_age
+    assert "run --rm --no-deps -T --entrypoint python pipeline" in calls[export]
+    assert "-r age1recipient" in calls[tomb_age]
+
+
+def test_checksum_file_covers_both_encrypted_files(harness):
+    result = harness.run(
+        "normly-backup", "run", "--kind", "daily", extra_env={"FAKE_DOCKER_OUT": "account"}
+    )
+    assert result.returncode == 0, result.stderr
+    sums = next(c for c in harness.calls() if c.startswith("sha256sum"))
+    assert ".dump.age" in sums and ".tombstones.age" in sums
+
+
+def test_meta_json_flags_the_tombstone_file(harness, tmp_path):
+    keep = tmp_path / "uploaded"
+    keep.mkdir()
+    result = harness.run(
+        "normly-backup", "run", "--kind", "daily",
+        extra_env={"FAKE_DOCKER_OUT": "account", "FAKE_RCLONE_KEEP_DIR": str(keep)},
+    )
+    assert result.returncode == 0, result.stderr
+    meta = json.loads(next(keep.glob("*.meta.json")).read_text())
+    assert meta["tombstones"] is True
+
+
+def test_run_aborts_without_upload_or_plaintext_when_tombstone_export_fails(harness, tmp_path):
+    result = harness.run(
+        "normly-backup", "run", "--kind", "daily",
+        extra_env={"FAKE_DOCKER_OUT": "account", "FAKE_DOCKER_FAIL_ON": "export-tombstones",
+                   "TMPDIR": str(tmp_path)},
+    )
+    _aborted_without_upload(harness, result)
+    assert "tombstone" in result.stderr
+    assert not list(tmp_path.glob("normly-backup.*"))
+
+
+def test_tombstone_encryption_failure_aborts_without_upload(harness, tmp_path):
+    result = harness.run(
+        "normly-backup", "run", "--kind", "daily",
+        extra_env={"FAKE_DOCKER_OUT": "account", "FAKE_AGE_FAIL_ON": "tombstones",
+                   "TMPDIR": str(tmp_path)},
+    )
+    _aborted_without_upload(harness, result)
+    assert not list(tmp_path.glob("normly-backup.*"))
+
+
+def test_failed_tombstone_upload_never_uploads_the_marker(harness):
+    result = harness.run(
+        "normly-backup", "run", "--kind", "daily",
+        extra_env={"FAKE_DOCKER_OUT": "account", "FAKE_RCLONE_FAIL_ON": ".tombstones.age"},
+    )
+    assert result.returncode != 0
+    assert not any(c.startswith("rclone copyto") and c.endswith(".sha256") for c in harness.calls())
+
+
+def test_prune_removes_an_orphaned_tombstone_file_and_keeps_a_young_one(harness):
+    old = stamp(timedelta(days=2))
+    young = stamp(timedelta(hours=2))
+    listing = lsf(f"{old}-daily.tombstones.age", f"{young}-daily.tombstones.age")
+    result = harness.run("normly-backup", "prune", extra_env={"FAKE_RCLONE_OUT": listing})
+    assert result.returncode == 0, result.stderr
+    assert deletes(harness) == [f"{old}-daily.tombstones.age"]
+
+
+def test_run_aborts_when_the_tombstone_export_is_empty_or_malformed(harness, tmp_path):
+    for bad in ("", "not json", '{"format": 1, "rows": {"work": []}}'):
+        result = harness.run(
+            "normly-backup", "run", "--kind", "daily",
+            extra_env={"FAKE_DOCKER_OUT": "account", "FAKE_DOCKER_TOMBSTONES_OUT": bad,
+                       "TMPDIR": str(tmp_path)},
+        )
+        _aborted_without_upload(harness, result)
+        assert "tombstone export is invalid" in result.stderr
+        assert not any("tombstones.age" in c for c in harness.calls() if c.startswith("age "))
+        assert not list(tmp_path.glob("normly-backup.*"))
+
+
+def test_prune_does_not_log_a_failure_for_objects_an_old_backup_never_had(harness):
+    bases = [f"2026100{d}T100000Z-pre-0.1.{d}" for d in range(1, 5)]
+    old = [f"{bases[0]}.dump.age", f"{bases[0]}.meta.json", f"{bases[0]}.sha256"]
+    listing = lsf(*old, *[n for b in bases[1:] for n in committed(b)])
+    result = harness.run(
+        "normly-backup", "prune",
+        extra_env={"FAKE_RCLONE_OUT": listing, "FAKE_RCLONE_FAIL_ON": f"{bases[0]}.tombstones.age"},
+    )
+    assert result.returncode == 0, result.stderr
+    assert deletes(harness) == [f"{bases[0]}.sha256", f"{bases[0]}.meta.json", f"{bases[0]}.dump.age"]
+    assert "failed to delete" not in result.stderr
+    assert f"pruned {bases[0]}" in result.stderr
+
+
+def test_prune_still_deletes_with_a_listing_larger_than_the_pipe_buffer(harness):
+    # The looked-up object sits at the START of a >64 KiB listing: a
+    # `printf | grep -q` pipeline dies of SIGPIPE (141) under pipefail.
+    bases = [f"2026100{d}T100000Z-pre-0.1.{d}" for d in range(1, 5)]
+    padding = [f"padding-{i:05d}-{'x' * 30}" for i in range(2000)]
+    listing = lsf(*[n for b in bases for n in committed(b)], *padding)
+    assert len(listing) > 65536
+    result = harness.run("normly-backup", "prune", extra_env={"FAKE_RCLONE_OUT": listing})
+    assert result.returncode == 0, result.stderr
+    assert len(deletes(harness)) == 4
+    assert "failed to delete" not in result.stderr

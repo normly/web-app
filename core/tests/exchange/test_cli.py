@@ -137,3 +137,115 @@ def test_fetch_failure_exits_1_with_message(monkeypatch, capsys, fake_db):
     assert "fetch failed: HTTP 404" in capsys.readouterr().err
     (session,) = _FakeSession.instances
     assert session.rolled_back and not session.committed
+
+
+@pytest.mark.parametrize("flags,expected", [([], False), (["--allow-empty"], True)])
+def test_import_passes_allow_empty_through(monkeypatch, tmp_path, fake_db, flags, expected):
+    seen = {}
+
+    def fake_import(*args, **kwargs):
+        seen.update(kwargs)
+        return types.SimpleNamespace(dump_version="v")
+
+    monkeypatch.setattr(cli, "import_dump", fake_import)
+    assert main(["import", "--from", str(tmp_path), "--public-key", str(fake_db), *flags]) == 0
+    assert seen["allow_empty"] is expected
+
+
+# --- tombstone support commands ---------------------------------------------
+
+
+class _FakeTombstoneRepository:
+    restored: list = []
+
+    def __init__(self, session):
+        pass
+
+    def export_tombstone_support(self):
+        return {
+            "source": [], "delivery": [], "work": [{"id": "w1"}], "document": [], "edge": [],
+        }
+
+    def restore_tombstone_support(self, rows, *, restored_at):
+        if rows["work"] and rows["work"][0].get("bad"):
+            raise ValueError("row columns do not match the table")
+        _FakeTombstoneRepository.restored.append((rows, restored_at))
+
+
+@pytest.fixture()
+def fake_tombstone_db(monkeypatch):
+    _FakeSession.instances = []
+    _FakeTombstoneRepository.restored = []
+    monkeypatch.setenv("NORMLY_DATABASE_URL", "postgresql+psycopg://x:y@127.0.0.1:1/z")
+    monkeypatch.delenv("NORMLY_EMBEDDING_MODEL_REVISION", raising=False)
+    monkeypatch.setattr(cli, "create_engine", lambda url: _FakeEngine())
+    monkeypatch.setattr(cli, "Session", _FakeSession)
+    monkeypatch.setattr(cli, "PostgresKnowledgeExchangeRepository", _FakeTombstoneRepository)
+
+
+@pytest.mark.parametrize("command", ["export-tombstones", "import-tombstones"])
+def test_tombstone_commands_require_the_database_url(monkeypatch, capsys, command):
+    monkeypatch.delenv("NORMLY_DATABASE_URL", raising=False)
+    assert main([command]) == 1
+    assert "NORMLY_DATABASE_URL" in capsys.readouterr().err
+
+
+def test_export_tombstones_prints_a_valid_document_without_committing(
+    capsys, fake_tombstone_db
+):
+    import json
+
+    assert main(["export-tombstones"]) == 0
+    document = json.loads(capsys.readouterr().out)
+    assert document["format"] == 1
+    assert list(document["rows"]) == ["source", "delivery", "work", "document", "edge"]
+    assert document["rows"]["work"] == [{"id": "w1"}]
+    (session,) = _FakeSession.instances
+    assert not session.committed
+
+
+def test_import_tombstones_restores_commits_and_reports(
+    monkeypatch, capsys, fake_tombstone_db
+):
+    import io
+
+    text = (
+        '{"format": 1, "created_at": "2026-11-01T12:00:00+00:00", "rows": '
+        '{"source": [], "delivery": [], "work": [{"id": "w1"}], "document": [], "edge": []}}'
+    )
+    monkeypatch.setattr(sys, "stdin", io.StringIO(text))
+    assert main(["import-tombstones"]) == 0
+    assert "restored tombstone support: 1 rows" in capsys.readouterr().out
+    ((rows, restored_at),) = _FakeTombstoneRepository.restored
+    assert rows["work"] == [{"id": "w1"}] and restored_at.isoformat().startswith("2026-11-01T12")
+    (session,) = _FakeSession.instances
+    assert session.committed and not session.rolled_back
+
+
+@pytest.mark.parametrize("text", ["garbage", '{"format": 7}'])
+def test_import_tombstones_rejects_a_broken_document(
+    monkeypatch, capsys, fake_tombstone_db, text
+):
+    import io
+
+    monkeypatch.setattr(sys, "stdin", io.StringIO(text))
+    assert main(["import-tombstones"]) == 1
+    assert "invalid tombstone document" in capsys.readouterr().err
+    assert _FakeTombstoneRepository.restored == []
+    assert not any(s.committed for s in _FakeSession.instances)
+
+
+def test_import_tombstones_rolls_back_when_the_repository_rejects_rows(
+    monkeypatch, capsys, fake_tombstone_db
+):
+    import io
+
+    text = (
+        '{"format": 1, "created_at": "2026-11-01T12:00:00+00:00", "rows": '
+        '{"source": [], "delivery": [], "work": [{"bad": 1}], "document": [], "edge": []}}'
+    )
+    monkeypatch.setattr(sys, "stdin", io.StringIO(text))
+    assert main(["import-tombstones"]) == 1
+    assert "invalid tombstone document" in capsys.readouterr().err
+    (session,) = _FakeSession.instances
+    assert session.rolled_back and not session.committed
