@@ -10,6 +10,7 @@ nav = [
     "guide/getting-started.md",
     "guide/self-hosting.md",
     "guide/releasing.md",
+    "guide/operations.md",
   ] },
   { "Concepts" = [
     "concepts/normen-graph.md",

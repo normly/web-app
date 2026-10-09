@@ -740,6 +740,15 @@ aus ADR-019) — der Kollaborationsnachteil wiegt für den Kern-Quellcode
 schwerer als der Souveränitätsgewinn, während dieser für Betrieb und Daten
 weiterhin überwiegt und dort unangetastet bleibt.
 
+**Nachtrag 2026-10-09 (ADR-025):** Die Aussage oben, STACKIT Git sei als
+Plattform für das künftige Hosting der Normen-Wissensbasis vorgesehen, ist
+überholt. Die Wissensbasis wird als signierter Dump in einem öffentlich
+lesbaren STACKIT-Object-Storage-Bucket verteilt (ADR-025); die Trennung von
+Code und Daten aus ADR-010 bleibt davon unberührt. Das Repository
+`jwokittel/normly-webapp` hat damit keine Aufgabe mehr. Ob es archiviert oder
+gelöscht wird, ist offen und eine getrennte Entscheidung (siehe „Offene
+Punkte“). Der ursprüngliche Wortlaut bleibt als Entscheidungsverlauf stehen.
+
 ---
 
 ## ADR-022 — Betriebsumgebung Phase 1 und Modellherkunftsregel
@@ -861,6 +870,214 @@ Pflichtschritt vor dem Start auf der VM folgt mit dem Rollout-Skript
 
 ---
 
+## ADR-024 — Rollout, Rollback und Sicherung auf der Einzel-VM
+
+**Status:** beschlossen (2026-10-09); baut auf ADR-010, ADR-014 und ADR-023
+
+**Kontext:** Die Produktions-VM baut ihre Images heute aus dem Quellcode; es
+gibt keinen Rollback-Punkt. Nutzerdaten sind nur durch die Flex-Sicherung
+gesichert (täglich, 30 Tage, anbieterintern). STACKIT-Zugangsdaten dürfen
+nicht auf GitHub liegen (ADR-021), ein Push-Rollout aus der CI scheidet also
+aus. Die Signaturen aus ADR-023 nützen erst etwas, wenn die VM sie vor dem
+Start prüft (REQ-GIT-005).
+
+**Entscheidung:**
+
+1. **Auslöser:** Rollout manuell per SSH: `normly-deploy deploy vX.Y.Z`. Das
+   Skript ist timerfähig gehalten, einen Timer gibt es nicht.
+2. **Prüfung vor dem Start:** `cosign verify` aller fünf Images gegen die
+   Identität `images.yml@refs/tags/vX.Y.Z` des Release-Workflows. Compose-Datei
+   und Skript-Assets reisen im signierten `pipeline`-Image und werden aus dem
+   geprüften `pipeline@<digest>` entnommen. Die geprüften Digests werden
+   festgehalten (Digest-Pinning); nach `compose pull` müssen die gezogenen
+   Digests den geprüften entsprechen, sonst startet nichts.
+3. **Ablauf:** aktuellen Tag und Wissensbestand-Version lesen,
+   Pre-Rollout-Sicherung (ohne bestätigten Upload kein Rollout), `pull`,
+   `up -d --wait`. Der aktuelle Tag wird abgelehnt; solange ein
+   fehlgeschlagener Rollout vermerkt ist (`state/failed_rollout`), startet
+   kein neuer `deploy` (bewusstes Übergehen: die Markierungsdatei entfernen).
+   Es gibt keinen automatischen Rückweg.
+4. **Rollback stellt Images und Daten auf den Stand vor dem Rollout zurück.**
+   Weil Alembic-Migrationen nur vorwärts laufen, wird das Schema neu
+   aufgebaut: Dienste stoppen, alle Tabellen des Schemas `public` verwerfen
+   (Liste aus der Datenbank, das Schema bleibt, damit pgvector erhalten
+   bleibt), `migrate` mit dem vorherigen Image, Wissensbestand in der
+   damals aktiven Dump-Version importieren (vor den Nutzerdaten, wegen der
+   Fremdschlüssel), Nutzerdaten mit `pg_restore --data-only`, vorheriges
+   Release starten. Vorab prüft das Skript, dass die Alembic-Revision der
+   Sicherung dem Alembic-Head des vorherigen Images entspricht, und verlangt
+   die Eingabe des Ziel-Tags (oder `--yes`). Der private Schlüssel wird nur
+   für den Lauf bereitgestellt (`--age-identity FILE`). Scheitert der
+   Rollback nach dem Verwerfen, gibt das Skript Hinweise zur Wiederherstellung;
+   ein erneuter Aufruf ist gefahrlos.
+5. **Sicherung:** nur die Nutzerdaten-Tabellen (`exchange tables user`),
+   `age`-verschlüsselt auf der VM mit dem öffentlichen Schlüssel, Upload per
+   `rclone` in einen privaten STACKIT-Object-Storage-Bucket. Der private
+   Schlüssel liegt nie auf der VM. Reihenfolge des Uploads: `meta.json`,
+   `dump.age`, `.sha256`; die Prüfsumme ist die Commit-Markierung, erst mit
+   ihr zählt eine Sicherung.
+6. **Aufbewahrung:** 7 tägliche, 2 monatliche (jeweils der neueste tägliche
+   Stand der beiden jüngsten Kalendermonate), 3 Pre-Rollout-Stände. Die
+   Bereinigung zählt nur committete Sicherungen und löscht Waisen (ohne
+   `.sha256`) erst nach einem Tag. Zusätzlich bleibt die 30-Tage-Sicherung
+   der Gesamtdatenbank durch Flex das Betriebsnetz.
+7. **Restore-Test:** manuell und dokumentiert (`docs/guide/operations.md`),
+   nach dem Bau einmal, danach monatliche Erinnerung.
+
+**Begründung:**
+
+- *Manueller Auslöser:* Ein Mensch entscheidet über das Migrationsfenster.
+  Migrationen liefen sonst unbeaufsichtigt, und ein Timer bräuchte eine
+  „höchster Tag“-Logik und ein Stabilitätsfenster.
+- *Rollback = Neuaufbau:* Migrationen sind nur vorwärts. Ein reiner
+  Image-Rollback verlangte eine Expand/Contract-Disziplin, die es nicht gibt;
+  ein reiner Datenrestore ließe das neue Schema stehen.
+- *Nur Nutzerdaten sichern:* Der Wissensbestand ist über den Dump
+  (ADR-025) reproduzierbar; ein täglicher Gesamtdump wäre bei zweistelligen GB
+  verschwendet, die Nutzerdaten sind dagegen klein und unersetzlich.
+- *Schlüsseltrennung:* Die VM kann Sicherungen schreiben, aber nicht lesen.
+  Auch bei kompromittierter VM bleiben die Sicherungen geschützt, anders als
+  bei serverseitiger Verschlüsselung, deren Schlüssel beim Anbieter neben den
+  Daten liegt (CLAUDE.md: Schlüssel nie neben den Daten).
+- *Digest-Pinning:* `cosign verify` prüft, worauf das Tag in diesem Moment
+  zeigt. Ein zwischen Prüfung und `pull` umgesetztes Tag würde sonst die
+  Prüfung umgehen.
+- *Commit-Markierung:* Ein abgebrochener Upload darf weder als Sicherung
+  zählen noch eine ältere, gültige verdrängen.
+
+**Verworfen:** Timer mit Auto-Rollout; reiner Image-Rollback mit
+Expand/Contract-Disziplin; ausschließlich serverseitige Verschlüsselung;
+täglicher Gesamtdump; nur Pre-Rollout-Dumps; wöchentliche Stände (Nutzen
+jenseits von 7 Tagen klein).
+
+**Folgen:**
+
+- Ein Rollback verwirft alle Änderungen seit der Pre-Rollout-Sicherung
+  (Konten, Chats, Watchlists). Das Skript warnt und verlangt Bestätigung.
+- Die Rollback-Dauer wächst mit dem Wissensbestand (Neu-Import).
+- Voraussetzung: Der Wissensbestand in Produktion ändert sich nur durch
+  Dump-Import, nie durch Ingestion auf der VM (zugleich Voraussetzung für die
+  Verkleinerung der VM, TP1a).
+- `pg_dump`, `psql` und `pg_restore` laufen auf dem Host; `NORMLY_DATABASE_URL`
+  muss dort auflösbar sein (verwaltete Datenbank, nicht das gebündelte Profil).
+  Das Datenbankpasswort steht in den Prozessargumenten (Annahme: Einzelmandant-VM;
+  Härtung zurückgestellt). Es braucht Docker Compose ab 2.20 (`--wait-timeout`).
+- Offen: Kryptographisches Löschen bei Vertragsende (ADR-014) für lizenzierte
+  Bestände ist Aufgabe der kommerziellen Schicht; sie müssen von Sicherungen
+  ausgenommen oder je Herausgeber verschlüsselt werden. Der Secrets-Fluss per
+  AppRole (TP3) liegt außerhalb. Eine Objektsperre im Backup-Bucket sowie PITR
+  und Verschlüsselung der Flex-Sicherungen sind zu klären. Das Zusammenspiel
+  von `docker compose up --wait` mit dem einmaligen `migrate`-Dienst und die
+  Abfrage des Alembic-Heads sind bislang nur gegen Attrappen geprüft, bis
+  zur Live-Abnahme.
+
+Details: `docs/superpowers/specs/2026-10-09-tp4-deployment-automation-design.md`,
+Betrieb: `docs/guide/operations.md`.
+
+---
+
+## ADR-025 — Wissensbestand-Dump als Austauschformat
+
+**Status:** beschlossen (2026-10-09); ergänzt ADR-010, ändert die Aussage zur
+Wissensbasis in ADR-021 (siehe Nachtrag dort)
+
+**Kontext:** ADR-010 trennt Code und Daten, REQ-DIST-004 verlangt einen
+eigenständig versionierten Dump, der beim ersten Start bezogen wird. Bisher
+entsteht der Wissensbestand per Ingestion auf der VM; weder Selbsthoster noch
+ein Rollback können ihn reproduzieren.
+
+**Entscheidung:**
+
+1. **Format:** Parquet je Tabelle plus `manifest.json` und die Ed25519-Signatur
+   `manifest.json.sig`. Das Manifest führt Austauschschema-Version
+   (unabhängig von Alembic), Dump-Version und Zeitpunkt, Einbettungsmodell mit
+   Name und gepinnter Revision, Vektordimension (1024), Quelllieferungen und
+   Prüfsumme samt Zeilenzahl je Datei.
+2. **Zugriff:** Export und Import laufen über die Repository-Schicht
+   (`KnowledgeExchangeRepository`), nicht über Postgres-Werkzeuge.
+3. **Signatur:** Ed25519 in Python (`cryptography`), im Kern geprüft. Der
+   öffentliche Schlüssel liegt im Repository. Die Schlüsselzeremonie steht noch
+   aus; bis dahin ist `--public-key` beim Import erforderlich.
+4. **Verteilung:** öffentlich lesbarer STACKIT-Object-Storage-Bucket mit
+   Kalenderversion `kb/<version>/` und `kb/latest`. Eine Version ist
+   unveränderlich. `fetch` lädt nur von `NORMLY_KB_BASE_URL` (https, für
+   localhost auch http) und prüft Version und Pfade.
+5. **Import:** atomar und idempotent, in drei Durchgängen: (a) fehlende Zeilen
+   löschen, die keine behaltene Zeile mehr referenziert; (b) einfügen oder
+   aktualisieren; (c) die zurückgestellten fehlenden Zeilen löschen. Verweist
+   eine Nutzerdaten-Zeile noch auf eine zu löschende Zeile, bricht der Import
+   mit `ImportBlockedError` ohne Änderung ab. Der Aufrufer committet. Die
+   importierte Version wird in der Datenbank festgehalten.
+6. **Prüfungen beim Import:** Signatur, Austauschschema-Version, Modellname
+   **und** Modellrevision (`NORMLY_EMBEDDING_MODEL_REVISION`), Dimension,
+   Prüfsummen. Bei Abweichung Abbruch, keine stillen falschen Einbettungen.
+7. **Export-Gate:** die Rechteklassifikation als einziges Tor, über alle
+   Rechtsräume hinweg ausgewertet. Exportiert wird, was eine nicht
+   widerrufene Klassifikation mit `may_process` und `may_export_free` hat,
+   dessen Lieferung nicht zurückgezogen ist und dessen Quelle Kategorie A, B
+   oder D hat und kein kommerziell verwerteter Katalog ist. Fehlende
+   Klassifikation heißt nicht exportieren. Zusammengeführte Werke werden samt
+   Ziel exportiert, damit die Weiterleitung erhalten bleibt. Nutzerdaten und
+   lizenzierte Bestände sind nie enthalten.
+8. **Erster Start:** der Compose-Dienst `kb-import` (Profil `tools`) führt
+   `import --fetch latest` aus.
+
+**Begründung:**
+
+- *Parquet statt `pg_dump` (Nutzerentscheidung, gegen die ursprüngliche
+  Empfehlung):* ADR-006 und CLAUDE.md verlangen Datenbankzugriff nur über die
+  Repository-Schicht, damit die Speichertechnologie austauschbar bleibt;
+  `pg_dump` ist ein Postgres-Artefakt und umgeht sie.
+- *Öffentliches Produkt (REQ-DIST-004):* Ein Format ohne Bindung an unsere
+  Alembic-Revision überlebt Schemaänderungen. Bei `pg_dump` müsste jeder
+  Selbsthoster die passende Anwendungsversion finden.
+- *Abstammung:* Ein tabellenweiser Export mit Quelllieferung je Zeile hält die
+  Rücknahme einer Lieferung auch im Dump nachvollziehbar.
+- *Parquet statt NDJSON:* Einbettungen (1024 Floats, etwa 4 KB je Abschnitt)
+  wären sonst unhandlich.
+- *Preis:* mehr Code (Export, Import, Austauschschema), langsamerer Import,
+  Idempotenz selbst herzustellen. Das nehmen wir in Kauf.
+- *Ed25519 im Kern statt cosign/minisign:* Der Import läuft im
+  `pipeline`-Image und beim Selbsthoster; ein zusätzliches Binary vergrößerte
+  das Image und schüfe eine zweite Installationshürde. Keyless-Signatur geht
+  nicht, weil der Dump lokal entsteht, nicht in der CI.
+- *Object Storage statt Git:* große Binärdateien und anonymer Zugriff sind in
+  einem Git-Repository unhandlich; die Wissensbasis bleibt damit auf STACKIT
+  (CLAUDE.md).
+- *Dreistufiger Import:* Reines „zuerst löschen“ würde fälschlich blockieren,
+  obwohl keine Nutzerdaten beteiligt sind (z. B. nach einem Work-Merge).
+
+**Verworfen:** `pg_dump` des Wissensbestands; Delta-Dumps (das Format lässt
+sie offen, gebaut werden sie nicht); STACKIT Git als Ablage; ein zusätzliches
+Git-Manifest als Verlauf (zweites System); NDJSON.
+
+**Folgen:**
+
+- ADR-021 erhält einen Nachtrag; CLAUDE.md und REQ-GIT-005 sind angepasst.
+- `docs/guide/self-hosting.md` beschreibt den Import, `docs/guide/operations.md`
+  Export, Signatur und Veröffentlichung.
+- Das Export-Gate liest die Rechteklassifikation und führt keinen zweiten
+  Prüfpfad ein.
+
+**Offene Punkte:**
+
+- **Personennamen im öffentlichen Dump:** `source.responsible_person` und
+  `rights_classification.classified_by` enthalten Namen. Vor dem ersten
+  öffentlichen Dump ist eine Entscheidung nach DSGVO und Datenminimierung nötig
+  (Entfernen, Pseudonymisieren oder Rechtsgrundlage dokumentieren).
+- **Blockierende Nutzerdaten-Verweise:** Verweisen Nutzerdaten
+  (`chat_message_citation`, `notification`, `notified_edge`) auf Abschnitte oder
+  Kanten, die eine neue Version ersetzt, blockiert der Import. Wie das fachlich
+  aufzulösen ist (Verweise lösen, Zeilen behalten, Nutzer informieren), ist
+  eine offene Produktentscheidung.
+- **Delta-Dumps** sind nicht gebaut.
+- **Schlüsselzeremonie:** Erzeugung, Verwahrung und Veröffentlichung des
+  Signaturschlüssels stehen aus.
+
+Details: `docs/superpowers/specs/2026-10-09-tp4-deployment-automation-design.md`.
+
+---
+
 ## Offene Punkte
 
 | Thema | Status | Nächster Schritt |
@@ -875,6 +1092,11 @@ Pflichtschritt vor dem Start auf der VM folgt mit dem Rollout-Skript
 | Rechtliche Bewertung je Rechtsraum | laufende Aufgabe | Braucht mittelfristig eine zuständige Rolle, keine einmalige Klärung |
 | Apple-Provision bei digitalen Abos | offen | In der EU inzwischen Alternativen über externe Zahlungswege — vor Store-Release prüfen |
 | Aufbewahrungsfristen der Sicherungskopien | offen | Bestimmt, wie lange ein vernichteter Schlüssel vorgehalten werden muss, bevor Backups auslaufen |
+| STACKIT-Repository `jwokittel/normly-webapp` | offen | Archivieren oder löschen; durch ADR-025 ohne Aufgabe (Nachtrag zu ADR-021), Entscheidung beim Nutzer |
+| Personennamen im öffentlichen Wissensbestand-Dump | offen | `source.responsible_person` und `rights_classification.classified_by`: DSGVO-Entscheidung vor dem ersten öffentlichen Dump (ADR-025) |
+| Blockierende Nutzerdaten-Verweise beim Dump-Import | offen | Produktentscheidung, wie Verweise auf ersetzte Abschnitte und Kanten aufzulösen sind (ADR-025) |
+| Signaturschlüssel des Wissensbestand-Dumps | offen | Schlüsselzeremonie, öffentlichen Schlüssel ins Repository einchecken (ADR-025) |
+| Sicherungen bei lizenzierten Beständen | offen | Kryptographisches Löschen (ADR-014) für die kommerzielle Schicht; Flex-PITR und Objektsperre klären (ADR-024) |
 
 **Hinweis:** Die rechtlichen Einschätzungen in diesem Dokument sind
 Arbeitsgrundlage, keine Rechtsberatung. Insbesondere die Konstruktion

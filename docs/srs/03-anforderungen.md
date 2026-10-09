@@ -370,6 +370,8 @@ Dieses Kapitel definiert Anforderungen an die Bereitstellung, Konfiguration und 
 
 **Weitere Informationen:** Infrastructure as Code empfohlen.
 
+**Weitere Informationen:** Umsetzung: ADR-024 (`normly-deploy`).
+
 #### REQ-INST-003 — Konfigurationsmanagement über Umgebungsvariablen
 
 **Statement:** Umgebungsspezifische Konfigurationen (z. B. Endpunkte, Feature-Flags) müssen über Umgebungsvariablen oder zentrale Konfigurationsdienste erfolgen. Zugangsdaten und Schlüsselmaterial werden ausschließlich im STACKIT Secrets Manager gehalten, nicht in Umgebungsvariablen.
@@ -399,6 +401,8 @@ Dieses Kapitel definiert Anforderungen an die Bereitstellung, Konfiguration und 
 **Abnahmekriterium:** Rollback wird erfolgreich in Testumgebung durchgeführt.
 
 **Weitere Informationen:** Blue-Green oder vergleichbare Strategien zulässig.
+
+**Weitere Informationen:** Umsetzung: ADR-024 (`normly-deploy`); der Rollback stellt Images und Datenstand wieder her und verwirft Nutzerdaten seit dem Rollout (mit Warnung und Bestätigung).
 
 ### 3.5.2 Build and Delivery
 
@@ -512,7 +516,7 @@ Dieses Kapitel beschreibt Anforderungen an die Verteilung, Skalierung und Trennu
 
 **Abnahmekriterium:** Eine leere Umgebung wird ohne Vorkenntnisse allein anhand der Dokumentation in Betrieb genommen; ein Wechsel des Datenstands erfolgt ohne Neubau des Images.
 
-**Weitere Informationen:** Führende Registry für den freien Kern ist seit ADR-021 (2026-09-14) die GitHub Container Registry (GHCR) im Repository `normly/web-app` — löst den vorherigen Stand (STACKIT Container Registry alleinig, ADR-019/ADR-010-Nachtrag) ab. Der öffentlich lesbare Bezug im Akzeptanzkriterium ist über anonymen Lesezugriff auf GHCR zu lösen. Helm-Charts für den Betrieb auf Kubernetes können ergänzend folgen. Cache-Strategien sind zu berücksichtigen. Build, Signatur (cosign keyless) und Tagging der Images regelt ADR-023.
+**Weitere Informationen:** Führende Registry für den freien Kern ist seit ADR-021 (2026-09-14) die GitHub Container Registry (GHCR) im Repository `normly/web-app` — löst den vorherigen Stand (STACKIT Container Registry alleinig, ADR-019/ADR-010-Nachtrag) ab. Der öffentlich lesbare Bezug im Akzeptanzkriterium ist über anonymen Lesezugriff auf GHCR zu lösen. Helm-Charts für den Betrieb auf Kubernetes können ergänzend folgen. Cache-Strategien sind zu berücksichtigen. Build, Signatur (cosign keyless) und Tagging der Images regelt ADR-023. Umsetzung des Wissensbestand-Dumps: ADR-025.
 
 ### 3.5.4 Wartbarkeit
 
@@ -728,7 +732,7 @@ Dieses Kapitel definiert Anforderungen an Plattform, Ablauf und Absicherung der 
 
 **Status:** Neu gefasst durch ADR-021 (2026-09-14); löst die vorherige Fassung (STACKIT Git als alleinige Plattform, ADR-019) ab.
 
-**Statement:** Führende Plattform für Quellcode, Beiträge, CI/CD und Container-Registry des freien Kerns ist GitHub (`github.com/normly/web-app`). Betrieb, Deployment, Secrets-Management und die Normen-Wissensbasis bleiben davon getrennt und ausschließlich auf STACKIT (siehe REQ-INST-001, REQ-BUILD-002). STACKIT Git (`jwokittel/normly-webapp`) wird nicht mehr für Quellcode genutzt und ist für das künftige Hosting der Normen-Wissensbasis vorgesehen.
+**Statement:** Führende Plattform für Quellcode, Beiträge, CI/CD und Container-Registry des freien Kerns ist GitHub (`github.com/normly/web-app`). Betrieb, Deployment, Secrets-Management und die Normen-Wissensbasis bleiben davon getrennt und ausschließlich auf STACKIT (siehe REQ-INST-001, REQ-BUILD-002). STACKIT Git (`jwokittel/normly-webapp`) wird nicht mehr für Quellcode genutzt und ist für die Wissensbasis nicht mehr vorgesehen (ADR-025); die Wissensbasis liegt als Dump im STACKIT Object Storage.
 
 **Rationale:** ADR-021 — einfachere Kollaboration für den offenen Kern-Quellcode überwiegt den Souveränitätsvorteil einer alleinigen STACKIT-Plattform für Code, CI und Registry. Die Souveränitätsbeschränkung aus Kapitel 2.3 gilt unverändert für Betrieb, Daten und Secrets.
 
@@ -778,7 +782,7 @@ Dieses Kapitel definiert Anforderungen an Plattform, Ablauf und Absicherung der 
 
 **Abnahmekriterium:** Ein unsigniertes Artefakt wird von der Auslieferung abgewiesen.
 
-**Stand (2026-10-08):** Signatur, Provenance und SBOM je Image sind mit ADR-023 umgesetzt. Die Prüfung als Pflichtschritt vor dem Start auf der Zielumgebung folgt mit dem Rollout-Skript (Deployment-Roadmap TP4).
+**Stand (2026-10-08):** Signatur, Provenance und SBOM je Image sind mit ADR-023 umgesetzt. Die Prüfung als Pflichtschritt vor dem Start auf der Zielumgebung ist mit dem Rollout-Skript `normly-deploy` umgesetzt (ADR-024, 2026-10-09).
 
 ## 3.9 Referenzgraph
 

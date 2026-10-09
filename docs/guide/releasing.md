@@ -39,6 +39,10 @@ from `main` or a release tag.
 4. Watch the `Images` run. Its summary lists every image digest and the
    `cosign verify` command. A failed run publishes nothing for that tag;
    fix on `main`, delete the tag locally and remotely, and tag again.
+5. Roll the release out to production by running
+   `normly-deploy deploy vX.Y.Z` on the VM. It verifies the signatures,
+   takes a backup first and starts the new images; see
+   [Operations](operations.md) for the full procedure, including rollback.
 
 ## First publish only
 
