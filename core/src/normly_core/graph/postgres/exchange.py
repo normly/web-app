@@ -26,7 +26,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from normly_core.exchange.tables import KNOWLEDGE_TABLES
+from normly_core.exchange.tables import EXCLUDED_EXCHANGE_COLUMNS, KNOWLEDGE_TABLES
 from normly_core.graph.domain import (
     ExchangeColumn,
     ImportBlockedError,
@@ -222,6 +222,11 @@ def _from_exchange(column: sa.Column, value: Any) -> Any:
     return value
 
 
+def _exchange_columns(sa_table: sa.Table) -> list[sa.Column]:
+    excluded = set(EXCLUDED_EXCHANGE_COLUMNS.get(sa_table.name, ()))
+    return [c for c in sa_table.columns if c.name not in excluded]
+
+
 def _primary_key(table: sa.Table) -> list[sa.Column]:
     return list(table.primary_key.columns)
 
@@ -231,7 +236,7 @@ class PostgresKnowledgeExchangeRepository:
         self._session = session
 
     def exchange_columns(self, table: str) -> list[ExchangeColumn]:
-        return [ExchangeColumn(c.name, _kind(c)) for c in Base.metadata.tables[table].columns]
+        return [ExchangeColumn(c.name, _kind(c)) for c in _exchange_columns(Base.metadata.tables[table])]
 
     def iter_exportable_rows(
         self, table: str, *, batch_size: int = 5000
@@ -239,20 +244,20 @@ class PostgresKnowledgeExchangeRepository:
         sa_table = Base.metadata.tables[table]
         statement = _statement(table)
         masked_name = _PERSONAL_NAME_COLUMNS.get(table)
-        if masked_name is not None:
-            # Fail closed: a renamed column raises KeyError instead of
-            # silently exporting the real value.
-            masked = sa_table.c[masked_name]
-            # The name never leaves the database: the column is replaced in
-            # the statement itself, so the export gate stays in one place.
-            statement = statement.with_only_columns(
-                *(
-                    sa.literal(PUBLISHED_ROLE, type_=column.type).label(column.name)
-                    if column is masked
-                    else column
-                    for column in sa_table.columns
-                )
+        # Fail closed: a renamed column raises KeyError instead of silently
+        # exporting the real value.
+        masked = sa_table.c[masked_name] if masked_name is not None else None
+        # The name never leaves the database: the column is replaced in the
+        # statement itself, so the export gate stays in one place. Columns
+        # outside the exchange format (retired_at) are not selected at all.
+        statement = statement.with_only_columns(
+            *(
+                sa.literal(PUBLISHED_ROLE, type_=column.type).label(column.name)
+                if column is masked
+                else column
+                for column in _exchange_columns(sa_table)
             )
+        )
         statement = statement.order_by(*_primary_key(sa_table))
         # Per-statement options: Connection.execution_options() would mutate
         # the shared session connection and break its savepoint handling.
@@ -377,12 +382,13 @@ class PostgresKnowledgeExchangeRepository:
     def _upsert(self, connection, name: str, batches: RowBatches) -> None:
         sa_table = Base.metadata.tables[name]
         key_names = [c.name for c in _primary_key(sa_table)]
-        value_columns = [c for c in sa_table.columns if c.name not in key_names]
+        exchange_columns = _exchange_columns(sa_table)
+        value_columns = [c for c in exchange_columns if c.name not in key_names]
         self_reference = "merged_into_work_id" if name == "work" else None
         deferred: list[dict[str, Any]] = []
         for batch in batches():
             rows = [
-                {c.name: _from_exchange(c, row[c.name]) for c in sa_table.columns}
+                {c.name: _from_exchange(c, row[c.name]) for c in exchange_columns}
                 for row in batch
             ]
             if self_reference:

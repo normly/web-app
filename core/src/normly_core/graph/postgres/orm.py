@@ -112,6 +112,10 @@ class DocumentORM(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+    #: Set when an import no longer finds this row in the dump (takedown). The
+    #: row stays as an identifier tombstone; not part of the exchange format
+    #: (ADR-026).
+    retired_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     origin_issuer: Mapped[str]
     origin_number: Mapped[str]
     edition: Mapped[str]
@@ -182,6 +186,10 @@ class WorkORM(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+    #: Set when an import no longer finds this row in the dump (takedown). The
+    #: row stays as an identifier tombstone; not part of the exchange format
+    #: (ADR-026).
+    retired_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     status: Mapped[WorkStatus] = mapped_column(
         sa.Enum(
             WorkStatus,
@@ -241,6 +249,10 @@ class EdgeORM(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+    #: Set when an import no longer finds this row in the dump (takedown). The
+    #: row stays as an identifier tombstone; not part of the exchange format
+    #: (ADR-026).
+    retired_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     from_document_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), sa.ForeignKey("document.id"), nullable=False
     )

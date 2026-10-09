@@ -58,6 +58,52 @@ SYSTEM_TABLES: tuple[str, ...] = ("knowledge_base_import",)
 UNMANAGED_TABLES: tuple[str, ...] = ("alembic_version",)
 
 
+# --- Import classes (ADR-026) -------------------------------------------------
+# What an import does with a knowledge-base row that the new dump no longer
+# contains. A takedown always wins: user references never block an import.
+
+#: Identifier rows without content. They stay with `retired_at` set, so that
+#: user data pointing at them (watchlist, notification, citation) stays valid.
+TOMBSTONE_TABLES: tuple[str, ...] = ("work", "document", "edge")
+
+#: Provenance and identifier-only rows that are never deleted by an import
+#: (tombstones reference them). A missing delivery gets `withdrawn_at`.
+#: `document_designation` and `document_title` hang on the document and are
+#: left untouched.
+RETAINED_TABLES: tuple[str, ...] = (
+    "source",
+    "delivery",
+    "document_designation",
+    "document_title",
+)
+
+#: Content and derivations. Physically deleted when missing from the dump, so
+#: withdrawn text can no longer be read (also not from backups once they
+#: expire). Same relative order as KNOWLEDGE_TABLES (parents first); deletes
+#: run in reverse.
+PURGE_TABLES: tuple[str, ...] = (
+    "rights_classification",
+    "segment",
+    "embedding",
+    "document_embedding",
+)
+
+#: (child table, column) -> purge table it points at. The column is set to
+#: NULL when the target row is purged. Every foreign key from outside the
+#: knowledge base into a purge table must be listed here (test_tables.py).
+DETACHED_REFERENCES: dict[tuple[str, str], str] = {
+    ("chat_message_citation", "segment_id"): "segment",
+}
+
+#: Columns that exist in the database but are not part of the exchange format:
+#: instance state of the importing side, never exported.
+EXCLUDED_EXCHANGE_COLUMNS: dict[str, tuple[str, ...]] = {
+    "work": ("retired_at",),
+    "document": ("retired_at",),
+    "edge": ("retired_at",),
+}
+
+
 def group_tables(name: str) -> tuple[str, ...]:
     if name == "knowledge":
         return KNOWLEDGE_TABLES
