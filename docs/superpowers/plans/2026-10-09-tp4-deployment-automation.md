@@ -660,7 +660,7 @@ def make_source(session, category=LegalBasisCategory.A, commercial=False, publis
     return PostgresSourceRepository(session).create_source(
         publisher=publisher, retrieval_path="https://example.org",
         legal_basis_category=category, jurisdiction="DE", reviewed_at=date(2026, 1, 1),
-        responsible_person="J. Weber", commercial_catalog=commercial,
+        responsible_person="Test Reviewer", commercial_catalog=commercial,
         contract_reference="V-1" if category == LegalBasisCategory.C else None,
     )
 
@@ -679,7 +679,7 @@ def make_document(session, delivery, number, *, export=True, process=True, juris
     PostgresRightsRepository(session).classify(
         document_id=document.id, jurisdiction=jurisdiction, may_process=process,
         may_index_fulltext=True, may_cite_passages=True, may_export_free=export,
-        legal_basis_reference="§ 5 UrhG", classified_at=NOW, classified_by="J. Weber",
+        legal_basis_reference="§ 5 UrhG", classified_at=NOW, classified_by="Test Reviewer",
         delivery_id=delivery.id,
     )
     return document

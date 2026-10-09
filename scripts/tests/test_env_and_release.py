@@ -164,12 +164,12 @@ def test_rollback_warns_when_the_knowledge_base_will_be_empty(harness):
 # --- loader fails loudly -----------------------------------------------------
 
 
-def _run_loader(harness, *, path_env=None):
+def _run_loader(harness, *, path_env=None, extra_env=None):
     script = (
         f'set -euo pipefail; . "{SCRIPTS}/normly-env.sh"; normly_load_env "{harness.dir}/.env"; '
         'echo "rc-continued=[${NORMLY_DATABASE_URL-UNSET}]"'
     )
-    env = {"PATH": path_env if path_env is not None else os.environ["PATH"]}
+    env = {"PATH": path_env if path_env is not None else os.environ["PATH"], **(extra_env or {})}
     return subprocess.run(
         [shutil.which("bash"), "-c", script], env=env, capture_output=True, text=True
     )
@@ -262,3 +262,56 @@ def test_successful_extraction_leaves_no_old_or_new_folder(harness):
     assert harness.run("normly-deploy", "deploy", "0.1.2").returncode == 0
     assert not (harness.dir / "releases" / "0.1.2.old").exists()
     assert not (harness.dir / "releases" / "0.1.2.new").exists()
+
+
+def test_loader_leaves_no_temporary_file_behind(harness):
+    scratch = harness.dir / "tmp"
+    scratch.mkdir()
+    (harness.dir / ".env").write_text("NORMLY_DATABASE_URL=postgresql://u:secret@db/n\n")
+    ok = _run_loader(harness, extra_env={"TMPDIR": str(scratch)})
+    assert ok.returncode == 0
+    assert "secret" not in ok.stderr
+    (harness.dir / ".env").write_bytes(b"\x00" * 0)  # still readable
+    if os.geteuid() != 0:
+        (harness.dir / ".env").chmod(0)
+        failed = _run_loader(harness, extra_env={"TMPDIR": str(scratch)})
+        assert failed.returncode != 0
+    assert list(scratch.iterdir()) == []
+
+
+def test_loader_handles_an_empty_value_and_no_keys(harness):
+    _write_env(harness, "NORMLY_BACKUP_REMOTE=\nNORMLY_DATABASE_URL=x\n")
+    got = _load(harness, "NORMLY_BACKUP_REMOTE", "NORMLY_DATABASE_URL")
+    assert got == {"NORMLY_BACKUP_REMOTE": "[]", "NORMLY_DATABASE_URL": "[x]"}
+    _write_env(harness, "# nothing\n")
+    assert _load(harness, "NORMLY_DATABASE_URL") == {"NORMLY_DATABASE_URL": "[UNSET]"}
+
+
+def test_rollback_recovers_a_previous_release_folder_left_as_old(harness):
+    state = harness.dir / "state"
+    state.mkdir()
+    (state / "current_tag").write_text("0.1.2\n")
+    (state / "previous_tag").write_text("0.1.1\n")
+    (state / "pre_rollout_backup").write_text("20261009T100000Z-pre-0.1.2\n")
+    (state / "pre_rollout_kb_version").write_text("2026.10.1\n")
+    (harness.dir / "releases" / "0.1.1.old").mkdir(parents=True)
+    _write_env(harness)
+    identity = harness.dir / "age.key"
+    identity.write_text("k\n")
+    result = harness.run(
+        "normly-deploy", "rollback", "--age-identity", str(identity), "--yes",
+        extra_env=UNSET,
+    )
+    assert result.returncode == 0, result.stderr
+    assert (harness.dir / "releases" / "0.1.1").is_dir()
+    assert not (harness.dir / "releases" / "0.1.1.old").exists()
+
+
+def test_deploy_recovers_the_current_release_folder_left_as_old(harness):
+    state = harness.dir / "state"
+    state.mkdir()
+    (state / "current_tag").write_text("0.1.2\n")
+    (harness.dir / "releases" / "0.1.2.old").mkdir(parents=True)
+    harness.run("normly-deploy", "deploy", "0.1.3")
+    assert (harness.dir / "releases" / "0.1.2").is_dir()
+    assert not (harness.dir / "releases" / "0.1.2.old").exists()

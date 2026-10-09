@@ -1077,10 +1077,17 @@ durch die Rolle `normly maintainers`. Betroffen sind
 Spalten tragen in jeder exportierten Zeile die Konstante `PUBLISHED_ROLE`. Die
 Ersetzung geschieht im Export-Statement der Repository-Schicht, also an der
 Stelle des Export-Gates, und ändert weder Manifest noch Austauschschema (keine
-Versionserhöhung). Die echten Namen bleiben ausschließlich in der lokalen
-Ingestion-Datenbank. Ein Import überschreibt die beiden Spalten mit dem
+Versionserhöhung). Der Dump trägt nie einen Namen; die Quellenregistrierung im Code enthält nur
+einen Platzhalter, und Namen, die ein Ingestion-Betreiber einträgt, liegen nur
+in dessen eigener Datenbank. Ein Import überschreibt die beiden Spalten mit dem
 Rollenlabel: Produktion, die den öffentlichen Dump einspielt, trägt daher das
 Label, nie Namen; ein erneuter Export eines importierten Stands ist zeilengleich.
+Einen Dump nie in die Ingestion-Datenbank importieren: der Upsert überschreibt
+dort die Namen unwiderruflich. Maskiert wird auch
+`classified_by="pipeline:automatic"`; der öffentliche Dump unterscheidet damit
+nicht zwischen automatischer und menschlicher Klassifikation (bewusster
+Kompromiss, das Label ist eine Rolle und keine Aussage über menschliche
+Prüfung).
 Ein Test sucht einen eindeutigen Namen in allen Zeilen, allen Parquet-Dateien
 und im Manifest.
 

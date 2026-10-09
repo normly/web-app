@@ -25,7 +25,7 @@ describe("NameAvatarSection", () => {
     global.fetch = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
-          accountId: "acc-1", email: "a@example.de", firstName: "Jamie", lastName: "Weber",
+          accountId: "acc-1", email: "a@example.de", firstName: "Jamie", lastName: "Tester",
           hasAvatar: false,
         }),
         { status: 200 },
@@ -41,12 +41,12 @@ describe("NameAvatarSection", () => {
       </LocaleProvider>,
     );
     fireEvent.change(screen.getByLabelText("Vorname"), { target: { value: "Jamie" } });
-    fireEvent.change(screen.getByLabelText("Nachname"), { target: { value: "Weber" } });
+    fireEvent.change(screen.getByLabelText("Nachname"), { target: { value: "Tester" } });
     fireEvent.click(screen.getByRole("button", { name: "Speichern" }));
 
     await waitFor(() => expect(onAccountUpdated).toHaveBeenCalled());
     const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(JSON.parse(init.body)).toEqual({ first_name: "Jamie", last_name: "Weber" });
+    expect(JSON.parse(init.body)).toEqual({ first_name: "Jamie", last_name: "Tester" });
   });
 
   it("shows a remove button only when an avatar is already set", () => {

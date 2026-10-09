@@ -22,7 +22,7 @@ def _make_document(db_session, content_hash="sha256:rights-fixture"):
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="DE",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash=content_hash, ingested_at=datetime.now(timezone.utc)
@@ -59,7 +59,7 @@ def test_classified_document_is_readable_for_its_jurisdiction(db_session):
         may_export_free=True,
         legal_basis_reference="§ 5 UrhG",
         classified_at=datetime.now(timezone.utc),
-        classified_by="J. Weber",
+        classified_by="Test Reviewer",
         delivery_id=delivery.id,
     )
 
@@ -85,7 +85,7 @@ def test_classification_does_not_grant_access_in_other_jurisdictions(db_session)
         may_export_free=True,
         legal_basis_reference="§ 5 UrhG",
         classified_at=datetime.now(timezone.utc),
-        classified_by="J. Weber",
+        classified_by="Test Reviewer",
         delivery_id=delivery.id,
     )
 
@@ -107,7 +107,7 @@ def test_may_process_false_still_blocks_read(db_session):
         may_export_free=False,
         legal_basis_reference="unklar, in Prüfung",
         classified_at=datetime.now(timezone.utc),
-        classified_by="J. Weber",
+        classified_by="Test Reviewer",
         delivery_id=delivery.id,
     )
 
@@ -129,7 +129,7 @@ def test_revoked_classification_blocks_read(db_session):
         may_export_free=True,
         legal_basis_reference="§ 5 UrhG",
         classified_at=datetime.now(timezone.utc),
-        classified_by="J. Weber",
+        classified_by="Test Reviewer",
         delivery_id=delivery.id,
     )
 
@@ -168,7 +168,7 @@ def test_may_export_free_false_excludes_document_from_exportable_list_but_not_fr
         may_export_free=False,
         legal_basis_reference="Vertrag Nr. 2026-014",
         classified_at=datetime.now(timezone.utc),
-        classified_by="J. Weber",
+        classified_by="Test Reviewer",
         delivery_id=delivery.id,
     )
 
@@ -190,7 +190,7 @@ def test_may_export_free_true_includes_document_in_exportable_list(db_session):
         may_export_free=True,
         legal_basis_reference="§ 5 UrhG",
         classified_at=datetime.now(timezone.utc),
-        classified_by="J. Weber",
+        classified_by="Test Reviewer",
         delivery_id=delivery.id,
     )
 
@@ -211,7 +211,7 @@ def test_classify_is_idempotent_and_updates_existing_classification(db_session):
         may_export_free=False,
         legal_basis_reference="unklar, in Prüfung",
         classified_at=datetime.now(timezone.utc),
-        classified_by="J. Weber",
+        classified_by="Test Reviewer",
         delivery_id=delivery.id,
     )
 
@@ -224,7 +224,7 @@ def test_classify_is_idempotent_and_updates_existing_classification(db_session):
         may_export_free=True,
         legal_basis_reference="§ 5 UrhG",
         classified_at=datetime.now(timezone.utc),
-        classified_by="J. Weber",
+        classified_by="Test Reviewer",
         delivery_id=delivery.id,
     )
 

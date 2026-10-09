@@ -78,17 +78,17 @@ def test_update_profile_names_sets_both_fields(db_session):
     repo = PostgresAccountRepository(db_session)
     account = repo.create_account(email="a@example.de", password_hash=None)
 
-    repo.update_profile_names(account.id, first_name="Jamie", last_name="Weber")
+    repo.update_profile_names(account.id, first_name="Jamie", last_name="Tester")
 
     updated = repo.get_account_by_id(account.id)
     assert updated.first_name == "Jamie"
-    assert updated.last_name == "Weber"
+    assert updated.last_name == "Tester"
 
 
 def test_update_profile_names_can_clear_a_field(db_session):
     repo = PostgresAccountRepository(db_session)
     account = repo.create_account(email="b@example.de", password_hash=None)
-    repo.update_profile_names(account.id, first_name="Jamie", last_name="Weber")
+    repo.update_profile_names(account.id, first_name="Jamie", last_name="Tester")
 
     repo.update_profile_names(account.id, first_name="Jamie", last_name=None)
 
@@ -982,19 +982,19 @@ def test_update_profile_sets_first_and_last_name(client):
     _, headers = _register_and_authorize(client)
 
     response = client.patch(
-        "/v1/accounts/profile", json={"first_name": "Jamie", "last_name": "Weber"},
+        "/v1/accounts/profile", json={"first_name": "Jamie", "last_name": "Tester"},
         headers=headers,
     )
 
     assert response.status_code == 200
     body = response.json()
     assert body["first_name"] == "Jamie"
-    assert body["last_name"] == "Weber"
+    assert body["last_name"] == "Tester"
 
 
 def test_update_profile_requires_authorization(client):
     response = client.patch(
-        "/v1/accounts/profile", json={"first_name": "Jamie", "last_name": "Weber"},
+        "/v1/accounts/profile", json={"first_name": "Jamie", "last_name": "Tester"},
     )
     assert response.status_code == 401
 
@@ -2735,11 +2735,11 @@ import { mapAccountSummary } from "@/lib/account-response";
 describe("mapAccountSummary", () => {
   it("maps the backend's snake_case fields to the frontend's camelCase shape", () => {
     const result = mapAccountSummary("acc-1", "a@example.de", {
-      first_name: "Jamie", last_name: "Weber", avatar_data_url: "data:image/jpeg;base64,xyz",
+      first_name: "Jamie", last_name: "Tester", avatar_data_url: "data:image/jpeg;base64,xyz",
     });
 
     expect(result).toEqual({
-      accountId: "acc-1", email: "a@example.de", firstName: "Jamie", lastName: "Weber",
+      accountId: "acc-1", email: "a@example.de", firstName: "Jamie", lastName: "Tester",
       avatarDataUrl: "data:image/jpeg;base64,xyz",
     });
   });
@@ -2948,21 +2948,21 @@ describe("PATCH /api/account/profile", () => {
       new Response(
         JSON.stringify({
           id: "acc-1", email: "a@example.de", email_verified: true,
-          first_name: "Jamie", last_name: "Weber", avatar_data_url: null,
+          first_name: "Jamie", last_name: "Tester", avatar_data_url: null,
         }),
         { status: 200 },
       ),
     );
 
     const request = new NextRequest("http://localhost/api/account/profile", {
-      method: "PATCH", body: JSON.stringify({ first_name: "Jamie", last_name: "Weber" }),
+      method: "PATCH", body: JSON.stringify({ first_name: "Jamie", last_name: "Tester" }),
       headers: { cookie: "normly_account_session=acct-tok", "content-type": "application/json" },
     });
     const response = await PATCH(request);
     const body = await response.json();
 
     expect(body).toEqual({
-      accountId: "acc-1", email: "a@example.de", firstName: "Jamie", lastName: "Weber",
+      accountId: "acc-1", email: "a@example.de", firstName: "Jamie", lastName: "Tester",
       avatarDataUrl: null,
     });
     const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
@@ -3093,7 +3093,7 @@ describe("Avatar", () => {
   it("renders the image when avatarDataUrl is set", () => {
     render(
       <Avatar
-        avatarDataUrl="data:image/jpeg;base64,xyz" firstName="Jamie" lastName="Weber"
+        avatarDataUrl="data:image/jpeg;base64,xyz" firstName="Jamie" lastName="Tester"
         email="a@example.de"
       />,
     );
@@ -3102,9 +3102,9 @@ describe("Avatar", () => {
 
   it("renders both initials when first and last name are set", () => {
     render(
-      <Avatar avatarDataUrl={null} firstName="Jamie" lastName="Weber" email="a@example.de" />,
+      <Avatar avatarDataUrl={null} firstName="Jamie" lastName="Tester" email="a@example.de" />,
     );
-    expect(screen.getByText("JW")).toBeInTheDocument();
+    expect(screen.getByText("JT")).toBeInTheDocument();
   });
 
   it("falls back to the first letter of the email when no name is set", () => {
@@ -3240,7 +3240,7 @@ describe("NameAvatarSection", () => {
     global.fetch = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
-          accountId: "acc-1", email: "a@example.de", firstName: "Jamie", lastName: "Weber",
+          accountId: "acc-1", email: "a@example.de", firstName: "Jamie", lastName: "Tester",
           avatarDataUrl: null,
         }),
         { status: 200 },
@@ -3253,12 +3253,12 @@ describe("NameAvatarSection", () => {
       </LocaleProvider>,
     );
     fireEvent.change(screen.getByLabelText("Vorname"), { target: { value: "Jamie" } });
-    fireEvent.change(screen.getByLabelText("Nachname"), { target: { value: "Weber" } });
+    fireEvent.change(screen.getByLabelText("Nachname"), { target: { value: "Tester" } });
     fireEvent.click(screen.getByRole("button", { name: "Speichern" }));
 
     await waitFor(() => expect(onAccountUpdated).toHaveBeenCalled());
     const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(JSON.parse(init.body)).toEqual({ first_name: "Jamie", last_name: "Weber" });
+    expect(JSON.parse(init.body)).toEqual({ first_name: "Jamie", last_name: "Tester" });
   });
 
   it("shows a remove button only when an avatar is already set", () => {
@@ -5558,7 +5558,7 @@ def test_full_account_profile_lifecycle(client, email_sender):
 
     # 2. Set first/last name.
     profile_update = client.patch(
-        "/v1/accounts/profile", json={"first_name": "Jamie", "last_name": "Weber"},
+        "/v1/accounts/profile", json={"first_name": "Jamie", "last_name": "Tester"},
         headers=headers,
     )
     assert profile_update.status_code == 200
@@ -5728,7 +5728,7 @@ test.describe("account management", () => {
     await registerAndOpenAccountPage(page);
 
     await page.getByLabel("Vorname").fill("Jamie");
-    await page.getByLabel("Nachname").fill("Weber");
+    await page.getByLabel("Nachname").fill("Tester");
     await page.getByRole("button", { name: "Speichern" }).click();
 
     await page.reload();

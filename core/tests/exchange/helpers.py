@@ -16,7 +16,7 @@ NOW = datetime(2026, 10, 9, tzinfo=timezone.utc)
 
 def make_source(
     session, category=LegalBasisCategory.A, commercial=False, publisher="BAuA",
-    responsible_person="J. Weber",
+    responsible_person="Test Reviewer",
 ):
     return PostgresSourceRepository(session).create_source(
         publisher=publisher, retrieval_path="https://example.org",
@@ -34,7 +34,7 @@ def make_delivery(session, source, tag):
 
 def make_document(
     session, delivery, number, *, export=True, process=True, jurisdiction="DE",
-    classified_by="J. Weber",
+    classified_by="Test Reviewer",
 ):
     document = PostgresDocumentRepository(session).create_document(
         origin_issuer="BAuA", origin_number=number, edition="2026", part=None,

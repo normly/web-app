@@ -54,8 +54,10 @@ PUBLISHED_ROLE = "normly maintainers"
 """
 Role label published in place of personal names. The dump is public, so the
 columns listed in ``_PERSONAL_NAME_COLUMNS`` leave the database as this
-constant; the real names exist only in the local ingestion database. An
-import therefore overwrites them with the label as well (ADR-025).
+constant. The dump never carries a name; whatever names an ingestion operator
+enters live only in that operator's own database. An import overwrites those
+columns with the label, so never import a dump into an ingestion database
+(ADR-025).
 """
 
 _PERSONAL_NAME_COLUMNS = {
@@ -236,14 +238,17 @@ class PostgresKnowledgeExchangeRepository:
     ) -> Iterator[list[dict[str, Any]]]:
         sa_table = Base.metadata.tables[table]
         statement = _statement(table)
-        masked = _PERSONAL_NAME_COLUMNS.get(table)
-        if masked is not None:
+        masked_name = _PERSONAL_NAME_COLUMNS.get(table)
+        if masked_name is not None:
+            # Fail closed: a renamed column raises KeyError instead of
+            # silently exporting the real value.
+            masked = sa_table.c[masked_name]
             # The name never leaves the database: the column is replaced in
             # the statement itself, so the export gate stays in one place.
             statement = statement.with_only_columns(
                 *(
                     sa.literal(PUBLISHED_ROLE, type_=column.type).label(column.name)
-                    if column.name == masked
+                    if column is masked
                     else column
                     for column in sa_table.columns
                 )

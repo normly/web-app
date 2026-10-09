@@ -215,8 +215,9 @@ führt ihre Quelllieferung (Abstammung).
 **Personennamen:** Der Export ersetzt `source.responsible_person` und
 `rights_classification.classified_by` in jeder Zeile durch die Rolle
 `normly maintainers` (Konstante `PUBLISHED_ROLE`, im Export-Statement der
-Repository-Schicht, also am Gate). Die Namen bleiben nur in der lokalen
-Ingestion-Datenbank; Manifest und Schema ändern sich nicht. Ein Import
+Repository-Schicht, also am Gate). Der Dump trägt nie Namen; im Code steht
+nur ein Platzhalter, eingetragene Namen liegen nur in der Datenbank des
+Betreibers. Manifest und Schema ändern sich nicht. Ein Import
 überschreibt die Spalten mit dem Label, ein erneuter Export bleibt
 zeilengleich. Ein Test prüft, dass ein eindeutiger Name in keiner Zeile, keiner
 Parquet-Datei und nicht im Manifest vorkommt.

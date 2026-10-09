@@ -25,7 +25,7 @@ def test_full_account_profile_lifecycle(client, email_sender):
 
     # 2. Set first/last name.
     profile_update = client.patch(
-        "/v1/accounts/profile", json={"first_name": "Jamie", "last_name": "Weber"},
+        "/v1/accounts/profile", json={"first_name": "Jamie", "last_name": "Tester"},
         headers=headers,
     )
     assert profile_update.status_code == 200

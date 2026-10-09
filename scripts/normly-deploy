@@ -123,15 +123,21 @@ check_pulled_digests() {
   done
 }
 
+# Recover from a crash in the swap done by extract_assets: a lone <dir>.old is
+# the release folder that was moved aside, so put it back; any other leftover
+# .old/.new is stale and removed.
+recover_release_folder() {
+  local dir="$RELEASES/$1"
+  if [ ! -e "$dir" ] && [ -d "$dir.old" ]; then
+    mv "$dir.old" "$dir"
+  fi
+  rm -rf "$dir.old" "$dir.new"
+}
+
 extract_assets() {
   local tag="$1" container target image
   target="$RELEASES/$tag"
-  # Recover from a crash in the swap below: a lone .old is the release folder
-  # that was moved aside, so put it back; anything else left over is stale.
-  if [ ! -e "$target" ] && [ -d "$target.old" ]; then
-    mv "$target.old" "$target"
-  fi
-  rm -rf "$target.old" "$target.new"
+  recover_release_folder "$tag"
   # Extract beside the release folder and swap it in only on success: the folder
   # of the rollback target may be the only one a later rollback can use.
   mkdir -p "$target.new"
@@ -175,6 +181,7 @@ deploy() {
     # rollback re-imports exactly this version. Only a literal "none" from
     # `info` skips that import later. Any failure stops the deploy: guessing
     # "none" would make a later rollback drop the knowledge base for good.
+    recover_release_folder "$current"
     [ -d "$RELEASES/$current" ] \
       || die "release files for $current are missing in $RELEASES; knowledge base version unknown; nothing was changed"
     kb_version="$(compose "$current" run --rm --no-deps -T --entrypoint python pipeline \
@@ -233,6 +240,7 @@ rollback() {
   backup="$(read_state pre_rollout_backup)"; kb_version="$(read_state pre_rollout_kb_version)"
   failed="$(read_state failed_rollout)"
   [ -n "$previous" ] && [ -n "$backup" ] || die "no previous release recorded; nothing to roll back to"
+  recover_release_folder "$previous"
   [ -d "$RELEASES/$previous" ] || die "release files for $previous are missing in $RELEASES"
   take_lock
   ROLLBACK_IDENTITY="$identity"

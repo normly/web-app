@@ -26,7 +26,7 @@ def _make_two_documents(db_session):
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="DE",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id,
@@ -130,7 +130,7 @@ def _classify(
         may_export_free=may_export_free,
         legal_basis_reference="§ 5 UrhG",
         classified_at=datetime.now(timezone.utc),
-        classified_by="J. Weber",
+        classified_by="Test Reviewer",
         delivery_id=delivery.id,
     )
 

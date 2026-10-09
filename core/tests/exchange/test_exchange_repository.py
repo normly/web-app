@@ -217,7 +217,7 @@ def test_work_merge_exports_merged_work_and_reimports_cleanly(db_session):
         delivery_id=delivery.id, source_work_id=doc_s.work_id,
         target_work_id=doc_t.work_id, reason="duplicate",
     )
-    identity.resolve_work_merge_case(case.id, resolved_by="J. Weber")
+    identity.resolve_work_merge_case(case.id, resolved_by="Test Reviewer")
     after = _dump(repository)
 
     merged_away = {r["id"]: r for r in after["work"]}[str(doc_s.work_id)]
@@ -251,7 +251,7 @@ def test_classification_switching_delivery_does_not_block_import(db_session):
             document_id=document.id, jurisdiction="DE", may_process=True,
             may_index_fulltext=True, may_cite_passages=True, may_export_free=True,
             legal_basis_reference="§ 5 UrhG", classified_at=NOW,
-            classified_by="J. Weber", delivery_id=delivery.id,
+            classified_by="Test Reviewer", delivery_id=delivery.id,
         )
 
     classify(d1)

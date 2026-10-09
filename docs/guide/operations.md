@@ -452,9 +452,11 @@ the blocking references. How to resolve such cases is an open product decision
 
 The dump contains no personal names: the export replaces
 `source.responsible_person` and `rights_classification.classified_by` with the
-role `normly maintainers` in every row. The real names exist only in the local
-ingestion database. An import writes the role label into those columns, so a
-production database that imports the public dump carries the label, not names.
+role `normly maintainers` in every row. The dump never carries names;
+whatever names an ingestion operator enters live only in that operator's own
+database. An import writes the role label into those columns, so a production database that imports the public dump carries the label, not names.
+Never import a dump into an ingestion database: the upsert overwrites the names
+there irrevocably.
 
 `python -m normly_core.exchange verify (--from DIR | --fetch VERSION)
 [--public-key PATH]` runs the same checks without a database; `normly-deploy

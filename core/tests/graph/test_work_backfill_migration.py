@@ -41,7 +41,7 @@ def test_backfill_groups_documents_by_replaces_and_adopted_from_edges(db_url, mi
                 sa.text(
                     "INSERT INTO source (id, publisher, retrieval_path, legal_basis_category, "
                     "jurisdiction, reviewed_at, responsible_person, commercial_catalog) "
-                    "VALUES (:id, 'Test', 'file:///dev/null', 'A', 'DE', CURRENT_DATE, 'J. Weber', false)"
+                    "VALUES (:id, 'Test', 'file:///dev/null', 'A', 'DE', CURRENT_DATE, 'Test Reviewer', false)"
                 ),
                 {"id": source_id},
             )

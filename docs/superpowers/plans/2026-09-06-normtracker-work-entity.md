@@ -355,7 +355,7 @@ def _make_delivery(db_session, content_hash="sha256:work-id-fixture"):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="EUR-Lex", retrieval_path="https://single-market-economy.ec.europa.eu",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="EU",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     return PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash=content_hash, ingested_at=datetime.now(timezone.utc)
@@ -643,7 +643,7 @@ def test_backfill_groups_documents_by_replaces_and_adopted_from_edges(db_url, mi
             sa.text(
                 "INSERT INTO source (id, publisher, retrieval_path, legal_basis_category, "
                 "jurisdiction, reviewed_at, responsible_person, commercial_catalog) "
-                "VALUES (:id, 'Test', 'file:///dev/null', 'A', 'DE', CURRENT_DATE, 'J. Weber', false)"
+                "VALUES (:id, 'Test', 'file:///dev/null', 'A', 'DE', CURRENT_DATE, 'Test Reviewer', false)"
             ),
             {"id": source_id},
         )
@@ -925,7 +925,7 @@ def _make_delivery(db_session, content_hash="sha256:work-merge-fixture"):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="EUR-Lex", retrieval_path="https://single-market-economy.ec.europa.eu",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="EU",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     return PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash=content_hash, ingested_at=datetime.now(timezone.utc)
@@ -967,7 +967,7 @@ def test_resolve_work_merge_case_reassigns_documents_and_retires_source(db_sessi
         reason="curator_identified_duplicate",
     )
 
-    resolved = repo.resolve_work_merge_case(case.id, resolved_by="J. Weber")
+    resolved = repo.resolve_work_merge_case(case.id, resolved_by="Test Reviewer")
 
     assert resolved.status == IdentityResolutionStatus.RESOLVED
     moved_doc = doc_repo.get_document_unchecked(din_doc.id)
@@ -987,7 +987,7 @@ def test_resolve_work_merge_case_rejects_self_merge(db_session):
     )
 
     with pytest.raises(ContradictoryWorkMergeError):
-        repo.resolve_work_merge_case(case.id, resolved_by="J. Weber")
+        repo.resolve_work_merge_case(case.id, resolved_by="Test Reviewer")
 
 
 def test_resolve_work_merge_case_rejects_an_already_merged_target(db_session):
@@ -1000,13 +1000,13 @@ def test_resolve_work_merge_case_rejects_an_already_merged_target(db_session):
     first_merge = repo.enqueue_work_merge_case(
         delivery_id=delivery.id, source_work_id=a.id, target_work_id=b.id, reason="merge-a-into-b",
     )
-    repo.resolve_work_merge_case(first_merge.id, resolved_by="J. Weber")
+    repo.resolve_work_merge_case(first_merge.id, resolved_by="Test Reviewer")
     second_merge = repo.enqueue_work_merge_case(
         delivery_id=delivery.id, source_work_id=c.id, target_work_id=a.id, reason="merge-c-into-a",
     )
 
     with pytest.raises(ContradictoryWorkMergeError):
-        repo.resolve_work_merge_case(second_merge.id, resolved_by="J. Weber")
+        repo.resolve_work_merge_case(second_merge.id, resolved_by="Test Reviewer")
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -1335,7 +1335,7 @@ def _make_delivery(db_session, content_hash="sha256:work-assignment-fixture"):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="EUR-Lex", retrieval_path="https://single-market-economy.ec.europa.eu",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="EU",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     return PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash=content_hash, ingested_at=datetime.now(timezone.utc)
@@ -1555,7 +1555,7 @@ def _make_source(db_session):
     return PostgresSourceRepository(db_session).create_source(
         publisher="Test", retrieval_path="file:///dev/null",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
 
 

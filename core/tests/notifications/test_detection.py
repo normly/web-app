@@ -36,7 +36,7 @@ def _make_source(db_session):
     return PostgresSourceRepository(db_session).create_source(
         publisher="DGUV", retrieval_path="https://publikationen.dguv.de",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
-        reviewed_at=datetime(2026, 1, 1).date(), responsible_person="J. Weber",
+        reviewed_at=datetime(2026, 1, 1).date(), responsible_person="Test Reviewer",
     )
 
 

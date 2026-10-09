@@ -55,6 +55,15 @@ def test_exported_rows_carry_the_role_while_the_database_keeps_the_names(db_sess
     assert db_session.scalars(sa.select(RightsClassificationORM.classified_by)).all() == [NAME]
 
 
+def test_masked_columns_exist_in_the_schema():
+    from normly_core.graph.postgres.exchange import _PERSONAL_NAME_COLUMNS
+    from normly_core.graph.postgres.orm import Base
+
+    assert _PERSONAL_NAME_COLUMNS
+    for table, column in _PERSONAL_NAME_COLUMNS.items():
+        assert column in Base.metadata.tables[table].c
+
+
 def test_no_personal_name_anywhere_in_the_dump(db_session, tmp_path):
     _named(db_session)
     dump_dir, _ = _export(PostgresKnowledgeExchangeRepository(db_session), tmp_path)

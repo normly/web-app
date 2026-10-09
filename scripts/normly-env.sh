@@ -24,15 +24,14 @@
 #   - Variables already set in the process environment win over the file, so an
 #     operator can override one value for a single run.
 normly_load_env() {
-  local file="$1" key value out
+  local file="$1" items i
   [ -f "$file" ] || return 0
   command -v python3 > /dev/null 2>&1 \
     || { echo "normly-env: python3 is required to read $file but was not found" >&2; return 1; }
-  # Not a process substitution: its exit status would be lost and a failed
-  # read would look like an empty file. NUL bytes cannot live in a variable,
-  # so the reader writes to a temporary file whose status is checked first.
-  out="$(mktemp)" || { echo "normly-env: cannot create a temporary file" >&2; return 1; }
-  if ! python3 - "$file" > "$out" <<'PY'
+  # The reader ends its output with a sentinel. Without it (python failed or
+  # was killed) the load fails instead of looking like an empty file. Nothing
+  # is written to disk, so no value can be left behind in a temporary file.
+  mapfile -d '' items < <(python3 - "$file" <<'PY'
 import re
 import sys
 
@@ -71,16 +70,16 @@ except OSError as error:
     sys.exit(1)
 for key, value in values.items():
     sys.stdout.write(key + "\0" + value + "\0")
+sys.stdout.write("NORMLY_ENV_END\0")
 PY
-  then
-    rm -f "$out"
+  )
+  if [ "${#items[@]}" -lt 1 ] || [ "${items[-1]}" != "NORMLY_ENV_END" ]; then
     echo "normly-env: could not load $file; refusing to continue with an empty configuration" >&2
     return 1
   fi
-  while IFS= read -r -d '' key && IFS= read -r -d '' value; do
-    if [ -z "${!key+x}" ]; then
-      export "$key=$value"
+  for ((i = 0; i + 1 < ${#items[@]} - 1; i += 2)); do
+    if [ -z "${!items[i]+x}" ]; then
+      export "${items[i]}=${items[i+1]}"
     fi
-  done < "$out"
-  rm -f "$out"
+  done
 }

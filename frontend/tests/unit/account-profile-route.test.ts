@@ -20,21 +20,21 @@ describe("PATCH /api/account/profile", () => {
       new Response(
         JSON.stringify({
           id: "acc-1", email: "a@example.de", email_verified: true,
-          first_name: "Jamie", last_name: "Weber", has_avatar: false,
+          first_name: "Jamie", last_name: "Tester", has_avatar: false,
         }),
         { status: 200 },
       ),
     );
 
     const request = new NextRequest("http://localhost/api/account/profile", {
-      method: "PATCH", body: JSON.stringify({ first_name: "Jamie", last_name: "Weber" }),
+      method: "PATCH", body: JSON.stringify({ first_name: "Jamie", last_name: "Tester" }),
       headers: { cookie: "normly_account_session=acct-tok", "content-type": "application/json" },
     });
     const response = await PATCH(request);
     const body = await response.json();
 
     expect(body).toEqual({
-      accountId: "acc-1", email: "a@example.de", firstName: "Jamie", lastName: "Weber",
+      accountId: "acc-1", email: "a@example.de", firstName: "Jamie", lastName: "Tester",
       hasAvatar: false,
     });
     const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];

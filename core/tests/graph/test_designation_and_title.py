@@ -21,7 +21,7 @@ def _make_delivery(db_session, content_hash="sha256:designation-fixture"):
         legal_basis_category=LegalBasisCategory.B,
         jurisdiction="EU",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
     )
     return PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash=content_hash, ingested_at=datetime.now(timezone.utc)
