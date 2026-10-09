@@ -34,10 +34,10 @@ user_tables() {
 
 run_backup() {
   local kind="$1"
-  case "$kind" in
-    daily|pre-*) ;;
-    *) echo "unknown --kind: $kind" >&2; exit 2 ;;
-  esac
+  if ! [[ "$kind" =~ ^(daily|pre-[0-9A-Za-z.-]+)$ ]]; then
+    echo "unknown --kind: $kind" >&2
+    exit 2
+  fi
 
   local stamp base work
   stamp="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -47,10 +47,12 @@ run_backup() {
   # shellcheck disable=SC2064 # expand $work now: the trap must outlive this scope
   trap "rm -rf '$work'" EXIT
 
-  local table_args=() table
+  # A failed lookup must abort: a partial table list would yield a partial backup.
+  local tables table_args=() table
+  tables="$(user_tables)"
   while IFS= read -r table; do
     if [ -n "$table" ]; then table_args+=("--table=public.$table"); fi
-  done < <(user_tables)
+  done <<< "$tables"
   [ "${#table_args[@]}" -gt 0 ] || { echo "no user tables resolved" >&2; exit 1; }
 
   pg_dump --dbname="$DATABASE_URL" --format=custom --data-only \
@@ -64,26 +66,80 @@ run_backup() {
   # shellcheck disable=SC2086 # COMPOSE is a command line and must word-split
   kb_version="$($COMPOSE run --rm --no-deps -T --entrypoint python pipeline \
     -m normly_core.exchange info 2>/dev/null || echo none)"
-  printf '{"alembic_revision":"%s","image_tag":"%s","kb_version":"%s"}\n' \
-    "$revision" "$image_tag" "$kb_version" > "$work/$base.meta.json"
+  REVISION="$revision" IMAGE_TAG="$image_tag" KB_VERSION="$kb_version" python3 -c '
+import json, os
+print(json.dumps({
+    "alembic_revision": os.environ["REVISION"],
+    "image_tag": os.environ["IMAGE_TAG"],
+    "kb_version": os.environ["KB_VERSION"],
+}))' > "$work/$base.meta.json"
   (cd "$work" && sha256sum "$base.dump.age" > "$base.sha256")
 
+  # The .sha256 goes up LAST: it is the commit marker. A backup only counts
+  # once it exists; prune ignores (and eventually removes) anything without it.
   local suffix
-  for suffix in dump.age meta.json sha256; do
+  for suffix in meta.json dump.age sha256; do
     rclone copyto "$work/$base.$suffix" "$NORMLY_BACKUP_REMOTE/backups/$base.$suffix"
   done
   echo "$base"
 }
 
-prune() {
-  local names
-  names="$(rclone lsf "$NORMLY_BACKUP_REMOTE/backups" | grep '\.dump\.age$' || true)"
-  printf '%s\n' "$names" | python3 "$HERE/normly-backup-retention.py" | while IFS= read -r base; do
-    for suffix in dump.age meta.json sha256; do
-      rclone deletefile "$NORMLY_BACKUP_REMOTE/backups/$base.$suffix" || true
-    done
-    echo "pruned $base" >&2
+# Seconds since the epoch for a base name's <YYYYMMDD>T<HHMMSS>Z stamp.
+stamp_epoch() {
+  local s="$1"
+  date -u -d "${s:0:8} ${s:9:2}:${s:11:2}:${s:13:2}" +%s
+}
+
+# Delete one backup's objects, commit marker first: an interrupted deletion
+# leaves an orphan (cleaned up later), never a marker without its data.
+delete_backup() {
+  local base="$1" suffix failed=0
+  for suffix in sha256 meta.json dump.age; do
+    rclone deletefile "$NORMLY_BACKUP_REMOTE/backups/$base.$suffix" </dev/null || failed=1
   done
+  if [ "$failed" -eq 0 ]; then
+    echo "pruned $base" >&2
+  else
+    echo "prune: failed to delete some objects of $base" >&2
+  fi
+}
+
+prune() {
+  local listing committed name base now
+  # A failed listing must not be read as "nothing there": abort, delete nothing.
+  listing="$(rclone lsf "$NORMLY_BACKUP_REMOTE/backups")"
+  committed="$(printf '%s\n' "$listing" | sed -n 's/\.sha256$//p')"
+
+  # Retention only sees committed backups.
+  local committed_names=""
+  while IFS= read -r base; do
+    if [ -n "$base" ]; then committed_names+="$base.dump.age"$'\n'; fi
+  done <<< "$committed"
+  local doomed
+  doomed="$(printf '%s' "$committed_names" | python3 "$HERE/normly-backup-retention.py")"
+  while IFS= read -r base; do
+    if [ -n "$base" ]; then delete_backup "$base"; fi
+  done <<< "$doomed"
+
+  # Orphans (no .sha256) older than a day are failed uploads; younger ones may
+  # still be in flight and are left alone.
+  now="$(date -u +%s)"
+  while IFS= read -r name; do
+    case "$name" in
+      *.dump.age) base="${name%.dump.age}" ;;
+      *.meta.json) base="${name%.meta.json}" ;;
+      *) continue ;;
+    esac
+    if printf '%s\n' "$committed" | grep -qxF "$base"; then continue; fi
+    [[ "$base" =~ ^[0-9]{8}T[0-9]{6}Z- ]] || continue
+    if [ $((now - $(stamp_epoch "$base"))) -gt 86400 ]; then
+      if rclone deletefile "$NORMLY_BACKUP_REMOTE/backups/$name" </dev/null; then
+        echo "pruned orphan $name" >&2
+      else
+        echo "prune: failed to delete orphan $name" >&2
+      fi
+    fi
+  done <<< "$listing"
 }
 
 case "${1:-}" in

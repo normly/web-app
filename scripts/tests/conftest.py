@@ -20,6 +20,10 @@ FAKE = """#!/usr/bin/env bash
 echo "$(basename "$0") $*" >> "$CALLS"
 override="FAKE_$(basename "$0" | tr 'a-z-' 'A-Z_')_EXIT"
 if [ "${!override:-0}" != "0" ]; then exit "${!override}"; fi
+fail_on="FAKE_$(basename "$0" | tr 'a-z-' 'A-Z_')_FAIL_ON"
+if [ -n "${!fail_on:-}" ]; then
+  case " $* " in *"${!fail_on}"*) exit 1 ;; esac
+fi
 out="FAKE_$(basename "$0" | tr 'a-z-' 'A-Z_')_OUT"
 if [ -n "${!out:-}" ]; then printf '%s\\n' "${!out}"; fi
 if [ -n "${FAKE_DOCKER_EXIT_ON:-}" ] && [ "$(basename "$0")" = docker ]; then
@@ -27,6 +31,9 @@ if [ -n "${FAKE_DOCKER_EXIT_ON:-}" ] && [ "$(basename "$0")" = docker ]; then
 fi
 # fake tools that write a file named after -o / --file
 case "$(basename "$0")" in
+  rclone) if [ "$1" = copyto ] && [ -n "${FAKE_RCLONE_KEEP_DIR:-}" ]; then
+            cp "$2" "$FAKE_RCLONE_KEEP_DIR/$(basename "$3")"
+          fi ;;
   pg_dump) for a in "$@"; do case "$a" in --file=*) : > "${a#--file=}";; esac; done ;;
   age) prev=""; for a in "$@"; do [ "$prev" = "-o" ] && echo cipher > "$a"; prev="$a"; done ;;
 esac
