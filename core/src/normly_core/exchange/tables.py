@@ -43,6 +43,7 @@ USER_TABLES: tuple[str, ...] = (
     "notification",
     "rights_notification_baseline",
     "notified_edge",
+    "notified_retirement",
     "chat_session",
     "chat_message",
     "chat_message_citation",

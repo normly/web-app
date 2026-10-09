@@ -93,6 +93,7 @@ class Document:
     work_id: uuid.UUID
     created_via_delivery_id: uuid.UUID
     created_at: datetime
+    retired_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -822,6 +823,34 @@ class NotifiedEdgeRepository(Protocol):
     ) -> None: ...
 
 
+class NotifiedRetirementRepository(Protocol):
+    """
+    Pure internal bookkeeping for the notify-watchers NO_LONGER_AVAILABLE
+    dedup check. Like NotifiedEdgeRepository, kept apart from Notification so
+    cleanup of read notifications never causes a re-notification. The
+    retirement timestamp is part of the key: a retirement after a return of
+    the document is a new event and notifies again.
+    """
+
+    def has_been_notified(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        document_id: uuid.UUID,
+        retired_at: datetime,
+    ) -> bool: ...
+
+    def mark_notified(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        document_id: uuid.UUID,
+        retired_at: datetime,
+    ) -> None: ...
+
+
 class ContradictoryWorkMergeError(Exception):
     def __init__(self, source_work_id: uuid.UUID, target_work_id: uuid.UUID):
         self.source_work_id = source_work_id
@@ -988,6 +1017,7 @@ class NotificationTriggerType(str, Enum):
     NEW_EDITION = "new_edition"
     NATIONAL_ADOPTION = "national_adoption"
     RIGHTS_CHANGE = "rights_change"
+    NO_LONGER_AVAILABLE = "no_longer_available"
 
 
 @dataclass(frozen=True)

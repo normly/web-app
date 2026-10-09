@@ -72,6 +72,7 @@ from normly_core.graph.postgres.orm import (
     EmbeddingORM,
     IdentityResolutionCaseORM,
     NotifiedEdgeORM,
+    NotifiedRetirementORM,
     NotificationORM,
     OAuthStateORM,
     RateLimitBucketORM,
@@ -363,6 +364,7 @@ def _document_to_domain(orm: DocumentORM) -> Document:
         work_id=orm.work_id,
         created_via_delivery_id=orm.created_via_delivery_id,
         created_at=orm.created_at,
+        retired_at=orm.retired_at,
     )
 
 
@@ -1189,6 +1191,39 @@ class PostgresNotifiedEdgeRepository:
             NotifiedEdgeORM(
                 account_id=account_id, work_id=work_id,
                 trigger_type=trigger_type, trigger_edge_id=trigger_edge_id,
+            )
+        )
+        self._session.flush()
+
+
+class PostgresNotifiedRetirementRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def has_been_notified(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        document_id: uuid.UUID,
+        retired_at: datetime,
+    ) -> bool:
+        return self._session.get(
+            NotifiedRetirementORM, (account_id, work_id, document_id, retired_at)
+        ) is not None
+
+    def mark_notified(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        document_id: uuid.UUID,
+        retired_at: datetime,
+    ) -> None:
+        self._session.merge(
+            NotifiedRetirementORM(
+                account_id=account_id, work_id=work_id,
+                document_id=document_id, retired_at=retired_at,
             )
         )
         self._session.flush()
@@ -2141,6 +2176,11 @@ class PostgresAccountRepository:
         )
         self._session.execute(
             sa.delete(NotifiedEdgeORM).where(NotifiedEdgeORM.account_id == account_id)
+        )
+        self._session.execute(
+            sa.delete(NotifiedRetirementORM).where(
+                NotifiedRetirementORM.account_id == account_id
+            )
         )
         self._session.execute(
             sa.delete(WatchlistORM).where(WatchlistORM.account_id == account_id)

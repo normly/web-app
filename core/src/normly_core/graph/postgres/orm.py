@@ -695,6 +695,29 @@ class NotifiedEdgeORM(Base):
     )
 
 
+class NotifiedRetirementORM(Base):
+    __tablename__ = "notified_retirement"
+
+    # Dedup bookkeeping for NO_LONGER_AVAILABLE, same idea as NotifiedEdgeORM.
+    # retired_at is part of the key: a document that returns and is retired
+    # again carries a new timestamp and so produces a new notification.
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("account.id"), primary_key=True
+    )
+    work_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("work.id"), primary_key=True
+    )
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("document.id"), primary_key=True
+    )
+    retired_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), primary_key=True
+    )
+    notified_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
+
+
 class ChatSessionORM(Base):
     __tablename__ = "chat_session"
 
