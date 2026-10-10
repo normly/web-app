@@ -249,3 +249,12 @@ def test_import_tombstones_rolls_back_when_the_repository_rejects_rows(
     assert "invalid tombstone document" in capsys.readouterr().err
     (session,) = _FakeSession.instances
     assert session.rolled_back and not session.committed
+
+
+def test_packaged_public_key_is_a_valid_ed25519_public_key():
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    from cryptography.hazmat.primitives.serialization import load_pem_public_key
+
+    key = load_pem_public_key(cli._packaged_public_key())
+
+    assert isinstance(key, Ed25519PublicKey)
