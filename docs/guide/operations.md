@@ -222,16 +222,27 @@ changed) if any fails:
 
 - **Deletions since the backup.** Accounts and chats that users deleted after
   the backup would come back with the restore. The script reads them first,
-  with the image of the release whose data is discarded (the failed tag after a
-  failed rollout, otherwise the current tag), because that release wrote the
-  deletion log: `python -m normly_core.exchange export-deletions --since
-  <backup stamp minus 1 hour>`. The hour is a safety margin: a deletion logged
+  straight from the database with the host `psql` and `python3` (no release
+  image has to start, which matters after a failed rollout): the rows of
+  `deletion_log` with `deleted_at` later than the backup stamp minus 1 hour. The
+  hour is a safety margin: a deletion logged
   shortly before the dump finished may or may not be inside it, and replaying
   one that is already gone is harmless (identifiers are never reused). The
   export goes to a file and is validated. If it cannot be made or is invalid,
   the rollback stops before the banner and changes nothing. If the database has
   no `deletion_log` table (a release from before the feature), the list is
-  empty and no image is started. The file feeds the banner and the next check.
+  empty. The file feeds the banner and the next check. The core command
+  `python -m normly_core.exchange export-deletions --since <ISO-8601>` makes the
+  same document and stays available for manual use.
+- **An interrupted rollback.** Before the `DROP`, the list to re-apply is saved
+  to `/opt/normly/state/rollback-deletions.json` (mode 0600). If the run fails
+  after the `DROP`, the deletion log is gone from the database and the work
+  directory is removed, but this file stays, and the recovery message names it.
+  The next rollback run validates it (a corrupt file stops the run before any
+  change), says in the banner that it resumes an interrupted run, and merges it
+  with the fresh export (by kind and identifier, the earliest time wins). The
+  merged list is what is replayed. The file is deleted after the previous
+  release started healthy.
 - **Can the previous release replay deletions?** If the export has entries, the
   script runs `replay-deletions --check` in the **previous** release's image.
   Exit code 0 means supported; exit code 2 (unknown command) means not
@@ -264,7 +275,7 @@ scripted runs.
 Then it:
 
 1. stops the services, and takes the deletion export a **second** time (same
-   image, same time, same validation): deletions made between the first export
+   source, same time, same validation): deletions made between the first export
    and the stop would otherwise be missed. This second file is the one that is
    replayed. If it fails, the rollback aborts **before** the `DROP`: the
    services are stopped, the database is unchanged, and the message prints a
@@ -462,7 +473,9 @@ pg_restore --dbname="$PGURL" --data-only --exit-on-error $BASE.dump
 #    Export them on the PRODUCTION VM (the release that wrote the log), from
 #    one hour before the backup stamp on (BASE 20261009T033000Z ->
 #    2026-10-09T02:30:00+00:00):
-cd /opt/normly/current && sudo docker compose run --rm --no-deps -T \
+#    (the running release is pinned: Compose would default to the unsigned "edge")
+TAG="$(cat /opt/normly/state/current_tag)"
+cd /opt/normly/current && sudo NORMLY_IMAGE_TAG="$TAG" docker compose run --rm --no-deps -T \
   --entrypoint python pipeline -m normly_core.exchange export-deletions \
   --since 2026-10-09T02:30:00+00:00 > deletions.json
 #    Copy deletions.json to the test machine, then apply it to the test database
@@ -500,7 +513,9 @@ decrypted dump.
 periods for user data. It is idempotent, prints counters only (no personal
 data) and runs once a day from the systemd timer `normly-cleanup` (04:00 UTC,
 `Persistent=true`, so a missed run is caught up). The timer starts
-`/opt/normly/bin/normly-cleanup`, which runs the command in the current release
+`/opt/normly/bin/normly-cleanup`, which runs the command in the release named by
+`/opt/normly/state/current_tag` (it refuses to run without that file, and
+`normly-backup` does the same; neither ever runs the unsigned `edge` image)
 (`docker compose run --rm --no-deps -T pipeline cleanup-user-data`). The unit
 files ship in the signed image and were copied to `/etc/systemd/system/` in
 "Installing the scripts"; enable the timer as the backup timer:
@@ -569,7 +584,8 @@ yourself, in this order:
 
    ```bash
    cd /opt/normly/current
-   sudo docker compose run --rm --no-deps -T --entrypoint python pipeline \
+   TAG="$(cat /opt/normly/state/current_tag)"    # pin the running release
+   sudo NORMLY_IMAGE_TAG="$TAG" docker compose run --rm --no-deps -T --entrypoint python pipeline \
      -m normly_core.exchange export-deletions \
      --since 2026-10-09T02:30:00+00:00 > /root/deletions.json
    ```
@@ -584,7 +600,8 @@ yourself, in this order:
    restored schema:
 
    ```bash
-   sudo docker compose run --rm --no-deps -T --entrypoint python pipeline \
+   # TAG = the release that matches the restored schema
+   sudo NORMLY_IMAGE_TAG="$TAG" docker compose run --rm --no-deps -T --entrypoint python pipeline \
      -m normly_core.exchange replay-deletions < /root/deletions.json
    ```
 
@@ -633,6 +650,7 @@ it world-writable for the run or add `--user "$(id -u):$(id -g)"`:
 
 ```bash
 mkdir -p out && chmod 777 out
+export NORMLY_IMAGE_TAG="$(cat /opt/normly/state/current_tag)"   # never the "edge" default
 docker compose run --rm --entrypoint python \
   -v "$PWD/out:/out" -v "$PWD/kb-signing.key:/kb-signing.key:ro" \
   pipeline -m normly_core.exchange export \
@@ -658,6 +676,7 @@ rclone copyto latest stackit:normly-kb/kb/latest
 accepted only for localhost) and run:
 
 ```bash
+export NORMLY_IMAGE_TAG="$(cat /opt/normly/state/current_tag)"   # never the "edge" default
 docker compose run --rm kb-import              # kb/latest
 docker compose run --rm kb-import 2026.10.1    # a fixed version
 ```

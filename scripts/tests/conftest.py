@@ -18,6 +18,8 @@ SCRIPTS = Path(__file__).parents[1]
 
 FAKE = """#!/usr/bin/env bash
 echo "$(basename "$0") $*" >> "$CALLS"
+# the image tag each docker call saw (tests assert that jobs pin the running release)
+[ "$(basename "$0")" != docker ] || echo "${NORMLY_IMAGE_TAG-<unset>}" >> "$CALLS.tags"
 override="FAKE_$(basename "$0" | tr 'a-z-' 'A-Z_')_EXIT"
 if [ "${!override:-0}" != "0" ]; then exit "${!override}"; fi
 fail_on="FAKE_$(basename "$0" | tr 'a-z-' 'A-Z_')_FAIL_ON"
@@ -141,6 +143,14 @@ def harness(tmp_path):
                 [str(SCRIPTS / script), *args], env=merged,
                 capture_output=True, text=True, input=input_text,
             )
+
+        def set_current_tag(self, tag="0.1.2"):
+            (tmp_path / "normly" / "state").mkdir(exist_ok=True)
+            (tmp_path / "normly" / "state" / "current_tag").write_text(f"{tag}\n")
+
+        def tags(self):
+            tags_file = Path(f"{calls}.tags")
+            return tags_file.read_text().splitlines() if tags_file.exists() else []
 
         def calls(self):
             return calls.read_text().splitlines()

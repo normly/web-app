@@ -1361,16 +1361,23 @@ normalen Löschfunktionen erneut an, idempotent, schon fehlende Einträge werden
 trotzdem ins Protokoll geschrieben); `replay-deletions --check` meldet ohne
 Datenbank, ob das Image den Befehl kennt.
 
-Im Rollback (ADR-024): Mit dem Image des Releases, dessen Daten verworfen werden
-(`$from`), werden die Löschungen seit dem Sicherungszeitpunkt **minus eine
-Stunde** gelesen (Sicherheitsrand im Skript; eine doppelt angewendete Löschung
+Im Rollback (ADR-024): Das Skript liest die Löschungen seit dem
+Sicherungszeitpunkt **minus eine Stunde** direkt aus der Datenbank (Host-`psql`
+und `python3`, kein startbares Release-Image nötig; der Kernbefehl bleibt für den
+manuellen Gebrauch) (Sicherheitsrand im Skript; eine doppelt angewendete Löschung
 ist harmlos, weil UUIDs nie wiederverwendet werden). Dieser erste Export speist
 Banner und die Entscheidung über `replay-deletions --check` im Image des
 **vorherigen** Release (Exitcode 2 heißt „nicht unterstützt“, jeder andere
 Fehler bricht ab). Nach dem Stopp der Dienste und vor dem DROP folgt ein zweiter
 Export; dieses Dokument wird nach `pg_restore` und der Tombstone-Wiederherstellung
 vom vorherigen Image angewendet. Schlägt der zweite Export fehl, bricht der
-Rollback vor dem DROP ab (Datenbank unverändert, Hinweis zum Neustart).
+Rollback vor dem DROP ab (Datenbank unverändert, Hinweis zum Neustart). Vor dem
+DROP wird die Liste nach `$STATE/rollback-deletions.json` (0600) geschrieben; ein
+erneuter Lauf nach einem Fehler nach dem DROP führt sie mit dem frischen Export
+zusammen (Vereinigung nach Art und Kennung, frühester Zeitpunkt) und löscht die
+Datei erst, wenn das vorherige Release gesund läuft. `normly-cleanup` und
+`normly-backup` laufen mit dem Tag aus `state/current_tag`, nie mit dem
+Compose-Standard `edge`.
 Eine fehlende Tabelle `deletion_log` (Release vor diesem Feature) gilt als leere
 Liste. Kennt das vorherige Image den Befehl nicht, nennt das Banner Anzahl und
 die ersten 20 `kind:id`; die vollständige Liste liegt in

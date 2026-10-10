@@ -36,6 +36,15 @@ run_backup() {
     exit 2
   fi
 
+  # Run the release that is live, not whatever tag .env or the Compose default
+  # (edge) names. State written by normly-deploy; without it nothing runs.
+  NORMLY_IMAGE_TAG="$(cat "$NORMLY_DIR/state/current_tag" 2>/dev/null || true)"
+  if [ -z "$NORMLY_IMAGE_TAG" ]; then
+    echo "normly-backup: $NORMLY_DIR/state/current_tag is missing or empty; refusing to run an unpinned image" >&2
+    exit 1
+  fi
+  export NORMLY_IMAGE_TAG
+
   local stamp base work
   stamp="$(date -u +%Y%m%dT%H%M%SZ)"
   base="${stamp}-${kind}"
@@ -77,7 +86,7 @@ run_backup() {
   revision="$(psql "$DATABASE_URL" -Atc 'SELECT version_num FROM alembic_version')" \
     || { echo "cannot read the Alembic revision; aborting backup" >&2; exit 1; }
   [ -n "$revision" ] || { echo "empty Alembic revision; aborting backup" >&2; exit 1; }
-  image_tag="$(cat "$NORMLY_DIR/state/current_tag" 2>/dev/null || echo unknown)"
+  image_tag="$NORMLY_IMAGE_TAG"
   # shellcheck disable=SC2086 # COMPOSE is a command line and must word-split
   kb_version="$($COMPOSE run --rm --no-deps -T --entrypoint python pipeline \
     -m normly_core.exchange info | tail -n 1)" \

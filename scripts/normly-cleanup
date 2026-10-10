@@ -24,6 +24,14 @@ if [ -d "$NORMLY_DIR/state/deploy.lock" ]; then
   exit 0
 fi
 normly_load_env "$NORMLY_DIR/.env"
+# The daily job deletes personal data: it must run the release that is live,
+# not whatever tag .env or the Compose default (edge) names.
+NORMLY_IMAGE_TAG="$(cat "$NORMLY_DIR/state/current_tag" 2>/dev/null || true)"
+if [ -z "$NORMLY_IMAGE_TAG" ]; then
+  echo "normly-cleanup: $NORMLY_DIR/state/current_tag is missing or empty; refusing to run an unpinned image" >&2
+  exit 1
+fi
+export NORMLY_IMAGE_TAG
 COMPOSE="${NORMLY_COMPOSE:-docker compose -f $NORMLY_DIR/current/compose.yaml --project-directory $NORMLY_DIR/current}"
 
 # shellcheck disable=SC2086 # COMPOSE is a command line and must word-split

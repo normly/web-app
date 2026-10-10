@@ -9,6 +9,7 @@ SYSTEMD = Path(__file__).parents[2] / "deploy" / "systemd"
 
 
 def test_cleanup_runs_the_pipeline_command(harness):
+    harness.set_current_tag()
     result = harness.run("normly-cleanup")
     assert result.returncode == 0, result.stderr
     calls = harness.calls()
@@ -17,11 +18,13 @@ def test_cleanup_runs_the_pipeline_command(harness):
 
 
 def test_cleanup_passes_the_exit_code_through(harness):
+    harness.set_current_tag()
     result = harness.run("normly-cleanup", extra_env={"FAKE_DOCKER_EXIT": "7"})
     assert result.returncode == 7
 
 
 def test_cleanup_defaults_to_the_current_release_compose_file(harness):
+    harness.set_current_tag()
     result = harness.run("normly-cleanup", extra_env={"NORMLY_COMPOSE": None})
     assert result.returncode == 0, result.stderr
     expected = (
@@ -29,6 +32,23 @@ def test_cleanup_defaults_to_the_current_release_compose_file(harness):
         f"--project-directory {harness.dir}/current run --rm --no-deps -T pipeline cleanup-user-data"
     )
     assert harness.calls() == [expected]
+
+
+def test_cleanup_pins_the_running_release_tag(harness):
+    harness.set_current_tag("0.4.2")
+    result = harness.run("normly-cleanup", extra_env={"NORMLY_IMAGE_TAG": "edge"})
+    assert result.returncode == 0, result.stderr
+    assert harness.tags() == ["0.4.2"]
+
+
+def test_cleanup_without_a_current_tag_runs_nothing(harness):
+    for content in (None, "\n"):
+        if content is not None:
+            harness.set_current_tag("")
+        result = harness.run("normly-cleanup")
+        assert result.returncode == 1
+        assert "current_tag" in result.stderr
+    assert harness.calls() == []
 
 
 def test_cleanup_takes_no_arguments(harness):
@@ -46,7 +66,7 @@ def test_cleanup_is_skipped_while_a_deploy_or_rollback_holds_the_lock(harness):
 
 
 def test_cleanup_runs_when_no_lock_exists(harness):
-    (harness.dir / "state").mkdir()
+    harness.set_current_tag()
     assert harness.run("normly-cleanup").returncode == 0
     assert len(harness.calls()) == 1
 

@@ -89,15 +89,21 @@ Protokoll); `replay-deletions --check` prüft ohne Datenbank, ob das Image den B
 kennt.
 
 **6. Rollback.** `normly-deploy rollback`: Im Vorlauf (vor Banner, Bestätigung,
-Stopp) werden mit dem Image des **Releases, dessen Daten verworfen werden** (`$from`:
-bei einem fehlgeschlagenen Rollout dieser, sonst der aktuelle) die Löschungen seit dem
-Sicherungszeitpunkt gelesen (erster Export; Fehler → Abbruch ohne Änderung; Format
+Stopp) werden die Löschungen seit dem Sicherungszeitpunkt **direkt aus der
+Datenbank** gelesen (Host-`psql` mit `-v since=…` und Host-`python3`; kein
+startbares Release-Image nötig) (erster Export; Fehler → Abbruch ohne Änderung; Format
 vom gemeinsamen Prüfer `normly_check_deletions` geprüft). Der Zeitpunkt ist der
 Zeitstempel aus dem Basisnamen **minus eine Stunde** (Sicherheitsrand im Skript; der
 Kernbefehl behält seine strikte „später als“-Bedeutung): eine doppelt angewendete
 Löschung ist harmlos, weil die Entität schon fehlt und UUIDs nie wiederverwendet
-werden. Fehlt die Tabelle `deletion_log` (Release vor diesem Feature), wird ohne
-Image-Aufruf eine leere Liste angenommen. Der erste Export speist Banner, die
+werden. Fehlt die Tabelle `deletion_log` (Release vor diesem Feature), wird eine leere
+Liste angenommen. Vor dem DROP wird die zu wiederholende Liste nach
+`$STATE/rollback-deletions.json` (0600) geschrieben; ein erneuter Lauf nach einem
+Fehler nach dem DROP führt sie mit dem frischen Export zusammen (Vereinigung nach
+Art und Kennung, frühester Zeitpunkt; eine beschädigte Datei bricht vor jeder
+Änderung ab) und löscht sie erst nach erfolgreichem Start. `normly-cleanup` und
+`normly-backup` setzen `NORMLY_IMAGE_TAG` aus `state/current_tag` (ohne Datei
+laufen sie nicht). Der erste Export speist Banner, die
 Entscheidung über `replay-deletions --check` und die frühe Prüfung. Nach dem Stopp
 der Dienste und vor dem DROP folgt ein **zweiter Export** (gleiches Image, gleicher
 Zeitpunkt, gleicher Prüfer); schlägt er fehl, bricht der Rollback ab, die Dienste
