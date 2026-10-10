@@ -528,7 +528,7 @@ systemctl list-timers normly-cleanup.timer
 
 To run it by hand: `sudo /opt/normly/bin/normly-cleanup`. The output is one
 line, for example `sessions=3 tokens=7 unverified_accounts=0
-notifications_read=12 notifications_unread=0 anonymous_chats=0 deletion_log=0`.
+warnings_sent=0 notifications_read=12 notifications_unread=0 anonymous_chats=0 deletion_log=0`.
 
 The script skips the run (message on stderr, exit code 0) while
 `/opt/normly/state/deploy.lock` exists, because a deploy or rollback drops and
@@ -543,14 +543,27 @@ The periods are named constants in `core/src/normly_core/retention.py`:
 |---|---|
 | expired account sessions | 7 days after expiry |
 | one-time account tokens (verification, reset, magic link) | 24 hours after expiry or use |
-| abandoned registrations, with their tokens and chats | email never verified, created more than 30 days ago, **no** Google identity and **no** session row at all |
+| abandoned registrations, with their tokens and chats | email never verified, created more than 30 days ago, **no** Google identity and **no** session row at all, **and** 14 days after a delivered warning e-mail |
 | notifications | read: 60 days after creation; unread: 365 days after creation |
 | deletion log entries | 90 days |
 | chats without an account (legacy data) | on every run |
 
-An account that was never verified but is in use (a Google account, or a
-password account that has logged in) is **not** an abandoned registration and is
-never removed by this command. Chats of accounts have no retention period: the
+No account is deleted silently. Each run does three things in this order:
+(1) clears the warning of accounts that are no longer abandoned (verified,
+linked to Google or signed in again); (2) deletes abandoned registrations
+warned more than 14 days ago (strictly), re-checking the whole condition under
+a row lock; (3) sends the warning e-mail (German and English, deletion date,
+sign-in link from `NORMLY_PUBLIC_BASE_URL`, no token) to abandoned registrations
+not yet warned, and records `account.deletion_warned_at` only if the mail was
+sent. An account is never warned and deleted in the same run.
+
+The warning needs a working SMTP relay (`NORMLY_SMTP_HOST` and friends, loaded
+from the same `.env`). Without one, or while sending fails, nobody is warned and
+therefore nobody is deleted; failed sends are retried on the next run and
+`warnings_sent` counts only delivered mails. Note that a password account that
+was used and then paused for about 37 days (its session rows are gone after
+7 days past expiry) counts as abandoned; the warning is its notice, and a
+sign-in within 14 days keeps it. Chats of accounts have no retention period: the
 user deletes them, or the account. The reasoning is in
 [ADR-027](../adr/README.md#adr-027-lebenszyklus-der-nutzerdaten). The periods
 are project decisions and should be reviewed by a data-protection professional.

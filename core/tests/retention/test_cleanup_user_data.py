@@ -68,13 +68,15 @@ def _log(session):
     }
 
 
-def _account(session, email, *, created_at=None, verified=False):
+def _account(session, email, *, created_at=None, verified=False, warned_at=None):
     account = PostgresAccountRepository(session).create_account(email=email, password_hash=None)
     values = {}
     if created_at is not None:
         values["created_at"] = created_at
     if verified:
         values["email_verified_at"] = NOW
+    if warned_at is not None:
+        values["deletion_warned_at"] = warned_at
     if values:
         session.execute(
             sa.update(AccountORM).where(AccountORM.id == account.id).values(**values)
@@ -174,17 +176,18 @@ def test_delete_unread_before_only_touches_old_unread(db_session):
 
 def test_delete_unverified_accounts_boundaries_and_log(db_session):
     cutoff = NOW - retention.UNVERIFIED_ACCOUNT_MAX_AGE
-    old = _account(db_session, "old@example.de", created_at=cutoff - EPS)
-    edge = _account(db_session, "edge@example.de", created_at=cutoff)
-    new = _account(db_session, "new@example.de", created_at=cutoff + EPS)
+    warned = NOW - timedelta(days=20)
+    old = _account(db_session, "old@example.de", created_at=cutoff - EPS, warned_at=warned)
+    edge = _account(db_session, "edge@example.de", created_at=cutoff, warned_at=warned)
+    new = _account(db_session, "new@example.de", created_at=cutoff + EPS, warned_at=warned)
     verified = _account(
         db_session, "verified@example.de", created_at=cutoff - timedelta(days=100),
-        verified=True,
+        verified=True, warned_at=warned,
     )
     repo = PostgresAccountRepository(db_session)
 
-    assert repo.delete_unverified_accounts_created_before(cutoff) == 1
-    assert repo.delete_unverified_accounts_created_before(cutoff) == 0
+    assert repo.delete_unverified_accounts_created_before(cutoff, warned_before=NOW) == 1
+    assert repo.delete_unverified_accounts_created_before(cutoff, warned_before=NOW) == 0
     left = set(db_session.execute(sa.select(AccountORM.id)).scalars())
     assert left == {edge.id, new.id, verified.id}
     assert _log(db_session) == {("account", old.id)}
@@ -204,11 +207,14 @@ def test_accounts_in_use_are_not_abandoned(db_session):
         account_id=session_account.id, session_token="in-use", created_at=long_ago,
         expires_at=cutoff - timedelta(days=1),
     )
-    abandoned = _account(db_session, "abandoned@example.de", created_at=long_ago)
+    abandoned = _account(
+        db_session, "abandoned@example.de", created_at=long_ago,
+        warned_at=NOW - timedelta(days=20),
+    )
 
     assert PostgresAccountRepository(
         db_session
-    ).delete_unverified_accounts_created_before(cutoff) == 1
+    ).delete_unverified_accounts_created_before(cutoff, warned_before=NOW) == 1
 
     left = set(db_session.execute(sa.select(AccountORM.id)).scalars())
     assert left == {google.id, session_account.id}
@@ -217,19 +223,25 @@ def test_accounts_in_use_are_not_abandoned(db_session):
 
 def test_recheck_skips_an_account_verified_after_selection(db_session):
     cutoff = NOW - retention.UNVERIFIED_ACCOUNT_MAX_AGE
-    account = _account(db_session, "race@example.de", created_at=cutoff - timedelta(days=1))
+    account = _account(
+        db_session, "race@example.de", created_at=cutoff - timedelta(days=1),
+        warned_at=NOW - timedelta(days=20),
+    )
     repo = PostgresAccountRepository(db_session)
 
-    selected = repo._abandoned_registration_ids(cutoff, lock=True)
+    selected = repo._abandoned_registration_ids(cutoff, warned_before=NOW, lock=True)
     assert selected == [account.id]
     repo.mark_email_verified(account.id, NOW)
 
-    assert repo._abandoned_registration_ids(cutoff, only=selected) == []
+    assert repo._abandoned_registration_ids(cutoff, warned_before=NOW, only=selected) == []
 
 
 def test_delete_unverified_accounts_cascades(db_session):
     cutoff = NOW - retention.UNVERIFIED_ACCOUNT_MAX_AGE
-    account = _account(db_session, "cascade@example.de", created_at=cutoff - EPS)
+    account = _account(
+        db_session, "cascade@example.de", created_at=cutoff - EPS,
+        warned_at=NOW - timedelta(days=20),
+    )
     work = PostgresWorkRepository(db_session).create_work(created_via=WorkCreatedVia.MANUAL)
     _notification(db_session, account, work, NOW, read=False)
     PostgresAccountTokenRepository(db_session).create_token(
@@ -284,7 +296,7 @@ def test_delete_unverified_accounts_cascades(db_session):
     db_session.flush()
 
     assert PostgresAccountRepository(db_session).delete_unverified_accounts_created_before(
-        cutoff
+        cutoff, warned_before=NOW
     ) == 1
 
     for orm in (
@@ -410,7 +422,10 @@ def committed_db(migrated_engine, db_url, monkeypatch):
             ))
 
 
-def test_cleanup_user_data_command_runs_all_periods_and_commits(committed_db, capsys):
+def test_cleanup_user_data_command_runs_all_periods_and_commits(
+    committed_db, capsys, monkeypatch
+):
+    monkeypatch.delenv("NORMLY_SMTP_HOST", raising=False)
     now = datetime.now(timezone.utc)
     with Session(committed_db) as session:
         account = _account(
@@ -419,6 +434,7 @@ def test_cleanup_user_data_command_runs_all_periods_and_commits(committed_db, ca
         _account(
             session, "cli-unverified@example.de",
             created_at=now - retention.UNVERIFIED_ACCOUNT_MAX_AGE - timedelta(days=1),
+            warned_at=now - retention.ACCOUNT_DELETION_NOTICE_PERIOD - timedelta(days=1),
         )
         PostgresAccountSessionRepository(session).create_session(
             account_id=account.id, session_token="cli-s",
@@ -457,7 +473,7 @@ def test_cleanup_user_data_command_runs_all_periods_and_commits(committed_db, ca
 
     out = capsys.readouterr().out
     assert (
-        "sessions=1 tokens=1 unverified_accounts=1 notifications_read=1 "
+        "sessions=1 tokens=1 unverified_accounts=1 warnings_sent=0 notifications_read=1 "
         "notifications_unread=1 anonymous_chats=1 deletion_log=1"
     ) in out
     with Session(committed_db) as session:
@@ -471,6 +487,6 @@ def test_cleanup_user_data_command_runs_all_periods_and_commits(committed_db, ca
 
     assert main(["cleanup-user-data"]) == 0
     assert (
-        "sessions=0 tokens=0 unverified_accounts=0 notifications_read=0 "
+        "sessions=0 tokens=0 unverified_accounts=0 warnings_sent=0 notifications_read=0 "
         "notifications_unread=0 anonymous_chats=0 deletion_log=0"
     ) in capsys.readouterr().out

@@ -27,3 +27,7 @@ UNREAD_NOTIFICATION_MAX_AGE = timedelta(days=365)
 
 #: Deletion-log entries; must cover the longest backup retention.
 DELETION_LOG_MAX_AGE = timedelta(days=90)
+
+#: Notice between the warning e-mail and the deletion of an abandoned
+#: registration.
+ACCOUNT_DELETION_NOTICE_PERIOD = timedelta(days=14)

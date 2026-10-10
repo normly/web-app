@@ -1153,9 +1153,25 @@ class AccountRepository(Protocol):
         """Deletes the account and everything it owns; writes a deletion_log entry."""
         ...
 
-    def delete_unverified_accounts_created_before(self, cutoff: datetime) -> int:
-        """Same cascade as delete_account, for accounts never email-verified."""
+    def delete_unverified_accounts_created_before(
+        self, cutoff: datetime, *, warned_before: datetime
+    ) -> int:
+        """
+        Same cascade as delete_account, for abandoned registrations (never
+        verified, no Google link, no account session) that were warned by
+        e-mail before `warned_before`. Never deletes an unwarned account.
+        """
         ...
+
+    def reset_deletion_warnings(self, cutoff: datetime) -> int:
+        """Clears the warning of accounts that are no longer abandoned."""
+        ...
+
+    def abandoned_registrations_to_warn(self, cutoff: datetime) -> list[tuple[uuid.UUID, str]]:
+        """(account id, email) of abandoned registrations not yet warned."""
+        ...
+
+    def mark_deletion_warned(self, account_id: uuid.UUID, warned_at: datetime) -> None: ...
 
 
 class DeletionLogRepository(Protocol):

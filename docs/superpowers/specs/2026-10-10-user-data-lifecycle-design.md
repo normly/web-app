@@ -37,7 +37,7 @@ Projekts und sollten von einer Fachperson für Datenschutz geprüft werden.
 | Chats mit Konto | bis zur Löschung durch die Person (pro Verlauf oder alle) oder durch die Kontolöschung; keine automatische Frist |
 | `account_session` | 7 Tage nach Ablauf gelöscht |
 | `account_token` | 24 Stunden nach Ablauf oder Verwendung gelöscht |
-| verlassene Registrierungen (`email_verified_at` leer, keine Google-Verknüpfung, keine Konto-Sitzung, auch keine abgelaufene) | 30 Tage nach Anlage samt Tokens und Chats gelöscht; Konten in Benutzung (Google, Passwort-Anmeldung) nie, auch ohne Bestätigung |
+| verlassene Registrierungen (`email_verified_at` leer, keine Google-Verknüpfung, keine Konto-Sitzung, auch keine abgelaufene) | 30 Tage nach Anlage per E-Mail gewarnt, 14 Tage danach samt Tokens und Chats gelöscht (Vorwarnung, siehe unten); Konten in Benutzung (Google, Passwort-Anmeldung) nie, auch ohne Bestätigung |
 | `notification` gelesen / ungelesen | 60 Tage / 12 Monate nach Anlage |
 | `notified_edge`, `notified_retirement`, `rights_notification_baseline` | bis zur Kontolöschung (verhindern Doppelmeldungen) |
 | `oauth_state`, `rate_limit_bucket` | unverändert (1 Stunde / 10 Minuten) |

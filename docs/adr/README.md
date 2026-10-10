@@ -1307,7 +1307,7 @@ bietet beides mit Bestätigung.
 
 | Tabelle | Zweck | Personenbezug | Frist | Löschweg |
 |---|---|---|---|---|
-| `account` | Konto, Anmeldung | E-Mail, Name, Passwort-Hash, Avatar | bis zur Kontolöschung; **verlassene Registrierung** (E-Mail nie bestätigt, älter als 30 Tage, ohne Google-Verknüpfung, ohne irgendeine Konto-Sitzung) nach 30 Tagen | Kontolöschung durch die Person (kaskadiert auf alle Tabellen mit Kontobezug); Aufräumbefehl |
+| `account` | Konto, Anmeldung | E-Mail, Name, Passwort-Hash, Avatar | bis zur Kontolöschung; **verlassene Registrierung** (E-Mail nie bestätigt, älter als 30 Tage, ohne Google-Verknüpfung, ohne irgendeine Konto-Sitzung) 14 Tage nach zugestellter Vorwarn-E-Mail, nie ohne diese | Kontolöschung durch die Person (kaskadiert auf alle Tabellen mit Kontobezug); Aufräumbefehl |
 | `account_session` | angemeldete Sitzung | Kontobezug, Sitzungs-Token; keine IP, kein User-Agent | 7 Tage nach Ablauf | Aufräumbefehl; Kontolöschung |
 | `account_google_identity` | Verknüpfung mit Google-Anmeldung | Google-Kennung, Kontobezug | bis zur Kontolöschung | Kontolöschung |
 | `account_token` | Einmal-Token (Bestätigung, Zurücksetzen, Magic Link) | Kontobezug | 24 Stunden nach Ablauf oder Verwendung | Aufräumbefehl; Kontolöschung |
@@ -1329,10 +1329,23 @@ leer), und Konten mit Passwort können sich auch ohne Bestätigung anmelden. Ein
 Konto in Benutzung hat daher eine Google-Verknüpfung oder mindestens eine
 `account_session`-Zeile (auch eine abgelaufene, solange sie nicht gelöscht
 ist; die Löschfrist der Sitzung beginnt erst 7 Tage nach Ablauf). Nur ein Konto
-ohne beides, nie bestätigt und älter als 30 Tage, gilt als verlassen. Der
-Löschlauf sperrt die Kandidaten und prüft die Bedingung erneut, damit eine
-gleichzeitige Bestätigung, Anmeldung oder Google-Verknüpfung nicht verloren
-geht.
+ohne beides, nie bestätigt und älter als 30 Tage, gilt als verlassen. Das
+trifft auch ein Passwort-Konto, das benutzt und dann lange pausiert wurde,
+sobald seine Sitzungen entfernt sind; deshalb wird kein Konto still gelöscht:
+Der Aufräumbefehl schickt zuerst eine zweisprachige Vorwarn-E-Mail (Datum der
+Löschung, Anmelde-URL aus `NORMLY_PUBLIC_BASE_URL`, kein Token) und setzt
+erst nach erfolgreichem Versand `account.deletion_warned_at`. Gelöscht wird
+frühestens 14 Tage danach (strikt), und nur wenn das Konto dann noch alle
+Bedingungen erfüllt. Anmeldung, Bestätigung oder Google-Verknüpfung machen das
+Konto wieder „nicht verlassen“; der nächste Lauf setzt die Warnung zurück.
+Voraussetzung ist ein SMTP-Relay (`NORMLY_SMTP_*`): Ohne Relay oder bei
+fehlgeschlagenem Versand wird nie gewarnt und damit nie gelöscht; der Versand
+wird im nächsten Lauf erneut versucht. Ein Konto wird nie im selben Lauf
+gewarnt und gelöscht (Reihenfolge: zurücksetzen, löschen, warnen). Der
+Löschlauf sperrt die Kandidaten und prüft die Bedingung samt Warnzeitpunkt
+erneut, damit eine gleichzeitige Bestätigung, Anmeldung oder
+Google-Verknüpfung nicht verloren geht. `deletion_warned_at` wird nicht
+exportiert.
 
 *Aufräumbefehl.* `python -m normly_core.pipeline cleanup-user-data` setzt alle
 Fristen der Tabelle durch (Sitzungen, Tokens, verlassene Registrierungen,
@@ -1393,9 +1406,10 @@ werden.
 - Kurze, benannte Fristen für technische Daten (Sitzungen, Tokens,
   Benachrichtigungen), keine Frist für Inhalte, die die Person selbst anlegt
   und jederzeit selbst löschen kann.
-- Die Regel für verlassene Registrierungen löscht nur, was nachweislich nie in
-  Benutzung war; ein falsch gelöschtes Konto wäre ein Datenverlust, ein zu
-  spät gelöschtes nur ein gespeicherter Datensatz.
+- Die Regel für verlassene Registrierungen löscht nie still: Ohne zugestellte
+  Vorwarnung und 14 Tage Frist bleibt jedes Konto; ein falsch gelöschtes Konto
+  wäre ein Datenverlust, ein zu spät gelöschtes nur ein gespeicherter
+  Datensatz. Der Preis ist die Abhängigkeit von SMTP.
 - Das Löschprotokoll enthält nur Kennungen. Es ist deshalb selbst keine
   Kopie der gelöschten Daten und kann als Teil der Nutzerdaten-Sicherung
   mitlaufen; ohne Kennung bliebe eine Löschung nach Rollback oder Restore

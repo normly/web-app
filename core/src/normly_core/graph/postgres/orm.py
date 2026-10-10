@@ -441,6 +441,9 @@ class AccountORM(Base):
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), server_default=sa.func.now()
     )
+    # Set when the warning e-mail for an abandoned registration was delivered;
+    # reset when the account is no longer abandoned. Never exported.
+    deletion_warned_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     first_name: Mapped[str | None]
     last_name: Mapped[str | None]
     avatar_image: Mapped[bytes | None] = mapped_column(sa.LargeBinary)

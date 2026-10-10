@@ -270,6 +270,22 @@ def test_export_has_no_password_or_token_fields(client, db_session):
     assert "tok-nosecrets-9" not in json.dumps(body)
 
 
+def test_export_does_not_contain_the_deletion_warning(client, db_session):
+    from normly_core.graph.postgres.orm import AccountORM
+
+    headers = _register(client, email="warned@example.de")
+    db_session.execute(
+        sa.update(AccountORM)
+        .where(AccountORM.id == _account_id(client, headers))
+        .values(deletion_warned_at=NOW)
+    )
+    db_session.commit()
+
+    body = client.get("/v1/accounts/export", headers=headers).json()
+
+    assert not [k for k in _walk_keys(body) if "warn" in k.lower()]
+
+
 def test_export_contains_nothing_of_another_account(client, db_session):
     mine = _register(client, email="mine@example.de")
     theirs = _register(client, email="theirs@example.de")

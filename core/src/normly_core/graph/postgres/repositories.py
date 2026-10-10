@@ -2250,18 +2250,32 @@ class PostgresAccountRepository:
             kind="account", entity_id=account_id, deleted_at=datetime.now(timezone.utc),
         )
 
-    def _abandoned_registration_ids(
-        self, cutoff: datetime, *, only: list[uuid.UUID] | None = None, lock: bool = False
-    ) -> list[uuid.UUID]:
+    @staticmethod
+    def _abandoned_clauses(cutoff: datetime) -> list:
         # Abandoned = never verified, old, no Google link and no session at
         # all. A Google or password account in use has a link or sessions even
-        # though email_verified_at stays empty.
-        query = select(AccountORM.id).where(
+        # though email_verified_at stays empty. The one place of this condition.
+        return [
             AccountORM.email_verified_at.is_(None),
             AccountORM.created_at < cutoff,
             ~sa.exists().where(AccountGoogleIdentityORM.account_id == AccountORM.id),
             ~sa.exists().where(AccountSessionORM.account_id == AccountORM.id),
-        )
+        ]
+
+    def _abandoned_registration_ids(
+        self,
+        cutoff: datetime,
+        *,
+        warned_before: datetime | None = None,
+        unwarned: bool = False,
+        only: list[uuid.UUID] | None = None,
+        lock: bool = False,
+    ) -> list[uuid.UUID]:
+        query = select(AccountORM.id).where(*self._abandoned_clauses(cutoff))
+        if warned_before is not None:
+            query = query.where(AccountORM.deletion_warned_at < warned_before)
+        if unwarned:
+            query = query.where(AccountORM.deletion_warned_at.is_(None))
         if only is not None:
             query = query.where(AccountORM.id.in_(only))
         if lock:
@@ -2270,16 +2284,51 @@ class PostgresAccountRepository:
             query = query.with_for_update(of=AccountORM)
         return list(self._session.execute(query).scalars())
 
-    def delete_unverified_accounts_created_before(self, cutoff: datetime) -> int:
-        locked = self._abandoned_registration_ids(cutoff, lock=True)
+    def reset_deletion_warnings(self, cutoff: datetime) -> int:
+        # A warned account that was verified, linked to Google or signed in
+        # again is no longer abandoned: its warning is void.
+        result = self._session.execute(
+            sa.update(AccountORM)
+            .where(
+                AccountORM.deletion_warned_at.is_not(None),
+                ~sa.and_(*self._abandoned_clauses(cutoff)),
+            )
+            .values(deletion_warned_at=None)
+        )
+        return result.rowcount
+
+    def delete_unverified_accounts_created_before(
+        self, cutoff: datetime, *, warned_before: datetime
+    ) -> int:
+        """Deletes abandoned registrations warned before `warned_before`."""
+        locked = self._abandoned_registration_ids(
+            cutoff, warned_before=warned_before, lock=True
+        )
         if not locked:
             return 0
         # Locked, so the state is stable; the second statement (new snapshot)
         # re-checks the whole condition against what committed meanwhile.
-        ids = self._abandoned_registration_ids(cutoff, only=locked)
+        ids = self._abandoned_registration_ids(cutoff, warned_before=warned_before, only=locked)
         for account_id in ids:
             self.delete_account(account_id)
         return len(ids)
+
+    def abandoned_registrations_to_warn(self, cutoff: datetime) -> list[tuple[uuid.UUID, str]]:
+        ids = self._abandoned_registration_ids(cutoff, unwarned=True)
+        if not ids:
+            return []
+        rows = self._session.execute(
+            select(AccountORM.id, AccountORM.email).where(AccountORM.id.in_(ids))
+            .order_by(AccountORM.created_at)
+        ).all()
+        return [(row.id, row.email) for row in rows]
+
+    def mark_deletion_warned(self, account_id: uuid.UUID, warned_at: datetime) -> None:
+        self._session.execute(
+            sa.update(AccountORM)
+            .where(AccountORM.id == account_id, AccountORM.deletion_warned_at.is_(None))
+            .values(deletion_warned_at=warned_at)
+        )
 
 
 class PostgresDeletionLogRepository:

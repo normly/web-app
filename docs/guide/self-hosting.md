@@ -165,7 +165,7 @@ Sources: `eur-lex`, `dguv`, `baua`. Other maintenance commands:
   them (one or all, in the chat sidebar) or deletes the account. The request
   quota is counted server-side by rate limiting and does not depend on chats.
 - **Retention.** `cleanup-user-data` enforces the retention periods
-  (expired sessions and tokens, abandoned registrations, old notifications,
+  (expired sessions and tokens, abandoned registrations (after a warning e-mail, so SMTP must be configured), old notifications,
   the deletion log):
 
   ```bash

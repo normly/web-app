@@ -24,7 +24,8 @@ from normly_core.graph.postgres.repositories import (
     PostgresSourceRepository,
 )
 from normly_core.notifications.detection import run_notify_watchers
-from normly_core.notifications.email import NullEmailSender, SmtpEmailSender
+from normly_core.notifications.abandoned_registration import warn_abandoned_registrations
+from normly_core.notifications.email import EmailSender, NullEmailSender, SmtpEmailSender
 from normly_core.pipeline.adapters.baua import BauaAdapter
 from normly_core.pipeline.adapters.dguv import DguvAdapter
 from normly_core.pipeline.adapters.eur_lex import EurLexAdapter
@@ -71,7 +72,20 @@ def build_adapter(source: str, *, directory: Path, session: Session) -> SourceAd
     raise ValueError(f"unknown source: {source!r}")
 
 
-def _cleanup_user_data(session: Session, now: datetime) -> str:
+def _build_email_sender() -> EmailSender:
+    smtp_host = os.environ.get("NORMLY_SMTP_HOST")
+    if not smtp_host:
+        return NullEmailSender()
+    return SmtpEmailSender(
+        host=smtp_host,
+        port=int(os.environ.get("NORMLY_SMTP_PORT", "587")),
+        from_address=os.environ.get("NORMLY_SMTP_FROM", "no-reply@normly.example"),
+        username=os.environ.get("NORMLY_SMTP_USERNAME"),
+        password=os.environ.get("NORMLY_SMTP_PASSWORD"),
+    )
+
+
+def _cleanup_user_data(session: Session, now: datetime, email_sender: EmailSender) -> str:
     """Applies every retention period; returns the summary line (counts only)."""
     sessions = PostgresAccountSessionRepository(session).delete_sessions_expired_before(
         now - retention.ACCOUNT_SESSION_GRACE
@@ -79,8 +93,16 @@ def _cleanup_user_data(session: Session, now: datetime) -> str:
     tokens = PostgresAccountTokenRepository(session).delete_tokens_done_before(
         now - retention.ACCOUNT_TOKEN_GRACE
     )
-    unverified = PostgresAccountRepository(session).delete_unverified_accounts_created_before(
-        now - retention.UNVERIFIED_ACCOUNT_MAX_AGE
+    accounts = PostgresAccountRepository(session)
+    abandoned_cutoff = now - retention.UNVERIFIED_ACCOUNT_MAX_AGE
+    # Order matters: reset, then delete, then warn -- an account warned in this
+    # run can never be deleted in it, and nothing is deleted without a warning.
+    accounts.reset_deletion_warnings(abandoned_cutoff)
+    unverified = accounts.delete_unverified_accounts_created_before(
+        abandoned_cutoff, warned_before=now - retention.ACCOUNT_DELETION_NOTICE_PERIOD,
+    )
+    warnings_sent = warn_abandoned_registrations(
+        session, email_sender, now=now, cutoff=abandoned_cutoff,
     )
     notifications = PostgresNotificationRepository(session)
     read = notifications.delete_read_before(now - retention.READ_NOTIFICATION_MAX_AGE)
@@ -92,6 +114,7 @@ def _cleanup_user_data(session: Session, now: datetime) -> str:
     )
     return (
         f"sessions={sessions} tokens={tokens} unverified_accounts={unverified} "
+        f"warnings_sent={warnings_sent} "
         f"notifications_read={read} notifications_unread={unread} "
         f"anonymous_chats={anonymous_chats} deletion_log={log}"
     )
@@ -148,23 +171,13 @@ def main(argv: list[str] | None = None) -> int:
                 session.commit()
                 print(f"notifications_deleted={deleted}")
             elif args.command == "cleanup-user-data":
-                summary = _cleanup_user_data(session, datetime.now(timezone.utc))
+                summary = _cleanup_user_data(
+                    session, datetime.now(timezone.utc), _build_email_sender()
+                )
                 session.commit()
                 print(summary)
             elif args.command == "notify-watchers":
-                smtp_host = os.environ.get("NORMLY_SMTP_HOST")
-                if smtp_host:
-                    email_sender = SmtpEmailSender(
-                        host=smtp_host,
-                        port=int(os.environ.get("NORMLY_SMTP_PORT", "587")),
-                        from_address=os.environ.get(
-                            "NORMLY_SMTP_FROM", "no-reply@normly.example"
-                        ),
-                        username=os.environ.get("NORMLY_SMTP_USERNAME"),
-                        password=os.environ.get("NORMLY_SMTP_PASSWORD"),
-                    )
-                else:
-                    email_sender = NullEmailSender()
+                email_sender = _build_email_sender()
                 acquired = session.execute(
                     sa.text("SELECT pg_try_advisory_lock(:key)"),
                     {"key": _NOTIFY_WATCHERS_LOCK_KEY},
