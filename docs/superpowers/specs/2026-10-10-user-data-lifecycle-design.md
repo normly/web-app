@@ -1,6 +1,6 @@
 # Design: Lebenszyklus der Nutzerdaten (Teil B)
 
-Stand: 2026-10-10 · Status: Entwurf, wartet auf Review. Folgt auf
+Stand: 2026-10-10 · Status: umgesetzt. Folgt auf
 `docs/superpowers/specs/2026-10-09-user-data-on-kb-import-design.md` (Teil A:
 Nutzerverweise beim Wissensbestand-Import). Setzt PR #19 (Tombstone-Sicherung
 im Rollback) voraus.

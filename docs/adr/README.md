@@ -1245,8 +1245,7 @@ Einspielen den Fremdschlüssel. Deshalb enthält jede Sicherung eine zweite,
   aufgebaute Produzenten-Datenbank mit neuen IDs kann mit stehengebliebenen
   Tombstones kollidieren (partieller Index aktiver Kanten u. a.) und endet in
   `ImportBlockedError`.
-- Aufbewahrung und Alterung von Tombstones sind offen (Teil B, Lebenszyklus der
-  Nutzerdaten).
+- Aufbewahrung und Alterung von Tombstones sind offen (auch nach ADR-027).
 - Die Rechteänderungs-Meldung (`RIGHTS_CHANGE`) für reine Änderungen von
   Rechtewerten, ohne dass das Dokument verschwindet, entsteht weiter beim
   Produzenten, nicht in Produktion.
@@ -1254,6 +1253,199 @@ Einspielen den Fremdschlüssel. Deshalb enthält jede Sicherung eine zweite,
   Manifest ist signiert.
 
 Details: `docs/superpowers/specs/2026-10-09-user-data-on-kb-import-design.md`.
+
+---
+
+## ADR-027 — Lebenszyklus der Nutzerdaten
+
+**Status:** beschlossen (2026-10-10); baut auf ADR-014, ADR-017, ADR-024 und
+ADR-026
+
+**Kontext:** Personenbezogene Daten sollen nur gespeichert werden, wenn ein
+Konto sie braucht, und nur so lange, wie der Zweck besteht; Betroffene sollen
+ihre Daten einsehen und löschen können, und eine Löschung soll eine
+Wiederherstellung aus Sicherungen überstehen. Die Bestandsaufnahme vom
+2026-10-10 zeigte Lücken:
+
+- Anonyme Chats wurden gespeichert (`chat_session`/`chat_message`, Cookie
+  `normly_session` mit 90 Tagen Laufzeit) und nie gelöscht, obwohl der Server
+  sie zum Antworten nicht braucht: Jede Frage wird einzeln beantwortet.
+- `account_session` und `account_token` wurden nie gelöscht (die Ablaufzeit
+  wurde nur geprüft); verlassene Registrierungen blieben ewig; ungelesene
+  Benachrichtigungen ebenso.
+- Es gab keinen Weg, einzelne Chat-Verläufe zu löschen.
+- Der Rollback (ADR-024) stellt Nutzerdaten vom Sicherungszeitpunkt wieder her:
+  zwischenzeitlich gelöschte Konten und Verläufe tauchten wieder auf.
+- Der Export (`GET /v1/accounts/export`) war unvollständig: Die
+  Beobachtungsliste nannte nur `work_id`, Zitate fehlten, und der
+  Chat-Sitzungs-Token (ein Geheimnis) stand im Export.
+
+**Entscheidung:**
+
+*Grundsatz.* Gespeichert wird nur, was ein Konto braucht. Fristen stehen als
+benannte Konstanten an einer Stelle (`core/src/normly_core/retention.py`) und
+werden von einem idempotenten Aufräumbefehl durchgesetzt.
+
+*Anonymer Chat ohne Speicherung.* `POST /v1/chat` ohne gültige Konto-Identität
+schreibt nichts in die Datenbank und antwortet mit `session_token: null`. Ein
+Chat-Token ohne gültiges Konto wird ignoriert. Das Frontend setzt für anonyme
+Nutzung kein Chat-Cookie und entfernt ein vorhandenes; die Unterhaltung lebt
+nur im Browser-Tab. Die Verknüpfung „anonyme Sitzung beim Anmelden ans Konto
+hängen“ entfällt bewusst. Das Kontingent bleibt davon unberührt: Es wird
+serverseitig über die Ratenbegrenzung gezählt (Cookie `normly_anon_id` plus
+Herkunftsadresse, `rate_limit_bucket`), nicht über Chat-Sitzungen
+(REQ-ACC-003). Vorhandene anonyme Verläufe (`account_id` leer) löscht der
+Aufräumbefehl.
+
+*Chats mit Konto* bleiben bis zur Löschung durch die Person oder durch die
+Kontolöschung. `DELETE /v1/chat/sessions/{id}` löscht einen eigenen Verlauf
+(204; 404 bei fremder oder unbekannter ID; 401 ohne Anmeldung),
+`DELETE /v1/chat/sessions` alle eigenen (`{"deleted": n}`); die Seitenleiste
+bietet beides mit Bestätigung.
+
+*Datenverzeichnis.* Alle Tabellen der Nutzerdaten-Gruppe (`USER_TABLES`):
+
+| Tabelle | Zweck | Personenbezug | Frist | Löschweg |
+|---|---|---|---|---|
+| `account` | Konto, Anmeldung | E-Mail, Name, Passwort-Hash, Avatar | bis zur Kontolöschung; **verlassene Registrierung** (E-Mail nie bestätigt, älter als 30 Tage, ohne Google-Verknüpfung, ohne irgendeine Konto-Sitzung) nach 30 Tagen | Kontolöschung durch die Person (kaskadiert auf alle Tabellen mit Kontobezug); Aufräumbefehl |
+| `account_session` | angemeldete Sitzung | Kontobezug, Sitzungs-Token; keine IP, kein User-Agent | 7 Tage nach Ablauf | Aufräumbefehl; Kontolöschung |
+| `account_google_identity` | Verknüpfung mit Google-Anmeldung | Google-Kennung, Kontobezug | bis zur Kontolöschung | Kontolöschung |
+| `account_token` | Einmal-Token (Bestätigung, Zurücksetzen, Magic Link) | Kontobezug | 24 Stunden nach Ablauf oder Verwendung | Aufräumbefehl; Kontolöschung |
+| `oauth_state` | CSRF-Schutz der Google-Anmeldung | keiner (Zufallswert) | unverändert (1 Stunde) | bestehende Bereinigung |
+| `watchlist` | Beobachtungsliste | Kontobezug, Interessen | bis zur Kontolöschung oder Entfernen durch die Person | Person; Kontolöschung |
+| `notification` | Meldungen | Kontobezug, beobachtetes Werk | gelesen 60 Tage, ungelesen 365 Tage nach Anlage | Aufräumbefehl; Kontolöschung |
+| `notified_edge`, `notified_retirement`, `rights_notification_baseline` | Buchführung gegen Doppelmeldungen | Kontobezug | bis zur Kontolöschung | Kontolöschung |
+| `chat_session`, `chat_message`, `chat_message_citation` | Chat-Verläufe mit Konto | Fragen und Antworten der Person | keine Frist; anonyme Altzeilen (`account_id` leer) werden gelöscht | Person (pro Verlauf oder alle); Kontolöschung; Aufräumbefehl für Altbestand |
+| `rate_limit_bucket` | Ratenbegrenzung und Kontingent | pseudonymer Schlüssel aus Browser-Kennung und Herkunftsadresse | unverändert (10 Minuten) | bestehende Bereinigung |
+| `deletion_log` | Löschprotokoll (siehe unten) | keine: nur Art, Kennung, Zeitpunkt | 90 Tage | Aufräumbefehl |
+
+Der Avatar liegt in `account` und verschwindet mit dem Konto oder beim
+Entfernen. Das Datenverzeichnis ist neu zu bewerten, sobald `account_session`
+IP-Adressen oder User-Agent speichert (heute nicht der Fall).
+
+*Verlassene Registrierungen.* Die Regel ist bewusst enger als „unbestätigt“:
+Google-Konten werden nie als bestätigt markiert (`email_verified_at` bleibt
+leer), und Konten mit Passwort können sich auch ohne Bestätigung anmelden. Ein
+Konto in Benutzung hat daher eine Google-Verknüpfung oder mindestens eine
+`account_session`-Zeile (auch eine abgelaufene, solange sie nicht gelöscht
+ist; die Löschfrist der Sitzung beginnt erst 7 Tage nach Ablauf). Nur ein Konto
+ohne beides, nie bestätigt und älter als 30 Tage, gilt als verlassen. Der
+Löschlauf sperrt die Kandidaten und prüft die Bedingung erneut, damit eine
+gleichzeitige Bestätigung, Anmeldung oder Google-Verknüpfung nicht verloren
+geht.
+
+*Aufräumbefehl.* `python -m normly_core.pipeline cleanup-user-data` setzt alle
+Fristen der Tabelle durch (Sitzungen, Tokens, verlassene Registrierungen,
+gelesene und ungelesene Benachrichtigungen, anonyme Chat-Altbestände,
+Löschprotokoll), ist idempotent und gibt nur Zähler aus. Der systemd-Timer
+`normly-cleanup` (täglich 04:00 UTC) startet über `scripts/normly-cleanup`; das
+Skript überspringt den Lauf mit Exitcode 0, solange `state/deploy.lock`
+existiert. `cleanup-notifications` bleibt als Befehl bestehen.
+
+*Export (Auskunft).* `GET /v1/accounts/export` liefert synchron als JSON:
+Profil, Avatar (Data-URL), Beobachtungsliste mit lesbaren Dokumentkennungen
+(alle Dokumente des Werks, auch zurückgezogene), Benachrichtigungen und Chats
+mit Antworttyp und Zitaten (lesbare Dokumentkennung und Segment-ID). Nicht
+enthalten: `session_token` (stattdessen die Sitzungs-ID), Passwort-Hash,
+Tokens und Buchführung.
+
+*Löschprotokoll und Wiederholung.* Tabelle `deletion_log(kind, entity_id,
+deleted_at)` (`kind` ist `account` oder `chat_session`; Migration 0035). Der
+Eintrag entsteht in derselben Transaktion wie jede Löschung (Kontolöschung,
+Verlauf löschen, Aufräumen verlassener Registrierungen), enthält keine
+personenbezogenen Daten, ist Teil der Nutzerdaten-Sicherung und wird nach
+90 Tagen bereinigt (siehe Folgen). Der Kern bietet
+`python -m normly_core.exchange export-deletions --since <ISO-8601>` (JSON auf
+stdout) und `replay-deletions` (JSON auf stdin; wendet die Löschungen über die
+normalen Löschfunktionen erneut an, idempotent, schon fehlende Einträge werden
+trotzdem ins Protokoll geschrieben); `replay-deletions --check` meldet ohne
+Datenbank, ob das Image den Befehl kennt.
+
+Im Rollback (ADR-024): Mit dem Image des Releases, dessen Daten verworfen werden
+(`$from`), werden die Löschungen seit dem Sicherungszeitpunkt **minus eine
+Stunde** gelesen (Sicherheitsrand im Skript; eine doppelt angewendete Löschung
+ist harmlos, weil UUIDs nie wiederverwendet werden). Dieser erste Export speist
+Banner und die Entscheidung über `replay-deletions --check` im Image des
+**vorherigen** Release (Exitcode 2 heißt „nicht unterstützt“, jeder andere
+Fehler bricht ab). Nach dem Stopp der Dienste und vor dem DROP folgt ein zweiter
+Export; dieses Dokument wird nach `pg_restore` und der Tombstone-Wiederherstellung
+vom vorherigen Image angewendet. Schlägt der zweite Export fehl, bricht der
+Rollback vor dem DROP ab (Datenbank unverändert, Hinweis zum Neustart).
+Eine fehlende Tabelle `deletion_log` (Release vor diesem Feature) gilt als leere
+Liste. Kennt das vorherige Image den Befehl nicht, nennt das Banner Anzahl und
+die ersten 20 `kind:id`; die vollständige Liste liegt in
+`$STATE/rollback-pending-deletions.json` (0600) und muss von Hand erneut gelöscht
+werden.
+
+**Begründung:**
+
+- Datensparsamkeit: Was der Server zum Antworten nicht braucht, wird nicht
+  gespeichert. Das passt zu ADR-017 („ohne Konto entstehen keine
+  personenbezogenen Daten“): Anonyme Nutzung bleibt vollständig, ohne dass der
+  Verlauf anfällt.
+- Kurze, benannte Fristen für technische Daten (Sitzungen, Tokens,
+  Benachrichtigungen), keine Frist für Inhalte, die die Person selbst anlegt
+  und jederzeit selbst löschen kann.
+- Die Regel für verlassene Registrierungen löscht nur, was nachweislich nie in
+  Benutzung war; ein falsch gelöschtes Konto wäre ein Datenverlust, ein zu
+  spät gelöschtes nur ein gespeicherter Datensatz.
+- Das Löschprotokoll enthält nur Kennungen. Es ist deshalb selbst keine
+  Kopie der gelöschten Daten und kann als Teil der Nutzerdaten-Sicherung
+  mitlaufen; ohne Kennung bliebe eine Löschung nach Rollback oder Restore
+  unwirksam.
+- Der Export bleibt synchron und lesbar (Kennungen statt interner IDs, wo
+  möglich); ein Geheimnis wie der Chat-Token ist kein Datum der Person.
+
+**Verworfen:**
+
+- *Frist auch für Chats mit Konto:* Die Person legt sie selbst an, kann sie
+  selbst löschen, und sie sind der Zweck des Kontos („Verläufe“, REQ-ACC-004).
+  Eine stille Löschung wäre ein Funktionsverlust ohne Datenschutzgewinn.
+- *Kurzfristige Speicherung anonymer Sitzungen:* Der Server braucht sie nicht;
+  jede Speicherung wäre Daten ohne Zweck, und das Cookie bliebe nötig.
+- *Kryptographisches Löschen je Konto in Sicherungen:* Ein Schlüssel je Konto
+  im Sicherungsformat wäre eine große Änderung an Sicherung und Restore; das
+  Löschprotokoll mit Replay erreicht für diesen Zweck dasselbe Ergebnis nach
+  Wiederherstellung, und die Nachwirkung ist zeitlich begrenzt. (Für
+  lizenzierte Bestände bleibt ADR-014 maßgeblich.)
+- *Asynchroner Export per E-Mail-Link:* Mehr Infrastruktur (Warteschlange,
+  Ablage, Link-Ablauf) und mehr gespeicherte Kopien, ohne dass der Umfang es
+  verlangt.
+- *Löschen aller unbestätigten Konten:* Google-Konten sind nie „bestätigt“ und
+  Passwort-Konten können sich unbestätigt anmelden; die Regel würde
+  Konten in Benutzung löschen.
+
+**Folgen / offen:**
+
+- *Nachwirkung in Sicherungen.* Eine Löschung wirkt in der Datenbank sofort, in
+  Sicherungen erst, wenn sie auslaufen: Flex 30 Tage; eigene, `age`-verschlüsselte
+  Sicherungen bis zu rund zwei Monate (7 tägliche, 2 monatliche Anker,
+  3 Pre-Rollout-Sicherungen). Das Löschprotokoll sorgt dafür, dass Löschungen
+  einen Rollback oder Restore überstehen. Es wird nach 90 Tagen bereinigt, länger als
+  tägliche und monatliche Sicherungen halten. Eine Pre-Rollout-Sicherung kann
+  älter werden, wenn lange kein Rollout folgt; wird aus einer Sicherung
+  wiederhergestellt, die älter als 90 Tage ist, kann das Löschprotokoll die
+  Löschungen aus der Zwischenzeit nicht mehr nachziehen.
+- *Fachliche Prüfung.* Die Fristen sind Entscheidungen des Projekts und sollten
+  von einer Fachperson für Datenschutz geprüft werden; dieses Dokument ist keine
+  Rechtsberatung.
+- Datenschutzerklärung und Verzeichnis der Verarbeitungstätigkeiten (Art. 30
+  DSGVO) sind eigene Rechtstexte und nicht Teil dieser Arbeit.
+- *Tombstones* (ADR-026): Aufbewahrung und Alterung bleiben offen.
+- Ein vorheriges Release ohne `replay-deletions` braucht manuelles Nachlöschen
+  (siehe oben); das gilt auch für den Restore-Test und die
+  Notfall-Wiederherstellung aus Flex (Betriebsguide).
+- Der Aufräum-Timer prüft `state/deploy.lock`, nimmt die Sperre aber nicht
+  selbst. Bleibt eine verwaiste Sperre stehen, überspringt er täglich still.
+- Löschen inaktiver Konten nach Frist mit Vorwarnung per E-Mail ist nicht
+  umgesetzt.
+- `account_session` speichert weder IP noch User-Agent; ändert sich das, sind
+  Datenverzeichnis und Frist neu zu bewerten.
+- Die Verknüpfung „anonym → Konto beim Anmelden“ entfällt; wer anonym gechattet
+  hat, behält den Verlauf nur im geöffneten Tab.
+
+Details: `docs/superpowers/specs/2026-10-10-user-data-lifecycle-design.md`,
+Betrieb in `docs/guide/operations.md`.
 
 ---
 
@@ -1270,12 +1462,14 @@ Details: `docs/superpowers/specs/2026-10-09-user-data-on-kb-import-design.md`.
 | Nutzungsvorbehalte je Quelle (§ 44b Abs. 3 UrhG) | laufende Aufgabe | Prüfung datiert und belegt im Quellenregister, mit Wiedervorlage |
 | Rechtliche Bewertung je Rechtsraum | laufende Aufgabe | Braucht mittelfristig eine zuständige Rolle, keine einmalige Klärung |
 | Apple-Provision bei digitalen Abos | offen | In der EU inzwischen Alternativen über externe Zahlungswege — vor Store-Release prüfen |
-| Aufbewahrungsfristen der Sicherungskopien | offen | Bestimmt, wie lange ein vernichteter Schlüssel vorgehalten werden muss, bevor Backups auslaufen |
+| Aufbewahrungsfristen der Sicherungskopien | offen | (Nutzerdaten: Höchstfristen in ADR-027 festgehalten.) Bestimmt, wie lange ein vernichteter Schlüssel vorgehalten werden muss, bevor Backups auslaufen |
 | STACKIT-Repository `jwokittel/normly-webapp` | entschieden (2026-10-09): löschen | Der Betreiber löscht es im STACKIT-Portal (Nachtrag zu ADR-021); danach den Eintrag streichen |
 | Personennamen im öffentlichen Wissensbestand-Dump | entschieden (2026-10-09): Rolle `normly maintainers` | Umgesetzt im Export (ADR-025); Eintrag nach dem ersten öffentlichen Dump streichen |
-| Aufbewahrung und Alterung von Tombstones | offen | Wird mit dem Lebenszyklus der Nutzerdaten (Teil B) entschieden (ADR-026) |
+| Aufbewahrung und Alterung von Tombstones | offen | Ob Kennungen zurückgezogener Dokumente zeitlich begrenzt werden; ADR-027 hat es nicht entschieden (ADR-026) |
 | Identität bei Neulieferung nach Widerruf | offen | Neue Dokumentknoten übernehmen Beobachtungen der Tombstones nicht; Produkt- und Identitätsentscheidung (ADR-026) |
 | Signaturschlüssel des Wissensbestand-Dumps | offen | Schlüsselzeremonie, öffentlichen Schlüssel ins Repository einchecken (ADR-025) |
+| Fachliche Prüfung der Aufbewahrungsfristen für Nutzerdaten | offen | Durch eine Fachperson für Datenschutz; dazu Datenschutzerklärung und Verzeichnis der Verarbeitungstätigkeiten als eigene Rechtstexte (ADR-027) |
+| Löschen inaktiver Konten mit Vorwarnung | offen | Nicht umgesetzt; Frist und Warn-E-Mail entscheiden (ADR-027) |
 | Sicherungen bei lizenzierten Beständen | offen | Kryptographisches Löschen (ADR-014) für die kommerzielle Schicht; Flex-PITR und Objektsperre klären (ADR-024) |
 
 **Hinweis:** Die rechtlichen Einschätzungen in diesem Dokument sind

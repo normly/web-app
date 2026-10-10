@@ -79,7 +79,7 @@ sudo docker cp "$CID:/app/deploy/scripts/." /opt/normly/bin/
 sudo docker cp "$CID:/app/deploy/systemd/." /etc/systemd/system/
 sudo docker rm "$CID"
 sudo chmod 755 /opt/normly/bin/normly-deploy /opt/normly/bin/normly-backup \
-  /opt/normly/bin/normly-backup-retention.py
+  /opt/normly/bin/normly-backup-retention.py /opt/normly/bin/normly-cleanup
 ```
 
 The first installation is a manual step, because the script that verifies
@@ -195,7 +195,8 @@ shred -u /root/normly-backup.key
 Stop the backup timer while a rollback runs (`sudo systemctl stop
 normly-backup.timer`, start it again afterwards): the timer does not take the
 deploy lock, and a backup in the middle of a rollback would capture a
-half-restored database.
+half-restored database. The cleanup timer needs no such care: `normly-cleanup`
+skips its run while `state/deploy.lock` exists (see "Cleaning up user data").
 
 Before it changes anything, the script runs three checks and refuses (nothing
 changed) if any fails:
@@ -219,6 +220,23 @@ changed) if any fails:
   possible while restoring user data that points at withdrawn documents) and
   the rollback continues.
 
+- **Deletions since the backup.** Accounts and chats that users deleted after
+  the backup would come back with the restore. The script reads them first,
+  with the image of the release whose data is discarded (the failed tag after a
+  failed rollout, otherwise the current tag), because that release wrote the
+  deletion log: `python -m normly_core.exchange export-deletions --since
+  <backup stamp minus 1 hour>`. The hour is a safety margin: a deletion logged
+  shortly before the dump finished may or may not be inside it, and replaying
+  one that is already gone is harmless (identifiers are never reused). The
+  export goes to a file and is validated. If it cannot be made or is invalid,
+  the rollback stops before the banner and changes nothing. If the database has
+  no `deletion_log` table (a release from before the feature), the list is
+  empty and no image is started. The file feeds the banner and the next check.
+- **Can the previous release replay deletions?** If the export has entries, the
+  script runs `replay-deletions --check` in the **previous** release's image.
+  Exit code 0 means supported; exit code 2 (unknown command) means not
+  supported; any other failure aborts the rollback before the banner.
+
 **Public key.** The signature is checked against the public key, resolved in
 this order: `--public-key PATH`, the environment variable
 `NORMLY_KB_PUBLIC_KEY_FILE`, the key packaged with the build. Until the key
@@ -233,13 +251,29 @@ If the recorded knowledge-base version is `none`, the banner says so
 explicitly: the knowledge base will be **empty** after the rollback, and only
 the Flex backup can restore it. The confirmation is still required.
 
+If deletions will be replayed, the banner says how many. If the previous
+release cannot replay them (it predates this feature), the banner instead
+warns: re-delete these by hand after the rollback, and shows their number and
+the first 20 as `kind:id` (`account` or `chat_session`). The full list is
+written later, see below.
+
 It then prints what will be discarded and asks you to type the target tag
 **without** the `v` (for example `0.1.0`); `--yes` skips the question for
 scripted runs.
 
 Then it:
 
-1. stops the services;
+1. stops the services, and takes the deletion export a **second** time (same
+   image, same time, same validation): deletions made between the first export
+   and the stop would otherwise be missed. This second file is the one that is
+   replayed. If it fails, the rollback aborts **before** the `DROP`: the
+   services are stopped, the database is unchanged, and the message prints a
+   restart command that pins `NORMLY_IMAGE_TAG` to the stopped release (or run
+   the rollback again). If the previous release cannot replay deletions and the
+   second export still has entries, the file is copied to
+   `/opt/normly/state/rollback-pending-deletions.json` (mode 0600) and a
+   message names it; the file is deleted at the start of every rollback run, so
+   it always belongs to the last run;
 2. drops **all** tables in the `public` schema (the list is read from the
    database, so tables added by the newer release go too; the schema itself
    stays, so the pgvector extension survives);
@@ -261,7 +295,21 @@ Then it:
    withdrawn documents. This step is skipped (with the warning above) for
    backups without a tombstone file;
 6. restores the user data with `pg_restore --data-only`;
-7. starts the previous release and waits for it to become healthy.
+7. replays the deletions: `python -m normly_core.exchange replay-deletions`
+   reads the second export on stdin, in the previous release's image, and
+   deletes the accounts and chats again through the normal deletion functions.
+   It is idempotent. Entries whose entity is already gone are counted as such
+   and still written to the new deletion log, so a later rollback to an older
+   backup stays complete. The step is skipped when there is nothing to replay,
+   and replaced by the manual list above when the previous release does not
+   support it;
+8. starts the previous release and waits for it to become healthy.
+
+**If the previous release could not replay deletions**, the restored database
+contains the accounts and chats users had deleted. Delete them by hand from
+`rollback-pending-deletions.json` (an `entries` list of `kind` and `entity_id`)
+before you let users back in; the restored services are already running, so do
+this promptly.
 
 If a step fails after the tables were dropped, the script prints a recovery
 message: the database is incomplete, services may be stopped or partly
@@ -273,7 +321,7 @@ marker is cleared.
 
 `normly-backup` dumps **only the user-data tables** (`python -m
 normly_core.exchange tables user` lists them): accounts, chats, watchlists,
-notifications, rate-limit buckets. The knowledge base is not backed up; it is
+notifications, rate-limit buckets, and the deletion log. The knowledge base is not backed up; it is
 reproduced from its dump version. The only knowledge-base rows a backup adds
 are the retired identifiers described below. Flex's own daily backup of the whole database
 (30 days) remains the operational safety net.
@@ -410,10 +458,32 @@ docker run --rm -i --network host --entrypoint python \
 # 7. Restore the user data
 pg_restore --dbname="$PGURL" --data-only --exit-on-error $BASE.dump
 
-# 8. Look at it
+# 8. Replay the deletions made since the backup, as a rollback does.
+#    Export them on the PRODUCTION VM (the release that wrote the log), from
+#    one hour before the backup stamp on (BASE 20261009T033000Z ->
+#    2026-10-09T02:30:00+00:00):
+cd /opt/normly/current && sudo docker compose run --rm --no-deps -T \
+  --entrypoint python pipeline -m normly_core.exchange export-deletions \
+  --since 2026-10-09T02:30:00+00:00 > deletions.json
+#    Copy deletions.json to the test machine, then apply it to the test database
+#    with the image of the release named in meta.json:
+docker run --rm -i --network host --entrypoint python \
+  -e NORMLY_DATABASE_URL="$APPURL" \
+  ghcr.io/normly/web-app/pipeline:0.2.0 \
+  -m normly_core.exchange replay-deletions < deletions.json
+#    prints "replayed deletions: N applied, M already gone"
+
+# 9. Look at it
 psql "$PGURL" -c "SELECT relname, n_live_tup FROM pg_stat_user_tables ORDER BY relname"
 psql "$PGURL" -c 'SELECT count(*) FROM account'
 ```
+
+Step 8 proves that deleted accounts and chats stay deleted after a restore:
+the accounts and chats listed in `deletions.json` must be gone from the test
+database afterwards. If the release named in `meta.json` predates this feature,
+`replay-deletions` does not exist in its image (the call fails with a usage
+error); delete the listed identifiers by hand instead. If the production database has no
+`deletion_log` table yet, there is nothing to replay.
 
 Replace `NORMLY_KB_BASE_URL` with the real public dump URL. If `kb_version` is
 `none`, skip step 5. A backup from before the tombstone file existed has no
@@ -423,6 +493,108 @@ withdrawn documents. For exact counts, run `SELECT count(*)` for each table
 that `python -m normly_core.exchange tables user` lists and compare with
 production. Clean up afterwards: `docker rm -f restore-test`, and delete the
 decrypted dump.
+
+## Cleaning up user data
+
+`python -m normly_core.pipeline cleanup-user-data` enforces the retention
+periods for user data. It is idempotent, prints counters only (no personal
+data) and runs once a day from the systemd timer `normly-cleanup` (04:00 UTC,
+`Persistent=true`, so a missed run is caught up). The timer starts
+`/opt/normly/bin/normly-cleanup`, which runs the command in the current release
+(`docker compose run --rm --no-deps -T pipeline cleanup-user-data`). The unit
+files ship in the signed image and were copied to `/etc/systemd/system/` in
+"Installing the scripts"; enable the timer as the backup timer:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now normly-cleanup.timer
+systemctl list-timers normly-cleanup.timer
+```
+
+To run it by hand: `sudo /opt/normly/bin/normly-cleanup`. The output is one
+line, for example `sessions=3 tokens=7 unverified_accounts=0
+notifications_read=12 notifications_unread=0 anonymous_chats=0 deletion_log=0`.
+
+The script skips the run (message on stderr, exit code 0) while
+`/opt/normly/state/deploy.lock` exists, because a deploy or rollback drops and
+restores tables. It only **checks** for the lock and does not take it. A stale
+lock from a crashed run (see "Rolling back") therefore makes the timer skip
+silently every day until you remove the lock; check `journalctl -u
+normly-cleanup` after an incident.
+
+The periods are named constants in `core/src/normly_core/retention.py`:
+
+| Data | Deleted when |
+|---|---|
+| expired account sessions | 7 days after expiry |
+| one-time account tokens (verification, reset, magic link) | 24 hours after expiry or use |
+| abandoned registrations, with their tokens and chats | email never verified, created more than 30 days ago, **no** Google identity and **no** session row at all |
+| notifications | read: 60 days after creation; unread: 365 days after creation |
+| deletion log entries | 90 days |
+| chats without an account (legacy data) | on every run |
+
+An account that was never verified but is in use (a Google account, or a
+password account that has logged in) is **not** an abandoned registration and is
+never removed by this command. Chats of accounts have no retention period: the
+user deletes them, or the account. The reasoning is in
+[ADR-027](../adr/README.md#adr-027-lebenszyklus-der-nutzerdaten). The periods
+are project decisions and should be reviewed by a data-protection professional.
+
+## Deletions and backups
+
+A deletion takes effect in the database at once. In backups the data stays
+until they expire:
+
+| Backup | Deleted data can remain for |
+|---|---|
+| PostgreSQL Flex daily backup | 30 days |
+| own `age`-encrypted backups | up to roughly two months (7 daily, the newest of each of the last 2 calendar months, and the 3 newest pre-rollout backups; see "Backups") |
+
+The deletion log (table `deletion_log`; kind `account` or `chat_session`,
+identifier and time, no personal data) is how deletions survive a rollback or a
+restore: it is part of the user-data backup, written in the same transaction as
+each deletion, and pruned after 90 days. A pre-rollout backup can be older than
+that if no rollout followed for a long time; a restore from a backup older than
+90 days cannot re-apply deletions from the time since.
+
+### Emergency restore from the Flex backup
+
+The scripted rollback does this for you; restoring from PostgreSQL Flex (clone
+or point-in-time restore in the STACKIT portal) does not. Do the following
+yourself, in this order:
+
+1. Before you restore (the live database is still the one that holds the log),
+   export the deletions made since the restore point, one hour earlier than the
+   point to be safe, in the current release:
+
+   ```bash
+   cd /opt/normly/current
+   sudo docker compose run --rm --no-deps -T --entrypoint python pipeline \
+     -m normly_core.exchange export-deletions \
+     --since 2026-10-09T02:30:00+00:00 > /root/deletions.json
+   ```
+
+   `--since` takes an ISO-8601 time with a timezone. Check that the file is a
+   JSON document with an `entries` list. Keep it safe: it holds identifiers
+   only, but treat it as internal.
+2. Restore the database from Flex and point `NORMLY_DATABASE_URL` at it. If
+   the restored schema is older than the running release, run the migrations of
+   the release that matches it first.
+3. Apply the deletions again, with the image of the release that matches the
+   restored schema:
+
+   ```bash
+   sudo docker compose run --rm --no-deps -T --entrypoint python pipeline \
+     -m normly_core.exchange replay-deletions < /root/deletions.json
+   ```
+
+   It prints `replayed deletions: N applied, M already gone`. If that release
+   predates this feature, the command does not exist: delete the listed
+   accounts and chat sessions by hand.
+4. Start the services and delete `/root/deletions.json` when you are done.
+
+If the live database is lost, there is no log to export; the deletions since
+the restore point cannot be re-applied from it.
 
 ## Knowledge-base dumps
 
