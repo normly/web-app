@@ -441,6 +441,47 @@ class PostgresDocumentRepository:
         ).scalars()
         return [_document_to_domain(row) for row in rows]
 
+    def documents_for_works_unchecked(
+        self, work_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, list[Document]]:
+        """
+        Every Document (retired ones, i.e. tombstones, included) of each work,
+        grouped by work id. Ungated by rights classification on purpose: the
+        personal-data export reads it only to print the identifiers (issuer,
+        number, edition, part) of works the account holder watches -- never
+        content. Not for any content-serving path.
+        """
+        if not work_ids:
+            return {}
+        rows = self._session.execute(
+            select(DocumentORM)
+            .where(DocumentORM.work_id.in_(work_ids))
+            .order_by(
+                DocumentORM.origin_issuer, DocumentORM.origin_number,
+                DocumentORM.edition, DocumentORM.part, DocumentORM.id,
+            )
+        ).scalars()
+        grouped: dict[uuid.UUID, list[Document]] = {}
+        for row in rows:
+            grouped.setdefault(row.work_id, []).append(_document_to_domain(row))
+        return grouped
+
+    def documents_by_ids_unchecked(
+        self, document_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, Document]:
+        """
+        Documents (tombstones included) by id. Ungated by rights
+        classification on purpose: the personal-data export reads it only to
+        print the readable identifiers of documents the account holder's own
+        chat messages cited -- never content. Not for any content-serving path.
+        """
+        if not document_ids:
+            return {}
+        rows = self._session.execute(
+            select(DocumentORM).where(DocumentORM.id.in_(document_ids))
+        ).scalars()
+        return {row.id: _document_to_domain(row) for row in rows}
+
     def add_designation(
         self,
         *,
@@ -2603,6 +2644,27 @@ class PostgresChatRepository:
         self._session.add(orm)
         self._session.flush()
         return _chat_message_citation_to_domain(orm)
+
+    def citations_for_messages(
+        self, message_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, list[ChatMessageCitation]]:
+        # Ungated on purpose: only identifiers of the account holder's own
+        # history, never content (see the Protocol docstring).
+        if not message_ids:
+            return {}
+        rows = self._session.execute(
+            select(ChatMessageCitationORM)
+            .where(ChatMessageCitationORM.message_id.in_(message_ids))
+            .order_by(
+                ChatMessageCitationORM.document_id,
+                ChatMessageCitationORM.segment_id.nulls_last(),
+                ChatMessageCitationORM.id,
+            )
+        ).scalars()
+        grouped: dict[uuid.UUID, list[ChatMessageCitation]] = {}
+        for row in rows:
+            grouped.setdefault(row.message_id, []).append(_chat_message_citation_to_domain(row))
+        return grouped
 
     def _delete_sessions_where(self, condition) -> int:
         ids = self._session.execute(select(ChatSessionORM.id).where(condition)).scalars().all()

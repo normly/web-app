@@ -211,13 +211,15 @@ class DocumentRepository(Protocol):
     `rights_classification`; there is deliberately no method that returns
     documents unfiltered.
 
-    `PostgresDocumentRepository` additionally carries four ungated methods
+    `PostgresDocumentRepository` additionally carries six ungated methods
     that are **not** part of this Protocol and must not be treated as
     content-serving API: `get_document_unchecked` (existence check for
     pipeline and administrative use, e.g. proving a document node survived a
     delivery revocation), `list_documents_for_work_unchecked` (every Document
     for a Work, regardless of jurisdiction or rights classification —
-    notify-watchers, Task 6), `list_designations` and `list_titles` (identity
+    notify-watchers, Task 6; batch variants `documents_for_works_unchecked` and
+    `documents_by_ids_unchecked` serve the personal-data export and return
+    identifiers only), `list_designations` and `list_titles` (identity
     resolution and pipeline metadata — designations are the identity of a node
     across national adoptions, independent of any rights question). They are
     internal implementation methods.
@@ -1018,6 +1020,21 @@ class ChatRepository(Protocol):
         self, *, message_id: uuid.UUID, document_id: uuid.UUID,
         segment_id: uuid.UUID | None,
     ) -> ChatMessageCitation: ...
+
+    def citations_for_messages(
+        self, message_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, list[ChatMessageCitation]]:
+        """
+        Citations of the given messages, grouped by message id (messages
+        without citations are absent from the result).
+
+        Deliberately ungated by rights classification: a citation row holds
+        only two identifiers (document id, segment id) of the account
+        holder's own chat history and never any content, so the personal-data
+        export (Art. 15/20 GDPR) can read it without a jurisdiction. Callers
+        pass message ids they already resolved through the owning session.
+        """
+        ...
 
 
 class NotificationPreference(str, Enum):
