@@ -25,8 +25,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   if (backendResponse.ok && typeof body.session_token === "string") {
     applySessionCookies(response, { chatSessionToken: body.session_token });
-  } else if (chatSessionToken) {
-    // No token back (anonymous, or an error): a stale chat cookie must not linger.
+  } else if (backendResponse.ok && chatSessionToken) {
+    // Answered without a token (anonymous): a stale chat cookie must not linger.
+    // An error answer says nothing about the cookie, so it stays.
     clearChatSessionCookie(response);
   }
 

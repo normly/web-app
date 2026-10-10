@@ -980,12 +980,11 @@ class ChatRepository(Protocol):
     """
     Chat session identity and message history.
 
-    A session is anonymous (`account_id is None`) until a valid account
-    session token links it (see the `chat/` package's session-resolution
-    logic) — linking never happens in this layer, it is a plain field
-    update the caller drives after verifying the token elsewhere (`chat/`
-    talks to `accounts/` over HTTP; this repository has no opinion on
-    accounts beyond storing the id).
+    Only conversations of signed-in accounts are stored: `chat/` creates a
+    session with the account id it verified over HTTP against `accounts/`
+    (this repository has no opinion on accounts beyond storing the id).
+    Rows without an account id are legacy data; the cleanup command deletes
+    them. The user can delete one session or all of theirs.
     """
 
     def create_session(
@@ -996,8 +995,6 @@ class ChatRepository(Protocol):
     def get_session_by_token(self, session_token: str) -> ChatSession | None: ...
 
     def list_sessions_for_account(self, account_id: uuid.UUID) -> list[ChatSession]: ...
-
-    def link_account(self, session_id: uuid.UUID, account_id: uuid.UUID) -> None: ...
 
     def delete_anonymous_chat_sessions(self) -> int:
         """Deletes every session without an account (legacy rows); returns the count."""

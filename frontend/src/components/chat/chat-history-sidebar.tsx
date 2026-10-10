@@ -191,9 +191,10 @@ export function ChatHistorySidebar({ onNewChat }: { onNewChat: () => void }) {
               <SidebarMenu>
                 {bucket.sessions.map((session) => (
                   <SidebarMenuItem key={session.id}>
-                    {/* Plain text, not a link or button: no session-
-                        resumption feature exists (see Global Constraints)
-                        -- this must not look clickable. */}
+                    {/* The date is plain text, not a link or button: no
+                        session-resumption feature exists (see Global
+                        Constraints) -- it must not look clickable. The only
+                        control in the row is the delete button. */}
                     <div className="flex h-8 items-center justify-between gap-1">
                       <span className="rounded-md px-2 text-sm text-sidebar-foreground/70">
                         {new Date(session.created_at).toLocaleString(locale)}

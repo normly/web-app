@@ -170,4 +170,29 @@ describe("POST /api/chat", () => {
     expect(setCookie).toContain("normly_session=;");
     expect(setCookie.toLowerCase()).toMatch(/max-age=0/);
   });
+
+  it("keeps the chat cookie when the backend answers with an error (503)", async () => {
+    vi.stubEnv("NORMLY_API_BASE_URL", "http://api.internal");
+    vi.stubEnv("NORMLY_ACCOUNTS_BASE_URL", "http://accounts.internal");
+    vi.stubEnv("NORMLY_CHAT_BASE_URL", "http://chat.internal");
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ detail: "service temporarily unavailable" }), {
+        status: 503,
+      }),
+    );
+
+    const request = new NextRequest("http://localhost/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ jurisdiction: "DE", language: "de", message: "Testfrage" }),
+      headers: {
+        "content-type": "application/json",
+        cookie: "normly_session=live-token; normly_account_session=my-account-token",
+      },
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("set-cookie")).toBeNull();
+  });
 });

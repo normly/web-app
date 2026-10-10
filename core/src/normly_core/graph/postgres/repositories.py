@@ -2606,13 +2606,6 @@ class PostgresChatRepository:
         ).scalars()
         return [_chat_session_to_domain(row) for row in rows]
 
-    def link_account(self, session_id: uuid.UUID, account_id: uuid.UUID) -> None:
-        self._session.execute(
-            sa.update(ChatSessionORM)
-            .where(ChatSessionORM.id == session_id)
-            .values(account_id=account_id)
-        )
-
     def create_message(
         self, *, session_id: uuid.UUID, role: ChatMessageRole, content: str,
         answer_type: ChatAnswerType | None, created_at: datetime,
