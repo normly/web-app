@@ -118,9 +118,9 @@ def test_rollback_requires_confirmation(harness):
     assert result.returncode == 1
     assert "aborted" in result.stderr
     calls = harness.calls()
-    # the read-only deletion_log lookup of the preflight is not a change
+    # the read-only deletion_log lookups of the preflight are not a change
     assert not any(
-        c.startswith("pg_restore") or (c.startswith("psql") and "to_regclass" not in c)
+        c.startswith("pg_restore") or (c.startswith("psql") and "to_regclass" not in c and " since=" not in c)
         for c in calls
     )
     assert not any(" down" in c for c in calls)

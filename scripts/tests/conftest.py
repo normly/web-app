@@ -29,7 +29,19 @@ del_default='{"format": 1, "created_at": "2026-10-09T00:00:00+00:00", "entries":
 digest="sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 case "$(basename "$0")" in
   psql)
-    case " $* " in *to_regclass*) printf '%s\\n' "${FAKE_PSQL_REGCLASS-deletion_log}"; exit 0 ;; esac ;;
+    case " $* " in
+      *to_regclass*) printf '%s\\n' "${FAKE_PSQL_REGCLASS-deletion_log}"; exit 0 ;;
+      *" since="*)
+        # the deletion log query: rows "kind|entity_id|deleted_at"; optionally the
+        # second and later queries differ from the first (FAKE_PSQL_COUNTER)
+        out="${FAKE_PSQL_DELETIONS_OUT-}"
+        if [ -n "${FAKE_PSQL_COUNTER:-}" ]; then
+          if [ -e "$FAKE_PSQL_COUNTER" ]; then out="${FAKE_PSQL_DELETIONS_SECOND_OUT-$out}"; fi
+          : > "$FAKE_PSQL_COUNTER"
+        fi
+        [ -z "$out" ] || printf '%s\\n' "$out"
+        exit 0 ;;
+    esac ;;
   cosign)
     if [ -z "${FAKE_COSIGN_OUT:-}" ]; then
       printf '[{"critical":{"image":{"docker-manifest-digest":"%s"}}}]\\n' "$digest"

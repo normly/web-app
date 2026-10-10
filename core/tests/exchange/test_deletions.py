@@ -168,6 +168,30 @@ def test_parse_and_the_shell_validator_agree(name, tmp_path):
     assert (shell.returncode == 0) == valid, shell.stderr
 
 
+def test_the_shell_builder_and_build_document_agree(tmp_path):
+    a, b, c = uuid.UUID(int=1), uuid.UUID(int=2), uuid.UUID(int=3)
+    t1, t2 = SINCE + timedelta(hours=1), SINCE + timedelta(hours=2, microseconds=5)
+    entries = [("chat_session", b, t2), ("account", a, t2), ("account", c, t1)]
+    rows = "\n".join(
+        f"{kind}|{entity}|{when.strftime('%Y-%m-%dT%H:%M:%S.%f')}+00:00"
+        for kind, entity, when in entries
+    )
+    run = subprocess.run(
+        ["bash", "-c", '. "$1"; normly_build_deletions > "$2" && normly_check_deletions "$2"',
+         "_", str(ENV_SH), str(tmp_path / "shell.json")],
+        input=rows, capture_output=True, text=True,
+    )
+    assert run.returncode == 0, run.stderr
+    shell_doc = json.loads((tmp_path / "shell.json").read_text())
+    core_doc = json.loads(build_document(entries, created_at=SINCE))
+    assert shell_doc["format"] == core_doc["format"]
+    assert shell_doc["entries"] == core_doc["entries"]
+    assert set(shell_doc) == set(core_doc)
+    assert parse_document((tmp_path / "shell.json").read_text()) == [
+        ("account", c), ("account", a), ("chat_session", b),
+    ]
+
+
 # --- export ------------------------------------------------------------------
 
 

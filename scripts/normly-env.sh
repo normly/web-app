@@ -148,3 +148,65 @@ for entry in entries:
         sys.exit("entity_id is missing or not a UUID")
     stamp(entry.get("deleted_at"), "deleted_at")' "$1"
 }
+
+# normly_build_deletions
+#   Reads deletion log rows "kind|entity_id|deleted_at" (blank lines ignored) on
+#   stdin and prints the format-1 document on stdout: entries sorted by
+#   deleted_at, kind, entity_id, timestamps as ISO-8601 UTC. Same layout as
+#   normly_core.exchange.deletions.build_document (a test compares them). It
+#   only shapes the rows; normly_check_deletions judges the result.
+normly_build_deletions() {
+  python3 -c '
+import json, sys
+from datetime import datetime, timezone
+rows = []
+for line in sys.stdin.read().splitlines():
+    if not line.strip():
+        continue
+    parts = line.split("|")
+    if len(parts) != 3:
+        sys.exit("malformed deletion row %r" % line)
+    kind, entity_id, deleted_at = parts
+    try:
+        stamp = datetime.fromisoformat(deleted_at)
+    except ValueError:
+        sys.exit("malformed timestamp in %r" % line)
+    if stamp.tzinfo is None:
+        sys.exit("timestamp without timezone in %r" % line)
+    rows.append((stamp.astimezone(timezone.utc), kind, entity_id))
+doc = {
+    "format": 1,
+    "created_at": datetime.now(timezone.utc).isoformat(),
+    "entries": [
+        {"kind": k, "entity_id": e, "deleted_at": t.isoformat()} for t, k, e in sorted(rows)
+    ],
+}
+print(json.dumps(doc, indent=1))'
+}
+
+# normly_merge_deletions FILE FILE
+#   Union of two valid deletion documents on stdout, by kind and entity_id, the
+#   earliest deleted_at winning. Check both inputs with normly_check_deletions
+#   first.
+normly_merge_deletions() {
+  python3 -c '
+import json, sys
+from datetime import datetime, timezone
+merged = {}
+for path in sys.argv[1:]:
+    with open(path, encoding="utf-8") as handle:
+        for entry in json.load(handle)["entries"]:
+            stamp = datetime.fromisoformat(entry["deleted_at"]).astimezone(timezone.utc)
+            key = (entry["kind"], entry["entity_id"])
+            if key not in merged or stamp < merged[key]:
+                merged[key] = stamp
+doc = {
+    "format": 1,
+    "created_at": datetime.now(timezone.utc).isoformat(),
+    "entries": [
+        {"kind": k, "entity_id": e, "deleted_at": t.isoformat()}
+        for t, k, e in sorted((t, k, e) for (k, e), t in merged.items())
+    ],
+}
+print(json.dumps(doc, indent=1))' "$1" "$2"
+}
