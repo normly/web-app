@@ -135,3 +135,31 @@
 | ADR-027, Betriebsguide | Task 5 |
 
 **Risiken:** Der Replay muss gegen das Schema des **vorherigen** Release laufen (deshalb Prüfung des Befehls im vorherigen Image); die Löschfunktionen des Kerns kennen ggf. Tabellen, die im älteren Schema fehlen — der Replay läuft im vorherigen Image mit dessen Code und Schema; Frontend-Tests brauchen `npm ci` (Speicher); echte `docker compose run -T` mit stdin/stdout bleibt Teil der Live-Abnahme.
+
+---
+
+## Erweiterung: Vorwarnung vor dem Löschen verlassener Registrierungen
+
+**Anlass (Abschlussprüfung, I1 und Entscheidung des Nutzers 2026-10-10):** Die Regel „unbestätigt, älter als 30 Tage, ohne Google-Verknüpfung, ohne Konto-Sitzung“ löschte auch Passwort-Konten, die genutzt wurden und dann pausierten, ohne jede Ankündigung. Entscheidung: **Kein Konto wird still gelöscht; es braucht eine Vorwarn-E-Mail mit Frist.** Dieser Task ersetzt die direkte Löschung durch Warnen → Frist → Löschen und passt ADR-027, Betriebsguide und Spec an.
+
+### Task 6: Vorwarn-E-Mail für verlassene Registrierungen
+
+**Files:** Migration `core/migrations/versions/0036_add_account_deletion_warned_at.py`; `core/src/normly_core/graph/postgres/orm.py` (`AccountORM.deletion_warned_at`); `graph/domain.py` (Account-Dataclass nur wenn nötig, Protocol); `graph/postgres/repositories.py`; `core/src/normly_core/retention.py` (`ACCOUNT_DELETION_NOTICE_PERIOD = 14 Tage`); `core/src/normly_core/pipeline/cli.py` (`cleanup-user-data`); Tests in `core/tests/retention/`; Docs (ADR-027, `docs/guide/operations.md`, Spec).
+
+**Verhalten (verbindlich):**
+- „Verlassen“ = `email_verified_at IS NULL` AND `created_at < now - UNVERIFIED_ACCOUNT_MAX_AGE (30 Tage)` AND keine `account_google_identity` AND keine `account_session` (unverändert; die bestehende Hilfsmethode `_abandoned_registration_ids` bleibt die einzige Quelle der Bedingung).
+- Je Lauf von `cleanup-user-data`, in dieser Reihenfolge:
+  1. **Zurücksetzen:** Konten mit gesetztem `deletion_warned_at`, die nicht mehr „verlassen“ sind (bestätigt, Google-Verknüpfung oder Konto-Sitzung vorhanden), bekommen `deletion_warned_at = NULL`.
+  2. **Löschen:** Konten, die „verlassen“ sind und deren `deletion_warned_at < now - ACCOUNT_DELETION_NOTICE_PERIOD (14 Tage)` (strikt `<`) — mit der bestehenden Kaskade `delete_account` (Protokolleintrag wie bisher), mit der bestehenden Gegenprüfung/Sperre (`FOR UPDATE` und erneute Prüfung im selben Statement, jetzt einschließlich `deletion_warned_at`-Bedingung).
+  3. **Warnen:** Konten, die „verlassen“ sind und `deletion_warned_at IS NULL`: E-Mail an `account.email` über den vorhandenen `EmailSender` (`SmtpEmailSender` aus der `NORMLY_SMTP_*`-Umgebung wie in `notify-watchers`; `NullEmailSender` wenn kein SMTP-Host gesetzt ist). **Nur wenn der Versand gelungen ist**, wird `deletion_warned_at = now` gesetzt. Schlägt der Versand fehl, bleibt es bei NULL (Fehler wird protokolliert, nächster Lauf versucht erneut), der Lauf bricht nicht ab.
+- **Nie löschen ohne zugestellte Warnung:** Mit `NullEmailSender` (kein SMTP) wird nie eine Warnung gesetzt und damit nie gelöscht (ein Test dafür). Kein Konto wird im selben Lauf gewarnt und gelöscht (Reihenfolge 1 → 2 → 3, ein Konto, das in Schritt 3 gewarnt wurde, hat `deletion_warned_at = now`).
+- Die E-Mail: Betreff zweisprachig „Dein normly-Konto wird gelöscht / Your normly account will be deleted“; Text zweisprachig (Deutsch, dann Englisch) mit: das Konto wurde nie bestätigt und seit langem nicht genutzt; es wird am `<Datum = deletion_warned_at + 14 Tage, im ISO-Format YYYY-MM-DD>` gelöscht, wenn man sich bis dahin nicht anmeldet; Anmelde-URL `NORMLY_PUBLIC_BASE_URL` (Umgebungsvariable, wie der restliche Code sie nutzt; wenn nicht gesetzt, kein Link, nur der Hinweis „Melde dich bei normly an“); keine weiteren personenbezogenen Daten außer der Empfängeradresse; kein Token im Link.
+- Die Zusammenfassungszeile von `cleanup-user-data` wird um `warnings_sent=<n>` erweitert (Feld an der Stelle nach `unverified_accounts=<n>`; Anzahl tatsächlich zugestellter Warnungen); `unverified_accounts` zählt weiterhin gelöschte Konten.
+- Die Spalte `account.deletion_warned_at` (timestamptz, NULL) ist Teil der Nutzerdaten-Sicherung (Datenzeilen der Tabelle `account`, automatisch), wird **nicht** exportiert und nicht an Nutzer ausgegeben; `delete_account` und der Export sind unverändert.
+- Konstanten stehen in `retention.py`; ADR-027, Betriebsguide (Abschnitt Aufräumen: Ablauf Warnen/Frist/Löschen, SMTP-Voraussetzung, was passiert ohne SMTP, Zurücksetzen durch Anmeldung) und Spec („nicht bestätigte Konten“ → „verlassene Registrierungen mit Vorwarnung“) werden angepasst; die falsche Aussage in ADR-027/Betriebsguide, ein genutztes Konto werde „nie“ entfernt, wird durch die tatsächliche Regel ersetzt.
+
+- [ ] **Step 1: Failing tests** (`core/tests/retention/`, Fixtures wie in den vorhandenen Tests; ein Fake-`EmailSender`, der Aufrufe protokolliert und optional fehlschlägt): abandoned + ungewarnt → Mail an die richtige Adresse (Betreff/Text enthalten Datum und Zweisprachigkeit) und `deletion_warned_at` gesetzt; Versand schlägt fehl → NULL, kein Abbruch, kein Löschen; `NullEmailSender` → keine Warnung, keine Löschung auch bei sehr altem Konto; gewarnt vor 13 Tagen → bleibt; gewarnt vor 15 Tagen und weiterhin verlassen → gelöscht (Kaskade, Protokoll `account`); gewarnt, dann bestätigt/Google/Sitzung → `deletion_warned_at` NULL und nicht gelöscht; Grenze `deletion_warned_at == now - 14 Tage` → bleibt (strikt); kein Konto wird im selben Lauf gewarnt und gelöscht; Idempotenz (zweiter Lauf: keine zweite Mail, keine weitere Löschung); die Zusammenfassungszeile mit `warnings_sent`; ORM↔Migration, Determinismus, `test_tables.py`, `test_architecture.py`, Export-Test (kein `deletion_warned_at` im Export).
+- [ ] **Step 2:** `cd core && ../.venv/bin/pytest tests/retention -q` — Expected: FAIL.
+- [ ] **Step 3: Implementierung** wie oben (Migration `0036`, `down_revision = "0035"`; Repository-Methoden ohne `get_`/`list_`-Präfix; das CLI baut den `EmailSender` wie `notify-watchers` aus `NORMLY_SMTP_*`).
+- [ ] **Step 4:** fokussierte Tests einzeln, dann die komplette Core-Suite einmal.
+- [ ] **Step 5: Commit** `feat(retention): warn by e-mail before deleting abandoned registrations` (mit `-s` und Trailer).

@@ -138,6 +138,18 @@ gilt im Restore-Test und für eine Notfall-Wiederherstellung aus der Flex-Sicher
   Hinweis auf fachliche Prüfung), Betriebsguide (Timer, Aufräumen, Rollback-Schritt,
   Restore, Notfall-Wiederherstellung), Spec-Status.
 
+## Vorwarnung vor dem Löschen verlassener Registrierungen (Erweiterung)
+
+Entscheidung des Nutzers (2026-10-10): Ein Konto, dessen Registrierung abgeschlossen
+war, wird nie still gelöscht. Verlassene Registrierungen (unbestätigt, älter als
+30 Tage, ohne Google-Verknüpfung, ohne Konto-Sitzung) werden zuerst per E-Mail
+gewarnt (`account.deletion_warned_at`, neue Spalte, Migration 0036). 14 Tage nach
+der Warnung werden sie gelöscht, wenn sie dann noch alle Bedingungen erfüllen;
+Anmeldung, Bestätigung oder Google-Verknüpfung setzen die Warnung zurück. Ohne
+eingestellten SMTP-Versand (`NullEmailSender`) oder bei fehlgeschlagenem Versand
+wird nie gelöscht. Die Warnung ist zweisprachig (Deutsch/Englisch) und enthält
+nur Datum und Anmelde-URL.
+
 ## Nicht-Ziele
 
 - Datenschutzerklärung und Verzeichnis der Verarbeitungstätigkeiten als Rechtstext.
