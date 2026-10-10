@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 normly contributors
 
+import logging
 from datetime import datetime, timedelta, timezone
 
 import sqlalchemy as sa
@@ -113,6 +114,31 @@ def test_without_smtp_nothing_is_warned_or_deleted(db_session):
     assert first["unverified_accounts"] == second["unverified_accounts"] == 0
     assert _warned_at(db_session, account.id) is None
     assert _exists(db_session, account.id)
+
+
+def test_without_smtp_logs_one_line_and_no_traceback(db_session, caplog):
+    name = "normly_core.notifications.abandoned_registration"
+    # The Alembic fileConfig run by the migrated_engine fixture disables loggers.
+    logging.getLogger(name).disabled = False
+    caplog.set_level("WARNING", logger=name)
+    _account(db_session, "a@example.de")
+    _account(db_session, "b@example.de")
+
+    _cleanup_user_data(db_session, NOW, NullEmailSender())
+
+    records = [r for r in caplog.records if "SMTP" in r.getMessage()]
+    assert len(records) == 1
+    assert not any(r.exc_info for r in caplog.records)
+
+
+def test_warning_is_committed_per_mail(db_session, monkeypatch):
+    _account(db_session, "c@example.de")
+    commits = []
+    monkeypatch.setattr(db_session, "commit", lambda: commits.append(1))
+
+    summary = _summary(_cleanup_user_data(db_session, NOW, RecordingEmailSender()))
+
+    assert summary["warnings_sent"] == 1 and commits == [1]
 
 
 def test_notice_period_boundaries(db_session):
