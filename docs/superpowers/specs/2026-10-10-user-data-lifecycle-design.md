@@ -89,14 +89,29 @@ Protokoll); `replay-deletions --check` prüft ohne Datenbank, ob das Image den B
 kennt.
 
 **6. Rollback.** `normly-deploy rollback`: Im Vorlauf (vor Banner, Bestätigung,
-Stopp) werden mit dem **aktuellen** Image die Löschungen seit dem Sicherungszeitpunkt
-(Zeitstempel aus dem Basisnamen) gelesen und in `$WORK` abgelegt (Fehler → Abbruch
-ohne Änderung; Format geprüft). Nach `pg_restore` (und nach der Tombstone-
-Wiederherstellung) wendet das **vorherige** Image sie an (`replay-deletions`). Kennt
-das vorherige Image den Befehl nicht (Release vor diesem Feature), meldet der
-Vorlauf das im Banner mit der Liste der Kennungen; sie müssen dann von Hand erneut
-gelöscht werden (die Bestätigung bleibt Pflicht). Dasselbe gilt im Restore-Test und
-für eine Notfall-Wiederherstellung aus der Flex-Sicherung (Betriebsguide).
+Stopp) werden mit dem Image des **Releases, dessen Daten verworfen werden** (`$from`:
+bei einem fehlgeschlagenen Rollout dieser, sonst der aktuelle) die Löschungen seit dem
+Sicherungszeitpunkt gelesen (erster Export; Fehler → Abbruch ohne Änderung; Format
+vom gemeinsamen Prüfer `normly_check_deletions` geprüft). Der Zeitpunkt ist der
+Zeitstempel aus dem Basisnamen **minus eine Stunde** (Sicherheitsrand im Skript; der
+Kernbefehl behält seine strikte „später als“-Bedeutung): eine doppelt angewendete
+Löschung ist harmlos, weil die Entität schon fehlt und UUIDs nie wiederverwendet
+werden. Fehlt die Tabelle `deletion_log` (Release vor diesem Feature), wird ohne
+Image-Aufruf eine leere Liste angenommen. Der erste Export speist Banner, die
+Entscheidung über `replay-deletions --check` und die frühe Prüfung. Nach dem Stopp
+der Dienste und vor dem DROP folgt ein **zweiter Export** (gleiches Image, gleicher
+Zeitpunkt, gleicher Prüfer); schlägt er fehl, bricht der Rollback ab, die Dienste
+sind gestoppt, die Datenbank unverändert. **Dieses zweite Dokument** wendet nach
+`pg_restore` (und nach der Tombstone-Wiederherstellung) das **vorherige** Image an
+(`replay-deletions`). Das `--check` gilt nur bei Exitcode 2 (unbekannter Befehl) als
+„nicht unterstützt“, jeder andere Fehler bricht vor Banner und Bestätigung ab. Kennt
+das vorherige Image den Befehl nicht (Release vor diesem Feature), meldet das Banner
+Anzahl und die ersten 20 Kennungen; die vollständige Liste liegt danach in
+`$STATE/rollback-pending-deletions.json` (0600, überlebt das Aufräumen von `$WORK`)
+und muss von Hand erneut gelöscht werden (die Bestätigung bleibt Pflicht). Dasselbe
+gilt im Restore-Test und für eine Notfall-Wiederherstellung aus der Flex-Sicherung
+(Betriebsguide). `normly-cleanup` überspringt seinen Lauf, solange
+`state/deploy.lock` existiert.
 
 ## Absicherung
 

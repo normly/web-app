@@ -37,6 +37,20 @@ def test_cleanup_takes_no_arguments(harness):
     assert harness.calls() == []
 
 
+def test_cleanup_is_skipped_while_a_deploy_or_rollback_holds_the_lock(harness):
+    (harness.dir / "state" / "deploy.lock").mkdir(parents=True)
+    result = harness.run("normly-cleanup")
+    assert result.returncode == 0
+    assert "deploy.lock" in result.stderr
+    assert harness.calls() == []
+
+
+def test_cleanup_runs_when_no_lock_exists(harness):
+    (harness.dir / "state").mkdir()
+    assert harness.run("normly-cleanup").returncode == 0
+    assert len(harness.calls()) == 1
+
+
 def test_cleanup_service_and_timer():
     service = (SYSTEMD / "normly-cleanup.service").read_text()
     timer = (SYSTEMD / "normly-cleanup.timer").read_text()

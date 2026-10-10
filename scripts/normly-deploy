@@ -224,6 +224,58 @@ deploy() {
   echo "deployed $tag"
 }
 
+# Deletion log helpers of the rollback. They read $from, $since, $previous,
+# $database_url from the caller.
+DEL_ERR=""
+EMPTY_DELETIONS='{"format": 1, "created_at": "1970-01-01T00:00:00+00:00", "entries": []}'
+
+# export_deletions OUT: the deletions since $since as a checked format-1 document.
+# A release without the deletion_log table cannot have logged any: empty list,
+# no image call. On failure DEL_ERR says why and the return code is 1.
+export_deletions() {
+  local out="$1" table
+  DEL_ERR=""
+  table="$(psql "$database_url" -Atc "SELECT to_regclass('public.deletion_log')")" \
+    || { DEL_ERR="cannot look up the deletion_log table"; return 1; }
+  if [ -z "$table" ]; then
+    printf '%s\n' "$EMPTY_DELETIONS" > "$out"
+  else
+    compose "$from" run --rm --no-deps -T --entrypoint python pipeline \
+      -m normly_core.exchange export-deletions --since "$since" > "$out" \
+      || { DEL_ERR="export-deletions failed"; return 1; }
+  fi
+  DEL_ERR="$(normly_check_deletions "$out" 2>&1)" \
+    || { DEL_ERR="the export is invalid ($DEL_ERR)"; return 1; }
+}
+
+deletion_count() {
+  python3 -c '
+import json, sys
+print(len(json.load(sys.stdin)["entries"]))' < "$1"
+}
+
+# First 20 kind:id pairs, with a remainder note.
+deletion_list() {
+  python3 -c '
+import json, sys
+entries = json.load(sys.stdin)["entries"]
+shown = ", ".join("%s:%s" % (e["kind"], e["entity_id"]) for e in entries[:20])
+print(shown + (" ... and %d more" % (len(entries) - 20) if len(entries) > 20 else ""))' < "$1"
+}
+
+# Sets replay_supported. Only "unknown command" (argparse exit 2) means
+# unsupported; any other failure is not an answer.
+check_replay_support() {
+  local rc=0
+  compose "$previous" run --rm --no-deps -T --entrypoint python pipeline \
+    -m normly_core.exchange replay-deletions --check > /dev/null 2>&1 || rc=$?
+  case "$rc" in
+    0) replay_supported=1 ;;
+    2) replay_supported=0 ;;
+    *) return 1 ;;
+  esac
+}
+
 rollback() {
   local identity="" assume_yes=0
   while [ $# -gt 0 ]; do
@@ -250,7 +302,7 @@ rollback() {
 
   local database_url drop_sql down_tag="$current" backup_rev head_rev verify_out
   local has_tombstones=0 backup_listing meta_flag tomb_problem
-  local since del_problem del_list del_count replay_deletions=0 replay_note=""
+  local since del_count final_count replay_supported="" replay_note=""
   local -a key_args=()
   WORK="$(mktemp -d -t normly-rollback.XXXXXX)"; chmod 700 "$WORK"
   normly_load_env "$NORMLY_DIR/.env"
@@ -311,31 +363,35 @@ print("yes" if json.load(sys.stdin).get("tombstones") is True else "no")' < "$WO
   fi
 
   # Accounts and chats deleted after the backup come back with the restore.
-  # Export their identifiers now (the database is still intact), with the
-  # release whose data is discarded: it wrote the deletion log. A failure must
-  # stop here, not after the DROP. The previous release may predate the replay
-  # command: then the operator is told what to delete by hand.
+  # Their identifiers are exported with the release whose data is discarded
+  # ($from): it wrote the deletion log. This first export (database still in
+  # use) feeds the banner, the replay-support decision and early validation; a
+  # second one after the services are stopped is the list that is replayed.
+  # The previous release may predate the replay command: then the operator is
+  # told what to delete by hand.
   [[ "$backup" =~ ^[0-9]{8}T[0-9]{6}Z- ]] \
     || die "cannot read the timestamp from the backup name '$backup'; nothing was changed"
-  since="${backup:0:4}-${backup:4:2}-${backup:6:2}T${backup:9:2}:${backup:11:2}:${backup:13:2}+00:00"
-  compose "$from" run --rm --no-deps -T --entrypoint python pipeline \
-    -m normly_core.exchange export-deletions --since "$since" > "$WORK/deletions.json" \
-    || die "cannot export the deletions made since backup $backup; nothing was changed"
-  del_problem="$(normly_check_deletions "$WORK/deletions.json" 2>&1)" \
-    || die "deletion export is invalid: $del_problem; nothing was changed"
-  del_list="$(python3 -c '
-import json, sys
-print(", ".join("%s:%s" % (e["kind"], e["entity_id"]) for e in json.load(sys.stdin)["entries"]))' \
-    < "$WORK/deletions.json")" \
+  # One hour before the backup stamp. A deletion logged shortly before the dump
+  # finished may or may not be inside the dump; replaying one that is
+  # (entity already gone, UUIDs are never reused) is harmless, a missed one is
+  # not. The core command keeps its strict "later than" meaning.
+  since="$(python3 -c '
+import sys
+from datetime import datetime, timedelta, timezone
+stamp = datetime.strptime(sys.argv[1], "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+print((stamp - timedelta(hours=1)).isoformat())' "${backup:0:16}")" \
+    || die "cannot read the timestamp from the backup name '$backup'; nothing was changed"
+  export_deletions "$WORK/deletions.json" \
+    || die "cannot export the deletions made since backup $backup: $DEL_ERR; nothing was changed"
+  del_count="$(deletion_count "$WORK/deletions.json")" \
     || die "cannot read the deletion export; nothing was changed"
-  if [ -n "$del_list" ]; then
-    del_count="$(grep -o ', ' <<< "$del_list" | wc -l)"; del_count=$((del_count + 1))
-    if compose "$previous" run --rm --no-deps -T --entrypoint python pipeline \
-        -m normly_core.exchange replay-deletions --check > /dev/null 2>&1; then
-      replay_deletions=1
+  if [ "$del_count" -gt 0 ]; then
+    check_replay_support \
+      || die "cannot tell whether $previous can replay deletions; nothing was changed"
+    if [ "$replay_supported" -eq 1 ]; then
       replay_note="  $del_count deletion(s) made since the backup will be replayed after the restore."
     else
-      replay_note="  WARNING: previous release cannot replay deletions; re-delete these by hand after the rollback: $del_list"
+      replay_note="  WARNING: previous release cannot replay deletions; re-delete these by hand after the rollback ($del_count, first 20: $(deletion_list "$WORK/deletions.json")). The final list is written to $STATE/rollback-pending-deletions.json."
     fi
   fi
 
@@ -363,6 +419,28 @@ EOF
   [ -d "$RELEASES/$down_tag" ] || down_tag="$previous"
   compose "$down_tag" down --remove-orphans
 
+  # Deletions made between the first export and the stop would be missed: take
+  # the list that is replayed now, with the services stopped. Failing here
+  # leaves the database untouched.
+  stopped_die() {
+    die "$1; services were stopped, database unchanged. Restart: docker compose -f $RELEASES/$down_tag/compose.yaml --project-directory $RELEASES/$down_tag up -d (or re-run the rollback)"
+  }
+  export_deletions "$WORK/deletions-final.json" \
+    || stopped_die "cannot export the deletions after stopping the services: $DEL_ERR"
+  final_count="$(deletion_count "$WORK/deletions-final.json")" \
+    || stopped_die "cannot read the final deletion export"
+  if [ "$final_count" -gt 0 ] && [ -z "$replay_supported" ]; then
+    check_replay_support || stopped_die "cannot tell whether $previous can replay deletions"
+  fi
+  if [ "$final_count" -gt 0 ] && [ "$replay_supported" -eq 0 ]; then
+    # Outlives $WORK: the operator needs the list after the rollback.
+    if ! { ( umask 077; cp "$WORK/deletions-final.json" "$STATE/.rollback-pending-deletions.new" ) \
+        && mv -f "$STATE/.rollback-pending-deletions.new" "$STATE/rollback-pending-deletions.json"; }; then
+      stopped_die "cannot write $STATE/rollback-pending-deletions.json"
+    fi
+    echo "normly-deploy: $previous cannot replay deletions; $final_count to re-delete by hand after the rollback: $STATE/rollback-pending-deletions.json" >&2
+  fi
+
   # Drop what is in the database, not what the previous image knows: the newer
   # release may have added tables. Tables only, never the schema, which would
   # take the pgvector extension along.
@@ -384,9 +462,9 @@ EOF
   fi
   pg_restore --dbname="$database_url" --data-only --exit-on-error "$WORK/dump"
   # Delete again what was deleted after the backup (the restore brought it back).
-  if [ "$replay_deletions" -eq 1 ]; then
+  if [ "$final_count" -gt 0 ] && [ "$replay_supported" -eq 1 ]; then
     compose "$previous" run --rm --no-deps -T --entrypoint python pipeline \
-      -m normly_core.exchange replay-deletions < "$WORK/deletions.json"
+      -m normly_core.exchange replay-deletions < "$WORK/deletions-final.json"
   fi
   compose "$previous" up -d --no-build --wait --wait-timeout "$HEALTH_TIMEOUT"
   DESTRUCTIVE=0

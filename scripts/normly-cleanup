@@ -17,6 +17,12 @@ if [ $# -gt 0 ]; then
   echo "usage: normly-cleanup" >&2
   exit 2
 fi
+# A deploy or rollback holds this lock; cleaning up while it drops and restores
+# tables would only fail or race. The timer fires again tomorrow.
+if [ -d "$NORMLY_DIR/state/deploy.lock" ]; then
+  echo "normly-cleanup: a deploy or rollback is running (deploy.lock); skipping this run" >&2
+  exit 0
+fi
 normly_load_env "$NORMLY_DIR/.env"
 COMPOSE="${NORMLY_COMPOSE:-docker compose -f $NORMLY_DIR/current/compose.yaml --project-directory $NORMLY_DIR/current}"
 

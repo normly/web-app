@@ -215,7 +215,7 @@ def test_replay_deletes_an_account_and_logs_it(db_session, cli_on_test_db, monke
     assert PostgresAccountRepository(db_session).get_account_by_id(account.id) is None
     assert _count(db_session, ChatSessionORM) == 0 and _count(db_session, WatchlistORM) == 0
     assert ("account", account.id) in _log(db_session)
-    assert chat.id
+    assert PostgresChatRepository(db_session).list_sessions_for_account(account.id) == []
 
 
 def test_replay_of_a_missing_account_is_already_gone(db_session, cli_on_test_db, monkeypatch, capsys):
