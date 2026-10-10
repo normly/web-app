@@ -24,3 +24,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const body = await backendResponse.json();
   return NextResponse.json(body);
 }
+
+export async function DELETE(request: NextRequest): Promise<NextResponse> {
+  const { accountSessionToken } = readSessionCookies(request);
+  if (!accountSessionToken) {
+    return NextResponse.json({ detail: "account session required" }, { status: 401 });
+  }
+  const backendResponse = await fetch(`${getBackendUrls().chat}/v1/chat/sessions`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${accountSessionToken}` },
+  });
+  const body = await backendResponse.json().catch(() => ({}));
+  return NextResponse.json(body, { status: backendResponse.status });
+}

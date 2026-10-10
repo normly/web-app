@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 normly contributors
 #
-# Shared by normly-deploy and normly-backup (source it, do not run it).
+# Shared by normly-deploy, normly-backup and normly-cleanup (source it, do not run it).
 #
 # The VM's .env is written for Docker Compose, whose dialect allows unquoted
 # values with spaces, '#' and '$' (NORMLY_BRAND_COLOR_HSL=222 89% 55%). Bash
@@ -106,4 +106,107 @@ if not isinstance(rows, dict) or sorted(rows) != sorted(TABLES):
     sys.exit("rows must hold exactly: " + ", ".join(TABLES))
 if not all(isinstance(rows[name], list) for name in TABLES):
     sys.exit("every table must be a list")' "$1"
+}
+
+# normly_check_deletions FILE
+#   Host-side sanity check of a deletion log document (format 1: a JSON object
+#   with a created_at timestamp and a list "entries" of objects whose kind is
+#   account or chat_session, entity_id a UUID, deleted_at a timestamp). Same
+#   rules as normly_core.exchange.deletions.parse_document, which a test keeps
+#   in step. Prints the reason on stderr and returns non-zero when it does not
+#   hold. Used by the rollback before the database is dropped.
+normly_check_deletions() {
+  python3 -c '
+import json, sys, uuid
+from datetime import datetime
+def stamp(value, what):
+    try:
+        parsed = datetime.fromisoformat(value)
+    except (TypeError, ValueError):
+        sys.exit(what + " is missing or not an ISO-8601 timestamp")
+    if parsed.tzinfo is None:
+        sys.exit(what + " carries no timezone")
+try:
+    with open(sys.argv[1], encoding="utf-8") as handle:
+        doc = json.load(handle)
+except (OSError, ValueError) as error:
+    sys.exit("not readable JSON (%s)" % error)
+if not isinstance(doc, dict) or type(doc.get("format")) is not int or doc["format"] != 1:
+    sys.exit("not a format-1 document")
+stamp(doc.get("created_at"), "created_at")
+entries = doc.get("entries")
+if not isinstance(entries, list):
+    sys.exit("entries must be a list")
+for entry in entries:
+    if not isinstance(entry, dict):
+        sys.exit("every entry must be an object")
+    if entry.get("kind") not in ("account", "chat_session"):
+        sys.exit("unknown kind %r" % (entry.get("kind"),))
+    try:
+        uuid.UUID(entry.get("entity_id"))
+    except (AttributeError, TypeError, ValueError):
+        sys.exit("entity_id is missing or not a UUID")
+    stamp(entry.get("deleted_at"), "deleted_at")' "$1"
+}
+
+# normly_build_deletions
+#   Reads deletion log rows "kind|entity_id|deleted_at" (blank lines ignored) on
+#   stdin and prints the format-1 document on stdout: entries sorted by
+#   deleted_at, kind, entity_id, timestamps as ISO-8601 UTC. Same layout as
+#   normly_core.exchange.deletions.build_document (a test compares them). It
+#   only shapes the rows; normly_check_deletions judges the result.
+normly_build_deletions() {
+  python3 -c '
+import json, sys
+from datetime import datetime, timezone
+rows = []
+for line in sys.stdin.read().splitlines():
+    if not line.strip():
+        continue
+    parts = line.split("|")
+    if len(parts) != 3:
+        sys.exit("malformed deletion row %r" % line)
+    kind, entity_id, deleted_at = parts
+    try:
+        stamp = datetime.fromisoformat(deleted_at)
+    except ValueError:
+        sys.exit("malformed timestamp in %r" % line)
+    if stamp.tzinfo is None:
+        sys.exit("timestamp without timezone in %r" % line)
+    rows.append((stamp.astimezone(timezone.utc), kind, entity_id))
+doc = {
+    "format": 1,
+    "created_at": datetime.now(timezone.utc).isoformat(),
+    "entries": [
+        {"kind": k, "entity_id": e, "deleted_at": t.isoformat()} for t, k, e in sorted(rows)
+    ],
+}
+print(json.dumps(doc, indent=1))'
+}
+
+# normly_merge_deletions FILE FILE
+#   Union of two valid deletion documents on stdout, by kind and entity_id, the
+#   earliest deleted_at winning. Check both inputs with normly_check_deletions
+#   first.
+normly_merge_deletions() {
+  python3 -c '
+import json, sys
+from datetime import datetime, timezone
+merged = {}
+for path in sys.argv[1:]:
+    with open(path, encoding="utf-8") as handle:
+        for entry in json.load(handle)["entries"]:
+            stamp = datetime.fromisoformat(entry["deleted_at"]).astimezone(timezone.utc)
+            key = (entry["kind"], entry["entity_id"])
+            if key not in merged or stamp < merged[key]:
+                merged[key] = stamp
+doc = {
+    "format": 1,
+    "created_at": datetime.now(timezone.utc).isoformat(),
+    "entries": [
+        {"kind": k, "entity_id": e, "deleted_at": t.isoformat()}
+        for t, k, e in sorted((t, k, e) for (k, e), t in merged.items())
+    ],
+}
+print(json.dumps(doc, indent=1))' "$1" "$2"
 }

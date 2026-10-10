@@ -7,11 +7,12 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from normly_core.graph.domain import Account
+from normly_core.graph.domain import Account, Document
 from normly_core.graph.postgres.repositories import (
     PostgresAccountGoogleIdentityRepository,
     PostgresAccountRepository,
     PostgresChatRepository,
+    PostgresDocumentRepository,
     PostgresNotificationRepository,
     PostgresWatchlistRepository,
 )
@@ -20,7 +21,8 @@ from normly_accounts.dependencies import get_current_account, get_session
 from normly_accounts.routers.login import avatar_data_url
 from normly_accounts.schemas import (
     DeleteAccountRequest, ExportAccountFields, ExportChatMessage, ExportChatSession,
-    ExportNotification, ExportResponse, ExportWatchlistEntry,
+    ExportCitation, ExportDocumentRef, ExportNotification, ExportResponse,
+    ExportWatchlistEntry,
 )
 from normly_accounts.security import verify_password
 
@@ -55,6 +57,13 @@ def delete_account(
     return {"status": "account_deleted"}
 
 
+def _document_ref(document: Document) -> ExportDocumentRef:
+    return ExportDocumentRef(
+        id=document.id, origin_issuer=document.origin_issuer,
+        origin_number=document.origin_number, edition=document.edition, part=document.part,
+    )
+
+
 @account_management_router.get("/export", response_model=ExportResponse)
 def export_account_data(
     account: Account = Depends(get_current_account), session: Session = Depends(get_session),
@@ -63,23 +72,52 @@ def export_account_data(
         account.id
     )
 
+    document_repo = PostgresDocumentRepository(session)
+
     chat_repo = PostgresChatRepository(session)
     chat_sessions = chat_repo.list_sessions_for_account(account.id)
-    exported_sessions = []
-    for chat_session in chat_sessions:
-        messages = chat_repo.list_messages_for_session(chat_session.id)
-        exported_sessions.append(
-            ExportChatSession(
-                session_token=chat_session.session_token, jurisdiction=chat_session.jurisdiction,
-                language=chat_session.language, created_at=chat_session.created_at,
-                messages=[
-                    ExportChatMessage(role=m.role.value, content=m.content, created_at=m.created_at)
-                    for m in messages
-                ],
-            )
+    messages_by_session = {
+        cs.id: chat_repo.list_messages_for_session(cs.id) for cs in chat_sessions
+    }
+    # One batch for all citations and one for the documents they name, instead
+    # of a query per message. The reads are ungated by design: identifiers of
+    # the account holder's own data only, never content.
+    citations_by_message = chat_repo.citations_for_messages(
+        [m.id for messages in messages_by_session.values() for m in messages]
+    )
+    cited_documents = document_repo.documents_by_ids_unchecked(
+        sorted(
+            {c.document_id for cs in citations_by_message.values() for c in cs}, key=str
         )
+    )
+    exported_sessions = [
+        ExportChatSession(
+            id=chat_session.id, jurisdiction=chat_session.jurisdiction,
+            language=chat_session.language, created_at=chat_session.created_at,
+            messages=[
+                ExportChatMessage(
+                    role=m.role.value, content=m.content,
+                    answer_type=m.answer_type.value if m.answer_type else None,
+                    created_at=m.created_at,
+                    citations=[
+                        ExportCitation(
+                            document=_document_ref(cited_documents[c.document_id]),
+                            segment_id=c.segment_id,
+                        )
+                        for c in citations_by_message.get(m.id, [])
+                    ],
+                )
+                for m in messages_by_session[chat_session.id]
+            ],
+        )
+        for chat_session in chat_sessions
+    ]
 
     watches = PostgresWatchlistRepository(session).list_watches_for_account(account.id)
+    # Retired documents (tombstones) are included: they keep their identifiers.
+    documents_by_work = document_repo.documents_for_works_unchecked(
+        [w.work_id for w in watches]
+    )
     # Every notification is included regardless of the account's current
     # display preference -- EMAIL-preference accounts still see their in-app
     # feed hidden (notifications.py's own concern), but a full personal-data
@@ -96,7 +134,11 @@ def export_account_data(
         ),
         chat_sessions=exported_sessions,
         watchlist=[
-            ExportWatchlistEntry(work_id=w.work_id, created_at=w.created_at) for w in watches
+            ExportWatchlistEntry(
+                work_id=w.work_id, created_at=w.created_at,
+                documents=[_document_ref(d) for d in documents_by_work.get(w.work_id, [])],
+            )
+            for w in watches
         ],
         notifications=[
             ExportNotification(

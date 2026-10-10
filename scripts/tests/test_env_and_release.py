@@ -78,6 +78,7 @@ def test_process_environment_wins_over_the_file(harness):
 
 
 def test_backup_runs_with_branding_in_env_file_and_keeps_spaces(harness):
+    harness.set_current_tag()
     _write_env(harness)
     result = harness.run(
         "normly-backup", "run", "--kind", "daily",

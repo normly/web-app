@@ -441,6 +441,12 @@ class AccountORM(Base):
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), server_default=sa.func.now()
     )
+    # Set when the warning e-mail for an abandoned registration was delivered;
+    # reset when the account is no longer abandoned. Never exported.
+    deletion_warned_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    # Set whenever a session is created (every sign-in path). Unlike the session
+    # row it survives logout, so a sign-in stays visible as activity.
+    last_login_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     first_name: Mapped[str | None]
     last_name: Mapped[str | None]
     avatar_image: Mapped[bytes | None] = mapped_column(sa.LargeBinary)
@@ -715,6 +721,22 @@ class NotifiedRetirementORM(Base):
     )
     notified_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
+
+
+class DeletionLogORM(Base):
+    __tablename__ = "deletion_log"
+
+    # Which deletions must be replayed after a rollback to an older backup.
+    # Carries no personal data and, deliberately, no foreign key: the
+    # identifiers point at rows that no longer exist.
+    kind: Mapped[str] = mapped_column(sa.String(12), primary_key=True)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    deleted_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        sa.CheckConstraint("kind IN ('account', 'chat_session')", name="deletion_log_kind"),
+        sa.Index("ix_deletion_log_deleted_at", "deleted_at"),
     )
 
 

@@ -1,0 +1,503 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 normly contributors
+
+"""Rollback: export the deletions made since the backup, replay them after the restore."""
+
+import glob
+import json
+import tempfile
+
+from test_deploy_kb import TOMB_LISTING, _rollback, _seed
+
+ACCOUNT = "11111111-1111-4111-8111-111111111111"
+CHAT = "22222222-2222-4222-8222-222222222222"
+
+
+def _doc(*entries):
+    return json.dumps({
+        "format": 1, "created_at": "2026-10-10T00:00:00+00:00",
+        "entries": [
+            {"kind": kind, "entity_id": entity, "deleted_at": "2026-10-09T12:00:00+00:00"}
+            for kind, entity in entries
+        ],
+    })
+
+
+STAMP = "2026-10-09T12:00:00.000000+00:00"
+
+
+def _rows(*entries):
+    """What the psql query prints: kind|entity_id|deleted_at per line."""
+    return "\n".join(f"{kind}|{entity}|{STAMP}" for kind, entity in entries)
+
+
+FULL = _rows(("account", ACCOUNT), ("chat_session", CHAT))
+
+
+def _index(calls, needle):
+    return next(i for i, c in enumerate(calls) if needle in c)
+
+
+def _exports(calls):
+    """The deletion log queries sent to the database."""
+    return [i for i, c in enumerate(calls) if c.startswith("psql") and " since=" in c]
+
+
+def test_export_reads_the_database_before_anything_destructive(harness):
+    _seed(harness)
+    result = _rollback(harness, "--yes", extra_env={"FAKE_PSQL_DELETIONS_OUT": FULL})
+    assert result.returncode == 0, result.stderr
+    calls = harness.calls()
+    export = _exports(calls)[0]
+    assert " since=2026-10-09T09:00:00+00:00" in calls[export]
+    assert not any("export-deletions" in c for c in calls)  # no image is needed
+    first_destructive = next(
+        i for i, c in enumerate(calls)
+        if " down" in c or c.startswith(("age", "pg_restore")) or "DROP TABLE" in c
+    )
+    assert export < first_destructive
+
+
+def test_export_failure_aborts_before_any_change(harness):
+    state = _seed(harness)
+    result = _rollback(
+        harness, extra_env={"FAKE_PSQL_FAIL_ON": "since="}, input_text="0.1.1\n",
+    )
+    assert result.returncode != 0
+    assert "deletion" in result.stderr and "nothing was changed" in result.stderr
+    assert "Type the target tag" not in result.stderr
+    calls = harness.calls()
+    assert not any(" down" in c for c in calls)
+    assert not any(c.startswith("pg_restore") or "DROP TABLE" in c for c in calls)
+    assert (state / "current_tag").read_text().strip() == "0.1.2"
+    assert not (state / "deploy.lock").exists()
+
+
+def test_an_invalid_deletion_document_aborts_before_the_prompt(harness):
+    _seed(harness)
+    uuid_ = ACCOUNT
+    for bad in (
+        "garbage", f"account|nope|{STAMP}", f"account|{uuid_}|yesterday",
+        f"weird|{uuid_}|{STAMP}", f"account|{uuid_}|2026-10-09T12:00:00",
+    ):
+        result = _rollback(
+            harness, extra_env={"FAKE_PSQL_DELETIONS_OUT": bad}, input_text="0.1.1\n",
+        )
+        assert result.returncode != 0, bad
+        assert "nothing was changed" in result.stderr
+        assert "Type the target tag" not in result.stderr
+    assert not any(" down" in c for c in harness.calls())
+
+
+def test_a_supporting_previous_release_replays_after_the_restore(harness, tmp_path):
+    _seed(harness)
+    stdin_file = tmp_path / "replay-stdin"
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_PSQL_DELETIONS_OUT": FULL, "FAKE_RCLONE_OUT": TOMB_LISTING,
+                   "FAKE_PSQL_OUT": "account", "FAKE_DOCKER_REPLAY_STDIN_FILE": str(stdin_file)},
+    )
+    assert result.returncode == 0, result.stderr
+    calls = harness.calls()
+    check = _index(calls, "replay-deletions --check")
+    tombs = _index(calls, "exchange import-tombstones")
+    restore = next(i for i, c in enumerate(calls) if c.startswith("pg_restore"))
+    replay = next(
+        i for i, c in enumerate(calls)
+        if "replay-deletions" in c and "--check" not in c
+    )
+    up = _index(calls, " up -d")
+    assert check < _index(calls, " down")
+    assert tombs < restore < replay < up
+    assert "run --rm --no-deps -T --entrypoint python pipeline" in calls[replay]
+    assert json.loads(stdin_file.read_text())["entries"][0]["entity_id"] == ACCOUNT
+    assert "cannot replay deletions" not in result.stderr
+    assert result.stderr.count("account:") == 0
+
+
+def test_the_check_and_the_replay_use_the_previous_release_image(harness):
+    _seed(harness)
+    (harness.dir / "releases" / "0.1.2").mkdir(parents=True, exist_ok=True)
+    result = _rollback(harness, "--yes", extra_env={"FAKE_PSQL_DELETIONS_OUT": FULL})
+    assert result.returncode == 0, result.stderr
+    calls = harness.calls()
+    assert "releases/0.1.1/compose.yaml" in calls[_index(calls, "replay-deletions --check")]
+    replay = next(c for c in calls if "replay-deletions" in c and "--check" not in c)
+    assert "releases/0.1.1/compose.yaml" in replay
+
+
+def test_a_previous_release_without_the_command_gets_a_banner_and_continues(harness):
+    state = _seed(harness)
+    result = _rollback(
+        harness,
+        extra_env={"FAKE_PSQL_DELETIONS_OUT": FULL, "FAKE_DOCKER_REPLAY_CHECK_EXIT": "2"},
+        input_text="0.1.1\n",
+    )
+    assert result.returncode == 0, result.stderr
+    banner = (
+        "previous release cannot replay deletions; re-delete these by hand after the "
+        f"rollback (2, first 20: account:{ACCOUNT}, chat_session:{CHAT})"
+    )
+    assert banner in result.stderr
+    assert result.stderr.index(banner) < result.stderr.index("Type the target tag")
+    calls = harness.calls()
+    assert not any("replay-deletions" in c and "--check" not in c for c in calls)
+    assert any(c.startswith("pg_restore") for c in calls)
+    assert (state / "current_tag").read_text().strip() == "0.1.1"
+
+
+def test_an_unsupported_replay_still_needs_the_confirmation(harness):
+    state = _seed(harness)
+    result = _rollback(
+        harness,
+        extra_env={"FAKE_PSQL_DELETIONS_OUT": FULL, "FAKE_DOCKER_REPLAY_CHECK_EXIT": "2"},
+        input_text="no\n",
+    )
+    assert result.returncode != 0
+    assert "aborted" in result.stderr
+    assert not any(" down" in c for c in harness.calls())
+    assert (state / "current_tag").read_text().strip() == "0.1.2"
+
+
+def test_an_empty_list_makes_no_replay_call(harness):
+    _seed(harness)
+    result = _rollback(harness, "--yes")
+    assert result.returncode == 0, result.stderr
+    assert _exports(harness.calls())
+    assert not any("replay-deletions" in c for c in harness.calls())
+    assert "cannot replay deletions" not in result.stderr
+
+
+def test_an_empty_list_needs_no_banner_even_without_support(harness):
+    _seed(harness)
+    result = _rollback(harness, "--yes", extra_env={"FAKE_DOCKER_REPLAY_CHECK_EXIT": "2"})
+    assert result.returncode == 0, result.stderr
+    assert "cannot replay deletions" not in result.stderr
+
+
+def test_a_replay_failure_after_the_drop_prints_recovery_guidance(harness):
+    state = _seed(harness)
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_PSQL_DELETIONS_OUT": FULL, "FAKE_DOCKER_REPLAY_EXIT": "1"},
+    )
+    assert result.returncode != 0
+    assert "dropped and is incomplete" in result.stderr
+    assert "current_tag is still 0.1.2" in result.stderr
+    assert not any(" up -d" in c for c in harness.calls())
+    assert not (state / "deploy.lock").exists()
+    assert (state / "current_tag").read_text().strip() == "0.1.2"
+    assert (state / "previous_tag").read_text().strip() == "0.1.1"
+
+
+def test_no_decrypted_deletions_stay_behind(harness, tmp_path):
+    _seed(harness)
+    before = set(glob.glob(f"{tempfile.gettempdir()}/normly-rollback.*"))
+    result = _rollback(harness, "--yes", extra_env={"FAKE_PSQL_DELETIONS_OUT": FULL})
+    assert result.returncode == 0, result.stderr
+    assert set(glob.glob(f"{tempfile.gettempdir()}/normly-rollback.*")) == before
+
+
+def test_the_backup_name_gives_the_timestamp(harness):
+    state = _seed(harness)
+    (state / "pre_rollout_backup").write_text("20270102T030405Z-daily\n")
+    result = _rollback(harness, "--yes")
+    assert result.returncode == 0, result.stderr
+    export = next(c for c in harness.calls() if " since=" in c)
+    assert " since=2027-01-02T02:04:05+00:00" in export
+
+
+ONE = _rows(("account", ACCOUNT))
+
+
+def test_exactly_one_entry_reaches_the_banner_and_the_replay(harness):
+    _seed(harness)
+    result = _rollback(harness, "--yes", extra_env={"FAKE_PSQL_DELETIONS_OUT": ONE})
+    assert result.returncode == 0, result.stderr
+    assert "1 deletion(s) made since the backup will be replayed" in result.stderr
+    assert any("replay-deletions" in c and "--check" not in c for c in harness.calls())
+
+
+def test_exactly_one_unsupported_entry_reaches_the_banner(harness):
+    _seed(harness)
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_PSQL_DELETIONS_OUT": ONE, "FAKE_DOCKER_REPLAY_CHECK_EXIT": "2"},
+    )
+    assert result.returncode == 0, result.stderr
+    assert f"(1, first 20: account:{ACCOUNT})" in result.stderr
+
+
+def test_zero_entries_reach_the_banner(harness):
+    _seed(harness)
+    result = _rollback(harness, "--yes")
+    assert result.returncode == 0, result.stderr
+    assert "Rollback 0.1.2 -> 0.1.1" in result.stderr
+
+
+def test_the_replayed_list_is_a_second_export_taken_after_the_stop(harness, tmp_path):
+    _seed(harness)
+    stdin_file = tmp_path / "replay-stdin"
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_PSQL_DELETIONS_OUT": ONE, "FAKE_DOCKER_REPLAY_STDIN_FILE": str(stdin_file)},
+    )
+    assert result.returncode == 0, result.stderr
+    calls = harness.calls()
+    exports = _exports(calls)
+    assert len(exports) == 2
+    down = _index(calls, " down")
+    drop = next(i for i, c in enumerate(calls) if c.startswith("psql") and "DROP TABLE" in c)
+    assert exports[0] < down < exports[1] < drop
+    assert calls[exports[0]] == calls[exports[1]]
+    assert json.loads(stdin_file.read_text())["entries"][0]["entity_id"] == ACCOUNT
+
+
+def test_the_replay_uses_the_final_export_not_the_first(harness, tmp_path):
+    _seed(harness)
+    counter = tmp_path / "n"
+    # first call prints ONE, later calls print FULL: emulate via a wrapper env switch
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_PSQL_DELETIONS_OUT": ONE, "FAKE_PSQL_DELETIONS_SECOND_OUT": FULL,
+                   "FAKE_PSQL_COUNTER": str(counter),
+                   "FAKE_DOCKER_REPLAY_STDIN_FILE": str(tmp_path / "stdin")},
+    )
+    assert result.returncode == 0, result.stderr
+    assert len(json.loads((tmp_path / "stdin").read_text())["entries"]) == 2
+
+
+def test_a_failing_second_export_stops_before_the_drop(harness):
+    state = _seed(harness)
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_PSQL_DELETIONS_OUT": ONE, "FAKE_PSQL_DELETIONS_SECOND_OUT": "garbage",
+                   "FAKE_PSQL_COUNTER": str(harness.dir / "n")},
+    )
+    assert result.returncode != 0
+    assert "services were stopped, database unchanged" in result.stderr
+    assert "dropped and is incomplete" not in result.stderr
+    calls = harness.calls()
+    assert any(" down" in c for c in calls)
+    assert not any("DROP TABLE" in c or c.startswith("pg_restore") for c in calls)
+    assert (state / "current_tag").read_text().strip() == "0.1.2"
+    assert not (state / "deploy.lock").exists()
+
+
+def test_a_missing_deletion_log_table_means_an_empty_list_without_an_image_call(harness):
+    _seed(harness)
+    result = _rollback(
+        harness, "--yes", extra_env={"FAKE_PSQL_REGCLASS": "", "FAKE_PSQL_DELETIONS_OUT": FULL},
+    )
+    assert result.returncode == 0, result.stderr
+    calls = harness.calls()
+    assert not _exports(calls)
+    assert not any("export-deletions" in c or "replay-deletions" in c for c in calls)
+    assert sum("to_regclass" in c for c in calls) == 2
+
+
+def test_a_check_failure_other_than_unknown_command_aborts_before_the_prompt(harness):
+    state = _seed(harness)
+    result = _rollback(
+        harness,
+        extra_env={"FAKE_PSQL_DELETIONS_OUT": ONE, "FAKE_DOCKER_REPLAY_CHECK_EXIT": "1"},
+        input_text="0.1.1\n",
+    )
+    assert result.returncode != 0
+    assert "nothing was changed" in result.stderr
+    assert "Type the target tag" not in result.stderr
+    assert not any(" down" in c for c in harness.calls())
+    assert (state / "current_tag").read_text().strip() == "0.1.2"
+
+
+def test_the_unsupported_list_survives_in_the_state_directory(harness):
+    state = _seed(harness)
+    many = _rows(*[("chat_session", f"00000000-0000-4000-8000-{i:012d}") for i in range(25)])
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_PSQL_DELETIONS_OUT": many, "FAKE_DOCKER_REPLAY_CHECK_EXIT": "2"},
+    )
+    assert result.returncode == 0, result.stderr
+    assert "(25, first 20:" in result.stderr and "... and 5 more" in result.stderr
+    assert "rollback-pending-deletions.json" in result.stderr
+    pending = state / "rollback-pending-deletions.json"
+    assert len(json.loads(pending.read_text())["entries"]) == 25
+    assert oct(pending.stat().st_mode & 0o777) == "0o600"
+    assert not list(state.glob(".rollback-pending*"))
+
+
+def test_the_export_needs_no_startable_image(harness):
+    state = _seed(harness)
+    (state / "failed_rollout").write_text("0.1.3\n")
+    (harness.dir / "releases" / "0.1.3").mkdir(parents=True, exist_ok=True)
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_PSQL_DELETIONS_OUT": ONE, "FAKE_DOCKER_FAIL_ON": "export-deletions"},
+    )
+    assert result.returncode == 0, result.stderr
+    calls = harness.calls()
+    assert len(_exports(calls)) == 2
+    assert not any("export-deletions" in c for c in calls)
+
+
+def test_the_restart_hint_pins_the_image_tag(harness):
+    _seed(harness)
+    (harness.dir / "releases" / "0.1.2").mkdir(parents=True, exist_ok=True)
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_PSQL_DELETIONS_OUT": ONE, "FAKE_PSQL_DELETIONS_SECOND_OUT": "garbage",
+                   "FAKE_PSQL_COUNTER": str(harness.dir / "n")},
+    )
+    assert result.returncode != 0
+    assert "Restart: NORMLY_IMAGE_TAG=0.1.2 docker compose" in result.stderr
+    assert "up -d --no-build --wait" in result.stderr
+
+
+def test_an_old_pending_file_is_removed_at_the_start(harness):
+    state = _seed(harness)
+    (state / "rollback-pending-deletions.json").write_text("stale")
+    result = _rollback(harness, "--yes")
+    assert result.returncode == 0, result.stderr
+    assert not (state / "rollback-pending-deletions.json").exists()
+
+
+def test_an_empty_preflight_list_but_a_final_entry_is_checked_after_the_stop(harness, tmp_path):
+    state = _seed(harness)
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_PSQL_DELETIONS_OUT": "", "FAKE_PSQL_DELETIONS_SECOND_OUT": ONE,
+                   "FAKE_PSQL_COUNTER": str(tmp_path / "n"), "FAKE_DOCKER_REPLAY_CHECK_EXIT": "2"},
+    )
+    assert result.returncode == 0, result.stderr
+    calls = harness.calls()
+    assert _index(calls, " down") < _index(calls, "replay-deletions --check")
+    assert "1 to re-delete by hand after the rollback" in result.stderr
+    assert len(json.loads((state / "rollback-pending-deletions.json").read_text())["entries"]) == 1
+
+
+def test_a_failing_check_after_the_stop_leaves_the_database_alone(harness, tmp_path):
+    state = _seed(harness)
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_PSQL_DELETIONS_OUT": "", "FAKE_PSQL_DELETIONS_SECOND_OUT": ONE,
+                   "FAKE_PSQL_COUNTER": str(tmp_path / "n"), "FAKE_DOCKER_REPLAY_CHECK_EXIT": "1"},
+    )
+    assert result.returncode != 0
+    assert "services were stopped, database unchanged" in result.stderr
+    calls = harness.calls()
+    assert not any("DROP TABLE" in c or c.startswith("pg_restore") for c in calls)
+    assert not (state / "deploy.lock").exists()
+    assert (state / "current_tag").read_text().strip() == "0.1.2"
+
+
+def test_unsupported_with_an_empty_final_list_writes_no_file_and_the_banner_does_not_promise_one(
+    harness, tmp_path
+):
+    state = _seed(harness)
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_PSQL_DELETIONS_OUT": ONE, "FAKE_PSQL_DELETIONS_SECOND_OUT": "",
+                   "FAKE_PSQL_COUNTER": str(tmp_path / "n"), "FAKE_DOCKER_REPLAY_CHECK_EXIT": "2"},
+    )
+    assert result.returncode == 0, result.stderr
+    assert not (state / "rollback-pending-deletions.json").exists()
+    assert "If entries remain at the final export" in result.stderr
+    assert "to re-delete by hand after the rollback:" not in result.stderr
+
+
+# --- interrupted runs: the list survives in the state directory ---------------
+
+OTHER = "33333333-3333-4333-8333-333333333333"
+
+
+def _first_run_fails_at_pg_restore(harness, rows=FULL):
+    state = _seed(harness)
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_PSQL_DELETIONS_OUT": rows, "FAKE_PG_RESTORE_EXIT": "1"},
+    )
+    assert result.returncode != 0
+    return state, result
+
+
+def test_a_destructive_failure_keeps_the_list_and_says_so(harness):
+    state, result = _first_run_fails_at_pg_restore(harness)
+    assert "dropped and is incomplete" in result.stderr
+    assert f"{state}/rollback-deletions.json" in result.stderr
+    kept = state / "rollback-deletions.json"
+    assert [e["entity_id"] for e in json.loads(kept.read_text())["entries"]] == [ACCOUNT, CHAT]
+    assert oct(kept.stat().st_mode & 0o777) == "0o600"
+    assert not list(state.glob(".rollback-deletions*"))
+
+
+def test_a_rerun_replays_the_kept_list_although_the_export_is_now_empty(harness, tmp_path):
+    state, _ = _first_run_fails_at_pg_restore(harness)
+    stdin_file = tmp_path / "replay-stdin"
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_PSQL_REGCLASS": "", "FAKE_DOCKER_REPLAY_STDIN_FILE": str(stdin_file)},
+    )
+    assert result.returncode == 0, result.stderr
+    assert "interrupted" in result.stderr
+    replayed = [e["entity_id"] for e in json.loads(stdin_file.read_text())["entries"]]
+    assert replayed == [ACCOUNT, CHAT]
+    assert not (state / "rollback-deletions.json").exists()
+
+
+def test_a_rerun_merges_the_kept_and_the_fresh_entries_without_duplicates(harness, tmp_path):
+    state, _ = _first_run_fails_at_pg_restore(harness)
+    stdin_file = tmp_path / "replay-stdin"
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_PSQL_DELETIONS_OUT": _rows(("account", ACCOUNT), ("account", OTHER)),
+                   "FAKE_DOCKER_REPLAY_STDIN_FILE": str(stdin_file)},
+    )
+    assert result.returncode == 0, result.stderr
+    replayed = sorted(e["entity_id"] for e in json.loads(stdin_file.read_text())["entries"])
+    assert replayed == sorted([ACCOUNT, CHAT, OTHER])
+    assert "3 deletion(s)" in result.stderr
+
+
+def test_the_union_keeps_the_earliest_timestamp(harness, tmp_path):
+    state = _seed(harness)
+    (state / "rollback-deletions.json").write_text(json.dumps({
+        "format": 1, "created_at": "2026-10-10T00:00:00+00:00",
+        "entries": [{"kind": "account", "entity_id": ACCOUNT,
+                     "deleted_at": "2026-10-09T08:00:00+00:00"}],
+    }))
+    stdin_file = tmp_path / "replay-stdin"
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_PSQL_DELETIONS_OUT": ONE, "FAKE_DOCKER_REPLAY_STDIN_FILE": str(stdin_file)},
+    )
+    assert result.returncode == 0, result.stderr
+    entries = json.loads(stdin_file.read_text())["entries"]
+    assert len(entries) == 1 and entries[0]["deleted_at"] == "2026-10-09T08:00:00+00:00"
+
+
+def test_a_corrupt_kept_file_stops_the_rollback_before_any_change(harness):
+    state = _seed(harness)
+    (state / "rollback-deletions.json").write_text("{not json")
+    result = _rollback(harness, "--yes")
+    assert result.returncode != 0
+    assert "rollback-deletions.json" in result.stderr and "nothing was changed" in result.stderr
+    assert not any(" down" in c for c in harness.calls())
+    assert (state / "rollback-deletions.json").read_text() == "{not json"
+
+
+def test_a_successful_run_leaves_no_kept_file(harness):
+    state = _seed(harness)
+    result = _rollback(harness, "--yes", extra_env={"FAKE_PSQL_DELETIONS_OUT": FULL})
+    assert result.returncode == 0, result.stderr
+    assert not (state / "rollback-deletions.json").exists()
+
+
+def test_a_failure_before_the_drop_keeps_no_file(harness, tmp_path):
+    state = _seed(harness)
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_PSQL_DELETIONS_OUT": ONE, "FAKE_PSQL_DELETIONS_SECOND_OUT": "garbage",
+                   "FAKE_PSQL_COUNTER": str(tmp_path / "n")},
+    )
+    assert result.returncode != 0
+    assert not (state / "rollback-deletions.json").exists()

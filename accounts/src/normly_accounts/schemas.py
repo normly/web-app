@@ -114,14 +114,31 @@ class ExportAccountFields(BaseModel):
     notification_preference: str
 
 
+class ExportDocumentRef(BaseModel):
+    id: uuid.UUID
+    origin_issuer: str
+    origin_number: str
+    edition: str
+    part: str | None
+
+
+class ExportCitation(BaseModel):
+    document: ExportDocumentRef
+    # None once the cited segment is gone (takedown); the document reference
+    # stays readable because the tombstone keeps its identifiers.
+    segment_id: uuid.UUID | None
+
+
 class ExportChatMessage(BaseModel):
     role: str
     content: str
+    answer_type: str | None
     created_at: datetime
+    citations: list[ExportCitation]
 
 
 class ExportChatSession(BaseModel):
-    session_token: str
+    id: uuid.UUID
     jurisdiction: str
     language: str
     created_at: datetime
@@ -131,6 +148,7 @@ class ExportChatSession(BaseModel):
 class ExportWatchlistEntry(BaseModel):
     work_id: uuid.UUID
     created_at: datetime
+    documents: list[ExportDocumentRef]
 
 
 class ExportNotification(BaseModel):

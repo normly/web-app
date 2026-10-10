@@ -4,7 +4,7 @@
 from datetime import datetime, timezone
 
 from normly_core.graph.domain import ChatAnswerType, ChatMessageRole
-from normly_core.graph.postgres.repositories import PostgresAccountRepository, PostgresChatRepository
+from normly_core.graph.postgres.repositories import PostgresChatRepository
 
 
 def _now():
@@ -34,20 +34,6 @@ def test_get_session_by_token_round_trips(db_session):
 def test_get_session_by_token_returns_none_for_unknown_token(db_session):
     repo = PostgresChatRepository(db_session)
     assert repo.get_session_by_token("does-not-exist") is None
-
-
-def test_link_account_sets_account_id(db_session):
-    account = PostgresAccountRepository(db_session).create_account(
-        email="chat-link@example.de", password_hash=None,
-    )
-    repo = PostgresChatRepository(db_session)
-    session = repo.create_session(
-        session_token="tok-3", jurisdiction="DE", language="de", created_at=_now(),
-    )
-    repo.link_account(session.id, account.id)
-
-    reloaded = repo.get_session_by_token("tok-3")
-    assert reloaded.account_id == account.id
 
 
 def test_create_message_and_list_messages_for_session_preserves_order(db_session):

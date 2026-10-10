@@ -18,6 +18,8 @@ SCRIPTS = Path(__file__).parents[1]
 
 FAKE = """#!/usr/bin/env bash
 echo "$(basename "$0") $*" >> "$CALLS"
+# the image tag each docker call saw (tests assert that jobs pin the running release)
+[ "$(basename "$0")" != docker ] || echo "${NORMLY_IMAGE_TAG-<unset>}" >> "$CALLS.tags"
 override="FAKE_$(basename "$0" | tr 'a-z-' 'A-Z_')_EXIT"
 if [ "${!override:-0}" != "0" ]; then exit "${!override}"; fi
 fail_on="FAKE_$(basename "$0" | tr 'a-z-' 'A-Z_')_FAIL_ON"
@@ -25,8 +27,23 @@ if [ -n "${!fail_on:-}" ]; then
   case " $* " in *"${!fail_on}"*) exit 1 ;; esac
 fi
 tomb_default='{"format": 1, "created_at": "2026-10-09T00:00:00+00:00", "rows": {"source": [], "delivery": [], "work": [], "document": [], "edge": []}}'
+del_default='{"format": 1, "created_at": "2026-10-09T00:00:00+00:00", "entries": []}'
 digest="sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 case "$(basename "$0")" in
+  psql)
+    case " $* " in
+      *to_regclass*) printf '%s\\n' "${FAKE_PSQL_REGCLASS-deletion_log}"; exit 0 ;;
+      *" since="*)
+        # the deletion log query: rows "kind|entity_id|deleted_at"; optionally the
+        # second and later queries differ from the first (FAKE_PSQL_COUNTER)
+        out="${FAKE_PSQL_DELETIONS_OUT-}"
+        if [ -n "${FAKE_PSQL_COUNTER:-}" ]; then
+          if [ -e "$FAKE_PSQL_COUNTER" ]; then out="${FAKE_PSQL_DELETIONS_SECOND_OUT-$out}"; fi
+          : > "$FAKE_PSQL_COUNTER"
+        fi
+        [ -z "$out" ] || printf '%s\\n' "$out"
+        exit 0 ;;
+    esac ;;
   cosign)
     if [ -z "${FAKE_COSIGN_OUT:-}" ]; then
       printf '[{"critical":{"image":{"docker-manifest-digest":"%s"}}}]\\n' "$digest"
@@ -44,6 +61,19 @@ case "$(basename "$0")" in
       *" import-tombstones "*)
         # record what arrived on stdin so tests can assert on it
         if [ -n "${FAKE_DOCKER_STDIN_FILE:-}" ]; then cat > "$FAKE_DOCKER_STDIN_FILE"; fi ;;
+      *" export-deletions "*)
+        out="${FAKE_DOCKER_DELETIONS_OUT-$del_default}"
+        # optional: the second and later exports differ from the first
+        if [ -n "${FAKE_DOCKER_COUNTER:-}" ]; then
+          if [ -e "$FAKE_DOCKER_COUNTER" ]; then out="${FAKE_DOCKER_DELETIONS_SECOND_OUT-$out}"; fi
+          : > "$FAKE_DOCKER_COUNTER"
+        fi
+        printf '%s\\n' "$out"; exit 0 ;;
+      *" replay-deletions --check"*)
+        exit "${FAKE_DOCKER_REPLAY_CHECK_EXIT:-0}" ;;
+      *" replay-deletions"*)
+        if [ -n "${FAKE_DOCKER_REPLAY_STDIN_FILE:-}" ]; then cat > "$FAKE_DOCKER_REPLAY_STDIN_FILE"; fi
+        exit "${FAKE_DOCKER_REPLAY_EXIT:-0}" ;;
       *"exchange info"*)
         [ -z "${FAKE_DOCKER_INFO_EMPTY:-}" ] || exit 0
         printf '%s\\n' "${FAKE_DOCKER_INFO_OUT:-${FAKE_DOCKER_OUT:-2026.10.1}}"; exit 0 ;;
@@ -113,6 +143,14 @@ def harness(tmp_path):
                 [str(SCRIPTS / script), *args], env=merged,
                 capture_output=True, text=True, input=input_text,
             )
+
+        def set_current_tag(self, tag="0.1.2"):
+            (tmp_path / "normly" / "state").mkdir(exist_ok=True)
+            (tmp_path / "normly" / "state" / "current_tag").write_text(f"{tag}\n")
+
+        def tags(self):
+            tags_file = Path(f"{calls}.tags")
+            return tags_file.read_text().splitlines() if tags_file.exists() else []
 
         def calls(self):
             return calls.read_text().splitlines()

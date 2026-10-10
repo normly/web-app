@@ -211,13 +211,15 @@ class DocumentRepository(Protocol):
     `rights_classification`; there is deliberately no method that returns
     documents unfiltered.
 
-    `PostgresDocumentRepository` additionally carries four ungated methods
+    `PostgresDocumentRepository` additionally carries six ungated methods
     that are **not** part of this Protocol and must not be treated as
     content-serving API: `get_document_unchecked` (existence check for
     pipeline and administrative use, e.g. proving a document node survived a
     delivery revocation), `list_documents_for_work_unchecked` (every Document
     for a Work, regardless of jurisdiction or rights classification —
-    notify-watchers, Task 6), `list_designations` and `list_titles` (identity
+    notify-watchers, Task 6; batch variants `documents_for_works_unchecked` and
+    `documents_by_ids_unchecked` serve the personal-data export and return
+    identifiers only), `list_designations` and `list_titles` (identity
     resolution and pipeline metadata — designations are the identity of a node
     across national adoptions, independent of any rights question). They are
     internal implementation methods.
@@ -748,6 +750,10 @@ class NotificationRepository(Protocol):
         """
         ...
 
+    def delete_read_before(self, cutoff: datetime) -> int: ...
+
+    def delete_unread_before(self, cutoff: datetime) -> int: ...
+
 
 @dataclass(frozen=True)
 class RightsNotificationBaseline:
@@ -974,12 +980,11 @@ class ChatRepository(Protocol):
     """
     Chat session identity and message history.
 
-    A session is anonymous (`account_id is None`) until a valid account
-    session token links it (see the `chat/` package's session-resolution
-    logic) — linking never happens in this layer, it is a plain field
-    update the caller drives after verifying the token elsewhere (`chat/`
-    talks to `accounts/` over HTTP; this repository has no opinion on
-    accounts beyond storing the id).
+    Only conversations of signed-in accounts are stored: `chat/` creates a
+    session with the account id it verified over HTTP against `accounts/`
+    (this repository has no opinion on accounts beyond storing the id).
+    Rows without an account id are legacy data; the cleanup command deletes
+    them. The user can delete one session or all of theirs.
     """
 
     def create_session(
@@ -991,7 +996,22 @@ class ChatRepository(Protocol):
 
     def list_sessions_for_account(self, account_id: uuid.UUID) -> list[ChatSession]: ...
 
-    def link_account(self, session_id: uuid.UUID, account_id: uuid.UUID) -> None: ...
+    def delete_anonymous_chat_sessions(self) -> int:
+        """Deletes every session without an account (legacy rows); returns the count."""
+        ...
+
+    def delete_chat_session(self, session_id: uuid.UUID, account_id: uuid.UUID) -> bool:
+        """Deletes the session only if it belongs to account_id; True if deleted."""
+        ...
+
+    def delete_chat_session_by_id(self, session_id: uuid.UUID) -> bool:
+        """
+        Deletes the session whoever owns it. Internal: only the rollback replay
+        of the deletion log uses it; requests must use delete_chat_session.
+        """
+        ...
+
+    def delete_chat_sessions_for_account(self, account_id: uuid.UUID) -> int: ...
 
     def create_message(
         self, *, session_id: uuid.UUID, role: ChatMessageRole, content: str,
@@ -1004,6 +1024,21 @@ class ChatRepository(Protocol):
         self, *, message_id: uuid.UUID, document_id: uuid.UUID,
         segment_id: uuid.UUID | None,
     ) -> ChatMessageCitation: ...
+
+    def citations_for_messages(
+        self, message_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, list[ChatMessageCitation]]:
+        """
+        Citations of the given messages, grouped by message id (messages
+        without citations are absent from the result).
+
+        Deliberately ungated by rights classification: a citation row holds
+        only two identifiers (document id, segment id) of the account
+        holder's own chat history and never any content, so the personal-data
+        export (Art. 15/20 GDPR) can read it without a jurisdiction. Callers
+        pass message ids they already resolved through the owning session.
+        """
+        ...
 
 
 class NotificationPreference(str, Enum):
@@ -1114,7 +1149,42 @@ class AccountRepository(Protocol):
 
     def clear_avatar(self, account_id: uuid.UUID) -> None: ...
 
-    def delete_account(self, account_id: uuid.UUID) -> None: ...
+    def delete_account(self, account_id: uuid.UUID) -> None:
+        """Deletes the account and everything it owns; writes a deletion_log entry."""
+        ...
+
+    def delete_unverified_accounts_created_before(
+        self, cutoff: datetime, *, warned_before: datetime
+    ) -> int:
+        """
+        Same cascade as delete_account, for abandoned registrations (never
+        verified, no Google link, no account session) that were warned by
+        e-mail before `warned_before`. Never deletes an unwarned account.
+        """
+        ...
+
+    def reset_deletion_warnings(self, cutoff: datetime) -> int:
+        """Clears the warning of accounts that are no longer abandoned."""
+        ...
+
+    def abandoned_registrations_to_warn(self, cutoff: datetime) -> list[tuple[uuid.UUID, str]]:
+        """(account id, email) of abandoned registrations not yet warned."""
+        ...
+
+    def mark_deletion_warned(self, account_id: uuid.UUID, warned_at: datetime) -> None: ...
+
+
+class DeletionLogRepository(Protocol):
+    """
+    Identifiers of deleted accounts and chat sessions, no personal data. Lets a
+    rollback to an older backup delete them again. `record` is idempotent.
+    """
+
+    def record(self, *, kind: str, entity_id: uuid.UUID, deleted_at: datetime) -> None: ...
+
+    def entries_since(self, since: datetime) -> list[tuple[str, uuid.UUID, datetime]]: ...
+
+    def delete_older_than(self, cutoff: datetime) -> int: ...
 
 
 class EmailAlreadyRegisteredError(Exception):
@@ -1172,6 +1242,8 @@ class AccountSessionRepository(Protocol):
 
     def revoke_session_by_id(self, session_id: uuid.UUID, account_id: uuid.UUID) -> bool: ...
 
+    def delete_sessions_expired_before(self, cutoff: datetime) -> int: ...
+
 
 class AccountTokenRepository(Protocol):
     """
@@ -1201,6 +1273,10 @@ class AccountTokenRepository(Protocol):
     def consume_token(
         self, token: str, purpose: AccountTokenPurpose
     ) -> AccountToken | None: ...
+
+    def delete_tokens_done_before(self, cutoff: datetime) -> int:
+        """Deletes tokens whose expires_at or used_at lies before cutoff."""
+        ...
 
 
 class OAuthStateRepository(Protocol):

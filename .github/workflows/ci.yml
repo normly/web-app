@@ -92,5 +92,5 @@ jobs:
       # releases (0.11) no longer report some info-level findings (e.g. SC2015),
       # so check locally with: docker run --rm -v "$PWD":/mnt -w /mnt koalaman/shellcheck:v0.9.0 <files>
       - run: apt-get update && apt-get install -y --no-install-recommends shellcheck && rm -rf /var/lib/apt/lists/*
-      - run: shellcheck scripts/normly-deploy scripts/normly-backup scripts/normly-env.sh
+      - run: shellcheck scripts/normly-deploy scripts/normly-backup scripts/normly-env.sh scripts/normly-cleanup
       - run: pip install "pytest==8.4.2" && python -m pytest scripts/tests -q

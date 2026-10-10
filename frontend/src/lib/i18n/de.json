@@ -58,7 +58,16 @@
     "bucketToday": "Heute",
     "bucketYesterday": "Gestern",
     "bucketLast7Days": "Vor 7 Tagen",
-    "bucketOlder": "Älter"
+    "bucketOlder": "Älter",
+    "deleteButton": "Verlauf löschen",
+    "deleteAllButton": "Alle Verläufe löschen",
+    "confirmDeleteOneTitle": "Diesen Verlauf löschen?",
+    "confirmDeleteOneDescription": "Der Verlauf wird endgültig gelöscht und kann nicht wiederhergestellt werden.",
+    "confirmDeleteAllTitle": "Alle Verläufe löschen?",
+    "confirmDeleteAllDescription": "Alle deine gespeicherten Verläufe werden endgültig gelöscht und können nicht wiederhergestellt werden.",
+    "confirmDeleteButton": "Endgültig löschen",
+    "cancelButton": "Abbrechen",
+    "deleteError": "Löschen fehlgeschlagen. Bitte versuche es erneut."
   },
   "nav": {
     "chat": "Chat",

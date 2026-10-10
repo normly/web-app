@@ -142,8 +142,10 @@ The dump carries no personal names: the columns `source.responsible_person`
 and `rights_classification.classified_by` hold the role `normly maintainers`.
 
 The import is idempotent: running it again with the same dump changes nothing.
-It also stops without writing if user data (watchlists, notifications, chat
-citations) still points at rows the new dump removes.
+User data (watchlists, notifications, chat citations) never blocks an import:
+tombstones and citations keep their references, and what the new dump no longer
+contains loses its content
+([ADR-026](../adr/README.md#adr-026-umgang-mit-nutzerdaten-beim-wissensbestand-import)).
 
 ## Ingesting documents
 
@@ -153,7 +155,31 @@ docker compose run --rm pipeline ingest dguv --directory /data/raw/dguv
 ```
 
 Sources: `eur-lex`, `dguv`, `baua`. Other maintenance commands:
-`backfill-document-embeddings`, `cleanup-notifications`, `notify-watchers`.
+`backfill-document-embeddings`, `cleanup-notifications`, `cleanup-user-data`, `notify-watchers`.
+
+## User data
+
+- **Anonymous chats are not stored.** A chat without a signed-in account writes
+  nothing to the database and sets no chat cookie; the conversation lives in the
+  browser tab only. Chats of signed-in users are kept until the user deletes
+  them (one or all, in the chat sidebar) or deletes the account. The request
+  quota is counted server-side by rate limiting and does not depend on chats.
+- **Retention.** `cleanup-user-data` enforces the retention periods
+  (expired sessions and tokens, abandoned registrations (after a warning e-mail, so SMTP must be configured), old notifications,
+  the deletion log):
+
+  ```bash
+  docker compose run --rm pipeline cleanup-user-data
+  ```
+
+  It is idempotent and prints counters only. Run it daily (cron or a systemd
+  timer; the single-VM setup in [Operations](operations.md#cleaning-up-user-data)
+  ships one). The periods are listed there.
+- **Export and deletion.** Signed-in users can download their data as JSON
+  (`GET /v1/accounts/export`) and delete their account, which removes its data
+  ([ADR-027](../adr/README.md#adr-027-lebenszyklus-der-nutzerdaten)). Deletions
+  are written to a deletion log (identifiers only) so they can be re-applied
+  after a restore from a backup.
 
 ## Known gaps
 

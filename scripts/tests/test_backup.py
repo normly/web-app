@@ -2,7 +2,13 @@
 # Copyright (C) 2026 normly contributors
 
 import json
+import pytest
 from datetime import datetime, timedelta, timezone
+
+
+@pytest.fixture(autouse=True)
+def running_release(harness):
+    harness.set_current_tag("0.1.2")
 
 
 def stamp(delta):
@@ -373,3 +379,20 @@ def test_prune_still_deletes_with_a_listing_larger_than_the_pipe_buffer(harness)
     assert result.returncode == 0, result.stderr
     assert len(deletes(harness)) == 4
     assert "failed to delete" not in result.stderr
+
+
+def test_run_pins_the_running_release_tag_for_every_compose_call(harness):
+    result = harness.run(
+        "normly-backup", "run", "--kind", "daily",
+        extra_env={"FAKE_DOCKER_OUT": "account", "NORMLY_IMAGE_TAG": "edge"},
+    )
+    assert result.returncode == 0, result.stderr
+    assert harness.tags() and set(harness.tags()) == {"0.1.2"}
+
+
+def test_run_refuses_without_a_current_tag(harness):
+    (harness.dir / "state" / "current_tag").unlink()
+    result = harness.run("normly-backup", "run", "--kind", "daily")
+    assert result.returncode == 1
+    assert "current_tag" in result.stderr
+    assert harness.calls() == []

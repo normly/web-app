@@ -63,6 +63,7 @@ from normly_core.graph.postgres.orm import (
     ChatMessageCitationORM,
     ChatMessageORM,
     ChatSessionORM,
+    DeletionLogORM,
     DeliveryORM,
     DocumentORM,
     DocumentDesignationORM,
@@ -439,6 +440,47 @@ class PostgresDocumentRepository:
             select(DocumentORM).where(DocumentORM.work_id == work_id)
         ).scalars()
         return [_document_to_domain(row) for row in rows]
+
+    def documents_for_works_unchecked(
+        self, work_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, list[Document]]:
+        """
+        Every Document (retired ones, i.e. tombstones, included) of each work,
+        grouped by work id. Ungated by rights classification on purpose: the
+        personal-data export reads it only to print the identifiers (issuer,
+        number, edition, part) of works the account holder watches -- never
+        content. Not for any content-serving path.
+        """
+        if not work_ids:
+            return {}
+        rows = self._session.execute(
+            select(DocumentORM)
+            .where(DocumentORM.work_id.in_(work_ids))
+            .order_by(
+                DocumentORM.origin_issuer, DocumentORM.origin_number,
+                DocumentORM.edition, DocumentORM.part, DocumentORM.id,
+            )
+        ).scalars()
+        grouped: dict[uuid.UUID, list[Document]] = {}
+        for row in rows:
+            grouped.setdefault(row.work_id, []).append(_document_to_domain(row))
+        return grouped
+
+    def documents_by_ids_unchecked(
+        self, document_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, Document]:
+        """
+        Documents (tombstones included) by id. Ungated by rights
+        classification on purpose: the personal-data export reads it only to
+        print the readable identifiers of documents the account holder's own
+        chat messages cited -- never content. Not for any content-serving path.
+        """
+        if not document_ids:
+            return {}
+        rows = self._session.execute(
+            select(DocumentORM).where(DocumentORM.id.in_(document_ids))
+        ).scalars()
+        return {row.id: _document_to_domain(row) for row in rows}
 
     def add_designation(
         self,
@@ -1021,6 +1063,18 @@ class PostgresNotificationRepository:
         result = self._session.execute(
             sa.delete(NotificationORM).where(
                 NotificationORM.read_at.is_not(None),
+                NotificationORM.created_at < cutoff,
+            )
+        )
+        return result.rowcount
+
+    def delete_unread_before(self, cutoff: datetime) -> int:
+        # The counterpart to delete_read_before with a much longer period: an
+        # unread notification is kept for a year, then it is no longer
+        # news worth keeping personal data for.
+        result = self._session.execute(
+            sa.delete(NotificationORM).where(
+                NotificationORM.read_at.is_(None),
                 NotificationORM.created_at < cutoff,
             )
         )
@@ -2129,7 +2183,7 @@ class PostgresAccountRepository:
             .values(avatar_image=None, avatar_content_type=None)
         )
 
-    def delete_account(self, account_id: uuid.UUID) -> None:
+    def _delete_account_rows(self, account_id: uuid.UUID) -> None:
         # Explicit, ordered deletes rather than relying on database-level
         # CASCADE: none of the foreign keys into `account` declare ON DELETE
         # CASCADE (they default to RESTRICT/NO ACTION), and changing that
@@ -2186,6 +2240,124 @@ class PostgresAccountRepository:
             sa.delete(WatchlistORM).where(WatchlistORM.account_id == account_id)
         )
         self._session.execute(sa.delete(AccountORM).where(AccountORM.id == account_id))
+
+    def delete_account(self, account_id: uuid.UUID) -> None:
+        # The log entry shares the transaction with the deletion: either both
+        # happen or neither. The account's chats get no entry of their own;
+        # the account entry covers them on a replay.
+        self._delete_account_rows(account_id)
+        PostgresDeletionLogRepository(self._session).record(
+            kind="account", entity_id=account_id, deleted_at=datetime.now(timezone.utc),
+        )
+
+    @staticmethod
+    def _abandoned_clauses(cutoff: datetime) -> list:
+        # Abandoned = never verified, old, no Google link, no session and no
+        # sign-in within the period. A Google or password account in use has a
+        # link, sessions or a recent last_login_at (which outlives a logout)
+        # though email_verified_at stays empty. The one place of this condition.
+        return [
+            AccountORM.email_verified_at.is_(None),
+            AccountORM.created_at < cutoff,
+            sa.or_(AccountORM.last_login_at.is_(None), AccountORM.last_login_at < cutoff),
+            ~sa.exists().where(AccountGoogleIdentityORM.account_id == AccountORM.id),
+            ~sa.exists().where(AccountSessionORM.account_id == AccountORM.id),
+        ]
+
+    def _abandoned_registration_ids(
+        self,
+        cutoff: datetime,
+        *,
+        warned_before: datetime | None = None,
+        unwarned: bool = False,
+        only: list[uuid.UUID] | None = None,
+        lock: bool = False,
+    ) -> list[uuid.UUID]:
+        query = select(AccountORM.id).where(*self._abandoned_clauses(cutoff))
+        if warned_before is not None:
+            query = query.where(AccountORM.deletion_warned_at < warned_before)
+        if unwarned:
+            query = query.where(AccountORM.deletion_warned_at.is_(None))
+        if only is not None:
+            query = query.where(AccountORM.id.in_(only))
+        if lock:
+            # FOR UPDATE blocks a concurrent verification, login or Google link
+            # (their inserts take a key-share lock on the account row).
+            query = query.with_for_update(of=AccountORM)
+        return list(self._session.execute(query).scalars())
+
+    def reset_deletion_warnings(self, cutoff: datetime) -> int:
+        # A warned account that was verified, linked to Google or signed in
+        # again is no longer abandoned: its warning is void.
+        result = self._session.execute(
+            sa.update(AccountORM)
+            .where(
+                AccountORM.deletion_warned_at.is_not(None),
+                ~sa.and_(*self._abandoned_clauses(cutoff)),
+            )
+            .values(deletion_warned_at=None)
+        )
+        return result.rowcount
+
+    def delete_unverified_accounts_created_before(
+        self, cutoff: datetime, *, warned_before: datetime
+    ) -> int:
+        """Deletes abandoned registrations warned before `warned_before`."""
+        locked = self._abandoned_registration_ids(
+            cutoff, warned_before=warned_before, lock=True
+        )
+        if not locked:
+            return 0
+        # Locked, so the state is stable; the second statement (new snapshot)
+        # re-checks the whole condition against what committed meanwhile.
+        ids = self._abandoned_registration_ids(cutoff, warned_before=warned_before, only=locked)
+        for account_id in ids:
+            self.delete_account(account_id)
+        return len(ids)
+
+    def abandoned_registrations_to_warn(self, cutoff: datetime) -> list[tuple[uuid.UUID, str]]:
+        ids = self._abandoned_registration_ids(cutoff, unwarned=True)
+        if not ids:
+            return []
+        rows = self._session.execute(
+            select(AccountORM.id, AccountORM.email).where(AccountORM.id.in_(ids))
+            .order_by(AccountORM.created_at)
+        ).all()
+        return [(row.id, row.email) for row in rows]
+
+    def mark_deletion_warned(self, account_id: uuid.UUID, warned_at: datetime) -> None:
+        self._session.execute(
+            sa.update(AccountORM)
+            .where(AccountORM.id == account_id, AccountORM.deletion_warned_at.is_(None))
+            .values(deletion_warned_at=warned_at)
+        )
+
+
+class PostgresDeletionLogRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def record(self, *, kind: str, entity_id: uuid.UUID, deleted_at: datetime) -> None:
+        self._session.execute(
+            pg_insert(DeletionLogORM)
+            .values(kind=kind, entity_id=entity_id, deleted_at=deleted_at)
+            .on_conflict_do_nothing(index_elements=["kind", "entity_id"])
+        )
+        self._session.flush()
+
+    def entries_since(self, since: datetime) -> list[tuple[str, uuid.UUID, datetime]]:
+        rows = self._session.execute(
+            select(DeletionLogORM.kind, DeletionLogORM.entity_id, DeletionLogORM.deleted_at)
+            .where(DeletionLogORM.deleted_at >= since)
+            .order_by(DeletionLogORM.deleted_at, DeletionLogORM.kind, DeletionLogORM.entity_id)
+        ).all()
+        return [(row.kind, row.entity_id, row.deleted_at) for row in rows]
+
+    def delete_older_than(self, cutoff: datetime) -> int:
+        result = self._session.execute(
+            sa.delete(DeletionLogORM).where(DeletionLogORM.deleted_at < cutoff)
+        )
+        return result.rowcount
 
 
 class PostgresAccountGoogleIdentityRepository:
@@ -2269,8 +2441,19 @@ class PostgresAccountSessionRepository:
             created_at=created_at, expires_at=expires_at,
         )
         self._session.add(orm)
+        self._session.execute(
+            sa.update(AccountORM).where(AccountORM.id == account_id).values(
+                last_login_at=created_at
+            )
+        )
         self._session.flush()
         return _account_session_to_domain(orm)
+
+    def delete_sessions_expired_before(self, cutoff: datetime) -> int:
+        result = self._session.execute(
+            sa.delete(AccountSessionORM).where(AccountSessionORM.expires_at < cutoff)
+        )
+        return result.rowcount
 
     def get_session_by_token(self, session_token: str) -> AccountSession | None:
         orm = self._session.execute(
@@ -2351,6 +2534,15 @@ class PostgresAccountTokenRepository:
         self._session.add(orm)
         self._session.flush()
         return _account_token_to_domain(orm)
+
+    def delete_tokens_done_before(self, cutoff: datetime) -> int:
+        # "Done" means expired or used; either moment older than the cutoff.
+        result = self._session.execute(
+            sa.delete(AccountTokenORM).where(
+                sa.or_(AccountTokenORM.expires_at < cutoff, AccountTokenORM.used_at < cutoff)
+            )
+        )
+        return result.rowcount
 
     def consume_token(
         self, token: str, purpose: AccountTokenPurpose
@@ -2470,13 +2662,6 @@ class PostgresChatRepository:
         ).scalars()
         return [_chat_session_to_domain(row) for row in rows]
 
-    def link_account(self, session_id: uuid.UUID, account_id: uuid.UUID) -> None:
-        self._session.execute(
-            sa.update(ChatSessionORM)
-            .where(ChatSessionORM.id == session_id)
-            .values(account_id=account_id)
-        )
-
     def create_message(
         self, *, session_id: uuid.UUID, role: ChatMessageRole, content: str,
         answer_type: ChatAnswerType | None, created_at: datetime,
@@ -2508,6 +2693,64 @@ class PostgresChatRepository:
         self._session.add(orm)
         self._session.flush()
         return _chat_message_citation_to_domain(orm)
+
+    def citations_for_messages(
+        self, message_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, list[ChatMessageCitation]]:
+        # Ungated on purpose: only identifiers of the account holder's own
+        # history, never content (see the Protocol docstring).
+        if not message_ids:
+            return {}
+        rows = self._session.execute(
+            select(ChatMessageCitationORM)
+            .where(ChatMessageCitationORM.message_id.in_(message_ids))
+            .order_by(
+                ChatMessageCitationORM.document_id,
+                ChatMessageCitationORM.segment_id.nulls_last(),
+                ChatMessageCitationORM.id,
+            )
+        ).scalars()
+        grouped: dict[uuid.UUID, list[ChatMessageCitation]] = {}
+        for row in rows:
+            grouped.setdefault(row.message_id, []).append(_chat_message_citation_to_domain(row))
+        return grouped
+
+    def _delete_sessions_where(self, condition) -> int:
+        ids = self._session.execute(select(ChatSessionORM.id).where(condition)).scalars().all()
+        if not ids:
+            return 0
+        message_ids = select(ChatMessageORM.id).where(ChatMessageORM.session_id.in_(ids))
+        self._session.execute(
+            sa.delete(ChatMessageCitationORM).where(
+                ChatMessageCitationORM.message_id.in_(message_ids)
+            )
+        )
+        self._session.execute(
+            sa.delete(ChatMessageORM).where(ChatMessageORM.session_id.in_(ids))
+        )
+        self._session.execute(sa.delete(ChatSessionORM).where(ChatSessionORM.id.in_(ids)))
+        log_repo = PostgresDeletionLogRepository(self._session)
+        now = datetime.now(timezone.utc)
+        for session_id in ids:
+            log_repo.record(kind="chat_session", entity_id=session_id, deleted_at=now)
+        return len(ids)
+
+    def delete_anonymous_chat_sessions(self) -> int:
+        # Legacy rows from before anonymous chats stopped being stored. They
+        # sit in older backups, so each one is logged for a rollback replay.
+        return self._delete_sessions_where(ChatSessionORM.account_id.is_(None))
+
+    def delete_chat_session(self, session_id: uuid.UUID, account_id: uuid.UUID) -> bool:
+        return self._delete_sessions_where(
+            sa.and_(ChatSessionORM.id == session_id, ChatSessionORM.account_id == account_id)
+        ) > 0
+
+    def delete_chat_session_by_id(self, session_id: uuid.UUID) -> bool:
+        # No owner check: only the rollback replay may call this.
+        return self._delete_sessions_where(ChatSessionORM.id == session_id) > 0
+
+    def delete_chat_sessions_for_account(self, account_id: uuid.UUID) -> int:
+        return self._delete_sessions_where(ChatSessionORM.account_id == account_id)
 
 
 class PostgresRateLimitRepository:

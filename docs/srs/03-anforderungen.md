@@ -90,6 +90,8 @@ Dieses Kapitel beschreibt die logischen Benutzeroberflächen von normly sowie di
 
 - Datenschutz- und Löschkonzepte sind gemäß Sicherheits- und Compliance-Anforderungen zu berücksichtigen
 
+- Die Chat-Historie wird nur für angemeldete Nutzer gespeichert (REQ-ACC-004); anonyme Unterhaltungen leben nur im Browser-Tab und werden serverseitig nicht abgelegt. Gespeicherte Verläufe kann die Person einzeln oder gesamt löschen (ADR-027)
+
 ### 3.1.2 Hardware Interfaces
 
 Dieses Kapitel beschreibt etwaige Anforderungen an Hardware-Schnittstellen. Für normly sind aktuell keine expliziten Hardware-Integrationen vorgesehen.
