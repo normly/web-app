@@ -543,7 +543,7 @@ The periods are named constants in `core/src/normly_core/retention.py`:
 |---|---|
 | expired account sessions | 7 days after expiry |
 | one-time account tokens (verification, reset, magic link) | 24 hours after expiry or use |
-| abandoned registrations, with their tokens and chats | email never verified, created more than 30 days ago, **no** Google identity and **no** session row at all, **and** 14 days after a delivered warning e-mail |
+| abandoned registrations, with their tokens and chats | email never verified, created more than 30 days ago, **no** Google identity, **no** session row and **no** sign-in within the last 30 days, **and** 14 days after a delivered warning e-mail |
 | notifications | read: 60 days after creation; unread: 365 days after creation |
 | deletion log entries | 90 days |
 | chats without an account (legacy data) | on every run |
@@ -563,7 +563,8 @@ therefore nobody is deleted; failed sends are retried on the next run and
 `warnings_sent` counts only delivered mails. Note that a password account that
 was used and then paused for about 37 days (its session rows are gone after
 7 days past expiry) counts as abandoned; the warning is its notice, and a
-sign-in within 14 days keeps it. Chats of accounts have no retention period: the
+sign-in within 14 days keeps it (the sign-in is recorded in
+`account.last_login_at`, so logging out again does not undo it). Chats of accounts have no retention period: the
 user deletes them, or the account. The reasoning is in
 [ADR-027](../adr/README.md#adr-027-lebenszyklus-der-nutzerdaten). The periods
 are project decisions and should be reviewed by a data-protection professional.

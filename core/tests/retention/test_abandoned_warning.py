@@ -199,6 +199,28 @@ def test_expired_session_after_warning_still_resets_the_warning(db_session):
     assert _warned_at(db_session, account.id) == NOW
 
 
+def test_sign_in_then_logout_after_the_warning_keeps_the_account(db_session):
+    account = _account(db_session, "relog@example.de", warned_at=NOW - timedelta(days=5))
+    sessions = PostgresAccountSessionRepository(db_session)
+    sessions.create_session(
+        account_id=account.id, session_token="short-lived",
+        created_at=NOW - timedelta(days=4), expires_at=NOW + timedelta(days=26),
+    )
+    sessions.revoke_session("short-lived")  # logout deletes the session row
+
+    # First run after the logout: reset clears the warning, no new mail yet
+    # because the sign-in is recent activity.
+    sender = RecordingEmailSender()
+    first = _summary(_cleanup_user_data(db_session, NOW, sender))
+    assert first["warnings_sent"] == 0 and sender.sent == []
+    assert _warned_at(db_session, account.id) is None
+
+    # Even past the original deletion date the account is not deleted.
+    later = _summary(_cleanup_user_data(db_session, NOW + NOTICE + timedelta(days=1), sender))
+    assert later["unverified_accounts"] == 0
+    assert _exists(db_session, account.id)
+
+
 def test_no_account_is_warned_and_deleted_in_one_run_and_reruns_are_idempotent(db_session):
     account = _account(db_session, "once@example.de", created_at=NOW - timedelta(days=900))
     sender = RecordingEmailSender()

@@ -1328,8 +1328,11 @@ Google-Konten werden nie als bestätigt markiert (`email_verified_at` bleibt
 leer), und Konten mit Passwort können sich auch ohne Bestätigung anmelden. Ein
 Konto in Benutzung hat daher eine Google-Verknüpfung oder mindestens eine
 `account_session`-Zeile (auch eine abgelaufene, solange sie nicht gelöscht
-ist; die Löschfrist der Sitzung beginnt erst 7 Tage nach Ablauf). Nur ein Konto
-ohne beides, nie bestätigt und älter als 30 Tage, gilt als verlassen. Das
+ist; die Löschfrist der Sitzung beginnt erst 7 Tage nach Ablauf) oder eine
+Anmeldung innerhalb der letzten 30 Tage: `account.last_login_at` wird bei jeder
+Sitzungsanlage gesetzt und überlebt im Gegensatz zur Sitzungszeile die
+Abmeldung. Nur ein Konto ohne all das, nie bestätigt und älter als 30 Tage,
+gilt als verlassen. Das
 trifft auch ein Passwort-Konto, das benutzt und dann lange pausiert wurde,
 sobald seine Sitzungen entfernt sind; deshalb wird kein Konto still gelöscht:
 Der Aufräumbefehl schickt zuerst eine zweisprachige Vorwarn-E-Mail (Datum der
@@ -1344,8 +1347,10 @@ wird im nächsten Lauf erneut versucht. Ein Konto wird nie im selben Lauf
 gewarnt und gelöscht (Reihenfolge: zurücksetzen, löschen, warnen). Der
 Löschlauf sperrt die Kandidaten und prüft die Bedingung samt Warnzeitpunkt
 erneut, damit eine gleichzeitige Bestätigung, Anmeldung oder
-Google-Verknüpfung nicht verloren geht. `deletion_warned_at` wird nicht
-exportiert.
+Google-Verknüpfung nicht verloren geht. `deletion_warned_at` und
+`last_login_at` werden nicht exportiert. Die Mail nennt das Datum als
+„frühestens am“, weil der tägliche Lauf den Zeitpunkt um bis zu einen Tag
+verschieben kann.
 
 *Aufräumbefehl.* `python -m normly_core.pipeline cleanup-user-data` setzt alle
 Fristen der Tabelle durch (Sitzungen, Tokens, verlassene Registrierungen,

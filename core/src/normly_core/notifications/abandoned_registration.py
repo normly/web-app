@@ -26,12 +26,12 @@ def build_warning_body(*, delete_on: str, base_url: str | None) -> str:
     return (
         "Hallo,\n\n"
         "dein normly-Konto wurde nie bestätigt und seit langem nicht genutzt. "
-        f"Es wird am {delete_on} gelöscht, wenn du dich bis dahin nicht anmeldest.\n"
+        f"Es wird frühestens am {delete_on} gelöscht, wenn du dich bis dahin nicht anmeldest.\n"
         f"{link_de}\n\n"
         "---\n\n"
         "Hello,\n\n"
         "your normly account was never confirmed and has not been used for a long time. "
-        f"It will be deleted on {delete_on} unless you sign in before then.\n"
+        f"It will be deleted on {delete_on} at the earliest unless you sign in before then.\n"
         f"{link_en}\n"
     )
 

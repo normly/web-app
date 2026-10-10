@@ -53,7 +53,7 @@ cleanup() {
   local rc=$?
   if [ -n "$WORK" ]; then rm -rf "$WORK"; fi
   if [ "$LOCK_HELD" -eq 1 ]; then
-    rm -f "$STATE/pre_rollout_backup.new" "$STATE/pre_rollout_kb_version.new" "$STATE/.rollback-deletions.new"
+    rm -f "$STATE/pre_rollout_backup.new" "$STATE/pre_rollout_kb_version.new" "$STATE/.rollback-deletions.new" "$STATE/.rollback-pending-deletions.new"
     rmdir "$STATE/deploy.lock" 2>/dev/null || true
   fi
   if [ "$DESTRUCTIVE" -eq 1 ] && [ "$rc" -ne 0 ]; then

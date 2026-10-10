@@ -2252,12 +2252,14 @@ class PostgresAccountRepository:
 
     @staticmethod
     def _abandoned_clauses(cutoff: datetime) -> list:
-        # Abandoned = never verified, old, no Google link and no session at
-        # all. A Google or password account in use has a link or sessions even
+        # Abandoned = never verified, old, no Google link, no session and no
+        # sign-in within the period. A Google or password account in use has a
+        # link, sessions or a recent last_login_at (which outlives a logout)
         # though email_verified_at stays empty. The one place of this condition.
         return [
             AccountORM.email_verified_at.is_(None),
             AccountORM.created_at < cutoff,
+            sa.or_(AccountORM.last_login_at.is_(None), AccountORM.last_login_at < cutoff),
             ~sa.exists().where(AccountGoogleIdentityORM.account_id == AccountORM.id),
             ~sa.exists().where(AccountSessionORM.account_id == AccountORM.id),
         ]
@@ -2439,6 +2441,11 @@ class PostgresAccountSessionRepository:
             created_at=created_at, expires_at=expires_at,
         )
         self._session.add(orm)
+        self._session.execute(
+            sa.update(AccountORM).where(AccountORM.id == account_id).values(
+                last_login_at=created_at
+            )
+        )
         self._session.flush()
         return _account_session_to_domain(orm)
 

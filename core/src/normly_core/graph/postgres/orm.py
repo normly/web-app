@@ -444,6 +444,9 @@ class AccountORM(Base):
     # Set when the warning e-mail for an abandoned registration was delivered;
     # reset when the account is no longer abandoned. Never exported.
     deletion_warned_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    # Set whenever a session is created (every sign-in path). Unlike the session
+    # row it survives logout, so a sign-in stays visible as activity.
+    last_login_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     first_name: Mapped[str | None]
     last_name: Mapped[str | None]
     avatar_image: Mapped[bytes | None] = mapped_column(sa.LargeBinary)

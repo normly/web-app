@@ -163,3 +163,7 @@
 - [ ] **Step 3: Implementierung** wie oben (Migration `0036`, `down_revision = "0035"`; Repository-Methoden ohne `get_`/`list_`-Präfix; das CLI baut den `EmailSender` wie `notify-watchers` aus `NORMLY_SMTP_*`).
 - [ ] **Step 4:** fokussierte Tests einzeln, dann die komplette Core-Suite einmal.
 - [ ] **Step 5: Commit** `feat(retention): warn by e-mail before deleting abandoned registrations` (mit `-s` und Trailer).
+
+### Nachtrag Task 6 (Abschluss-Review): Anmeldung als dauerhafte Aktivität
+
+Die Abschluss-Review fand: Als Aktivität zählte nur eine vorhandene `account_session`-Zeile. Meldet sich eine gewarnte Person an und wieder ab (die Zeile wird gelöscht), galt das Konto wieder als verlassen, und die Warnung wurde nicht zurückgesetzt. Beschlossen (Option A): Migration `0037` fügt `account.last_login_at` hinzu; `create_session` setzt sie bei jedem Anmeldeweg; „verlassen“ verlangt zusätzlich `last_login_at IS NULL OR last_login_at < now - 30 Tage`. Die Spalte wird nicht exportiert. Die Warn-Mail nennt das Datum als „frühestens am“ / „at the earliest“, weil der tägliche Lauf den Zeitpunkt um bis zu einen Tag verschieben kann. Der Trap von `normly-deploy` räumt auch `.rollback-pending-deletions.new` ab.
