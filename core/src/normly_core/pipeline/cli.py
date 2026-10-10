@@ -87,17 +87,19 @@ def _build_email_sender() -> EmailSender:
 
 def _cleanup_user_data(session: Session, now: datetime, email_sender: EmailSender) -> str:
     """Applies every retention period; returns the summary line (counts only)."""
+    accounts = PostgresAccountRepository(session)
+    abandoned_cutoff = now - retention.UNVERIFIED_ACCOUNT_MAX_AGE
+    # Order matters: reset, then delete, then warn -- an account warned in this
+    # run can never be deleted in it, and nothing is deleted without a warning.
+    # The reset runs before expired sessions are removed: a sign-in after the
+    # warning must still count as activity, even if its session has expired since.
+    accounts.reset_deletion_warnings(abandoned_cutoff)
     sessions = PostgresAccountSessionRepository(session).delete_sessions_expired_before(
         now - retention.ACCOUNT_SESSION_GRACE
     )
     tokens = PostgresAccountTokenRepository(session).delete_tokens_done_before(
         now - retention.ACCOUNT_TOKEN_GRACE
     )
-    accounts = PostgresAccountRepository(session)
-    abandoned_cutoff = now - retention.UNVERIFIED_ACCOUNT_MAX_AGE
-    # Order matters: reset, then delete, then warn -- an account warned in this
-    # run can never be deleted in it, and nothing is deleted without a warning.
-    accounts.reset_deletion_warnings(abandoned_cutoff)
     unverified = accounts.delete_unverified_accounts_created_before(
         abandoned_cutoff, warned_before=now - retention.ACCOUNT_DELETION_NOTICE_PERIOD,
     )

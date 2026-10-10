@@ -146,12 +146,31 @@ def test_recovered_accounts_are_reset_and_kept(db_session):
         expires_at=NOW + timedelta(days=30),
     )
 
-    summary = _summary(_cleanup_user_data(db_session, NOW, RecordingEmailSender()))
+    sender = RecordingEmailSender()
+    summary = _summary(_cleanup_user_data(db_session, NOW, sender))
 
     assert summary["unverified_accounts"] == 0
+    assert sender.sent == []
     for account in (verified, google, logged_in):
         assert _exists(db_session, account.id)
         assert _warned_at(db_session, account.id) is None
+
+
+def test_expired_session_after_warning_still_resets_the_warning(db_session):
+    account = _account(db_session, "back@example.de", warned_at=NOW - timedelta(days=20))
+    PostgresAccountSessionRepository(db_session).create_session(
+        account_id=account.id, session_token="expired-sess",
+        created_at=NOW - timedelta(days=60), expires_at=NOW - timedelta(days=30),
+    )
+
+    sender = RecordingEmailSender()
+    summary = _summary(_cleanup_user_data(db_session, NOW, sender))
+
+    # The old warning is void: the account is kept and gets a fresh notice period.
+    assert summary["sessions"] == 1 and summary["unverified_accounts"] == 0
+    assert summary["warnings_sent"] == 1 and len(sender.sent) == 1
+    assert _exists(db_session, account.id)
+    assert _warned_at(db_session, account.id) == NOW
 
 
 def test_no_account_is_warned_and_deleted_in_one_run_and_reruns_are_idempotent(db_session):
