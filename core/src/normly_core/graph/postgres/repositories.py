@@ -2696,6 +2696,10 @@ class PostgresChatRepository:
             sa.and_(ChatSessionORM.id == session_id, ChatSessionORM.account_id == account_id)
         ) > 0
 
+    def delete_chat_session_by_id(self, session_id: uuid.UUID) -> bool:
+        # No owner check: only the rollback replay may call this.
+        return self._delete_sessions_where(ChatSessionORM.id == session_id) > 0
+
     def delete_chat_sessions_for_account(self, account_id: uuid.UUID) -> int:
         return self._delete_sessions_where(ChatSessionORM.account_id == account_id)
 

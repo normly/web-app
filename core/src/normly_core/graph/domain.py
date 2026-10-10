@@ -1007,6 +1007,13 @@ class ChatRepository(Protocol):
         """Deletes the session only if it belongs to account_id; True if deleted."""
         ...
 
+    def delete_chat_session_by_id(self, session_id: uuid.UUID) -> bool:
+        """
+        Deletes the session whoever owns it. Internal: only the rollback replay
+        of the deletion log uses it; requests must use delete_chat_session.
+        """
+        ...
+
     def delete_chat_sessions_for_account(self, account_id: uuid.UUID) -> int: ...
 
     def create_message(

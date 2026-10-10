@@ -25,6 +25,7 @@ if [ -n "${!fail_on:-}" ]; then
   case " $* " in *"${!fail_on}"*) exit 1 ;; esac
 fi
 tomb_default='{"format": 1, "created_at": "2026-10-09T00:00:00+00:00", "rows": {"source": [], "delivery": [], "work": [], "document": [], "edge": []}}'
+del_default='{"format": 1, "created_at": "2026-10-09T00:00:00+00:00", "entries": []}'
 digest="sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 case "$(basename "$0")" in
   cosign)
@@ -44,6 +45,13 @@ case "$(basename "$0")" in
       *" import-tombstones "*)
         # record what arrived on stdin so tests can assert on it
         if [ -n "${FAKE_DOCKER_STDIN_FILE:-}" ]; then cat > "$FAKE_DOCKER_STDIN_FILE"; fi ;;
+      *" export-deletions "*)
+        printf '%s\\n' "${FAKE_DOCKER_DELETIONS_OUT-$del_default}"; exit 0 ;;
+      *" replay-deletions --check"*)
+        exit "${FAKE_DOCKER_REPLAY_CHECK_EXIT:-0}" ;;
+      *" replay-deletions"*)
+        if [ -n "${FAKE_DOCKER_REPLAY_STDIN_FILE:-}" ]; then cat > "$FAKE_DOCKER_REPLAY_STDIN_FILE"; fi
+        exit "${FAKE_DOCKER_REPLAY_EXIT:-0}" ;;
       *"exchange info"*)
         [ -z "${FAKE_DOCKER_INFO_EMPTY:-}" ] || exit 0
         printf '%s\\n' "${FAKE_DOCKER_INFO_OUT:-${FAKE_DOCKER_OUT:-2026.10.1}}"; exit 0 ;;

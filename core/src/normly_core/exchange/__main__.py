@@ -3,7 +3,8 @@
 
 """
 python -m normly_core.exchange
-    {keygen|export|import|verify|info|tables|export-tombstones|import-tombstones}
+    {keygen|export|import|verify|info|tables|export-tombstones|import-tombstones
+     |export-deletions|replay-deletions}
 
 The knowledge-base dump tooling (ADR-025). Commits happen here, never in the
 repository.
@@ -20,6 +21,7 @@ from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
+from normly_core.exchange import deletions
 from normly_core.exchange.exporter import export_dump
 from normly_core.exchange.fetch import FetchError, fetch_dump
 from normly_core.exchange.importer import ImportRefused, import_dump, verify_dump
@@ -28,6 +30,11 @@ from normly_core.exchange.tables import group_tables
 from normly_core.exchange.tombstones import build_document, parse_document, row_count
 from normly_core.graph.domain import ImportBlockedError
 from normly_core.graph.postgres.exchange import PostgresKnowledgeExchangeRepository
+from normly_core.graph.postgres.repositories import (
+    PostgresAccountRepository,
+    PostgresChatRepository,
+    PostgresDeletionLogRepository,
+)
 
 _MODEL_REVISION_ENV = "NORMLY_EMBEDDING_MODEL_REVISION"
 _KEY_FILE_ENV = "NORMLY_KB_PUBLIC_KEY_FILE"
@@ -160,6 +167,60 @@ def _import_tombstones(database_url: str) -> int:
         engine.dispose()
 
 
+def _export_deletions(database_url: str, since_text: str) -> int:
+    try:
+        since = datetime.fromisoformat(since_text)
+    except ValueError:
+        since = None
+    if since is None or since.tzinfo is None:
+        print("--since must be an ISO-8601 timestamp with a timezone", file=sys.stderr)
+        return 1
+    engine = create_engine(database_url)
+    try:
+        with Session(engine) as session:
+            entries = deletions.entries_after(
+                PostgresDeletionLogRepository(session).entries_since(since), since
+            )
+            document = deletions.build_document(entries, created_at=datetime.now(timezone.utc))
+    finally:
+        engine.dispose()
+    sys.stdout.write(document)
+    return 0
+
+
+def _replay_deletions(database_url: str) -> int:
+    try:
+        wanted = deletions.parse_document(sys.stdin.read())
+    except ValueError as exc:
+        print(f"invalid deletion document: {exc}", file=sys.stderr)
+        return 1
+    engine = create_engine(database_url)
+    try:
+        with Session(engine) as session:
+            accounts = PostgresAccountRepository(session)
+            chats = PostgresChatRepository(session)
+            log = PostgresDeletionLogRepository(session)
+            applied = gone = 0
+            for kind, entity_id in wanted:
+                if kind == "account":
+                    exists = accounts.get_account_by_id(entity_id) is not None
+                    if exists:
+                        accounts.delete_account(entity_id)
+                else:
+                    exists = chats.delete_chat_session_by_id(entity_id)
+                if exists:
+                    applied += 1
+                else:
+                    gone += 1
+                    # Keep the log complete for a later rollback to an older backup.
+                    log.record(kind=kind, entity_id=entity_id, deleted_at=datetime.now(timezone.utc))
+            session.commit()
+            print(f"replayed deletions: {applied} applied, {gone} already gone")
+            return 0
+    finally:
+        engine.dispose()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m normly_core.exchange")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -203,6 +264,20 @@ def main(argv: list[str] | None = None) -> int:
         help="restore the tombstone support JSON read from stdin (rollback)",
     )
 
+    export_del = sub.add_parser(
+        "export-deletions",
+        help="print the deletions made after a point in time as JSON (rollback)",
+    )
+    export_del.add_argument("--since", required=True, metavar="ISO-8601")
+    replay = sub.add_parser(
+        "replay-deletions",
+        help="apply the deletion JSON read from stdin again (rollback)",
+    )
+    replay.add_argument(
+        "--check", action="store_true",
+        help="only report that this image knows the command (no database needed)",
+    )
+
     tables = sub.add_parser("tables")
     tables.add_argument("group", choices=["knowledge", "user", "pipeline", "all"])
 
@@ -217,6 +292,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "verify":
         return _verify(args)
 
+    if args.command == "replay-deletions" and args.check:
+        print("replay-deletions is supported")
+        return 0
+
     database_url = _require_env("NORMLY_DATABASE_URL")
     if not database_url:
         return 1
@@ -224,6 +303,10 @@ def main(argv: list[str] | None = None) -> int:
         return _export_tombstones(database_url)
     if args.command == "import-tombstones":
         return _import_tombstones(database_url)
+    if args.command == "export-deletions":
+        return _export_deletions(database_url, args.since)
+    if args.command == "replay-deletions":
+        return _replay_deletions(database_url)
     revision = None
     if args.command != "info":
         revision = _require_env(_MODEL_REVISION_ENV)

@@ -174,7 +174,7 @@ ENV NORMLY_DOCLING_ARTIFACTS_PATH=/opt/models/docling \
 # releases/<tag>/ on the VM, so the files always match the images they ship in.
 COPY --chown=normly:normly compose.yaml /app/deploy/compose.yaml
 COPY --chown=normly:normly docker/caddy/Caddyfile /app/deploy/docker/caddy/Caddyfile
-COPY --chown=normly:normly scripts/normly-deploy scripts/normly-backup scripts/normly-backup-retention.py scripts/normly-env.sh /app/deploy/scripts/
+COPY --chown=normly:normly scripts/normly-deploy scripts/normly-backup scripts/normly-backup-retention.py scripts/normly-cleanup scripts/normly-env.sh /app/deploy/scripts/
 COPY --chown=normly:normly deploy/systemd /app/deploy/systemd
 USER normly
 ENTRYPOINT ["python", "-m", "normly_core.pipeline"]

@@ -250,6 +250,7 @@ rollback() {
 
   local database_url drop_sql down_tag="$current" backup_rev head_rev verify_out
   local has_tombstones=0 backup_listing meta_flag tomb_problem
+  local since del_problem del_list del_count replay_deletions=0 replay_note=""
   local -a key_args=()
   WORK="$(mktemp -d -t normly-rollback.XXXXXX)"; chmod 700 "$WORK"
   normly_load_env "$NORMLY_DIR/.env"
@@ -309,6 +310,35 @@ print("yes" if json.load(sys.stdin).get("tombstones") is True else "no")' < "$WO
       || die "knowledge-base dump $kb_version cannot be verified: $verify_out; nothing was changed"
   fi
 
+  # Accounts and chats deleted after the backup come back with the restore.
+  # Export their identifiers now (the database is still intact), with the
+  # release whose data is discarded: it wrote the deletion log. A failure must
+  # stop here, not after the DROP. The previous release may predate the replay
+  # command: then the operator is told what to delete by hand.
+  [[ "$backup" =~ ^[0-9]{8}T[0-9]{6}Z- ]] \
+    || die "cannot read the timestamp from the backup name '$backup'; nothing was changed"
+  since="${backup:0:4}-${backup:4:2}-${backup:6:2}T${backup:9:2}:${backup:11:2}:${backup:13:2}+00:00"
+  compose "$from" run --rm --no-deps -T --entrypoint python pipeline \
+    -m normly_core.exchange export-deletions --since "$since" > "$WORK/deletions.json" \
+    || die "cannot export the deletions made since backup $backup; nothing was changed"
+  del_problem="$(normly_check_deletions "$WORK/deletions.json" 2>&1)" \
+    || die "deletion export is invalid: $del_problem; nothing was changed"
+  del_list="$(python3 -c '
+import json, sys
+print(", ".join("%s:%s" % (e["kind"], e["entity_id"]) for e in json.load(sys.stdin)["entries"]))' \
+    < "$WORK/deletions.json")" \
+    || die "cannot read the deletion export; nothing was changed"
+  if [ -n "$del_list" ]; then
+    del_count="$(grep -o ', ' <<< "$del_list" | wc -l)"; del_count=$((del_count + 1))
+    if compose "$previous" run --rm --no-deps -T --entrypoint python pipeline \
+        -m normly_core.exchange replay-deletions --check > /dev/null 2>&1; then
+      replay_deletions=1
+      replay_note="  $del_count deletion(s) made since the backup will be replayed after the restore."
+    else
+      replay_note="  WARNING: previous release cannot replay deletions; re-delete these by hand after the rollback: $del_list"
+    fi
+  fi
+
   cat >&2 <<EOF
 Rollback $from -> $previous
   Database state after backup '$backup' is DISCARDED (accounts, chats, watchlists
@@ -316,6 +346,7 @@ Rollback $from -> $previous
   Steps: stop services, drop all tables, migrate with $previous, import the
   knowledge base (${kb_version:-none}), restore user data.
 EOF
+  if [ -n "$replay_note" ]; then echo "$replay_note" >&2; fi
   if [ "$kb_version" = "none" ] || [ -z "$kb_version" ]; then
     echo "  WARNING: the knowledge base will be EMPTY after this rollback; only the Flex backup can restore it." >&2
   fi
@@ -352,6 +383,11 @@ EOF
       -m normly_core.exchange import-tombstones < "$WORK/tombstones.json"
   fi
   pg_restore --dbname="$database_url" --data-only --exit-on-error "$WORK/dump"
+  # Delete again what was deleted after the backup (the restore brought it back).
+  if [ "$replay_deletions" -eq 1 ]; then
+    compose "$previous" run --rm --no-deps -T --entrypoint python pipeline \
+      -m normly_core.exchange replay-deletions < "$WORK/deletions.json"
+  fi
   compose "$previous" up -d --no-build --wait --wait-timeout "$HEALTH_TIMEOUT"
   DESTRUCTIVE=0
 
