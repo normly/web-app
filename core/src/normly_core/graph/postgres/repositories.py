@@ -2209,12 +2209,33 @@ class PostgresAccountRepository:
             kind="account", entity_id=account_id, deleted_at=datetime.now(timezone.utc),
         )
 
+    def _abandoned_registration_ids(
+        self, cutoff: datetime, *, only: list[uuid.UUID] | None = None, lock: bool = False
+    ) -> list[uuid.UUID]:
+        # Abandoned = never verified, old, no Google link and no session at
+        # all. A Google or password account in use has a link or sessions even
+        # though email_verified_at stays empty.
+        query = select(AccountORM.id).where(
+            AccountORM.email_verified_at.is_(None),
+            AccountORM.created_at < cutoff,
+            ~sa.exists().where(AccountGoogleIdentityORM.account_id == AccountORM.id),
+            ~sa.exists().where(AccountSessionORM.account_id == AccountORM.id),
+        )
+        if only is not None:
+            query = query.where(AccountORM.id.in_(only))
+        if lock:
+            # FOR UPDATE blocks a concurrent verification, login or Google link
+            # (their inserts take a key-share lock on the account row).
+            query = query.with_for_update(of=AccountORM)
+        return list(self._session.execute(query).scalars())
+
     def delete_unverified_accounts_created_before(self, cutoff: datetime) -> int:
-        ids = self._session.execute(
-            select(AccountORM.id).where(
-                AccountORM.email_verified_at.is_(None), AccountORM.created_at < cutoff
-            )
-        ).scalars().all()
+        locked = self._abandoned_registration_ids(cutoff, lock=True)
+        if not locked:
+            return 0
+        # Locked, so the state is stable; the second statement (new snapshot)
+        # re-checks the whole condition against what committed meanwhile.
+        ids = self._abandoned_registration_ids(cutoff, only=locked)
         for account_id in ids:
             self.delete_account(account_id)
         return len(ids)

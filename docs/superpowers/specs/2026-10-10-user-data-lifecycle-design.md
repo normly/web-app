@@ -17,7 +17,7 @@ auch eine Wiederherstellung aus Sicherungen überstehen. Die Bestandsaufnahme
   `normly_session` mit 90 Tagen Laufzeit) und nie gelöscht, obwohl der Server
   sie zum Antworten nicht braucht (jede Frage wird einzeln beantwortet).
 - `account_session` und `account_token` werden nie gelöscht (die Ablaufzeit wird
-  nur geprüft); nicht bestätigte Konten bleiben ewig.
+  nur geprüft); verlassene Registrierungen bleiben ewig.
 - Ungelesene Benachrichtigungen werden nie gelöscht.
 - Es gibt keinen Weg, einzelne Chat-Verläufe zu löschen.
 - Der Rollback stellt Nutzerdaten vom Sicherungszeitpunkt wieder her: Zwischenzeitlich
@@ -37,7 +37,7 @@ Projekts und sollten von einer Fachperson für Datenschutz geprüft werden.
 | Chats mit Konto | bis zur Löschung durch die Person (pro Verlauf oder alle) oder durch die Kontolöschung; keine automatische Frist |
 | `account_session` | 7 Tage nach Ablauf gelöscht |
 | `account_token` | 24 Stunden nach Ablauf oder Verwendung gelöscht |
-| nicht bestätigte Konten (`email_verified_at` leer) | 30 Tage nach Anlage samt Sitzungen, Tokens und Chats gelöscht |
+| verlassene Registrierungen (`email_verified_at` leer, keine Google-Verknüpfung, keine Konto-Sitzung, auch keine abgelaufene) | 30 Tage nach Anlage samt Tokens und Chats gelöscht; Konten in Benutzung (Google, Passwort-Anmeldung) nie, auch ohne Bestätigung |
 | `notification` gelesen / ungelesen | 60 Tage / 12 Monate nach Anlage |
 | `notified_edge`, `notified_retirement`, `rights_notification_baseline` | bis zur Kontolöschung (verhindern Doppelmeldungen) |
 | `oauth_state`, `rate_limit_bucket` | unverändert (1 Stunde / 10 Minuten) |
@@ -79,7 +79,7 @@ Passwort-Hash, Tokens und Buchführung bleiben ausgeschlossen.
 **5. Löschprotokoll.** Tabelle `deletion_log` (Art `account` oder `chat_session`,
 Kennung, Zeitpunkt; **keine** personenbezogenen Daten, nur Kennungen;
 Primärschlüssel Art+Kennung). Geschrieben in derselben Transaktion wie jede
-Löschung (Kontolöschung, Verlauf löschen, Aufräumen nicht bestätigter Konten);
+Löschung (Kontolöschung, Verlauf löschen, Aufräumen verlassener Registrierungen);
 bereinigt nach 90 Tagen (länger als die längste Sicherungsfrist). Teil der
 Nutzerdaten-Sicherung (`USER_TABLES`). Kommandos im Kern (`python -m
 normly_core.exchange`): `export-deletions --since <ISO-Zeitpunkt>` schreibt die

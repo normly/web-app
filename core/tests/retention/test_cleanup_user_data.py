@@ -12,11 +12,14 @@ from normly_core import retention
 from normly_core.graph.domain import (
     AccountTokenPurpose,
     ChatMessageRole,
+    EdgeType,
+    Layer,
     LegalBasisCategory,
     NotificationTriggerType,
     WorkCreatedVia,
 )
 from normly_core.graph.postgres.orm import (
+    AccountGoogleIdentityORM,
     AccountORM,
     AccountSessionORM,
     AccountTokenORM,
@@ -24,8 +27,13 @@ from normly_core.graph.postgres.orm import (
     ChatMessageORM,
     ChatSessionORM,
     NotificationORM,
+    NotifiedEdgeORM,
+    NotifiedRetirementORM,
+    RightsNotificationBaselineORM,
+    WatchlistORM,
 )
 from normly_core.graph.postgres.repositories import (
+    PostgresAccountGoogleIdentityRepository,
     PostgresAccountRepository,
     PostgresAccountSessionRepository,
     PostgresAccountTokenRepository,
@@ -33,7 +41,11 @@ from normly_core.graph.postgres.repositories import (
     PostgresDeletionLogRepository,
     PostgresDeliveryRepository,
     PostgresDocumentRepository,
+    PostgresEdgeRepository,
     PostgresNotificationRepository,
+    PostgresNotifiedEdgeRepository,
+    PostgresNotifiedRetirementRepository,
+    PostgresRightsNotificationBaselineRepository,
     PostgresSourceRepository,
     PostgresWorkRepository,
 )
@@ -158,7 +170,7 @@ def test_delete_unread_before_only_touches_old_unread(db_session):
     assert old_unread not in left
 
 
-# --- unverified accounts ----------------------------------------------------
+# --- abandoned registrations ------------------------------------------------
 
 def test_delete_unverified_accounts_boundaries_and_log(db_session):
     cutoff = NOW - retention.UNVERIFIED_ACCOUNT_MAX_AGE
@@ -178,41 +190,109 @@ def test_delete_unverified_accounts_boundaries_and_log(db_session):
     assert _log(db_session) == {("account", old.id)}
 
 
+def test_accounts_in_use_are_not_abandoned(db_session):
+    cutoff = NOW - retention.UNVERIFIED_ACCOUNT_MAX_AGE
+    long_ago = cutoff - timedelta(days=100)
+    google = _account(db_session, "google@example.de", created_at=long_ago)
+    PostgresAccountGoogleIdentityRepository(db_session).link_google_identity(
+        account_id=google.id, google_subject_id="subject-1",
+    )
+    # An expired session row still marks the account as recently used: sessions
+    # are removed 7 days after expiry, so a surviving row means recent use.
+    session_account = _account(db_session, "sess@example.de", created_at=long_ago)
+    PostgresAccountSessionRepository(db_session).create_session(
+        account_id=session_account.id, session_token="in-use", created_at=long_ago,
+        expires_at=cutoff - timedelta(days=1),
+    )
+    abandoned = _account(db_session, "abandoned@example.de", created_at=long_ago)
+
+    assert PostgresAccountRepository(
+        db_session
+    ).delete_unverified_accounts_created_before(cutoff) == 1
+
+    left = set(db_session.execute(sa.select(AccountORM.id)).scalars())
+    assert left == {google.id, session_account.id}
+    assert _log(db_session) == {("account", abandoned.id)}
+
+
+def test_recheck_skips_an_account_verified_after_selection(db_session):
+    cutoff = NOW - retention.UNVERIFIED_ACCOUNT_MAX_AGE
+    account = _account(db_session, "race@example.de", created_at=cutoff - timedelta(days=1))
+    repo = PostgresAccountRepository(db_session)
+
+    selected = repo._abandoned_registration_ids(cutoff, lock=True)
+    assert selected == [account.id]
+    repo.mark_email_verified(account.id, NOW)
+
+    assert repo._abandoned_registration_ids(cutoff, only=selected) == []
+
+
 def test_delete_unverified_accounts_cascades(db_session):
     cutoff = NOW - retention.UNVERIFIED_ACCOUNT_MAX_AGE
     account = _account(db_session, "cascade@example.de", created_at=cutoff - EPS)
     work = PostgresWorkRepository(db_session).create_work(created_via=WorkCreatedVia.MANUAL)
     _notification(db_session, account, work, NOW, read=False)
-    PostgresAccountRepository(db_session).set_avatar(
-        account.id, avatar_image=b"x", avatar_content_type="image/png",
-    )
-    PostgresAccountSessionRepository(db_session).create_session(
-        account_id=account.id, session_token="cs", created_at=NOW,
-        expires_at=NOW + timedelta(days=1),
-    )
     PostgresAccountTokenRepository(db_session).create_token(
         account_id=account.id, purpose=AccountTokenPurpose.EMAIL_VERIFICATION,
         token="ct", created_at=NOW, expires_at=NOW + timedelta(days=1),
+    )
+    db_session.add(WatchlistORM(id=uuid.uuid4(), account_id=account.id, work_id=work.id))
+    source = PostgresSourceRepository(db_session).create_source(
+        publisher="Test-Pub", retrieval_path="https://test.example.de",
+        legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
+        reviewed_at=date(2026, 1, 1), responsible_person="Test User",
+    )
+    delivery = PostgresDeliveryRepository(db_session).record_delivery(
+        source_id=source.id, content_hash="sha256:unverified-cascade", ingested_at=NOW,
+    )
+    documents = PostgresDocumentRepository(db_session)
+    document = documents.create_document(
+        origin_issuer="Test", origin_number="TST-1", edition="2026", part=None,
+        delivery_id=delivery.id,
+    )
+    other = documents.create_document(
+        origin_issuer="Test", origin_number="TST-2", edition="2026", part=None,
+        delivery_id=delivery.id,
+    )
+    edge = PostgresEdgeRepository(db_session).create_edge(
+        from_document_id=other.id, to_document_id=document.id,
+        edge_type=EdgeType.REPLACES, jurisdiction=None, layer=Layer.FREE,
+        delivery_id=delivery.id,
+    )
+    PostgresRightsNotificationBaselineRepository(db_session).upsert_baseline(
+        account_id=account.id, work_id=work.id, trigger_document_id=document.id,
+        trigger_jurisdiction="DE", may_process=True, may_index_fulltext=True,
+        may_cite_passages=True, may_export_free=False,
+    )
+    PostgresNotifiedEdgeRepository(db_session).mark_notified(
+        account_id=account.id, work_id=work.id,
+        trigger_type=NotificationTriggerType.NEW_EDITION, trigger_edge_id=edge.id,
+    )
+    PostgresNotifiedRetirementRepository(db_session).mark_notified(
+        account_id=account.id, work_id=work.id, document_id=document.id, retired_at=NOW,
     )
     chat = PostgresChatRepository(db_session)
     session = chat.create_session(
         session_token="cc", jurisdiction="DE", language="de", created_at=NOW,
         account_id=account.id,
     )
-    chat.create_message(
+    message = chat.create_message(
         session_id=session.id, role=ChatMessageRole.USER, content="Hi", answer_type=None,
         created_at=NOW,
     )
+    _cite(db_session, message.id)
+    db_session.flush()
 
     assert PostgresAccountRepository(db_session).delete_unverified_accounts_created_before(
         cutoff
     ) == 1
 
     for orm in (
-        AccountORM, AccountSessionORM, AccountTokenORM, NotificationORM, ChatSessionORM,
-        ChatMessageORM,
+        AccountORM, AccountTokenORM, NotificationORM, WatchlistORM,
+        RightsNotificationBaselineORM, NotifiedEdgeORM, NotifiedRetirementORM, ChatSessionORM,
+        ChatMessageORM, ChatMessageCitationORM,
     ):
-        assert _count(db_session, orm) == 0
+        assert _count(db_session, orm) == 0, orm.__name__
     assert _log(db_session) == {("account", account.id)}
 
 

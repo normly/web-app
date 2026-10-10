@@ -14,7 +14,9 @@ ACCOUNT_SESSION_GRACE = timedelta(days=7)
 #: One-time tokens are kept this long after `expires_at` or `used_at`.
 ACCOUNT_TOKEN_GRACE = timedelta(hours=24)
 
-#: Accounts whose email was never verified, measured from `created_at`.
+#: Abandoned registrations, measured from `created_at`: email never verified,
+#: no Google link and no account session at all (any expiry). Accounts in use
+#: without verification (Google, password login) are never purged.
 UNVERIFIED_ACCOUNT_MAX_AGE = timedelta(days=30)
 
 #: Read notifications, measured from `created_at`.

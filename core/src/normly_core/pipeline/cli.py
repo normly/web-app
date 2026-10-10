@@ -44,10 +44,9 @@ from normly_core.pipeline.sources import resolve_source
 # lock-agnostic function.
 _NOTIFY_WATCHERS_LOCK_KEY = 8234701
 
-# Starting point, not a carefully-derived number -- revisit once real usage
-# data exists. Only read notifications are ever eligible for cleanup; unread
-# ones are kept regardless of age (see delete_read_before).
-_NOTIFICATION_RETENTION_DAYS = 60
+# Only read notifications are eligible for `cleanup-notifications`; the period
+# lives in normly_core.retention.
+_NOTIFICATION_RETENTION = retention.READ_NOTIFICATION_MAX_AGE
 
 
 def build_adapter(source: str, *, directory: Path, session: Session) -> SourceAdapter:
@@ -144,13 +143,14 @@ def main(argv: list[str] | None = None) -> int:
                 session.commit()
                 print(f"document_embeddings_created={created}")
             elif args.command == "cleanup-notifications":
-                cutoff = datetime.now(timezone.utc) - timedelta(days=_NOTIFICATION_RETENTION_DAYS)
+                cutoff = datetime.now(timezone.utc) - _NOTIFICATION_RETENTION
                 deleted = PostgresNotificationRepository(session).delete_read_before(cutoff)
                 session.commit()
                 print(f"notifications_deleted={deleted}")
             elif args.command == "cleanup-user-data":
-                print(_cleanup_user_data(session, datetime.now(timezone.utc)))
+                summary = _cleanup_user_data(session, datetime.now(timezone.utc))
                 session.commit()
+                print(summary)
             elif args.command == "notify-watchers":
                 smtp_host = os.environ.get("NORMLY_SMTP_HOST")
                 if smtp_host:
