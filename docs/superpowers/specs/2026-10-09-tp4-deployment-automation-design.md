@@ -186,8 +186,9 @@ nicht lesen. Restore und Rollback brauchen den Schlüssel kurzzeitig
 (Megabytes), die Kosten sind nachrangig; 7 Tage decken das typische
 Entdeckungsfenster einer Einzelinstanz, Monatsstände dienen als Anker für
 spät erkannte Schäden. Wöchentliche Stände entfallen (Nutzen über 7 Tage
-hinaus klein). Ob der Bucket eine Objektsperre bietet, wird beim Bau
-geprüft und hier nachgetragen.
+hinaus klein). Eine Objektsperre wird vorerst nicht
+eingesetzt (Entscheidung 2026-10-10, Begründung siehe „Offene Punkte“ und
+ADR-024).
 
 **Restore-Test:** Manuell und dokumentiert, einmal nach dem Bau, danach
 monatliche Erinnerung. Ein automatischer Test bräuchte den privaten
@@ -297,7 +298,18 @@ bauen.
 
 - PITR und Verschlüsselung der Flex-Sicherungen klären (siehe Befund); kann
   die Aufbewahrung ändern.
-- Objektsperre im Backup-Bucket: Verfügbarkeit prüfen.
+- Objektsperre im Backup-Bucket: **entschieden am 2026-10-10, vorerst keine.**
+  Nach Angabe des Betreibers (gegen die STACKIT-Doku zu prüfen) braucht
+  Object Lock einen projektweiten Compliance Lock und lässt sich nur beim
+  Anlegen des Buckets wählen, danach nie abschalten. Gründe dagegen:
+  Unumkehrbarkeit vor der ersten Live-Abnahme; Wirkung aufs ganze Projekt;
+  `normly-backup` löscht alte Stände selbst und würde bis zum Fristende
+  scheitern; eine Sperre über 90 Tage hielte gelöschte Nutzerdaten länger vor
+  als der Rollback sie nachspielt (Löschprotokoll 90 Tage). Akzeptiertes
+  Restrisiko: Mit gestohlenen VM-Zugangsdaten ließen sich Sicherungen löschen
+  (lesen nicht: `age`). Zu prüfen: Zugangsdaten der VM ohne Löschrecht, Aufräumen
+  der Aufbewahrung von anderer Stelle. Neubewertung nach der Live-Abnahme;
+  später ggf. ein zweiter Bucket mit Sperre ≤ 90 Tage.
 - Kryptographisches Löschen bei Vertragsende (ADR-014): Der tägliche Dump
   enthält Nutzerdaten, aber keine lizenzierten Bestände. Sobald lizenzierte
   Bestände in Postgres liegen, müssen sie von Sicherungen ausgenommen oder

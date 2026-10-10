@@ -983,8 +983,21 @@ jenseits von 7 Tagen klein).
 - Offen: Kryptographisches Löschen bei Vertragsende (ADR-014) für lizenzierte
   Bestände ist Aufgabe der kommerziellen Schicht; sie müssen von Sicherungen
   ausgenommen oder je Herausgeber verschlüsselt werden. Der Secrets-Fluss per
-  AppRole (TP3) liegt außerhalb. Eine Objektsperre im Backup-Bucket sowie PITR
-  und Verschlüsselung der Flex-Sicherungen sind zu klären. Das Zusammenspiel
+  AppRole (TP3) liegt außerhalb. PITR und Verschlüsselung der Flex-Sicherungen
+  sind zu klären. **Objektsperre (Entscheidung 2026-10-10): vorerst keine.**
+  STACKIT bietet Object Lock nach Angabe des Betreibers nur nach einem
+  projektweiten Compliance Lock und nur beim Anlegen des Buckets;
+  unumkehrbar (vor Umsetzung gegen die STACKIT-Doku zu prüfen). Dagegen
+  sprechen: Unumkehrbarkeit vor der ersten Live-Abnahme, Wirkung auf das ganze
+  Projekt, Konflikt mit der eigenen Aufbewahrung (`normly-backup` löscht alte
+  Stände) und der Zusage, gelöschte Nutzerdaten nicht wiederkehren zu lassen
+  (Rollback spielt Löschungen der letzten 90 Tage nach; eine längere Sperre
+  hielte sie länger vor). Akzeptiertes Restrisiko: Mit gestohlenen Zugangsdaten
+  der VM ließen sich Sicherungen löschen; gelesen werden können sie nicht
+  (`age`, privater Schlüssel außerhalb). Minderung zu prüfen: eigene
+  Zugangsdaten der VM ohne Löschrecht. Neubewertung nach der Live-Abnahme; ein
+  späterer zweiter Bucket mit Sperre und Frist von höchstens 90 Tagen wäre
+  möglich. Das Zusammenspiel
   von `docker compose up --wait` mit dem einmaligen `migrate`-Dienst und die
   Abfrage des Alembic-Heads sind bislang nur gegen Attrappen geprüft, bis
   zur Live-Abnahme.
@@ -1496,7 +1509,7 @@ Betrieb in `docs/guide/operations.md`.
 | Signaturschlüssel des Wissensbestand-Dumps | offen | Schlüsselzeremonie, öffentlichen Schlüssel ins Repository einchecken (ADR-025) |
 | Fachliche Prüfung der Aufbewahrungsfristen für Nutzerdaten | offen | Durch eine Fachperson für Datenschutz; dazu Datenschutzerklärung und Verzeichnis der Verarbeitungstätigkeiten als eigene Rechtstexte (ADR-027) |
 | Löschen inaktiver Konten mit Vorwarnung | offen | Nicht umgesetzt; Frist und Warn-E-Mail entscheiden (ADR-027) |
-| Sicherungen bei lizenzierten Beständen | offen | Kryptographisches Löschen (ADR-014) für die kommerzielle Schicht; Flex-PITR und Objektsperre klären (ADR-024) |
+| Sicherungen bei lizenzierten Beständen | offen | Kryptographisches Löschen (ADR-014) für die kommerzielle Schicht; Flex-PITR klären; Objektsperre vorerst bewusst nicht (ADR-024) |
 
 **Hinweis:** Die rechtlichen Einschätzungen in diesem Dokument sind
 Arbeitsgrundlage, keine Rechtsberatung. Insbesondere die Konstruktion
