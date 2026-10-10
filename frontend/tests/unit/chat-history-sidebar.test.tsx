@@ -150,4 +150,88 @@ describe("ChatHistorySidebar", () => {
     );
     expect(onNewChat).toHaveBeenCalled();
   });
+
+  // Distinct, fixed timestamps: the list is sorted newest first, so s-1 is
+  // always the first entry (identical new Date() values made this flaky).
+  const baseTime = Date.now();
+  const twoSessions = [
+    { id: "s-1", session_token: "tok-one", jurisdiction: "DE", language: "de", created_at: new Date(baseTime).toISOString() },
+    { id: "s-2", session_token: "tok-two", jurisdiction: "DE", language: "de", created_at: new Date(baseTime - 60_000).toISOString() },
+  ];
+
+  function mockFetch(deleteResponse: () => Response) {
+    global.fetch = vi.fn().mockImplementation((url: string, init?: { method?: string }) => {
+      if (init?.method === "DELETE") return Promise.resolve(deleteResponse());
+      return Promise.resolve(new Response(JSON.stringify(twoSessions), { status: 200 }));
+    });
+  }
+
+  it("deletes one entry only after confirmation and removes it from the list", async () => {
+    mockFetch(() => new Response(null, { status: 204 }));
+    renderSidebar();
+    const buttons = await screen.findAllByRole("button", { name: "Verlauf löschen" });
+    expect(buttons).toHaveLength(2);
+
+    fireEvent.click(buttons[0]);
+    expect(global.fetch).not.toHaveBeenCalledWith(
+      "/api/chat/sessions/s-1", expect.anything(),
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Endgültig löschen" }));
+
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith("/api/chat/sessions/s-1", { method: "DELETE" }),
+    );
+    await waitFor(() =>
+      expect(screen.getAllByRole("button", { name: "Verlauf löschen" })).toHaveLength(1),
+    );
+  });
+
+  it("does not delete when the confirmation is cancelled", async () => {
+    mockFetch(() => new Response(null, { status: 204 }));
+    renderSidebar();
+    const buttons = await screen.findAllByRole("button", { name: "Verlauf löschen" });
+    fireEvent.click(buttons[0]);
+    fireEvent.click(await screen.findByRole("button", { name: "Abbrechen" }));
+    expect(global.fetch).not.toHaveBeenCalledWith(
+      "/api/chat/sessions/s-1", expect.anything(),
+    );
+    expect(screen.getAllByRole("button", { name: "Verlauf löschen" })).toHaveLength(2);
+  });
+
+  it("deletes all histories after confirmation and shows the empty state", async () => {
+    mockFetch(() => new Response(JSON.stringify({ deleted: 2 }), { status: 200 }));
+    renderSidebar();
+    await screen.findAllByRole("button", { name: "Verlauf löschen" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Alle Verläufe löschen" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Endgültig löschen" }));
+
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith("/api/chat/sessions", { method: "DELETE" }),
+    );
+    await waitFor(() =>
+      expect(screen.getByText("Noch keine Chats vorhanden.")).toBeInTheDocument(),
+    );
+  });
+
+  it("leaves the list unchanged when the backend refuses the deletion", async () => {
+    mockFetch(() => new Response(JSON.stringify({ detail: "x" }), { status: 500 }));
+    renderSidebar();
+    const buttons = await screen.findAllByRole("button", { name: "Verlauf löschen" });
+    fireEvent.click(buttons[0]);
+    fireEvent.click(await screen.findByRole("button", { name: "Endgültig löschen" }));
+
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+    // The modal dialog hides the rest of the page from the a11y tree.
+    expect(
+      screen.getAllByRole("button", { name: "Verlauf löschen", hidden: true }),
+    ).toHaveLength(2);
+  });
+
+  it("offers no delete-all action when there are no sessions", async () => {
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify([]), { status: 200 }));
+    renderSidebar();
+    await screen.findByText("Noch keine Chats vorhanden.");
+    expect(screen.queryByRole("button", { name: "Alle Verläufe löschen" })).not.toBeInTheDocument();
+  });
 });

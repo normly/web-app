@@ -116,8 +116,8 @@ def test_an_authorization_header_is_parsed_and_the_request_still_completes(
     assert response.status_code == 200
     # The token reached the accounts client verbatim, with the scheme stripped.
     assert accounts_client.validated == ["an-unrecognized-token"]
-    # Unrecognized token -> anonymous session, and the answer is still served.
-    assert response.json()["session_token"]
+    # Unrecognized token -> anonymous request: answered, but nothing stored.
+    assert response.json()["session_token"] is None
 
 
 def test_a_non_bearer_authorization_header_is_ignored(client):
@@ -136,3 +136,88 @@ def test_a_non_bearer_authorization_header_is_ignored(client):
 
     assert response.status_code == 200
     assert accounts_client.validated == []
+
+
+class _FixedAccountsClient:
+    def __init__(self, identity):
+        self._identity = identity
+
+    def validate_session(self, session_token):
+        return self._identity
+
+
+def _count_chat_rows(db_session):
+    from sqlalchemy import func, select
+    from normly_core.graph.postgres.orm import (
+        ChatMessageCitationORM, ChatMessageORM, ChatSessionORM,
+    )
+
+    return tuple(
+        db_session.execute(select(func.count()).select_from(orm)).scalar_one()
+        for orm in (ChatSessionORM, ChatMessageORM, ChatMessageCitationORM)
+    )
+
+
+_BODY = {"jurisdiction": "DE", "language": "de", "message": "Ist DIN EN ISO 9001 noch gültig?"}
+
+
+def test_anonymous_request_is_answered_and_stores_nothing(client, db_session):
+    client.app.dependency_overrides[get_api_client] = lambda: _NoDocumentApiClient()
+    client.app.dependency_overrides[get_accounts_client] = lambda: _FixedAccountsClient(None)
+    before = _count_chat_rows(db_session)
+
+    response = client.post("/v1/chat", json=_BODY)
+
+    assert response.status_code == 200
+    assert response.json()["answer"]
+    assert response.json()["session_token"] is None
+    assert _count_chat_rows(db_session) == before
+
+
+def test_anonymous_request_with_an_account_session_token_does_not_attach(client, db_session):
+    from datetime import datetime, timezone
+    from normly_core.graph.postgres.repositories import (
+        PostgresAccountRepository, PostgresChatRepository,
+    )
+
+    account = PostgresAccountRepository(db_session).create_account(
+        email="chat-anon-token@example.de", password_hash=None,
+    )
+    PostgresChatRepository(db_session).create_session(
+        session_token="acct-session-tok", jurisdiction="DE", language="de",
+        created_at=datetime.now(timezone.utc), account_id=account.id,
+    )
+    client.app.dependency_overrides[get_api_client] = lambda: _NoDocumentApiClient()
+    client.app.dependency_overrides[get_accounts_client] = lambda: _FixedAccountsClient(None)
+    before = _count_chat_rows(db_session)
+
+    response = client.post("/v1/chat", json={**_BODY, "session_token": "acct-session-tok"})
+
+    assert response.status_code == 200
+    assert response.json()["session_token"] is None
+    assert _count_chat_rows(db_session) == before
+
+
+def test_request_with_a_valid_account_stores_session_messages_and_returns_a_token(
+    client, db_session,
+):
+    from normly_chat.accounts_client import ChatAccountIdentity
+    from normly_core.graph.postgres.repositories import PostgresAccountRepository
+
+    account = PostgresAccountRepository(db_session).create_account(
+        email="chat-valid-acct@example.de", password_hash=None,
+    )
+    identity = ChatAccountIdentity(account_id=account.id, email=account.email)
+    client.app.dependency_overrides[get_api_client] = lambda: _NoDocumentApiClient()
+    client.app.dependency_overrides[get_accounts_client] = lambda: _FixedAccountsClient(identity)
+    before = _count_chat_rows(db_session)
+
+    response = client.post(
+        "/v1/chat", json=_BODY, headers={"Authorization": "Bearer valid"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["session_token"]
+    after = _count_chat_rows(db_session)
+    assert after[0] == before[0] + 1
+    assert after[1] == before[1] + 2

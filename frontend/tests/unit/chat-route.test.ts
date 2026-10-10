@@ -119,4 +119,55 @@ describe("POST /api/chat", () => {
     const response = await POST(request);
     expect(response.status).toBe(503);
   });
+
+  it("sets no chat cookie when the backend returns a null session_token (anonymous)", async () => {
+    vi.stubEnv("NORMLY_API_BASE_URL", "http://api.internal");
+    vi.stubEnv("NORMLY_ACCOUNTS_BASE_URL", "http://accounts.internal");
+    vi.stubEnv("NORMLY_CHAT_BASE_URL", "http://chat.internal");
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          session_token: null, answer: "x", answer_type: "fallback", citations: [],
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const request = new NextRequest("http://localhost/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ jurisdiction: "DE", language: "de", message: "Testfrage" }),
+      headers: { "content-type": "application/json" },
+    });
+
+    const response = await POST(request);
+
+    expect(response.cookies.get("normly_session")).toBeUndefined();
+    expect(response.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("clears an existing chat cookie when the backend returns no session_token", async () => {
+    vi.stubEnv("NORMLY_API_BASE_URL", "http://api.internal");
+    vi.stubEnv("NORMLY_ACCOUNTS_BASE_URL", "http://accounts.internal");
+    vi.stubEnv("NORMLY_CHAT_BASE_URL", "http://chat.internal");
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          session_token: null, answer: "x", answer_type: "fallback", citations: [],
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const request = new NextRequest("http://localhost/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ jurisdiction: "DE", language: "de", message: "Testfrage" }),
+      headers: { "content-type": "application/json", cookie: "normly_session=stale-token" },
+    });
+
+    const response = await POST(request);
+
+    const setCookie = response.headers.get("set-cookie") ?? "";
+    expect(setCookie).toContain("normly_session=;");
+    expect(setCookie.toLowerCase()).toMatch(/max-age=0/);
+  });
 });
