@@ -107,7 +107,9 @@ sind gestoppt, die Datenbank unverändert. **Dieses zweite Dokument** wendet nac
 „nicht unterstützt“, jeder andere Fehler bricht vor Banner und Bestätigung ab. Kennt
 das vorherige Image den Befehl nicht (Release vor diesem Feature), meldet das Banner
 Anzahl und die ersten 20 Kennungen; die vollständige Liste liegt danach in
-`$STATE/rollback-pending-deletions.json` (0600, überlebt das Aufräumen von `$WORK`)
+`$STATE/rollback-pending-deletions.json` (0600, überlebt das Aufräumen von `$WORK`;
+sie gilt nur für den Lauf, der sie schrieb, und wird zu Beginn jedes Rollbacks
+entfernt; bleibt am Ende des zweiten Exports nichts übrig, entsteht keine Datei)
 und muss von Hand erneut gelöscht werden (die Bestätigung bleibt Pflicht). Dasselbe
 gilt im Restore-Test und für eine Notfall-Wiederherstellung aus der Flex-Sicherung
 (Betriebsguide). `normly-cleanup` überspringt seinen Lauf, solange

@@ -200,7 +200,7 @@ deploy() {
   compose "$tag" pull || die "pull failed for $tag; nothing was changed"
   check_pulled_digests "$tag"
   if ! compose "$tag" up -d --no-build --wait --wait-timeout "$HEALTH_TIMEOUT"; then
-    local hint="Inspect: docker compose -f $RELEASES/$tag/compose.yaml logs."
+    local hint="Inspect: NORMLY_IMAGE_TAG=$tag docker compose -f $RELEASES/$tag/compose.yaml logs."
     if [ -n "$current" ]; then
       # The new release may already have migrated the database, so the backup
       # is now the way back. The rollback target is the release that ran
@@ -302,7 +302,7 @@ rollback() {
 
   local database_url drop_sql down_tag="$current" backup_rev head_rev verify_out
   local has_tombstones=0 backup_listing meta_flag tomb_problem
-  local since del_count final_count replay_supported="" replay_note=""
+  local since del_count del_shown final_count replay_supported="" replay_note=""
   local -a key_args=()
   WORK="$(mktemp -d -t normly-rollback.XXXXXX)"; chmod 700 "$WORK"
   normly_load_env "$NORMLY_DIR/.env"
@@ -369,6 +369,8 @@ print("yes" if json.load(sys.stdin).get("tombstones") is True else "no")' < "$WO
   # second one after the services are stopped is the list that is replayed.
   # The previous release may predate the replay command: then the operator is
   # told what to delete by hand.
+  # Only valid for the run that wrote it; never let an old one look current.
+  rm -f "$STATE/rollback-pending-deletions.json" "$STATE/.rollback-pending-deletions.new"
   [[ "$backup" =~ ^[0-9]{8}T[0-9]{6}Z- ]] \
     || die "cannot read the timestamp from the backup name '$backup'; nothing was changed"
   # One hour before the backup stamp. A deletion logged shortly before the dump
@@ -386,12 +388,14 @@ print((stamp - timedelta(hours=1)).isoformat())' "${backup:0:16}")" \
   del_count="$(deletion_count "$WORK/deletions.json")" \
     || die "cannot read the deletion export; nothing was changed"
   if [ "$del_count" -gt 0 ]; then
+    del_shown="$(deletion_list "$WORK/deletions.json")" \
+      || die "cannot read the deletion export; nothing was changed"
     check_replay_support \
       || die "cannot tell whether $previous can replay deletions; nothing was changed"
     if [ "$replay_supported" -eq 1 ]; then
       replay_note="  $del_count deletion(s) made since the backup will be replayed after the restore."
     else
-      replay_note="  WARNING: previous release cannot replay deletions; re-delete these by hand after the rollback ($del_count, first 20: $(deletion_list "$WORK/deletions.json")). The final list is written to $STATE/rollback-pending-deletions.json."
+      replay_note="  WARNING: previous release cannot replay deletions; re-delete these by hand after the rollback ($del_count, first 20: $del_shown). If entries remain at the final export, the full list is written to $STATE/rollback-pending-deletions.json."
     fi
   fi
 
@@ -423,7 +427,7 @@ EOF
   # the list that is replayed now, with the services stopped. Failing here
   # leaves the database untouched.
   stopped_die() {
-    die "$1; services were stopped, database unchanged. Restart: docker compose -f $RELEASES/$down_tag/compose.yaml --project-directory $RELEASES/$down_tag up -d (or re-run the rollback)"
+    die "$1; services were stopped, database unchanged. Restart: NORMLY_IMAGE_TAG=$down_tag docker compose -f $RELEASES/$down_tag/compose.yaml --project-directory $RELEASES/$down_tag up -d --no-build --wait (or re-run the rollback)"
   }
   export_deletions "$WORK/deletions-final.json" \
     || stopped_die "cannot export the deletions after stopping the services: $DEL_ERR"
@@ -434,7 +438,7 @@ EOF
   fi
   if [ "$final_count" -gt 0 ] && [ "$replay_supported" -eq 0 ]; then
     # Outlives $WORK: the operator needs the list after the rollback.
-    if ! { ( umask 077; cp "$WORK/deletions-final.json" "$STATE/.rollback-pending-deletions.new" ) \
+    if ! { ( umask 077; rm -f "$STATE/.rollback-pending-deletions.new"; cp "$WORK/deletions-final.json" "$STATE/.rollback-pending-deletions.new" ) \
         && mv -f "$STATE/.rollback-pending-deletions.new" "$STATE/rollback-pending-deletions.json"; }; then
       stopped_die "cannot write $STATE/rollback-pending-deletions.json"
     fi

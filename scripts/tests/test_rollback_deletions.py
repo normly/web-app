@@ -317,3 +317,68 @@ def test_after_a_failed_rollout_the_export_uses_the_failed_release(harness):
     assert result.returncode == 0, result.stderr
     exports = [c for c in harness.calls() if "export-deletions" in c]
     assert exports and all("releases/0.1.3/compose.yaml" in c for c in exports)
+
+
+def test_the_restart_hint_pins_the_image_tag(harness):
+    _seed(harness)
+    (harness.dir / "releases" / "0.1.2").mkdir(parents=True, exist_ok=True)
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_DOCKER_DELETIONS_OUT": ONE, "FAKE_DOCKER_DELETIONS_SECOND_OUT": "garbage",
+                   "FAKE_DOCKER_COUNTER": str(harness.dir / "n")},
+    )
+    assert result.returncode != 0
+    assert "Restart: NORMLY_IMAGE_TAG=0.1.2 docker compose" in result.stderr
+    assert "up -d --no-build --wait" in result.stderr
+
+
+def test_an_old_pending_file_is_removed_at_the_start(harness):
+    state = _seed(harness)
+    (state / "rollback-pending-deletions.json").write_text("stale")
+    result = _rollback(harness, "--yes")
+    assert result.returncode == 0, result.stderr
+    assert not (state / "rollback-pending-deletions.json").exists()
+
+
+def test_an_empty_preflight_list_but_a_final_entry_is_checked_after_the_stop(harness, tmp_path):
+    state = _seed(harness)
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_DOCKER_DELETIONS_OUT": _doc(), "FAKE_DOCKER_DELETIONS_SECOND_OUT": ONE,
+                   "FAKE_DOCKER_COUNTER": str(tmp_path / "n"), "FAKE_DOCKER_REPLAY_CHECK_EXIT": "2"},
+    )
+    assert result.returncode == 0, result.stderr
+    calls = harness.calls()
+    assert _index(calls, " down") < _index(calls, "replay-deletions --check")
+    assert "1 to re-delete by hand after the rollback" in result.stderr
+    assert len(json.loads((state / "rollback-pending-deletions.json").read_text())["entries"]) == 1
+
+
+def test_a_failing_check_after_the_stop_leaves_the_database_alone(harness, tmp_path):
+    state = _seed(harness)
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_DOCKER_DELETIONS_OUT": _doc(), "FAKE_DOCKER_DELETIONS_SECOND_OUT": ONE,
+                   "FAKE_DOCKER_COUNTER": str(tmp_path / "n"), "FAKE_DOCKER_REPLAY_CHECK_EXIT": "1"},
+    )
+    assert result.returncode != 0
+    assert "services were stopped, database unchanged" in result.stderr
+    calls = harness.calls()
+    assert not any("DROP TABLE" in c or c.startswith("pg_restore") for c in calls)
+    assert not (state / "deploy.lock").exists()
+    assert (state / "current_tag").read_text().strip() == "0.1.2"
+
+
+def test_unsupported_with_an_empty_final_list_writes_no_file_and_the_banner_does_not_promise_one(
+    harness, tmp_path
+):
+    state = _seed(harness)
+    result = _rollback(
+        harness, "--yes",
+        extra_env={"FAKE_DOCKER_DELETIONS_OUT": ONE, "FAKE_DOCKER_DELETIONS_SECOND_OUT": _doc(),
+                   "FAKE_DOCKER_COUNTER": str(tmp_path / "n"), "FAKE_DOCKER_REPLAY_CHECK_EXIT": "2"},
+    )
+    assert result.returncode == 0, result.stderr
+    assert not (state / "rollback-pending-deletions.json").exists()
+    assert "If entries remain at the final export" in result.stderr
+    assert "to re-delete by hand after the rollback:" not in result.stderr
