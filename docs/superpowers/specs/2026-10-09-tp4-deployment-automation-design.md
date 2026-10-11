@@ -319,6 +319,62 @@ bauen.
 - Zuordnung jeder Tabelle zu Wissensbestand oder Nutzerdaten (im Plan, mit
   Test gegen vergessene Tabellen).
 
+## Verifikation 2026-10-11 (Live-Abnahme, Stand: Teil 1 und 2 grün)
+
+Durchgeführt auf der Produktions-VM (`normly-prod`), Release `v0.2.0`.
+
+**Bestätigt:**
+
+- Release: Tag `v0.2.0`, der `Images`-Workflow lief grün, die CI auf `main` davor
+  ebenfalls. Die GHCR-Pakete sind öffentlich (Pull ohne Anmeldung).
+- Vorbereitung: Buckets `normly-backups` (privat) und `normly-kb` (öffentlich)
+  in der Region `eu01`, ohne Objektsperre (Entscheidung 2026-10-10, siehe
+  „Offene Punkte“). rclone läuft ohne `rclone.conf` allein über
+  `RCLONE_CONFIG_STACKIT_*` in der `.env`. `cosign` 2.5.2 aus dem
+  Release-Paket (Prüfsumme geprüft), `age` und `postgresql-client` aus dem
+  Ubuntu-Repository.
+- Skripte: Installation aus dem signierten `pipeline`-Image über den Digest wie
+  im Betriebsguide, Signaturprüfung bestanden.
+- Erste Bereitstellung `normly-deploy deploy v0.2.0` über den alten Stack aus
+  `/opt/normly/src`: Der Release-Stack nutzt denselben Compose-Projektnamen
+  (`normly`) und ersetzt die Container an Ort und Stelle, die Volumes bleiben.
+  Ergebnis: `migrate` beendet, fünf Dienste `Healthy`, `app.normly.ai` antwortet
+  mit HTTP 200, `normly-deploy status` zeigt `current: 0.2.0`; `previous` und
+  die Pre-Rollout-Sicherung sind leer (beabsichtigt bei der ersten
+  Bereitstellung). Die Migrationen 0035 bis 0037 liefen ohne Fehler.
+- Erste Sicherung `normly-backup run --kind daily`: vier Objekte im Bucket
+  (`.dump.age`, `.meta.json`, `.sha256`, `.tombstones.age`). Timer
+  `normly-backup.timer` aktiviert, nächster Lauf 03:30 UTC.
+
+**Befunde:**
+
+- In der `.env` der VM fehlte der SMTP-Block: Die App hat bis dahin keine
+  E-Mails verschickt (Bestätigung, Magic-Link, Passwort-Reset,
+  Benachrichtigungen). Ein Postfach bei einem europäischen Anbieter wurde
+  eingerichtet und `NORMLY_SMTP_*` eingetragen; der erste echte Versand ist
+  noch nicht geprüft.
+- `NORMLY_KB_BASE_URL` muss auf `.../kb` enden: Der Import holt
+  `<Basis>/latest` und `<Basis>/<Version>/manifest.json`.
+- Der Backup-Zugang der VM braucht Löschrecht (`normly-backup prune`); eine
+  Minderung mit Zugangsdaten ohne Löschrecht bleibt offen.
+- `cleanup-user-data` hat keinen Probemodus. Der Timer `normly-cleanup.timer`
+  ist bewusst noch nicht aktiviert: Mit SMTP würde der erste Lauf Warn-Mails an
+  verlassene Registrierungen schicken.
+
+**Noch offen (braucht Daten in der Datenbank):**
+
+- Wissensbestand-Dump Ende zu Ende (Export mit dem privaten Signaturschlüssel,
+  Upload nach `kb/<version>/` und `kb/latest`, `kb-import`, Negativproben).
+  Danach die echte `NORMLY_KB_BASE_URL` in `docs/guide/self-hosting.md`
+  eintragen (heute steht dort ein Platzhalter, weil unter der URL noch kein
+  Dump liegt).
+- Restore-Test auf einem anderen Rechner mit dem privaten `age`-Schlüssel (der
+  Abschnitt „Restore test“ im Betriebsguide ist bisher nur aus dem Code
+  abgeleitet) und danach monatlich.
+- Rollback-Probe auf einen zweiten Test-Tag, einschließlich des Nachspielens
+  zwischenzeitlich gelöschter Nutzerdaten.
+- `normly-cleanup.timer` aktivieren, sobald es Nutzerdaten gibt.
+
 ## Nicht-Ziele
 
 - Timer-gesteuerter Auto-Rollout, Blue/Green, Canary.
