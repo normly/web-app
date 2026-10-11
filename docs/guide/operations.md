@@ -347,7 +347,12 @@ Add to `/opt/normly/.env`:
 | `NORMLY_KB_PUBLIC_KEY_FILE` | optional, see "Rolling back": host path of the knowledge-base public key |
 
 Configure the rclone remote (for example `stackit`) for S3-compatible STACKIT
-Object Storage. The daily timer runs as **root** (the systemd units set no
+Object Storage. Instead of an `rclone.conf` you can define the remote entirely in
+`/opt/normly/.env` with `RCLONE_CONFIG_STACKIT_TYPE=s3`,
+`RCLONE_CONFIG_STACKIT_PROVIDER=Other`, `RCLONE_CONFIG_STACKIT_ACCESS_KEY_ID`,
+`RCLONE_CONFIG_STACKIT_SECRET_ACCESS_KEY` and `RCLONE_CONFIG_STACKIT_ENDPOINT`;
+the scripts export every `RCLONE_*` key (verified live on 2026-10-11). rclone
+then prints a harmless "Config file ... not found - using defaults" notice. The daily timer runs as **root** (the systemd units set no
 `User=`), so the config belongs in root's `~/.config/rclone/rclone.conf`; for
 manual runs it must be readable by the user who runs them. The bucket
 credentials on the VM need **list and write** (upload, prune), **delete**
