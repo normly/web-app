@@ -1,6 +1,6 @@
 [project]
 name = "normly-accounts"
-version = "0.1.1"
+version = "0.2.0"
 description = "normly free core: account registration, login, and session service"
 requires-python = ">=3.11"
 license = { text = "AGPL-3.0-or-later" }
