@@ -381,12 +381,12 @@ import { mapAccountSummary } from "@/lib/account-response";
 describe("mapAccountSummary", () => {
   it("maps the backend's snake_case fields to the frontend's camelCase shape", () => {
     const result = mapAccountSummary("acc-1", "a@example.de", {
-      first_name: "Jamie", last_name: "Weber", has_avatar: true,
+      first_name: "Jamie", last_name: "Tester", has_avatar: true,
       has_password: true, notification_preference: "immediate",
     });
 
     expect(result).toEqual({
-      accountId: "acc-1", email: "a@example.de", firstName: "Jamie", lastName: "Weber",
+      accountId: "acc-1", email: "a@example.de", firstName: "Jamie", lastName: "Tester",
       hasAvatar: true, hasPassword: true,
       notificationPreference: "immediate",
     });
@@ -648,21 +648,21 @@ import { Avatar } from "@/components/ui/avatar";
 
 describe("Avatar", () => {
   it("renders an img pointed at the avatar endpoint", () => {
-    render(<Avatar firstName="Jamie" lastName="Weber" email="a@example.de" />);
+    render(<Avatar firstName="Jamie" lastName="Tester" email="a@example.de" />);
     expect(screen.getByRole("img")).toHaveAttribute("src", "/api/account/avatar");
   });
 
   it("includes the avatarVersion as a cache-busting query param when set", () => {
     render(
-      <Avatar avatarVersion={3} firstName="Jamie" lastName="Weber" email="a@example.de" />,
+      <Avatar avatarVersion={3} firstName="Jamie" lastName="Tester" email="a@example.de" />,
     );
     expect(screen.getByRole("img")).toHaveAttribute("src", "/api/account/avatar?v=3");
   });
 
   it("falls back to initials when the image fails to load", () => {
-    render(<Avatar firstName="Jamie" lastName="Weber" email="a@example.de" />);
+    render(<Avatar firstName="Jamie" lastName="Tester" email="a@example.de" />);
     fireEvent.error(screen.getByRole("img"));
-    expect(screen.getByText("JW")).toBeInTheDocument();
+    expect(screen.getByText("JT")).toBeInTheDocument();
   });
 
   it("falls back to the first letter of the email when no name is set", () => {

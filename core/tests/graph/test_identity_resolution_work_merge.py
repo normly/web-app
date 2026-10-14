@@ -26,7 +26,7 @@ def _make_delivery(db_session, content_hash="sha256:work-merge-fixture"):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="EUR-Lex", retrieval_path="https://single-market-economy.ec.europa.eu",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="EU",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     return PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash=content_hash, ingested_at=datetime.now(timezone.utc)
@@ -68,7 +68,7 @@ def test_resolve_work_merge_case_reassigns_documents_and_retires_source(db_sessi
         reason="curator_identified_duplicate",
     )
 
-    resolved = repo.resolve_work_merge_case(case.id, resolved_by="J. Weber")
+    resolved = repo.resolve_work_merge_case(case.id, resolved_by="Test Reviewer")
 
     assert resolved.status == IdentityResolutionStatus.RESOLVED
     moved_doc = doc_repo.get_document_unchecked(din_doc.id)
@@ -88,7 +88,7 @@ def test_resolve_work_merge_case_rejects_self_merge(db_session):
     )
 
     with pytest.raises(ContradictoryWorkMergeError):
-        repo.resolve_work_merge_case(case.id, resolved_by="J. Weber")
+        repo.resolve_work_merge_case(case.id, resolved_by="Test Reviewer")
 
 
 def test_resolve_work_merge_case_rejects_an_already_merged_target(db_session):
@@ -101,13 +101,13 @@ def test_resolve_work_merge_case_rejects_an_already_merged_target(db_session):
     first_merge = repo.enqueue_work_merge_case(
         delivery_id=delivery.id, source_work_id=a.id, target_work_id=b.id, reason="merge-a-into-b",
     )
-    repo.resolve_work_merge_case(first_merge.id, resolved_by="J. Weber")
+    repo.resolve_work_merge_case(first_merge.id, resolved_by="Test Reviewer")
     second_merge = repo.enqueue_work_merge_case(
         delivery_id=delivery.id, source_work_id=c.id, target_work_id=a.id, reason="merge-c-into-a",
     )
 
     with pytest.raises(ContradictoryWorkMergeError):
-        repo.resolve_work_merge_case(second_merge.id, resolved_by="J. Weber")
+        repo.resolve_work_merge_case(second_merge.id, resolved_by="Test Reviewer")
 
 
 def test_a_second_merge_re_points_earlier_merges_to_keep_one_hop(db_session):
@@ -121,12 +121,12 @@ def test_a_second_merge_re_points_earlier_merges_to_keep_one_hop(db_session):
     first_merge = repo.enqueue_work_merge_case(
         delivery_id=delivery.id, source_work_id=a.id, target_work_id=b.id, reason="merge-a-into-b",
     )
-    repo.resolve_work_merge_case(first_merge.id, resolved_by="J. Weber")
+    repo.resolve_work_merge_case(first_merge.id, resolved_by="Test Reviewer")
 
     second_merge = repo.enqueue_work_merge_case(
         delivery_id=delivery.id, source_work_id=b.id, target_work_id=c.id, reason="merge-b-into-c",
     )
-    repo.resolve_work_merge_case(second_merge.id, resolved_by="J. Weber")
+    repo.resolve_work_merge_case(second_merge.id, resolved_by="Test Reviewer")
 
     # A originally redirected to B, but B has since been merged into C -- A
     # must now redirect all the way to C, the live Work, not to the retired B.

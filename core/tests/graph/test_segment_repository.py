@@ -20,7 +20,7 @@ def _make_document(db_session, content_hash="sha256:segment-fixture"):
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="DE",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash=content_hash, ingested_at=datetime.now(timezone.utc)
@@ -120,7 +120,7 @@ def test_segments_are_gated_by_jurisdiction(db_session):
         document_id=document.id, jurisdiction="DE", may_process=True, may_index_fulltext=True,
         may_cite_passages=True, may_export_free=True, legal_basis_reference="§ 5 UrhG",
         classified_at=datetime.now(timezone.utc),
-        classified_by="J. Weber", delivery_id=delivery.id,
+        classified_by="Test Reviewer", delivery_id=delivery.id,
     )
 
     segments = segment_repo.list_segments_for_jurisdiction(document.id, "DE")
@@ -148,7 +148,7 @@ def test_segments_stop_being_readable_when_fulltext_indexing_is_withdrawn(db_ses
         document_id=document.id, jurisdiction="DE", may_process=True, may_index_fulltext=True,
         may_cite_passages=True, may_export_free=True, legal_basis_reference="§ 5 UrhG",
         classified_at=datetime.now(timezone.utc),
-        classified_by="J. Weber", delivery_id=delivery.id,
+        classified_by="Test Reviewer", delivery_id=delivery.id,
     )
     assert len(segment_repo.list_segments_for_jurisdiction(document.id, "DE")) == 1
 
@@ -156,7 +156,7 @@ def test_segments_stop_being_readable_when_fulltext_indexing_is_withdrawn(db_ses
         document_id=document.id, jurisdiction="DE", may_process=True, may_index_fulltext=False,
         may_cite_passages=False, may_export_free=True, legal_basis_reference="Lizenz widerrufen",
         classified_at=datetime.now(timezone.utc),
-        classified_by="J. Weber", delivery_id=delivery.id,
+        classified_by="Test Reviewer", delivery_id=delivery.id,
     )
 
     assert segment_repo.list_segments_for_jurisdiction(document.id, "DE") == []

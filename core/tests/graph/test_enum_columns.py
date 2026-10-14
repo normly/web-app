@@ -31,7 +31,7 @@ def _make_source(db_session, **overrides):
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="DE",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
     )
     kwargs.update(overrides)
     return PostgresSourceRepository(db_session).create_source(**kwargs)
@@ -138,7 +138,7 @@ def test_database_rejects_an_unknown_legal_basis_category(db_session):
                     reviewed_at, responsible_person, commercial_catalog
                 ) VALUES (
                     gen_random_uuid(), 'X', 'https://example.invalid', 'Z', 'DE',
-                    DATE '2026-01-15', 'J. Weber', false
+                    DATE '2026-01-15', 'Test Reviewer', false
                 )
                 """
             )

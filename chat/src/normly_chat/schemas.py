@@ -23,7 +23,7 @@ class CitationResponse(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    session_token: str
+    session_token: str | None
     answer: str
     answer_type: Literal["structural", "synthesis", "fallback"]
     citations: list[CitationResponse]
@@ -35,6 +35,10 @@ class ChatSessionSummary(BaseModel):
     jurisdiction: str
     language: str
     created_at: datetime
+
+
+class DeletedSessionsResponse(BaseModel):
+    deleted: int
 
 
 class ErrorResponse(BaseModel):

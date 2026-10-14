@@ -3,16 +3,15 @@
 normly ships as container images plus a Compose setup that starts a
 working instance with one command ([ADR-010](../adr/README.md#adr-010-auslieferung-als-container-daten-getrennt-vom-image)).
 The knowledge base is **not** part of the images; it arrives as a
-separately versioned dump (import tooling follows in a later release, see
-"Known gaps").
+separately versioned dump (see "Importing the knowledge base").
 
 ## Requirements
 
 - Docker Engine 24+ with Compose v2.20+ (`docker compose version`).
 - 16 GB RAM for the bundled setup (two services load a 2 GB embedding
   model; the bundled Ollama runs a small Gemma model on CPU).
-- About 20 GB of disk for images and models, plus about 45 GB of free disk
-  for Docker's build cache during the first build.
+- About 20 GB of disk for images and models. Building the images yourself
+  instead of pulling them needs about 45 GB more for Docker's build cache.
 - A Linux host. The images are built for `linux/amd64`.
 
 ## Quick start (everything bundled)
@@ -22,13 +21,23 @@ git clone https://github.com/normly/web-app.git normly && cd normly
 cp .env.example .env
 # edit .env: set NORMLY_BUNDLED_POSTGRES_PASSWORD and the matching password
 # inside NORMLY_DATABASE_URL
-docker compose up -d --build
+docker compose up -d
 ```
 
-The first start builds the images (10–20 minutes: PyTorch, the embedding
-weights and Docling models are fetched once at build time), pulls the
-Ollama model, runs the database migrations and then brings up the four
-services. Afterwards:
+The first start pulls the five normly images from
+`ghcr.io/normly/web-app` (about 3 GB to download, about 8 GB on disk; PyTorch, the embedding weights and
+Docling's models are inside), pulls the Ollama model, runs the database
+migrations and then brings up the four services. `NORMLY_IMAGE_TAG` in
+`.env` selects which published tag you follow: `edge` (newest commit on
+`main`, the default), a release such as `0.1.0`, its minor line `0.1`, or
+`latest` (newest release). To update, change the tag if you want, then
+`docker compose pull && docker compose up -d`.
+
+To build the images from source instead — for example on a modified
+checkout — run `docker compose up -d --build`; this takes 10–20 minutes
+and needs the extra disk space listed above.
+
+Afterwards:
 
 - App: <http://localhost:3000> (the frontend is bound to localhost only;
   for remote access use the `edge` profile or an SSH tunnel, see
@@ -90,6 +99,54 @@ Ports 80 and 443 must be reachable from the internet for Let's Encrypt.
 All variables are documented inline in `.env.example`. Frontend-specific
 branding variables are described in `frontend/README.md`.
 
+## Verifying image signatures
+
+Every published image is signed keyless with [cosign](https://docs.sigstore.dev/)
+from the `Images` workflow in `normly/web-app`, and ships a SLSA provenance
+and an SBOM attestation ([ADR-023](../adr/README.md#adr-023-image-pipeline-ghcr-keyless-signatur-eine-version-lock-datei)).
+To check an image before running it:
+
+```bash
+cosign verify \
+  --certificate-identity-regexp '^https://github\.com/normly/web-app/\.github/workflows/images\.yml@refs/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/normly/web-app/api:0.1.0
+```
+
+A valid signature prints the certificate subject (the workflow) and the
+commit it was built from. Provenance and SBOM are visible with
+`docker buildx imagetools inspect ghcr.io/normly/web-app/api:0.1.0 --format '{{ json .Provenance }}'`
+(and `.SBOM`).
+
+## Importing the knowledge base
+
+The images contain no knowledge base. Set `NORMLY_KB_BASE_URL` in `.env` to the
+public location of the versioned dumps, then run:
+
+```bash
+docker compose run --rm kb-import              # newest dump
+docker compose run --rm kb-import 2026.10.1    # a fixed version
+```
+
+Before anything is written, the import checks the Ed25519 signature of the
+dump manifest against normly's public signing key (committed to the repository
+and packaged with the code; until that key is published, supply it with
+`--public-key PATH` or by mounting it and setting `NORMLY_KB_PUBLIC_KEY_FILE`,
+for example `docker compose run --rm -v /path/key.pem:/kb-key.pem:ro -e
+NORMLY_KB_PUBLIC_KEY_FILE=/kb-key.pem kb-import latest`), the embedding model
+revision (embeddings from another revision are incompatible with this
+installation), and the SHA-256 checksum of every table file. A dump that fails
+any check is refused and the database stays unchanged.
+
+The dump carries no personal names: the columns `source.responsible_person`
+and `rights_classification.classified_by` hold the role `normly maintainers`.
+
+The import is idempotent: running it again with the same dump changes nothing.
+User data (watchlists, notifications, chat citations) never blocks an import:
+tombstones and citations keep their references, and what the new dump no longer
+contains loses its content
+([ADR-026](../adr/README.md#adr-026-umgang-mit-nutzerdaten-beim-wissensbestand-import)).
+
 ## Ingesting documents
 
 ```bash
@@ -98,11 +155,32 @@ docker compose run --rm pipeline ingest dguv --directory /data/raw/dguv
 ```
 
 Sources: `eur-lex`, `dguv`, `baua`. Other maintenance commands:
-`backfill-document-embeddings`, `cleanup-notifications`, `notify-watchers`.
+`backfill-document-embeddings`, `cleanup-notifications`, `cleanup-user-data`, `notify-watchers`.
+
+## User data
+
+- **Anonymous chats are not stored.** A chat without a signed-in account writes
+  nothing to the database and sets no chat cookie; the conversation lives in the
+  browser tab only. Chats of signed-in users are kept until the user deletes
+  them (one or all, in the chat sidebar) or deletes the account. The request
+  quota is counted server-side by rate limiting and does not depend on chats.
+- **Retention.** `cleanup-user-data` enforces the retention periods
+  (expired sessions and tokens, abandoned registrations (after a warning e-mail, so SMTP must be configured), old notifications,
+  the deletion log):
+
+  ```bash
+  docker compose run --rm pipeline cleanup-user-data
+  ```
+
+  It is idempotent and prints counters only. Run it daily (cron or a systemd
+  timer; the single-VM setup in [Operations](operations.md#cleaning-up-user-data)
+  ships one). The periods are listed there.
+- **Export and deletion.** Signed-in users can download their data as JSON
+  (`GET /v1/accounts/export`) and delete their account, which removes its data
+  ([ADR-027](../adr/README.md#adr-027-lebenszyklus-der-nutzerdaten)). Deletions
+  are written to a deletion log (identifiers only) so they can be re-applied
+  after a restore from a backup.
 
 ## Known gaps
 
-- No published images yet — `docker compose up --build` builds locally.
-  Signed images on GHCR and a versioned knowledge-base dump are the next
-  two deliverables of the deployment roadmap.
 - No Helm chart. Kubernetes is not a target for the free core right now.

@@ -5,8 +5,9 @@
 "use client";
 
 import * as React from "react";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   Sidebar,
   SidebarContent,
@@ -76,6 +77,9 @@ function groupSessionsByBucket(sessions: ChatSessionSummary[], now: Date): Bucke
   return buckets.filter((bucket) => bucket.sessions.length > 0);
 }
 
+// What the open confirmation dialog is about; null = dialog closed.
+type DeleteTarget = { kind: "one"; id: string } | { kind: "all" } | null;
+
 export function ChatHistorySidebar({ onNewChat }: { onNewChat: () => void }) {
   const { t, locale } = useTranslation();
   const [sessions, setSessions] = React.useState<ChatSessionSummary[] | null>(null);
@@ -95,6 +99,37 @@ export function ChatHistorySidebar({ onNewChat }: { onNewChat: () => void }) {
       cancelled = true;
     };
   }, []);
+
+  const [deleteTarget, setDeleteTarget] = React.useState<DeleteTarget>(null);
+  const [deleteFailed, setDeleteFailed] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
+
+  const openDeleteDialog = (target: DeleteTarget) => {
+    setDeleteFailed(false);
+    setDeleteTarget(target);
+  };
+
+  const confirmDelete = async () => {
+    if (deleteTarget === null) return;
+    const target = deleteTarget;
+    setIsDeleting(true);
+    try {
+      const url = target.kind === "one" ? `/api/chat/sessions/${target.id}` : "/api/chat/sessions";
+      const response = await fetch(url, { method: "DELETE" });
+      if (!response.ok) {
+        setDeleteFailed(true);
+        return;
+      }
+      setSessions((current) =>
+        current === null ? current : target.kind === "all" ? [] : current.filter((s) => s.id !== target.id),
+      );
+      setDeleteTarget(null);
+    } catch {
+      setDeleteFailed(true);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const handleNewChat = async () => {
     await fetch("/api/chat/new-session", { method: "POST" });
@@ -156,19 +191,73 @@ export function ChatHistorySidebar({ onNewChat }: { onNewChat: () => void }) {
               <SidebarMenu>
                 {bucket.sessions.map((session) => (
                   <SidebarMenuItem key={session.id}>
-                    {/* Plain text, not a link or button: no session-
-                        resumption feature exists (see Global Constraints)
-                        -- this must not look clickable. */}
-                    <span className="flex h-8 items-center rounded-md px-2 text-sm text-sidebar-foreground/70">
-                      {new Date(session.created_at).toLocaleString(locale)}
-                    </span>
+                    {/* The date is plain text, not a link or button: no
+                        session-resumption feature exists (see Global
+                        Constraints) -- it must not look clickable. The only
+                        control in the row is the delete button. */}
+                    <div className="flex h-8 items-center justify-between gap-1">
+                      <span className="rounded-md px-2 text-sm text-sidebar-foreground/70">
+                        {new Date(session.created_at).toLocaleString(locale)}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-7"
+                        aria-label={t("history.deleteButton")}
+                        onClick={() => openDeleteDialog({ kind: "one", id: session.id })}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         ))}
+        {sessions !== null && sessions.length > 0 && (
+          <Button
+            variant="ghost"
+            className="m-2 justify-start gap-2 text-destructive"
+            onClick={() => openDeleteDialog({ kind: "all" })}
+          >
+            <Trash2 className="size-4" />
+            {t("history.deleteAllButton")}
+          </Button>
+        )}
       </SidebarContent>
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) setDeleteTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogTitle>
+            {deleteTarget?.kind === "all"
+              ? t("history.confirmDeleteAllTitle")
+              : t("history.confirmDeleteOneTitle")}
+          </DialogTitle>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {deleteTarget?.kind === "all"
+              ? t("history.confirmDeleteAllDescription")
+              : t("history.confirmDeleteOneDescription")}
+          </p>
+          {deleteFailed && (
+            <p role="alert" className="mt-2 text-sm text-destructive">
+              {t("history.deleteError")}
+            </p>
+          )}
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={isDeleting}>
+              {t("history.cancelButton")}
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={isDeleting}>
+              {t("history.confirmDeleteButton")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Sidebar>
   );
 }

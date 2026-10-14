@@ -72,7 +72,7 @@ def _make_delivery_for_backfill(db_session, content_hash):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="EUR-Lex", retrieval_path="https://single-market-economy.ec.europa.eu",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="EU",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     return PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash=content_hash, ingested_at=datetime.now(timezone.utc)

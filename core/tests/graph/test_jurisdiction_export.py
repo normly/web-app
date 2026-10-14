@@ -20,7 +20,7 @@ def test_two_jurisdiction_exports_differ(db_session):
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="EU",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id,
@@ -42,19 +42,19 @@ def test_two_jurisdiction_exports_differ(db_session):
     rights_repo.classify(
         document_id=de_only.id, jurisdiction="DE", may_process=True, may_index_fulltext=True,
         may_cite_passages=True, may_export_free=True, legal_basis_reference="§ 5 UrhG",
-        classified_at=datetime.now(timezone.utc), classified_by="J. Weber",
+        classified_at=datetime.now(timezone.utc), classified_by="Test Reviewer",
         delivery_id=delivery.id,
     )
     rights_repo.classify(
         document_id=both.id, jurisdiction="DE", may_process=True, may_index_fulltext=True,
         may_cite_passages=True, may_export_free=True, legal_basis_reference="freie Lizenz",
-        classified_at=datetime.now(timezone.utc), classified_by="J. Weber",
+        classified_at=datetime.now(timezone.utc), classified_by="Test Reviewer",
         delivery_id=delivery.id,
     )
     rights_repo.classify(
         document_id=both.id, jurisdiction="US", may_process=True, may_index_fulltext=True,
         may_cite_passages=True, may_export_free=True, legal_basis_reference="freie Lizenz",
-        classified_at=datetime.now(timezone.utc), classified_by="J. Weber",
+        classified_at=datetime.now(timezone.utc), classified_by="Test Reviewer",
         delivery_id=delivery.id,
     )
 
@@ -77,7 +77,7 @@ def test_list_results_are_ordered_deterministically(db_session):
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="EU",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id,
@@ -98,7 +98,7 @@ def test_list_results_are_ordered_deterministically(db_session):
             document_id=document.id, jurisdiction="DE", may_process=True,
             may_index_fulltext=True, may_cite_passages=True, may_export_free=True,
             legal_basis_reference="§ 5 UrhG", classified_at=datetime.now(timezone.utc),
-            classified_by="J. Weber", delivery_id=delivery.id,
+            classified_by="Test Reviewer", delivery_id=delivery.id,
         )
         documents.append(document)
 
@@ -170,7 +170,7 @@ def test_designations_and_titles_are_ordered_by_delivery_ingestion_time(db_sessi
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="EU",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
     )
     delivery_repo = PostgresDeliveryRepository(db_session)
     doc_repo = PostgresDocumentRepository(db_session)

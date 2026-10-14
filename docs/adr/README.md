@@ -740,6 +740,16 @@ aus ADR-019) — der Kollaborationsnachteil wiegt für den Kern-Quellcode
 schwerer als der Souveränitätsgewinn, während dieser für Betrieb und Daten
 weiterhin überwiegt und dort unangetastet bleibt.
 
+**Nachtrag 2026-10-09 (ADR-025):** Die Aussage oben, STACKIT Git sei als
+Plattform für das künftige Hosting der Normen-Wissensbasis vorgesehen, ist
+überholt. Die Wissensbasis wird als signierter Dump in einem öffentlich
+lesbaren STACKIT-Object-Storage-Bucket verteilt (ADR-025); die Trennung von
+Code und Daten aus ADR-010 bleibt davon unberührt. Das Repository
+`jwokittel/normly-webapp` hat damit keine Aufgabe mehr. **Entschieden
+(2026-10-09): Das Repository wird gelöscht**, nicht archiviert; der Betreiber
+führt das im STACKIT-Portal aus. Der Git-Remote `stackit` ist damit hinfällig.
+Der ursprüngliche Wortlaut bleibt als Entscheidungsverlauf stehen.
+
 ---
 
 ## ADR-022 — Betriebsumgebung Phase 1 und Modellherkunftsregel
@@ -801,6 +811,683 @@ Secrets-Bezug per AppRole (TP3), Rollout/Rollback/Datenstand (TP4). Details:
 
 ---
 
+## ADR-023 — Image-Pipeline: GHCR, keyless Signatur, eine Version, Lock-Datei
+
+**Status:** beschlossen (2026-10-08)
+
+**Entscheidung:**
+
+1. **Veröffentlichung:** Die fünf Container-Images (`api`, `chat`,
+   `accounts`, `pipeline`, `frontend`) werden in GitHub Actions gebaut
+   und als öffentliche Pakete unter `ghcr.io/normly/web-app/` abgelegt
+   (bestätigt ADR-021). Gebaut wird bei Push auf `main` (Tags `edge`,
+   `sha-<kurz>`), bei Git-Tags `vX.Y.Z` (`X.Y.Z`, `X.Y`, `latest`) und
+   manuell — nie bei Pull Requests.
+2. **Signatur:** cosign keyless über GitHub-OIDC. Kein Schlüsselmaterial
+   wird erzeugt oder verwahrt; das kurzlebige Zertifikat bindet die
+   Signatur an Repository, Workflow und Commit. Dazu je Image
+   SLSA-Provenance und SBOM aus BuildKit (REQ-GIT-005).
+3. **Versionierung:** Eine Version für alle fünf Images; der annotierte
+   Git-Tag `vX.Y.Z` ist die einzige Quelle. Die Versionsfelder der
+   Pakete werden im Release-Commit auf denselben Wert gesetzt, der
+   Workflow prüft die Übereinstimmung.
+4. **Reproduzierbarkeit:** Die vier Python-Pakete bilden einen
+   uv-Workspace mit einer `uv.lock`; Torch kommt ausschließlich aus dem
+   CPU-Wheel-Index; Basis-Images sind per Digest, Modellgewichte (e5,
+   Docling) per Commit gepinnt und liegen in einer eigenen Build-Stufe
+   (REQ-BUILD-001). Bewusst offen bleiben Zeitstempel in den Schichten
+   und die apt-Pakete der Basisschicht; bit-identische Images sind damit
+   noch nicht erreicht.
+
+**Begründung:** Der Vertrauensanker der keyless Signatur — die öffentliche
+Sigstore-Infrastruktur (Fulcio, Rekor) — wird von der **Linux Foundation
+betrieben, einer Non-Profit-Organisation.** Das unterscheidet ihn
+qualitativ von den kommerziellen US-Diensten in der Build-Kette, die
+ADR-021 für den freien Kern erlaubt, und wiegt leichter als
+Schlüsselpflege, Rotation und Neusignierung bei Verlust. Die gemeinsame
+Version bildet ab, was tatsächlich getestet wird: die Dienste nur in
+Kombination, `api` und `chat` sogar aus einem Basis-Image; ein Rollback
+ist damit ein Handgriff. Der Verzicht auf PR-Builds hält die Pipeline
+schlank; ein kaputtes Dockerfile fällt nach dem Merge laut und ohne
+Schaden auf (`edge` bleibt stehen, der Release-Tag schlägt fehl). Ohne
+gepinnte Gewichte könnte derselbe Git-Tag andere Embeddings erzeugen als
+der Datenstand, den TP4 importiert.
+
+**Verworfen:** eigenes cosign-Schlüsselpaar (Schlüsselpflege, Ablage
+außerhalb von GitHub, Neusignierung bei Verlust); Version je Paket
+(getestete Kombination nicht mehr ablesbar, ein Tag je Paket je Release);
+Image-Build bei Pull Requests (voller Build je PR, Pfadfilter übersieht
+Codeänderungen); pip-tools (vier Lock-Dateien mit möglicher Drift, keine
+saubere Index-Trennung für Torch).
+
+**Konsequenz:** `docker compose up -d` zieht veröffentlichte Images,
+`--build` bleibt der lokale Weg; `docs/guide/self-hosting.md` beschreibt
+Bezug und Signaturprüfung, `docs/guide/releasing.md` den Release-Ablauf,
+`CONTRIBUTING.md` die uv-Entwicklungsumgebung. REQ-BUILD-001,
+REQ-DIST-004 und REQ-GIT-005 verweisen hierher. Die Signaturprüfung als
+Pflichtschritt vor dem Start auf der VM folgt mit dem Rollout-Skript
+(TP4). Details:
+`docs/superpowers/specs/2026-10-08-tp2-image-pipeline-design.md`.
+
+---
+
+## ADR-024 — Rollout, Rollback und Sicherung auf der Einzel-VM
+
+**Status:** beschlossen (2026-10-09); baut auf ADR-010, ADR-014 und ADR-023
+
+**Kontext:** Die Produktions-VM baut ihre Images heute aus dem Quellcode; es
+gibt keinen Rollback-Punkt. Nutzerdaten sind nur durch die Flex-Sicherung
+gesichert (täglich, 30 Tage, anbieterintern). STACKIT-Zugangsdaten dürfen
+nicht auf GitHub liegen (ADR-021), ein Push-Rollout aus der CI scheidet also
+aus. Die Signaturen aus ADR-023 nützen erst etwas, wenn die VM sie vor dem
+Start prüft (REQ-GIT-005).
+
+**Entscheidung:**
+
+1. **Auslöser:** Rollout manuell per SSH: `normly-deploy deploy vX.Y.Z`. Das
+   Skript ist timerfähig gehalten, einen Timer gibt es nicht.
+2. **Prüfung vor dem Start:** `cosign verify` aller fünf Images gegen die
+   Identität `images.yml@refs/tags/vX.Y.Z` des Release-Workflows. Compose-Datei
+   und Skript-Assets reisen im signierten `pipeline`-Image und werden aus dem
+   geprüften `pipeline@<digest>` entnommen. Die geprüften Digests werden
+   festgehalten (Digest-Pinning); nach `compose pull` müssen die gezogenen
+   Digests den geprüften entsprechen, sonst startet nichts.
+3. **Ablauf:** aktuellen Tag und Wissensbestand-Version lesen,
+   Pre-Rollout-Sicherung (ohne bestätigten Upload kein Rollout), `pull`,
+   `up -d --wait`. Der aktuelle Tag wird abgelehnt; solange ein
+   fehlgeschlagener Rollout vermerkt ist (`state/failed_rollout`), startet
+   kein neuer `deploy` (bewusstes Übergehen: die Markierungsdatei entfernen).
+   Es gibt keinen automatischen Rückweg.
+4. **Rollback stellt Images und Daten auf den Stand vor dem Rollout zurück.**
+   Weil Alembic-Migrationen nur vorwärts laufen, wird das Schema neu
+   aufgebaut: Dienste stoppen, alle Tabellen des Schemas `public` verwerfen
+   (Liste aus der Datenbank, das Schema bleibt, damit pgvector erhalten
+   bleibt), `migrate` mit dem vorherigen Image, Wissensbestand in der
+   damals aktiven Dump-Version importieren (vor den Nutzerdaten, wegen der
+   Fremdschlüssel), die zurückgezogenen Kennungen der Sicherung
+   (`exchange import-tombstones`, siehe ADR-026), Nutzerdaten mit
+   `pg_restore --data-only`, vorheriges Release starten. Vorab prüft das
+   Skript, dass die Alembic-Revision der Sicherung dem Alembic-Head des
+   vorherigen Images entspricht, dass der aufgezeichnete Wissensbestand-Dump
+   abrufbar und prüfbar ist (Signatur, Modell, Prüfsummen; ohne nutzbaren
+   öffentlichen Schlüssel Abbruch, bevor etwas verändert wird) und dass die
+   Tombstone-Datei der Sicherung abrufbar, entschlüsselbar und gültig ist
+   (eine Sicherung, deren `meta.json` die Datei zusagt, der sie aber fehlt,
+   gilt als beschädigt: Abbruch; eine ältere Sicherung ohne Zusage führt zu
+   einer Warnung, der Rollback läuft weiter), und verlangt
+   die Eingabe des Ziel-Tags (oder `--yes`). Der private Schlüssel wird nur
+   für den Lauf bereitgestellt (`--age-identity FILE`). Scheitert der
+   Rollback nach dem Verwerfen, gibt das Skript Hinweise zur Wiederherstellung;
+   ein erneuter Aufruf ist gefahrlos.
+5. **Sicherung:** die Nutzerdaten-Tabellen (`exchange tables user`) und, als
+   zweite verschlüsselte Datei, die zurückgezogenen Kennungen
+   (`<base>.tombstones.age`, ADR-026; nie Inhalt, Rechte oder Nutzerdaten).
+   Beide `age`-verschlüsselt auf der VM mit dem öffentlichen Schlüssel, Upload
+   per `rclone` in einen privaten STACKIT-Object-Storage-Bucket. Der private
+   Schlüssel liegt nie auf der VM. Reihenfolge des Uploads: `meta.json`,
+   `dump.age`, `tombstones.age`, `.sha256`; die Prüfsumme deckt beide
+   verschlüsselten Dateien ab und ist die Commit-Markierung, erst mit ihr
+   zählt eine Sicherung. `meta.json` trägt `"tombstones": true`.
+6. **Aufbewahrung:** 7 tägliche, 2 monatliche (jeweils der neueste tägliche
+   Stand der beiden jüngsten Kalendermonate), 3 Pre-Rollout-Stände. Die
+   Aufbewahrung gilt für beide Dateien einer Sicherung: die Bereinigung löscht
+   `.sha256`, `meta.json`, `tombstones.age`, `dump.age` in dieser Reihenfolge
+   und überspringt Objekte, die nicht im Bucket liegen (ältere Sicherungen
+   ohne Tombstone-Datei). Sie zählt nur committete Sicherungen und löscht
+   Waisen (ohne `.sha256`, auch eine einzelne `tombstones.age`) erst nach
+   einem Tag. Zusätzlich bleibt die 30-Tage-Sicherung
+   der Gesamtdatenbank durch Flex das Betriebsnetz.
+7. **Restore-Test:** manuell und dokumentiert (`docs/guide/operations.md`),
+   nach dem Bau einmal, danach monatliche Erinnerung.
+
+**Begründung:**
+
+- *Manueller Auslöser:* Ein Mensch entscheidet über das Migrationsfenster.
+  Migrationen liefen sonst unbeaufsichtigt, und ein Timer bräuchte eine
+  „höchster Tag“-Logik und ein Stabilitätsfenster.
+- *Rollback = Neuaufbau:* Migrationen sind nur vorwärts. Ein reiner
+  Image-Rollback verlangte eine Expand/Contract-Disziplin, die es nicht gibt;
+  ein reiner Datenrestore ließe das neue Schema stehen.
+- *Nur Nutzerdaten sichern:* Der Wissensbestand ist über den Dump
+  (ADR-025) reproduzierbar; ein täglicher Gesamtdump wäre bei zweistelligen GB
+  verschwendet, die Nutzerdaten sind dagegen klein und unersetzlich.
+- *Schlüsseltrennung:* Die VM kann Sicherungen schreiben, aber nicht
+  entschlüsseln (der Bucket-Zugang der VM umfasst Lesen, weil der Rollback
+  die Sicherung herunterlädt; der private Schlüssel fehlt).
+  Auch bei kompromittierter VM bleiben die Sicherungen geschützt, anders als
+  bei serverseitiger Verschlüsselung, deren Schlüssel beim Anbieter neben den
+  Daten liegt (CLAUDE.md: Schlüssel nie neben den Daten).
+- *Digest-Pinning:* `cosign verify` prüft, worauf das Tag in diesem Moment
+  zeigt. Ein zwischen Prüfung und `pull` umgesetztes Tag würde sonst die
+  Prüfung umgehen.
+- *Commit-Markierung:* Ein abgebrochener Upload darf weder als Sicherung
+  zählen noch eine ältere, gültige verdrängen.
+
+**Verworfen:** Timer mit Auto-Rollout; reiner Image-Rollback mit
+Expand/Contract-Disziplin; ausschließlich serverseitige Verschlüsselung;
+täglicher Gesamtdump; nur Pre-Rollout-Dumps; wöchentliche Stände (Nutzen
+jenseits von 7 Tagen klein).
+
+**Folgen:**
+
+- Ein Rollback verwirft alle Änderungen seit der Pre-Rollout-Sicherung
+  (Konten, Chats, Watchlists). Das Skript warnt und verlangt Bestätigung.
+- Die Rollback-Dauer wächst mit dem Wissensbestand (Neu-Import).
+- Voraussetzung: Der Wissensbestand in Produktion ändert sich nur durch
+  Dump-Import, nie durch Ingestion auf der VM (zugleich Voraussetzung für die
+  Verkleinerung der VM, TP1a).
+- `pg_dump`, `psql` und `pg_restore` laufen auf dem Host; `NORMLY_DATABASE_URL`
+  muss dort auflösbar sein (verwaltete Datenbank, nicht das gebündelte Profil).
+  Das Datenbankpasswort steht in den Prozessargumenten (Annahme: Einzelmandant-VM;
+  Härtung zurückgestellt). Es braucht Docker Compose ab 2.20 (`--wait-timeout`).
+- Offen: Kryptographisches Löschen bei Vertragsende (ADR-014) für lizenzierte
+  Bestände ist Aufgabe der kommerziellen Schicht; sie müssen von Sicherungen
+  ausgenommen oder je Herausgeber verschlüsselt werden. Der Secrets-Fluss per
+  AppRole (TP3) liegt außerhalb. PITR und Verschlüsselung der Flex-Sicherungen
+  sind zu klären. **Objektsperre (Entscheidung 2026-10-10): vorerst keine.**
+  STACKIT bietet Object Lock nach Angabe des Betreibers nur nach einem
+  projektweiten Compliance Lock und nur beim Anlegen des Buckets;
+  unumkehrbar (vor Umsetzung gegen die STACKIT-Doku zu prüfen). Dagegen
+  sprechen: Unumkehrbarkeit vor der ersten Live-Abnahme, Wirkung auf das ganze
+  Projekt, Konflikt mit der eigenen Aufbewahrung (`normly-backup` löscht alte
+  Stände) und der Zusage, gelöschte Nutzerdaten nicht wiederkehren zu lassen
+  (Rollback spielt Löschungen der letzten 90 Tage nach; eine längere Sperre
+  hielte sie länger vor). Akzeptiertes Restrisiko: Mit gestohlenen Zugangsdaten
+  der VM ließen sich Sicherungen löschen; gelesen werden können sie nicht
+  (`age`, privater Schlüssel außerhalb). Minderung zu prüfen: eigene
+  Zugangsdaten der VM ohne Löschrecht. Neubewertung nach der Live-Abnahme; ein
+  späterer zweiter Bucket mit Sperre und Frist von höchstens 90 Tagen wäre
+  möglich. Das Zusammenspiel
+  von `docker compose up --wait` mit dem einmaligen `migrate`-Dienst und die
+  Abfrage des Alembic-Heads sind bislang nur gegen Attrappen geprüft, bis
+  zur Live-Abnahme.
+
+Details: `docs/superpowers/specs/2026-10-09-tp4-deployment-automation-design.md`,
+Betrieb: `docs/guide/operations.md`.
+
+---
+
+## ADR-025 — Wissensbestand-Dump als Austauschformat
+
+**Status:** beschlossen (2026-10-09); ergänzt ADR-010, ändert die Aussage zur
+Wissensbasis in ADR-021 (siehe Nachtrag dort)
+
+**Kontext:** ADR-010 trennt Code und Daten, REQ-DIST-004 verlangt einen
+eigenständig versionierten Dump, der beim ersten Start bezogen wird. Bisher
+entsteht der Wissensbestand per Ingestion auf der VM; weder Selbsthoster noch
+ein Rollback können ihn reproduzieren.
+
+**Entscheidung:**
+
+1. **Format:** Parquet je Tabelle plus `manifest.json` und die Ed25519-Signatur
+   `manifest.json.sig`. Das Manifest führt Austauschschema-Version
+   (unabhängig von Alembic), Dump-Version und Zeitpunkt, Einbettungsmodell mit
+   Name und gepinnter Revision, Vektordimension (1024), Quelllieferungen und
+   Prüfsumme samt Zeilenzahl je Datei.
+2. **Zugriff:** Export und Import laufen über die Repository-Schicht
+   (`KnowledgeExchangeRepository`), nicht über Postgres-Werkzeuge.
+3. **Signatur:** Ed25519 in Python (`cryptography`), im Kern geprüft. Der
+   öffentliche Schlüssel liegt im Repository. Die Schlüsselzeremonie steht noch
+   aus; bis dahin muss der Schlüssel angegeben werden. Er wird in dieser
+   Reihenfolge aufgelöst: `--public-key`, Umgebungsvariable
+   `NORMLY_KB_PUBLIC_KEY_FILE`, mitgepackter Schlüssel.
+4. **Verteilung:** öffentlich lesbarer STACKIT-Object-Storage-Bucket mit
+   Kalenderversion `kb/<version>/` und `kb/latest`. Eine Version ist
+   unveränderlich. `fetch` lädt nur von `NORMLY_KB_BASE_URL` (https, für
+   localhost auch http) und prüft Version und Pfade.
+5. **Import:** atomar und idempotent; der Aufrufer committet, die
+   importierte Version wird in der Datenbank festgehalten. Was die neue Version
+   nicht mehr enthält, wird nach ADR-026 behandelt, nie blockiert durch
+   Nutzerdaten: Zitate lösen, Inhalt löschen, Tombstones setzen, Lieferungen
+   zurückziehen, dann einfügen oder aktualisieren. Ein Dump ohne Dokumente
+   wird abgelehnt, solange die Datenbank Dokumente hält, es sei denn
+   `--allow-empty` ist gesetzt.
+6. **Prüfungen beim Import:** Signatur, Austauschschema-Version, Modellname
+   **und** Modellrevision (`NORMLY_EMBEDDING_MODEL_REVISION`), Dimension,
+   Prüfsummen. Bei Abweichung Abbruch, keine stillen falschen Einbettungen.
+   Dieselben Prüfungen laufen ohne Datenbank als Unterbefehl `verify
+   (--from DIR | --fetch VERSION)`; der Rollback ruft ihn vor dem ersten
+   destruktiven Schritt auf, damit ein nicht prüfbarer Dump nicht erst nach
+   dem Verwerfen der Tabellen auffällt.
+7. **Export-Gate:** die Rechteklassifikation als einziges Tor, über alle
+   Rechtsräume hinweg ausgewertet. Exportiert wird, was eine nicht
+   widerrufene Klassifikation mit `may_process` und `may_export_free` hat,
+   dessen Lieferung nicht zurückgezogen ist und dessen Quelle Kategorie A, B
+   oder D hat und kein kommerziell verwerteter Katalog ist. Fehlende
+   Klassifikation heißt nicht exportieren. Zusammengeführte Werke werden samt
+   Ziel exportiert, damit die Weiterleitung erhalten bleibt. Nutzerdaten und
+   lizenzierte Bestände sind nie enthalten.
+8. **Erster Start:** der Compose-Dienst `kb-import` (Profil `tools`) führt
+   `import --fetch latest` aus.
+
+**Begründung:**
+
+- *Parquet statt `pg_dump` (Nutzerentscheidung, gegen die ursprüngliche
+  Empfehlung):* ADR-006 und CLAUDE.md verlangen Datenbankzugriff nur über die
+  Repository-Schicht, damit die Speichertechnologie austauschbar bleibt;
+  `pg_dump` ist ein Postgres-Artefakt und umgeht sie.
+- *Öffentliches Produkt (REQ-DIST-004):* Ein Format ohne Bindung an unsere
+  Alembic-Revision überlebt Schemaänderungen. Bei `pg_dump` müsste jeder
+  Selbsthoster die passende Anwendungsversion finden.
+- *Abstammung:* Ein tabellenweiser Export mit Quelllieferung je Zeile hält die
+  Rücknahme einer Lieferung auch im Dump nachvollziehbar.
+- *Parquet statt NDJSON:* Einbettungen (1024 Floats, etwa 4 KB je Abschnitt)
+  wären sonst unhandlich.
+- *Preis:* mehr Code (Export, Import, Austauschschema), langsamerer Import,
+  Idempotenz selbst herzustellen. Das nehmen wir in Kauf.
+- *Ed25519 im Kern statt cosign/minisign:* Der Import läuft im
+  `pipeline`-Image und beim Selbsthoster; ein zusätzliches Binary vergrößerte
+  das Image und schüfe eine zweite Installationshürde. Keyless-Signatur geht
+  nicht, weil der Dump lokal entsteht, nicht in der CI.
+- *Object Storage statt Git:* große Binärdateien und anonymer Zugriff sind in
+  einem Git-Repository unhandlich; die Wissensbasis bleibt damit auf STACKIT
+  (CLAUDE.md).
+- *Import mit Tombstones statt Blockieren:* siehe ADR-026.
+
+**Verworfen:** `pg_dump` des Wissensbestands; Delta-Dumps (das Format lässt
+sie offen, gebaut werden sie nicht); STACKIT Git als Ablage; ein zusätzliches
+Git-Manifest als Verlauf (zweites System); NDJSON.
+
+**Folgen:**
+
+- ADR-021 erhält einen Nachtrag; CLAUDE.md und REQ-GIT-005 sind angepasst.
+- `docs/guide/self-hosting.md` beschreibt den Import, `docs/guide/operations.md`
+  Export, Signatur und Veröffentlichung.
+- Das Export-Gate liest die Rechteklassifikation und führt keinen zweiten
+  Prüfpfad ein.
+
+**Personennamen (entschieden 2026-10-09):** Der Export ersetzt Personennamen
+durch die Rolle `normly maintainers`. Betroffen sind
+`source.responsible_person` und `rights_classification.classified_by`; beide
+Spalten tragen in jeder exportierten Zeile die Konstante `PUBLISHED_ROLE`. Die
+Ersetzung geschieht im Export-Statement der Repository-Schicht, also an der
+Stelle des Export-Gates, und ändert weder Manifest noch Austauschschema (keine
+Versionserhöhung). Der Dump trägt nie einen Namen; die Quellenregistrierung im Code enthält nur
+einen Platzhalter, und Namen, die ein Ingestion-Betreiber einträgt, liegen nur
+in dessen eigener Datenbank. Ein Import überschreibt die beiden Spalten mit dem
+Rollenlabel: Produktion, die den öffentlichen Dump einspielt, trägt daher das
+Label, nie Namen; ein erneuter Export eines importierten Stands ist zeilengleich.
+Einen Dump nie in die Ingestion-Datenbank importieren: der Upsert überschreibt
+dort die Namen unwiderruflich. Maskiert wird auch
+`classified_by="pipeline:automatic"`; der öffentliche Dump unterscheidet damit
+nicht zwischen automatischer und menschlicher Klassifikation (bewusster
+Kompromiss, das Label ist eine Rolle und keine Aussage über menschliche
+Prüfung).
+Ein Test sucht einen eindeutigen Namen in allen Zeilen, allen Parquet-Dateien
+und im Manifest.
+
+**Offene Punkte:**
+
+- **Delta-Dumps** sind nicht gebaut.
+- **Schlüsselzeremonie:** Erzeugung, Verwahrung und Veröffentlichung des
+  Signaturschlüssels stehen aus.
+
+Details: `docs/superpowers/specs/2026-10-09-tp4-deployment-automation-design.md`.
+
+---
+
+## ADR-026 — Umgang mit Nutzerdaten beim Wissensbestand-Import
+
+**Status:** beschlossen (2026-10-09); ersetzt die Blockierregel des Imports
+aus ADR-025
+
+**Kontext:** Der Import eines Wissensbestand-Dumps brach mit
+`ImportBlockedError` ab, sobald Nutzerdaten (`watchlist`, `notification`,
+`notified_edge`, `chat_message_citation`) auf eine Zeile verwiesen, die der neue
+Dump nicht mehr enthält. Für eine rechtlich gebotene Rücknahme (Lieferung
+zurückgezogen, Klassifikation widerrufen) ist das falsch: Sie darf nicht an
+Nutzerdaten scheitern (CLAUDE.md, „Abstammung mitführen“). Befund aus dem Code:
+Keine Nutzerdaten-Tabelle speichert urheberrechtlich geschützten Inhalt, es
+sind nur Verweise (`work_id`, `edge_id`, `document_id`, `segment_id`); der Text
+eines Zitats wird erst beim Lesen aus `segment` geholt.
+
+**Entscheidung:** Eine Rücknahme gewinnt immer; ein Nutzerverweis blockiert nie
+einen Import. Was der Dump nicht mehr enthält, wird nach Klasse behandelt:
+
+| Klasse | Tabellen | Behandlung |
+|---|---|---|
+| Tombstone (Kennung, kein Inhalt) | `work`, `document`, `edge` | Zeile bleibt, `retired_at` wird gesetzt; Kanten werden zusätzlich widerrufen (`revoked_at`). Nutzerverweise bleiben gültig. |
+| Herkunft | `source`, `delivery` | Werden nie gelöscht; eine fehlende Lieferung erhält `withdrawn_at`. |
+| Inhalt/Ableitung | `document_designation`, `document_title`, `rights_classification`, `segment`, `embedding`, `document_embedding` | Werden physisch gelöscht. |
+
+Ablauf in `replace_knowledge_base`, in dieser Reihenfolge: Schlüssel des Dumps
+laden; Zitate lösen (`chat_message_citation.segment_id` wird `NULL` für Segmente,
+die der Dump nicht enthält); fehlenden Inhalt in umgekehrter
+Fremdschlüssel-Reihenfolge löschen; fehlende Tombstones zurückziehen; fehlende
+Lieferungen mit `withdrawn_at` versehen; den Dump einfügen oder aktualisieren
+(Zeilen der Tombstone-Klassen aus dem Dump erhalten `retired_at = NULL`:
+Wiederkehr); Importvermerk schreiben. Löschen und Zurückziehen laufen **vor**
+dem Einfügen, damit eine Neulieferung mit neuen IDs nicht an natürlichen
+Eindeutigkeitsschlüsseln kollidiert (Bezeichner, Titel, partieller Index aktiver
+Kanten). `ImportBlockedError` (mit `.step`) bleibt nur als letzte Sicherung für
+einen unerwarteten Fremdschlüssel.
+
+- `retired_at` (Migration 0033; `work`, `document`, `edge`) ist keine
+  Austauschspalte: Dumpformat und `EXCHANGE_SCHEMA_VERSION` bleiben unverändert.
+- `retired_at` ist keine Filterpflicht. Ein zurückgezogenes Dokument hat keine
+  Rechteklassifikation mehr; jede tor-gebundene Lesestelle (das einzige Tor)
+  schließt es damit aus. Es entsteht kein zweiter Prüfpfad.
+- Schutz vor leerem Dump: Ein Dump ohne Dokumente wird abgelehnt, solange die
+  Datenbank Dokumente hält (`allow_empty` bzw. `--allow-empty` hebt das auf).
+- Ein Test geht alle Fremdschlüssel jeder Tabelle außerhalb des Wissensbestands
+  auf den Wissensbestand durch (fail-closed), nicht nur die der
+  Nutzerdaten-Tabellen, also auch `identity_resolution_case`: Jedes Ziel muss
+  zu einer Klasse gehören oder eine ausdrückliche Löseregel haben.
+- Meldung: Ein Widerruf löscht in Produktion die Klassifikation, der
+  Rechteänderungs-Pfad von `notify-watchers` sähe also nichts. Neuer
+  Benachrichtigungstyp `no_longer_available` (Migration 0034, Tabelle
+  `notified_retirement`, `trigger_type` auf VARCHAR(19)): `notify-watchers`
+  erzeugt eine Meldung je zurückgezogenem Dokument eines beobachteten Werks, nur
+  für Rücknahmen nach Beginn der Beobachtung; Dedup-Schlüssel enthält
+  `retired_at` (eine erneute Rücknahme nach Wiederkehr wird neu gemeldet). Kein
+  Link; E-Mail-Betreff „Ein beobachtetes Regelwerk ist nicht mehr verfügbar“;
+  Glocke „Nicht mehr verfügbar“ / „No longer available“. `delete_account`
+  entfernt die `notified_retirement`-Zeilen des Kontos.
+
+**Begründung:** Die zugesagte Rücknahme darf nie von einem Menschen oder von
+Nutzerdaten abhängen. Gelöschter Inhalt ist auch in Produktion und nach Ablauf
+der Sicherungen nicht mehr lesbar; Tombstones tragen nur Kennungen. Kein
+Nutzerverweis geht verloren, weil sich der Wissensbestand ändert.
+
+**Verworfen:**
+
+- Blockieren mit Bereinigungswerkzeug: Die Rücknahme wartete auf einen Menschen.
+- Nutzerverweise anpassen oder löschen: Datenverlust ohne Nutzen, da nur
+  Verweise betroffen sind.
+- Reine Tombstones auch für Inhalt: Die Rücknahme wäre nur logisch, der Text
+  bliebe in Datenbank und Sicherungen lesbar.
+- Bezeichner und Titel als Teil des Tombstones: Sie kollidieren bei einer
+  Neulieferung mit den natürlichen Eindeutigkeitsschlüsseln (Befund im Review);
+  das Dokument behält Herausgeber, Nummer, Ausgabe und Teil als Kennung.
+
+**Rollback und Sicherung (Erweiterung 2):** `normly-deploy rollback` (ADR-024)
+baut die Datenbank neu auf und importiert die ältere Dump-Version. Tombstones
+stehen in keinem Dump; Nutzerzeilen, die auf sie zeigen, verletzten beim
+Einspielen den Fremdschlüssel. Deshalb enthält jede Sicherung eine zweite,
+`age`-verschlüsselte Datei `<base>.tombstones.age`:
+
+- *Inhalt:* JSON (`format` 1, `created_at`, `rows` je Tabelle in
+  Fremdschlüssel-Reihenfolge) mit allen Zeilen aus `work`, `document` und
+  `edge`, deren `retired_at` gesetzt ist, plus dem Abschluss über die
+  Fremdschlüssel-Eltern innerhalb von `source`, `delivery`, `work`, `document`,
+  `edge`. Der Abschluss wird aus den ORM-Fremdschlüsseln berechnet, nicht
+  hartverdrahtet, und nimmt nur Eltern auf, nie Kinder. Alle Spalten, auch
+  `retired_at` und `revoked_at`. Nie Inhalt, Rechte oder Nutzerdaten.
+  `source.responsible_person` kann enthalten sein; in Produktion ist es die
+  veröffentlichte Rollenbezeichnung (Importe überschreiben es), ein Klarname
+  nur in einer Datei aus einer Ingestion-Datenbank. Er liegt nur in der
+  verschlüsselten Sicherung.
+- *Erzeugung und Prüfung:* im Container (`exchange export-tombstones`, stdout),
+  auf dem Host vor dem Verschlüsseln geprüft (JSON-Objekt, `format` 1, `rows`
+  mit genau den fünf Tabellen, je eine Liste). Eine ungültige Ausgabe bricht
+  die Sicherung ab.
+- *Einspielen:* im Rollback nach dem Wissensbestand-Import und **vor**
+  `pg_restore` (`exchange import-tombstones`, JSON auf stdin, im Image des
+  vorherigen Release). Einfügen in Fremdschlüssel-Reihenfolge mit
+  `ON CONFLICT DO NOTHING`; vorhandene Zeilen bleiben unverändert;
+  `work.merged_into_work_id` wird aufgeschoben. Eingefügte Zeilen aus `work`,
+  `document`, `edge` erhalten `retired_at` (gesicherter Wert, bei lebenden
+  Eltern `created_at` der Datei) und gelten damit als zurückgezogen. Sie haben
+  keine Klassifikation, jede tor-gebundene Lesestelle schließt sie aus. Ein
+  späterer normaler Import, der die Zeile enthält, setzt `retired_at` wieder
+  auf `NULL`.
+- *Vorabprüfung:* Der Rollback lädt, entschlüsselt und prüft die
+  Tombstone-Datei vor dem Banner, den Dump nach der Bestätigung und vor dem
+  Stopp; vor dem Löschen ist beides vorhanden und entschlüsselt. Sagt
+  `meta.json` `"tombstones": true`, fehlt aber die Datei, gilt die Sicherung als
+  beschädigt (Abbruch). Eine ältere Sicherung ohne Zusage bleibt nutzbar: Der
+  Rollback warnt deutlich (ein Fremdschlüsselfehler ist möglich, wenn
+  Nutzerdaten auf zurückgezogene Dokumente zeigen) und läuft weiter.
+- *Nicht wiederhergestellt:* Inhalt und Rechte zurückgezogener Dokumente; nur
+  Kennungen. Das ist gewollt, die Rücknahme bleibt wirksam.
+- *`revoked_at`:* An einer zurückgezogenen Kante ist `revoked_at` der
+  **Importzeitpunkt**, nicht der Zeitpunkt des Widerrufs beim Produzenten. Es
+  ist kein Ereignisdatum und so nicht zu lesen.
+
+**Folgen / offen:**
+
+- Ein Tombstone behält nur `origin_issuer`, `origin_number`, `edition` und
+  `part`. Jede Oberfläche, die Tombstones auflistet, muss darauf zurückfallen.
+- Die Ingestion legt bei Neulieferung nach einem Widerruf einen **neuen**
+  Dokumentknoten an (Bezeichner sind gelöscht, `find_by_designation` findet
+  nichts). Beobachtungen und Meldungen bleiben am Tombstone und gehen nicht auf
+  den neuen Knoten über. Produkt- und Identitätsentscheidung, offen.
+- Das Export-Gate des Produzenten lässt ein Dokument aus, dessen erzeugende
+  Lieferung widerrufen wurde, auch nach einer Neulieferung. Offen.
+- Dumps müssen aus einer Abstammungslinie mit stabilen IDs stammen. Eine neu
+  aufgebaute Produzenten-Datenbank mit neuen IDs kann mit stehengebliebenen
+  Tombstones kollidieren (partieller Index aktiver Kanten u. a.) und endet in
+  `ImportBlockedError`.
+- Aufbewahrung und Alterung von Tombstones sind offen (auch nach ADR-027).
+- Die Rechteänderungs-Meldung (`RIGHTS_CHANGE`) für reine Änderungen von
+  Rechtewerten, ohne dass das Dokument verschwindet, entsteht weiter beim
+  Produzenten, nicht in Produktion.
+- Der Schutz vor leerem Dump vertraut den Zeilenzahlen des Manifests; das
+  Manifest ist signiert.
+
+Details: `docs/superpowers/specs/2026-10-09-user-data-on-kb-import-design.md`.
+
+---
+
+## ADR-027 — Lebenszyklus der Nutzerdaten
+
+**Status:** beschlossen (2026-10-10); baut auf ADR-014, ADR-017, ADR-024 und
+ADR-026
+
+**Kontext:** Personenbezogene Daten sollen nur gespeichert werden, wenn ein
+Konto sie braucht, und nur so lange, wie der Zweck besteht; Betroffene sollen
+ihre Daten einsehen und löschen können, und eine Löschung soll eine
+Wiederherstellung aus Sicherungen überstehen. Die Bestandsaufnahme vom
+2026-10-10 zeigte Lücken:
+
+- Anonyme Chats wurden gespeichert (`chat_session`/`chat_message`, Cookie
+  `normly_session` mit 90 Tagen Laufzeit) und nie gelöscht, obwohl der Server
+  sie zum Antworten nicht braucht: Jede Frage wird einzeln beantwortet.
+- `account_session` und `account_token` wurden nie gelöscht (die Ablaufzeit
+  wurde nur geprüft); verlassene Registrierungen blieben ewig; ungelesene
+  Benachrichtigungen ebenso.
+- Es gab keinen Weg, einzelne Chat-Verläufe zu löschen.
+- Der Rollback (ADR-024) stellt Nutzerdaten vom Sicherungszeitpunkt wieder her:
+  zwischenzeitlich gelöschte Konten und Verläufe tauchten wieder auf.
+- Der Export (`GET /v1/accounts/export`) war unvollständig: Die
+  Beobachtungsliste nannte nur `work_id`, Zitate fehlten, und der
+  Chat-Sitzungs-Token (ein Geheimnis) stand im Export.
+
+**Entscheidung:**
+
+*Grundsatz.* Gespeichert wird nur, was ein Konto braucht. Fristen stehen als
+benannte Konstanten an einer Stelle (`core/src/normly_core/retention.py`) und
+werden von einem idempotenten Aufräumbefehl durchgesetzt.
+
+*Anonymer Chat ohne Speicherung.* `POST /v1/chat` ohne gültige Konto-Identität
+schreibt nichts in die Datenbank und antwortet mit `session_token: null`. Ein
+Chat-Token ohne gültiges Konto wird ignoriert. Das Frontend setzt für anonyme
+Nutzung kein Chat-Cookie und entfernt ein vorhandenes; die Unterhaltung lebt
+nur im Browser-Tab. Die Verknüpfung „anonyme Sitzung beim Anmelden ans Konto
+hängen“ entfällt bewusst. Das Kontingent bleibt davon unberührt: Es wird
+serverseitig über die Ratenbegrenzung gezählt (Cookie `normly_anon_id` plus
+Herkunftsadresse, `rate_limit_bucket`), nicht über Chat-Sitzungen
+(REQ-ACC-003). Vorhandene anonyme Verläufe (`account_id` leer) löscht der
+Aufräumbefehl.
+
+*Chats mit Konto* bleiben bis zur Löschung durch die Person oder durch die
+Kontolöschung. `DELETE /v1/chat/sessions/{id}` löscht einen eigenen Verlauf
+(204; 404 bei fremder oder unbekannter ID; 401 ohne Anmeldung),
+`DELETE /v1/chat/sessions` alle eigenen (`{"deleted": n}`); die Seitenleiste
+bietet beides mit Bestätigung.
+
+*Datenverzeichnis.* Alle Tabellen der Nutzerdaten-Gruppe (`USER_TABLES`):
+
+| Tabelle | Zweck | Personenbezug | Frist | Löschweg |
+|---|---|---|---|---|
+| `account` | Konto, Anmeldung | E-Mail, Name, Passwort-Hash, Avatar | bis zur Kontolöschung; **verlassene Registrierung** (E-Mail nie bestätigt, älter als 30 Tage, ohne Google-Verknüpfung, ohne irgendeine Konto-Sitzung) 14 Tage nach zugestellter Vorwarn-E-Mail, nie ohne diese | Kontolöschung durch die Person (kaskadiert auf alle Tabellen mit Kontobezug); Aufräumbefehl |
+| `account_session` | angemeldete Sitzung | Kontobezug, Sitzungs-Token; keine IP, kein User-Agent | 7 Tage nach Ablauf | Aufräumbefehl; Kontolöschung |
+| `account_google_identity` | Verknüpfung mit Google-Anmeldung | Google-Kennung, Kontobezug | bis zur Kontolöschung | Kontolöschung |
+| `account_token` | Einmal-Token (Bestätigung, Zurücksetzen, Magic Link) | Kontobezug | 24 Stunden nach Ablauf oder Verwendung | Aufräumbefehl; Kontolöschung |
+| `oauth_state` | CSRF-Schutz der Google-Anmeldung | keiner (Zufallswert) | unverändert (1 Stunde) | bestehende Bereinigung |
+| `watchlist` | Beobachtungsliste | Kontobezug, Interessen | bis zur Kontolöschung oder Entfernen durch die Person | Person; Kontolöschung |
+| `notification` | Meldungen | Kontobezug, beobachtetes Werk | gelesen 60 Tage, ungelesen 365 Tage nach Anlage | Aufräumbefehl; Kontolöschung |
+| `notified_edge`, `notified_retirement`, `rights_notification_baseline` | Buchführung gegen Doppelmeldungen | Kontobezug | bis zur Kontolöschung | Kontolöschung |
+| `chat_session`, `chat_message`, `chat_message_citation` | Chat-Verläufe mit Konto | Fragen und Antworten der Person | keine Frist; anonyme Altzeilen (`account_id` leer) werden gelöscht | Person (pro Verlauf oder alle); Kontolöschung; Aufräumbefehl für Altbestand |
+| `rate_limit_bucket` | Ratenbegrenzung und Kontingent | pseudonymer Schlüssel aus Browser-Kennung und Herkunftsadresse | unverändert (10 Minuten) | bestehende Bereinigung |
+| `deletion_log` | Löschprotokoll (siehe unten) | keine: nur Art, Kennung, Zeitpunkt | 90 Tage | Aufräumbefehl |
+
+Der Avatar liegt in `account` und verschwindet mit dem Konto oder beim
+Entfernen. Das Datenverzeichnis ist neu zu bewerten, sobald `account_session`
+IP-Adressen oder User-Agent speichert (heute nicht der Fall).
+
+*Verlassene Registrierungen.* Die Regel ist bewusst enger als „unbestätigt“:
+Google-Konten werden nie als bestätigt markiert (`email_verified_at` bleibt
+leer), und Konten mit Passwort können sich auch ohne Bestätigung anmelden. Ein
+Konto in Benutzung hat daher eine Google-Verknüpfung oder mindestens eine
+`account_session`-Zeile (auch eine abgelaufene, solange sie nicht gelöscht
+ist; die Löschfrist der Sitzung beginnt erst 7 Tage nach Ablauf) oder eine
+Anmeldung innerhalb der letzten 30 Tage: `account.last_login_at` wird bei jeder
+Sitzungsanlage gesetzt und überlebt im Gegensatz zur Sitzungszeile die
+Abmeldung. Nur ein Konto ohne all das, nie bestätigt und älter als 30 Tage,
+gilt als verlassen. Das
+trifft auch ein Passwort-Konto, das benutzt und dann lange pausiert wurde,
+sobald seine Sitzungen entfernt sind; deshalb wird kein Konto still gelöscht:
+Der Aufräumbefehl schickt zuerst eine zweisprachige Vorwarn-E-Mail (Datum der
+Löschung, Anmelde-URL aus `NORMLY_PUBLIC_BASE_URL`, kein Token) und setzt
+erst nach erfolgreichem Versand `account.deletion_warned_at`. Gelöscht wird
+frühestens 14 Tage danach (strikt), und nur wenn das Konto dann noch alle
+Bedingungen erfüllt. Anmeldung, Bestätigung oder Google-Verknüpfung machen das
+Konto wieder „nicht verlassen“; der nächste Lauf setzt die Warnung zurück.
+Voraussetzung ist ein SMTP-Relay (`NORMLY_SMTP_*`): Ohne Relay oder bei
+fehlgeschlagenem Versand wird nie gewarnt und damit nie gelöscht; der Versand
+wird im nächsten Lauf erneut versucht. Ein Konto wird nie im selben Lauf
+gewarnt und gelöscht (Reihenfolge: zurücksetzen, löschen, warnen). Der
+Löschlauf sperrt die Kandidaten und prüft die Bedingung samt Warnzeitpunkt
+erneut, damit eine gleichzeitige Bestätigung, Anmeldung oder
+Google-Verknüpfung nicht verloren geht. `deletion_warned_at` und
+`last_login_at` werden nicht exportiert. Die Mail nennt das Datum als
+„frühestens am“, weil der tägliche Lauf den Zeitpunkt um bis zu einen Tag
+verschieben kann.
+
+*Aufräumbefehl.* `python -m normly_core.pipeline cleanup-user-data` setzt alle
+Fristen der Tabelle durch (Sitzungen, Tokens, verlassene Registrierungen,
+gelesene und ungelesene Benachrichtigungen, anonyme Chat-Altbestände,
+Löschprotokoll), ist idempotent und gibt nur Zähler aus. Der systemd-Timer
+`normly-cleanup` (täglich 04:00 UTC) startet über `scripts/normly-cleanup`; das
+Skript überspringt den Lauf mit Exitcode 0, solange `state/deploy.lock`
+existiert. `cleanup-notifications` bleibt als Befehl bestehen.
+
+*Export (Auskunft).* `GET /v1/accounts/export` liefert synchron als JSON:
+Profil, Avatar (Data-URL), Beobachtungsliste mit lesbaren Dokumentkennungen
+(alle Dokumente des Werks, auch zurückgezogene), Benachrichtigungen und Chats
+mit Antworttyp und Zitaten (lesbare Dokumentkennung und Segment-ID). Nicht
+enthalten: `session_token` (stattdessen die Sitzungs-ID), Passwort-Hash,
+Tokens und Buchführung.
+
+*Löschprotokoll und Wiederholung.* Tabelle `deletion_log(kind, entity_id,
+deleted_at)` (`kind` ist `account` oder `chat_session`; Migration 0035). Der
+Eintrag entsteht in derselben Transaktion wie jede Löschung (Kontolöschung,
+Verlauf löschen, Aufräumen verlassener Registrierungen), enthält keine
+personenbezogenen Daten, ist Teil der Nutzerdaten-Sicherung und wird nach
+90 Tagen bereinigt (siehe Folgen). Der Kern bietet
+`python -m normly_core.exchange export-deletions --since <ISO-8601>` (JSON auf
+stdout) und `replay-deletions` (JSON auf stdin; wendet die Löschungen über die
+normalen Löschfunktionen erneut an, idempotent, schon fehlende Einträge werden
+trotzdem ins Protokoll geschrieben); `replay-deletions --check` meldet ohne
+Datenbank, ob das Image den Befehl kennt.
+
+Im Rollback (ADR-024): Das Skript liest die Löschungen seit dem
+Sicherungszeitpunkt **minus eine Stunde** direkt aus der Datenbank (Host-`psql`
+und `python3`, kein startbares Release-Image nötig; der Kernbefehl bleibt für den
+manuellen Gebrauch) (Sicherheitsrand im Skript; eine doppelt angewendete Löschung
+ist harmlos, weil UUIDs nie wiederverwendet werden). Dieser erste Export speist
+Banner und die Entscheidung über `replay-deletions --check` im Image des
+**vorherigen** Release (Exitcode 2 heißt „nicht unterstützt“, jeder andere
+Fehler bricht ab). Nach dem Stopp der Dienste und vor dem DROP folgt ein zweiter
+Export; dieses Dokument wird nach `pg_restore` und der Tombstone-Wiederherstellung
+vom vorherigen Image angewendet. Schlägt der zweite Export fehl, bricht der
+Rollback vor dem DROP ab (Datenbank unverändert, Hinweis zum Neustart). Vor dem
+DROP wird die Liste nach `$STATE/rollback-deletions.json` (0600) geschrieben; ein
+erneuter Lauf nach einem Fehler nach dem DROP führt sie mit dem frischen Export
+zusammen (Vereinigung nach Art und Kennung, frühester Zeitpunkt) und löscht die
+Datei erst, wenn das vorherige Release gesund läuft. `normly-cleanup` und
+`normly-backup` laufen mit dem Tag aus `state/current_tag`, nie mit dem
+Compose-Standard `edge`.
+Eine fehlende Tabelle `deletion_log` (Release vor diesem Feature) gilt als leere
+Liste. Kennt das vorherige Image den Befehl nicht, nennt das Banner Anzahl und
+die ersten 20 `kind:id`; die vollständige Liste liegt in
+`$STATE/rollback-pending-deletions.json` (0600) und muss von Hand erneut gelöscht
+werden.
+
+**Begründung:**
+
+- Datensparsamkeit: Was der Server zum Antworten nicht braucht, wird nicht
+  gespeichert. Das passt zu ADR-017 („ohne Konto entstehen keine
+  personenbezogenen Daten“): Anonyme Nutzung bleibt vollständig, ohne dass der
+  Verlauf anfällt.
+- Kurze, benannte Fristen für technische Daten (Sitzungen, Tokens,
+  Benachrichtigungen), keine Frist für Inhalte, die die Person selbst anlegt
+  und jederzeit selbst löschen kann.
+- Die Regel für verlassene Registrierungen löscht nie still: Ohne zugestellte
+  Vorwarnung und 14 Tage Frist bleibt jedes Konto; ein falsch gelöschtes Konto
+  wäre ein Datenverlust, ein zu spät gelöschtes nur ein gespeicherter
+  Datensatz. Der Preis ist die Abhängigkeit von SMTP.
+- Das Löschprotokoll enthält nur Kennungen. Es ist deshalb selbst keine
+  Kopie der gelöschten Daten und kann als Teil der Nutzerdaten-Sicherung
+  mitlaufen; ohne Kennung bliebe eine Löschung nach Rollback oder Restore
+  unwirksam.
+- Der Export bleibt synchron und lesbar (Kennungen statt interner IDs, wo
+  möglich); ein Geheimnis wie der Chat-Token ist kein Datum der Person.
+
+**Verworfen:**
+
+- *Frist auch für Chats mit Konto:* Die Person legt sie selbst an, kann sie
+  selbst löschen, und sie sind der Zweck des Kontos („Verläufe“, REQ-ACC-004).
+  Eine stille Löschung wäre ein Funktionsverlust ohne Datenschutzgewinn.
+- *Kurzfristige Speicherung anonymer Sitzungen:* Der Server braucht sie nicht;
+  jede Speicherung wäre Daten ohne Zweck, und das Cookie bliebe nötig.
+- *Kryptographisches Löschen je Konto in Sicherungen:* Ein Schlüssel je Konto
+  im Sicherungsformat wäre eine große Änderung an Sicherung und Restore; das
+  Löschprotokoll mit Replay erreicht für diesen Zweck dasselbe Ergebnis nach
+  Wiederherstellung, und die Nachwirkung ist zeitlich begrenzt. (Für
+  lizenzierte Bestände bleibt ADR-014 maßgeblich.)
+- *Asynchroner Export per E-Mail-Link:* Mehr Infrastruktur (Warteschlange,
+  Ablage, Link-Ablauf) und mehr gespeicherte Kopien, ohne dass der Umfang es
+  verlangt.
+- *Löschen aller unbestätigten Konten:* Google-Konten sind nie „bestätigt“ und
+  Passwort-Konten können sich unbestätigt anmelden; die Regel würde
+  Konten in Benutzung löschen.
+
+**Folgen / offen:**
+
+- *Nachwirkung in Sicherungen.* Eine Löschung wirkt in der Datenbank sofort, in
+  Sicherungen erst, wenn sie auslaufen: Flex 30 Tage; eigene, `age`-verschlüsselte
+  Sicherungen bis zu rund zwei Monate (7 tägliche, 2 monatliche Anker,
+  3 Pre-Rollout-Sicherungen). Das Löschprotokoll sorgt dafür, dass Löschungen
+  einen Rollback oder Restore überstehen. Es wird nach 90 Tagen bereinigt, länger als
+  tägliche und monatliche Sicherungen halten. Eine Pre-Rollout-Sicherung kann
+  älter werden, wenn lange kein Rollout folgt; wird aus einer Sicherung
+  wiederhergestellt, die älter als 90 Tage ist, kann das Löschprotokoll die
+  Löschungen aus der Zwischenzeit nicht mehr nachziehen.
+- *Fachliche Prüfung.* Die Fristen sind Entscheidungen des Projekts und sollten
+  von einer Fachperson für Datenschutz geprüft werden; dieses Dokument ist keine
+  Rechtsberatung.
+- Datenschutzerklärung und Verzeichnis der Verarbeitungstätigkeiten (Art. 30
+  DSGVO) sind eigene Rechtstexte und nicht Teil dieser Arbeit.
+- *Tombstones* (ADR-026): Aufbewahrung und Alterung bleiben offen.
+- Ein vorheriges Release ohne `replay-deletions` braucht manuelles Nachlöschen
+  (siehe oben); das gilt auch für den Restore-Test und die
+  Notfall-Wiederherstellung aus Flex (Betriebsguide).
+- Der Aufräum-Timer prüft `state/deploy.lock`, nimmt die Sperre aber nicht
+  selbst. Bleibt eine verwaiste Sperre stehen, überspringt er täglich still.
+- Löschen inaktiver Konten nach Frist mit Vorwarnung per E-Mail ist nicht
+  umgesetzt.
+- `account_session` speichert weder IP noch User-Agent; ändert sich das, sind
+  Datenverzeichnis und Frist neu zu bewerten.
+- Die Verknüpfung „anonym → Konto beim Anmelden“ entfällt; wer anonym gechattet
+  hat, behält den Verlauf nur im geöffneten Tab.
+
+Details: `docs/superpowers/specs/2026-10-10-user-data-lifecycle-design.md`,
+Betrieb in `docs/guide/operations.md`.
+
+---
+
 ## Offene Punkte
 
 | Thema | Status | Nächster Schritt |
@@ -814,7 +1501,15 @@ Secrets-Bezug per AppRole (TP3), Rollout/Rollback/Datenstand (TP4). Details:
 | Nutzungsvorbehalte je Quelle (§ 44b Abs. 3 UrhG) | laufende Aufgabe | Prüfung datiert und belegt im Quellenregister, mit Wiedervorlage |
 | Rechtliche Bewertung je Rechtsraum | laufende Aufgabe | Braucht mittelfristig eine zuständige Rolle, keine einmalige Klärung |
 | Apple-Provision bei digitalen Abos | offen | In der EU inzwischen Alternativen über externe Zahlungswege — vor Store-Release prüfen |
-| Aufbewahrungsfristen der Sicherungskopien | offen | Bestimmt, wie lange ein vernichteter Schlüssel vorgehalten werden muss, bevor Backups auslaufen |
+| Aufbewahrungsfristen der Sicherungskopien | offen | (Nutzerdaten: Höchstfristen in ADR-027 festgehalten.) Bestimmt, wie lange ein vernichteter Schlüssel vorgehalten werden muss, bevor Backups auslaufen |
+| STACKIT-Repository `jwokittel/normly-webapp` | entschieden (2026-10-09): löschen | Der Betreiber löscht es im STACKIT-Portal (Nachtrag zu ADR-021); danach den Eintrag streichen |
+| Personennamen im öffentlichen Wissensbestand-Dump | entschieden (2026-10-09): Rolle `normly maintainers` | Umgesetzt im Export (ADR-025); Eintrag nach dem ersten öffentlichen Dump streichen |
+| Aufbewahrung und Alterung von Tombstones | offen | Ob Kennungen zurückgezogener Dokumente zeitlich begrenzt werden; ADR-027 hat es nicht entschieden (ADR-026) |
+| Identität bei Neulieferung nach Widerruf | offen | Neue Dokumentknoten übernehmen Beobachtungen der Tombstones nicht; Produkt- und Identitätsentscheidung (ADR-026) |
+| Signaturschlüssel des Wissensbestand-Dumps | offen | Schlüsselzeremonie, öffentlichen Schlüssel ins Repository einchecken (ADR-025) |
+| Fachliche Prüfung der Aufbewahrungsfristen für Nutzerdaten | offen | Durch eine Fachperson für Datenschutz; dazu Datenschutzerklärung und Verzeichnis der Verarbeitungstätigkeiten als eigene Rechtstexte (ADR-027) |
+| Löschen inaktiver Konten mit Vorwarnung | offen | Nicht umgesetzt; Frist und Warn-E-Mail entscheiden (ADR-027) |
+| Sicherungen bei lizenzierten Beständen | offen | Kryptographisches Löschen (ADR-014) für die kommerzielle Schicht; Flex-PITR klären; Objektsperre vorerst bewusst nicht (ADR-024) |
 
 **Hinweis:** Die rechtlichen Einschätzungen in diesem Dokument sind
 Arbeitsgrundlage, keine Rechtsberatung. Insbesondere die Konstruktion

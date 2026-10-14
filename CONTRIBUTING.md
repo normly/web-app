@@ -42,6 +42,24 @@ The check runs automatically; without a signature, nothing gets merged.
 later relicensing of the core is permanently ruled out. That's intentional —
 see [ADR-003](docs/adr/).
 
+## Development setup
+
+The four Python packages (`core`, `api`, `chat`, `accounts`) form one
+[uv](https://docs.astral.sh/uv/) workspace with a single lock file
+(`uv.lock`). One environment in the repository root serves all of them:
+
+```bash
+curl -LsSf https://astral.sh/uv/0.12.23/install.sh | sh
+uv sync --all-packages --all-extras      # creates .venv with every package and dev extra
+cd api && ../.venv/bin/pytest            # run one package's tests (needs Docker for testcontainers)
+```
+
+`uv sync` keeps `.venv` in step with `uv.lock`. Change a dependency in a
+package's `pyproject.toml`, then run `uv lock` and commit the updated
+`uv.lock` with it — CI installs with `--locked` and fails when the lock
+file is out of date. The frontend uses `npm ci` with `package-lock.json`
+as before.
+
 ## Process
 
 1. **Talk first, build second.** For anything beyond a bug fix: open an

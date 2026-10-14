@@ -5,7 +5,7 @@
 "use client";
 
 import * as React from "react";
-import { Bell, FileDiff, Globe, Scale } from "lucide-react";
+import { Bell, FileDiff, FileX, Globe, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { JurisdictionSwitcher } from "@/components/jurisdiction-switcher";
 import { LocaleSwitcher } from "@/components/locale-switcher";
@@ -20,12 +20,14 @@ const TRIGGER_TYPE_KEYS: Record<string, TranslationKey> = {
   new_edition: "edgeType.replaces",
   national_adoption: "edgeType.adopted_from",
   rights_change: "documentDetail.rightsHeading",
+  no_longer_available: "nav.notificationNoLongerAvailable",
 };
 
 const TRIGGER_TYPE_ICONS: Record<string, typeof FileDiff> = {
   new_edition: FileDiff,
   national_adoption: Globe,
   rights_change: Scale,
+  no_longer_available: FileX,
 };
 
 function TriggerTypeIcon({ triggerType, className }: { triggerType: string; className?: string }) {

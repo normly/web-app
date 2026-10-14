@@ -4,10 +4,11 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
-from typing import Protocol
+from typing import Any, Protocol
 
 
 class LegalBasisCategory(str, Enum):
@@ -92,6 +93,7 @@ class Document:
     work_id: uuid.UUID
     created_via_delivery_id: uuid.UUID
     created_at: datetime
+    retired_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -209,13 +211,15 @@ class DocumentRepository(Protocol):
     `rights_classification`; there is deliberately no method that returns
     documents unfiltered.
 
-    `PostgresDocumentRepository` additionally carries four ungated methods
+    `PostgresDocumentRepository` additionally carries six ungated methods
     that are **not** part of this Protocol and must not be treated as
     content-serving API: `get_document_unchecked` (existence check for
     pipeline and administrative use, e.g. proving a document node survived a
     delivery revocation), `list_documents_for_work_unchecked` (every Document
     for a Work, regardless of jurisdiction or rights classification —
-    notify-watchers, Task 6), `list_designations` and `list_titles` (identity
+    notify-watchers, Task 6; batch variants `documents_for_works_unchecked` and
+    `documents_by_ids_unchecked` serve the personal-data export and return
+    identifiers only), `list_designations` and `list_titles` (identity
     resolution and pipeline metadata — designations are the identity of a node
     across national adoptions, independent of any rights question). They are
     internal implementation methods.
@@ -746,6 +750,10 @@ class NotificationRepository(Protocol):
         """
         ...
 
+    def delete_read_before(self, cutoff: datetime) -> int: ...
+
+    def delete_unread_before(self, cutoff: datetime) -> int: ...
+
 
 @dataclass(frozen=True)
 class RightsNotificationBaseline:
@@ -818,6 +826,34 @@ class NotifiedEdgeRepository(Protocol):
         work_id: uuid.UUID,
         trigger_type: NotificationTriggerType,
         trigger_edge_id: uuid.UUID,
+    ) -> None: ...
+
+
+class NotifiedRetirementRepository(Protocol):
+    """
+    Pure internal bookkeeping for the notify-watchers NO_LONGER_AVAILABLE
+    dedup check. Like NotifiedEdgeRepository, kept apart from Notification so
+    cleanup of read notifications never causes a re-notification. The
+    retirement timestamp is part of the key: a retirement after a return of
+    the document is a new event and notifies again.
+    """
+
+    def has_been_notified(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        document_id: uuid.UUID,
+        retired_at: datetime,
+    ) -> bool: ...
+
+    def mark_notified(
+        self,
+        *,
+        account_id: uuid.UUID,
+        work_id: uuid.UUID,
+        document_id: uuid.UUID,
+        retired_at: datetime,
     ) -> None: ...
 
 
@@ -944,12 +980,11 @@ class ChatRepository(Protocol):
     """
     Chat session identity and message history.
 
-    A session is anonymous (`account_id is None`) until a valid account
-    session token links it (see the `chat/` package's session-resolution
-    logic) — linking never happens in this layer, it is a plain field
-    update the caller drives after verifying the token elsewhere (`chat/`
-    talks to `accounts/` over HTTP; this repository has no opinion on
-    accounts beyond storing the id).
+    Only conversations of signed-in accounts are stored: `chat/` creates a
+    session with the account id it verified over HTTP against `accounts/`
+    (this repository has no opinion on accounts beyond storing the id).
+    Rows without an account id are legacy data; the cleanup command deletes
+    them. The user can delete one session or all of theirs.
     """
 
     def create_session(
@@ -961,7 +996,22 @@ class ChatRepository(Protocol):
 
     def list_sessions_for_account(self, account_id: uuid.UUID) -> list[ChatSession]: ...
 
-    def link_account(self, session_id: uuid.UUID, account_id: uuid.UUID) -> None: ...
+    def delete_anonymous_chat_sessions(self) -> int:
+        """Deletes every session without an account (legacy rows); returns the count."""
+        ...
+
+    def delete_chat_session(self, session_id: uuid.UUID, account_id: uuid.UUID) -> bool:
+        """Deletes the session only if it belongs to account_id; True if deleted."""
+        ...
+
+    def delete_chat_session_by_id(self, session_id: uuid.UUID) -> bool:
+        """
+        Deletes the session whoever owns it. Internal: only the rollback replay
+        of the deletion log uses it; requests must use delete_chat_session.
+        """
+        ...
+
+    def delete_chat_sessions_for_account(self, account_id: uuid.UUID) -> int: ...
 
     def create_message(
         self, *, session_id: uuid.UUID, role: ChatMessageRole, content: str,
@@ -975,6 +1025,21 @@ class ChatRepository(Protocol):
         segment_id: uuid.UUID | None,
     ) -> ChatMessageCitation: ...
 
+    def citations_for_messages(
+        self, message_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, list[ChatMessageCitation]]:
+        """
+        Citations of the given messages, grouped by message id (messages
+        without citations are absent from the result).
+
+        Deliberately ungated by rights classification: a citation row holds
+        only two identifiers (document id, segment id) of the account
+        holder's own chat history and never any content, so the personal-data
+        export (Art. 15/20 GDPR) can read it without a jurisdiction. Callers
+        pass message ids they already resolved through the owning session.
+        """
+        ...
+
 
 class NotificationPreference(str, Enum):
     NONE = "none"
@@ -987,6 +1052,7 @@ class NotificationTriggerType(str, Enum):
     NEW_EDITION = "new_edition"
     NATIONAL_ADOPTION = "national_adoption"
     RIGHTS_CHANGE = "rights_change"
+    NO_LONGER_AVAILABLE = "no_longer_available"
 
 
 @dataclass(frozen=True)
@@ -1083,7 +1149,42 @@ class AccountRepository(Protocol):
 
     def clear_avatar(self, account_id: uuid.UUID) -> None: ...
 
-    def delete_account(self, account_id: uuid.UUID) -> None: ...
+    def delete_account(self, account_id: uuid.UUID) -> None:
+        """Deletes the account and everything it owns; writes a deletion_log entry."""
+        ...
+
+    def delete_unverified_accounts_created_before(
+        self, cutoff: datetime, *, warned_before: datetime
+    ) -> int:
+        """
+        Same cascade as delete_account, for abandoned registrations (never
+        verified, no Google link, no account session) that were warned by
+        e-mail before `warned_before`. Never deletes an unwarned account.
+        """
+        ...
+
+    def reset_deletion_warnings(self, cutoff: datetime) -> int:
+        """Clears the warning of accounts that are no longer abandoned."""
+        ...
+
+    def abandoned_registrations_to_warn(self, cutoff: datetime) -> list[tuple[uuid.UUID, str]]:
+        """(account id, email) of abandoned registrations not yet warned."""
+        ...
+
+    def mark_deletion_warned(self, account_id: uuid.UUID, warned_at: datetime) -> None: ...
+
+
+class DeletionLogRepository(Protocol):
+    """
+    Identifiers of deleted accounts and chat sessions, no personal data. Lets a
+    rollback to an older backup delete them again. `record` is idempotent.
+    """
+
+    def record(self, *, kind: str, entity_id: uuid.UUID, deleted_at: datetime) -> None: ...
+
+    def entries_since(self, since: datetime) -> list[tuple[str, uuid.UUID, datetime]]: ...
+
+    def delete_older_than(self, cutoff: datetime) -> int: ...
 
 
 class EmailAlreadyRegisteredError(Exception):
@@ -1141,6 +1242,8 @@ class AccountSessionRepository(Protocol):
 
     def revoke_session_by_id(self, session_id: uuid.UUID, account_id: uuid.UUID) -> bool: ...
 
+    def delete_sessions_expired_before(self, cutoff: datetime) -> int: ...
+
 
 class AccountTokenRepository(Protocol):
     """
@@ -1171,6 +1274,10 @@ class AccountTokenRepository(Protocol):
         self, token: str, purpose: AccountTokenPurpose
     ) -> AccountToken | None: ...
 
+    def delete_tokens_done_before(self, cutoff: datetime) -> int:
+        """Deletes tokens whose expires_at or used_at lies before cutoff."""
+        ...
+
 
 class OAuthStateRepository(Protocol):
     """
@@ -1188,3 +1295,99 @@ class OAuthStateRepository(Protocol):
     def consume_state(self, state: str) -> OAuthState | None: ...
 
     def delete_states_before(self, cutoff: datetime) -> None: ...
+
+
+@dataclass(frozen=True)
+class ExchangeColumn:
+    name: str
+    kind: str  # "string"|"bool"|"int"|"float"|"timestamp"|"date"|"vector"
+
+
+@dataclass(frozen=True)
+class ImportRecord:
+    dump_version: str
+    exchange_schema_version: int
+    embedding_model_revision: str
+    imported_at: datetime
+
+
+class ImportBlockedError(Exception):
+    """
+    Last guard of the import (ADR-026): a statement hit a foreign key nobody
+    anticipated. User data no longer blocks an import -- missing identifier
+    rows become tombstones and citations of purged segments are detached --
+    so this signals a table that is missing from the import classes. Nothing
+    is changed once the caller has rolled back (or used a savepoint): the
+    methods never commit, and the transaction is left in a failed state.
+    """
+
+    def __init__(self, step: str, detail: str):
+        super().__init__(f"import blocked at step {step}: {detail}")
+        self.step = step
+        self.detail = detail
+
+
+RowBatches = Callable[[], Iterator[list[dict[str, Any]]]]
+
+
+class KnowledgeExchangeRepository(Protocol):
+    """
+    Bulk access to the free knowledge base for the versioned dump (ADR-025).
+
+    Deliberately no `get_`/`list_` names: those prefixes trigger the
+    jurisdiction guard in test_architecture.py, and the export gate here is
+    the rights classification itself (may_process AND may_export_free, not
+    revoked, delivery not withdrawn, source category A/B/D and not a
+    commercial catalogue), evaluated across all jurisdictions.
+
+    Exported rows never carry personal names: `source.responsible_person` and
+    `rights_classification.classified_by` are replaced by the constant role
+    label `PUBLISHED_ROLE` ("normly maintainers"). The names stay in the local
+    ingestion database; an import overwrites them with the label.
+    """
+
+    def exchange_columns(self, table: str) -> list[ExchangeColumn]: ...
+
+    def iter_exportable_rows(
+        self, table: str, *, batch_size: int = 5000
+    ) -> Iterator[list[dict[str, Any]]]: ...
+
+    def exportable_deliveries(self) -> list[tuple[str, str, str]]: ...
+
+    def replace_knowledge_base(
+        self, tables: Mapping[str, RowBatches], *, record: ImportRecord
+    ) -> None:
+        """
+        Replace the knowledge base with the dump; a takedown always wins.
+        Content missing from the dump is deleted, missing identifier rows
+        (work, document, edge) are kept with `retired_at`, a missing delivery
+        gets `withdrawn_at`. User data never blocks the import; only an
+        unexpected foreign key raises ImportBlockedError. Never commits.
+        """
+        ...
+
+    def has_documents(self) -> bool:
+        """True when the database holds at least one document (retired or not)."""
+        ...
+
+    def export_tombstone_support(self) -> dict[str, list[dict[str, Any]]]:
+        """
+        All retired identifier rows (work, document, edge) plus their foreign-key
+        parents among source, delivery, work, document, edge, with every column
+        (also retired_at / revoked_at), per table sorted by primary key. Never
+        content, never user data. Used by the backup so a rollback can restore
+        the identifiers that no dump contains (ADR-026).
+        """
+        ...
+
+    def restore_tombstone_support(
+        self, rows: Mapping[str, list[dict[str, Any]]], *, restored_at: datetime
+    ) -> None:
+        """
+        Insert the rows in foreign-key order, never changing an existing row.
+        Inserted identifier rows without `retired_at` get `restored_at`, so they
+        count as retired. Never commits.
+        """
+        ...
+
+    def imported_version(self) -> ImportRecord | None: ...

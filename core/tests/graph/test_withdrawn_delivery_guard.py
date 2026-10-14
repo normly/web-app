@@ -28,7 +28,7 @@ def _setup(db_session, content_hash="sha256:guard-fixture"):
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="DE",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id,
@@ -73,7 +73,7 @@ def _write_calls(db_session, first, second):
             document_id=first.id, jurisdiction="DE", may_process=True,
             may_index_fulltext=True, may_cite_passages=True, may_export_free=True,
             legal_basis_reference="§ 5 UrhG", classified_at=datetime.now(timezone.utc),
-            classified_by="J. Weber", delivery_id=delivery_id,
+            classified_by="Test Reviewer", delivery_id=delivery_id,
         ),
     }
 
@@ -132,7 +132,7 @@ def test_reingesting_a_withdrawn_delivery_cannot_resurrect_a_revoked_classificat
             document_id=document.id, jurisdiction="DE", may_process=True,
             may_index_fulltext=True, may_cite_passages=True, may_export_free=True,
             legal_basis_reference="§ 5 UrhG", classified_at=datetime.now(timezone.utc),
-            classified_by="J. Weber", delivery_id=delivery.id,
+            classified_by="Test Reviewer", delivery_id=delivery.id,
         )
 
     classify()

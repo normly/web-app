@@ -58,7 +58,16 @@
     "bucketToday": "Today",
     "bucketYesterday": "Yesterday",
     "bucketLast7Days": "Last 7 days",
-    "bucketOlder": "Older"
+    "bucketOlder": "Older",
+    "deleteButton": "Delete chat",
+    "deleteAllButton": "Delete all chats",
+    "confirmDeleteOneTitle": "Delete this chat?",
+    "confirmDeleteOneDescription": "The chat is deleted permanently and cannot be restored.",
+    "confirmDeleteAllTitle": "Delete all chats?",
+    "confirmDeleteAllDescription": "All your saved chats are deleted permanently and cannot be restored.",
+    "confirmDeleteButton": "Delete permanently",
+    "cancelButton": "Cancel",
+    "deleteError": "Deletion failed. Please try again."
   },
   "nav": {
     "chat": "Chat",
@@ -67,6 +76,7 @@
     "notificationsLabel": "Notifications",
     "noNotifications": "No new notifications",
     "notificationItemUnreadBadge": "New",
+    "notificationNoLongerAvailable": "No longer available",
     "unreadNotificationsCountSuffix": "unread notifications",
     "documentDetailTitle": "Document",
     "toggleSidebar": "Toggle sidebar",

@@ -32,6 +32,10 @@ class SourceRegistryEntry:
     responsible_person: str
 
 
+# Placeholder until a real responsible role is recorded for a source. The public
+# dump publishes the role "normly maintainers" instead of any name anyway.
+RESPONSIBLE_PERSON_PLACEHOLDER = "Nicht bekannt (Platzhalter)"
+
 SOURCE_REGISTRY: dict[str, SourceRegistryEntry] = {
     "eur-lex": SourceRegistryEntry(
         publisher="EUR-Lex",
@@ -42,7 +46,7 @@ SOURCE_REGISTRY: dict[str, SourceRegistryEntry] = {
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="EU",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person=RESPONSIBLE_PERSON_PLACEHOLDER,
     ),
     "dguv": SourceRegistryEntry(
         publisher="DGUV",
@@ -51,7 +55,7 @@ SOURCE_REGISTRY: dict[str, SourceRegistryEntry] = {
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="DE",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person=RESPONSIBLE_PERSON_PLACEHOLDER,
     ),
     "baua": SourceRegistryEntry(
         publisher="BAuA",
@@ -62,7 +66,7 @@ SOURCE_REGISTRY: dict[str, SourceRegistryEntry] = {
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="DE",
         reviewed_at=date(2026, 9, 1),
-        responsible_person="J. Weber",
+        responsible_person=RESPONSIBLE_PERSON_PLACEHOLDER,
     ),
 }
 

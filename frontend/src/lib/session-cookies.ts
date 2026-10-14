@@ -11,9 +11,10 @@ const ACCOUNT_SESSION_COOKIE = "normly_account_session";
 // the cookie's own max-age is a client-side courtesy, not the source of
 // truth -- the backend always re-validates the token regardless.
 const ACCOUNT_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
-// chat_session has no defined server-side TTL yet (tracked as an open
-// point in the chat/ design) -- 90 days is a reasonable client-side
-// default, not a claim about backend expiry.
+// The chat cookie is only ever set for logged-in accounts: anonymous chats
+// are not stored, so the backend returns no session token for them. It has
+// no defined server-side TTL -- 90 days is a reasonable client-side default,
+// not a claim about backend expiry.
 const CHAT_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 90;
 
 export interface SessionCookies {
@@ -51,4 +52,16 @@ export function applySessionCookies(
       maxAge: ACCOUNT_COOKIE_MAX_AGE_SECONDS,
     });
   }
+}
+
+// Removes the chat cookie (e.g. when the backend returned no session token,
+// so a stale token from before logout or from a legacy anonymous chat must go).
+export function clearChatSessionCookie(response: NextResponse): void {
+  response.cookies.set(CHAT_SESSION_COOKIE, "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
 }

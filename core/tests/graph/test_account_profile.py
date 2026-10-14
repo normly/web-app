@@ -8,17 +8,17 @@ def test_update_profile_names_sets_both_fields(db_session):
     repo = PostgresAccountRepository(db_session)
     account = repo.create_account(email="a@example.de", password_hash=None)
 
-    repo.update_profile_names(account.id, first_name="Jamie", last_name="Weber")
+    repo.update_profile_names(account.id, first_name="Jamie", last_name="Tester")
 
     updated = repo.get_account_by_id(account.id)
     assert updated.first_name == "Jamie"
-    assert updated.last_name == "Weber"
+    assert updated.last_name == "Tester"
 
 
 def test_update_profile_names_can_clear_a_field(db_session):
     repo = PostgresAccountRepository(db_session)
     account = repo.create_account(email="b@example.de", password_hash=None)
-    repo.update_profile_names(account.id, first_name="Jamie", last_name="Weber")
+    repo.update_profile_names(account.id, first_name="Jamie", last_name="Tester")
 
     repo.update_profile_names(account.id, first_name="Jamie", last_name=None)
 

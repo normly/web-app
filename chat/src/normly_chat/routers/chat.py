@@ -50,11 +50,15 @@ def chat(
     ):
         account_token = authorization[len(_BEARER_PREFIX):]
 
+    # Without a valid account identity nothing is stored: a chat token sent by
+    # an anonymous caller is ignored and the answer carries no session token.
+    identity = accounts_client.validate_session(account_token) if account_token else None
     chat_repo = PostgresChatRepository(session)
-    chat_session, _ = resolve_session(
-        payload.session_token, account_token, payload.jurisdiction, payload.language,
-        chat_repo, accounts_client,
-    )
+    chat_session = None
+    if identity is not None:
+        chat_session, _ = resolve_session(
+            payload.session_token, identity, payload.jurisdiction, payload.language, chat_repo,
+        )
 
     question_type = classify(payload.message)
     if question_type == QuestionType.SYNTHESIS:
@@ -73,23 +77,25 @@ def chat(
         else ChatAnswerType.STRUCTURAL
     )
 
-    now = datetime.now(timezone.utc)
-    chat_repo.create_message(
-        session_id=chat_session.id, role=ChatMessageRole.USER, content=payload.message,
-        answer_type=None, created_at=now,
-    )
-    answer_message = chat_repo.create_message(
-        session_id=chat_session.id, role=ChatMessageRole.ASSISTANT, content=result.text,
-        answer_type=answer_type, created_at=now,
-    )
-    for citation in result.citations:
-        chat_repo.add_citation(
-            message_id=answer_message.id, document_id=citation["document_id"],
-            segment_id=citation.get("segment_id"),
+    if chat_session is not None:
+        now = datetime.now(timezone.utc)
+        chat_repo.create_message(
+            session_id=chat_session.id, role=ChatMessageRole.USER, content=payload.message,
+            answer_type=None, created_at=now,
         )
+        answer_message = chat_repo.create_message(
+            session_id=chat_session.id, role=ChatMessageRole.ASSISTANT, content=result.text,
+            answer_type=answer_type, created_at=now,
+        )
+        for citation in result.citations:
+            chat_repo.add_citation(
+                message_id=answer_message.id, document_id=citation["document_id"],
+                segment_id=citation.get("segment_id"),
+            )
 
     return ChatResponse(
-        session_token=chat_session.session_token, answer=result.text,
+        session_token=chat_session.session_token if chat_session is not None else None,
+        answer=result.text,
         answer_type=answer_type.value,
         citations=[
             CitationResponse(document_id=c["document_id"], segment_id=c.get("segment_id"))

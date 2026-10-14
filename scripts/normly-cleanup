@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 normly contributors
+#
+# Daily enforcement of the retention periods for user data (user-data
+# lifecycle): runs the pipeline's cleanup-user-data command in the current
+# release. Started by normly-cleanup.timer; the exit code is the command's.
+#
+#   normly-cleanup
+set -euo pipefail
+
+NORMLY_DIR="${NORMLY_DIR:-/opt/normly}"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091  # sourced helper, linted on its own
+. "$HERE/normly-env.sh"
+if [ $# -gt 0 ]; then
+  echo "usage: normly-cleanup" >&2
+  exit 2
+fi
+# A deploy or rollback holds this lock; cleaning up while it drops and restores
+# tables would only fail or race. The timer fires again tomorrow.
+if [ -d "$NORMLY_DIR/state/deploy.lock" ]; then
+  echo "normly-cleanup: a deploy or rollback is running (deploy.lock); skipping this run" >&2
+  exit 0
+fi
+normly_load_env "$NORMLY_DIR/.env"
+# The daily job deletes personal data: it must run the release that is live,
+# not whatever tag .env or the Compose default (edge) names.
+NORMLY_IMAGE_TAG="$(cat "$NORMLY_DIR/state/current_tag" 2>/dev/null || true)"
+if [ -z "$NORMLY_IMAGE_TAG" ]; then
+  echo "normly-cleanup: $NORMLY_DIR/state/current_tag is missing or empty; refusing to run an unpinned image" >&2
+  exit 1
+fi
+export NORMLY_IMAGE_TAG
+COMPOSE="${NORMLY_COMPOSE:-docker compose -f $NORMLY_DIR/current/compose.yaml --project-directory $NORMLY_DIR/current}"
+
+# shellcheck disable=SC2086 # COMPOSE is a command line and must word-split
+exec $COMPOSE run --rm --no-deps -T pipeline cleanup-user-data

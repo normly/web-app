@@ -1,0 +1,193 @@
+# Design: Nutzerdaten beim Import des Wissensbestands
+
+Stand: 2026-10-09 · Status: umgesetzt. Folgt auf TP4
+(`docs/superpowers/specs/2026-10-09-tp4-deployment-automation-design.md`,
+ADR-025). Teil B (Lebenszyklus der Nutzerdaten insgesamt) ist ein eigener,
+späterer Entwurf.
+
+## Ziel und Anlass
+
+Der Import eines Wissensbestand-Dumps (`replace_knowledge_base`) bricht heute
+mit `ImportBlockedError` ab, sobald Nutzerdaten noch auf eine Zeile zeigen, die
+der neue Dump nicht mehr enthält (ADR-025, offener Punkt). Das ist falsch für
+eine **rechtlich gebotene Rücknahme** (Lieferung zurückgezogen, Klassifikation
+widerrufen): Ein Verweis in `watchlist`, `notification` oder
+`chat_message_citation` darf die Rücknahme nie verhindern (CLAUDE.md:
+„Abstammung mitführen … zugesagte Rücknahme“). Gleichzeitig dürfen
+Nutzerdaten nicht verloren gehen, nur weil sich der Wissensbestand ändert.
+
+**Befund aus dem Code:** Keine Nutzerdaten-Tabelle speichert urheberrechtlich
+geschützten Inhalt. Es sind Verweise (`work_id`, `edge_id`, `document_id`,
+`segment_id`). Der Text eines Zitats wird erst beim Lesen aus `segment`
+geholt. Bei einer Rücknahme entstehen daher keine Textreste in Nutzerdaten,
+nur Verweise auf Zeilen, die es nicht mehr geben darf oder soll.
+
+## Entscheidung (vom Nutzer gewählt: Tombstones für Kennungen, Löschen für Inhalt)
+
+**Eine Rücknahme gewinnt immer; ein Nutzerverweis blockiert nie einen Import.**
+Wissensbestand-Zeilen, die ein Dump nicht mehr enthält, werden je nach Klasse
+behandelt:
+
+| Klasse | Tabellen | Behandlung |
+|---|---|---|
+| Tombstone (Kennung, kein Inhalt) | `work`, `document`, `edge` | Zeile bleibt; Spalte `retired_at` wird gesetzt. Nutzerverweise bleiben gültig. Kommt die Zeile später wieder im Dump vor, wird `retired_at` wieder `NULL`. Eine zurückgezogene **Kante** wird zusätzlich widerrufen (`revoked_at = COALESCE(revoked_at, Importzeit)`), weil `revoked_at` das einzige Lesetor für Kanten ist; kehrt sie zurück, schreibt der Upsert `revoked_at` aus dem Dump (`NULL`) zurück. |
+| Herkunft | `delivery`, `source` | Bleibt (Tombstones verweisen darauf). Eine im Dump fehlende Lieferung erhält `withdrawn_at`, falls noch leer. |
+| Inhalt/Ableitung | `document_designation`, `document_title`, `rights_classification`, `segment`, `embedding`, `document_embedding` | Wird **physisch gelöscht**. (Bezeichnungen und Titel gehören hierher: kein Nutzerverweis zeigt darauf, das Dokument behält Herausgeber/Nummer/Ausgabe als Kennung, und eine Neulieferung legt sie mit neuen IDs wieder an, was alte Zeilen an den natürlichen Eindeutigkeitsschlüsseln kollidieren ließe.)  Zitate (`chat_message_citation`) verlieren dabei die `segment_id` (bereits nullable); das Dokument bleibt als Tombstone. |
+
+Damit kann ein zurückgezogener Text nirgends mehr gelesen werden (auch nicht aus
+Sicherungen nach deren Ablauf), und kein Nutzerverweis geht verloren.
+
+### Warum `retired_at` keine neue Filterpflicht ist
+
+Alle Lesezugriffe laufen über die Rechteklassifikation (das einzige Tor,
+CLAUDE.md). Wird die Klassifikation gelöscht, verschwindet das Dokument aus
+jeder tor-gebundenen Abfrage. `retired_at` unterscheidet nur „zurückgezogen“
+von „nie klassifiziert“ und dient der Wiederkehr und späteren Anzeige („nicht
+mehr verfügbar“). Es entsteht kein zweiter Prüfpfad.
+
+## Umsetzung
+
+**Schema:** Migration `0033` fügt `retired_at timestamptz NULL` zu `work`,
+`document` und `edge` hinzu (ORM entsprechend). `retired_at` ist **keine
+Austauschspalte**: Der Dump enthält sie nicht, das Austauschformat und
+`EXCHANGE_SCHEMA_VERSION` bleiben unverändert. Sie ist Zustand der
+importierenden Instanz und wird beim Export ausgeschlossen
+(`exchange_columns`/`iter_exportable_rows`).
+
+**`replace_knowledge_base`** (ersetzt die drei Durchläufe aus der
+TP4-Umsetzung):
+
+1. Schlüssel des Dumps in temporäre Tabellen laden.
+2. `chat_message_citation.segment_id` wird auf `NULL` gesetzt für Segmente, die
+   der Dump nicht mehr enthält.
+3. Löschen der Inhalts-/Ableitungsklasse in umgekehrter FK-Reihenfolge
+   (`document_embedding`, `embedding`, `segment`, `rights_classification`,
+   `document_title`, `document_designation`) für alle Schlüssel, die nicht im
+   Dump stehen.
+4. Tombstones **vor dem Einfügen**: `retired_at = Importzeit` für fehlende,
+   noch nicht zurückgezogene `work`/`document`/`edge` (Kanten zusätzlich
+   `revoked_at`, siehe Tabelle). Das gibt den partiellen Eindeutigkeitsindex
+   aktiver Kanten frei, bevor eine neu gelieferte Kante mit gleichen
+   Endpunkten und neuer ID eingefügt wird. „Fehlend“ hängt nur von den
+   Schlüsseltabellen ab, die Reihenfolge ändert also nicht, welche Zeilen
+   zurückgezogen werden.
+5. Fehlende `delivery` erhält `withdrawn_at`.
+6. Einfügen/Aktualisieren in FK-Reihenfolge; für Zeilen der Tombstone-Klassen
+   aus dem Dump wird `retired_at` auf `NULL` gesetzt (Wiederkehr), für Kanten
+   gilt `revoked_at` aus dem Dump.
+7. Importvermerk schreiben; der Aufrufer committet wie bisher.
+
+**Schutz vor leerem Dump:** Enthält der Dump keine `document`-Zeile, während
+die Datenbank Dokumente hält, verweigert `import_dump` den Import vor dem
+ersten Schreibzugriff (`ImportRefused`); `allow_empty=True` bzw. CLI-Flag
+`--allow-empty` hebt das auf. Der Schutz verhindert, dass ein fehlerhafter
+oder leerer Export alle Dokumente auf einmal zurückzieht.
+
+`ImportBlockedError` (mit `.step`) bleibt als letzte Sicherung für einen **unerwarteten**
+Fremdschlüssel bestehen, wird im regulären Betrieb nicht mehr ausgelöst.
+Idempotenz bleibt: ein zweiter Import derselben Version ändert nichts
+(insbesondere nicht `retired_at`).
+
+**Fail-closed-Test:** Ein Test geht alle Fremdschlüssel von Tabellen außerhalb
+des Wissensbestands auf Wissensbestand-Tabellen durch. Jedes Ziel muss zur
+Tombstone- oder Herkunftsklasse gehören oder in der Löschliste mit einer
+ausdrücklichen Löseregel stehen (heute nur `chat_message_citation.segment_id`).
+Eine neue Tabelle mit Verweis auf den Wissensbestand ohne Regel lässt den
+Test fehlschlagen. Das gilt auch für `identity_resolution_case`
+(Pipeline-Zustand), das auf `work` und `document` zeigt.
+
+## Tests
+
+- Rücknahme: Ein Dokument verschwindet aus dem Dump → Segmente, Einbettungen
+  und Klassifikation sind gelöscht; Dokument und Work bleiben mit
+  `retired_at`; Beobachtung und Benachrichtigung bestehen weiter; das Zitat
+  verliert nur die `segment_id`.
+- Wiederkehr: Das Dokument kehrt zurück → `retired_at` ist wieder `NULL`, der
+  Inhalt ist neu eingespielt.
+- Nach der Rücknahme erscheint das Dokument in keiner tor-gebundenen Abfrage
+  (Dokumentliste, Suche, Export).
+- Idempotenz (zweiter Import ändert nichts).
+- Nutzerdaten blockieren den Import nicht mehr (ersetzt den bisherigen
+  Blockier-Test).
+- Der Export enthält `retired_at` nicht; ein Export-Import-Export ist
+  zeilengleich.
+- Rollback-Pfad: Nach einem Rollback (Import der früheren Version) bleiben
+  Nutzerverweise gültig.
+
+## Dokumentation
+
+- **ADR-026** „Umgang mit Nutzerdaten beim Wissensbestand-Import“:
+  Tombstone-/Herkunfts-/Inhaltsklassen, Begründung, Verworfenes (Blockieren
+  mit Bereinigungswerkzeug; Anpassen/Löschen von Nutzerverweisen; reine
+  Tombstones auch für Inhalt, weil die Rücknahme dann nur logisch wäre).
+- **ADR-025:** Blockierregel und der zugehörige offene Punkt entfallen mit
+  Verweis auf ADR-026; Beschreibung des Imports (drei Durchläufe) wird
+  angepasst.
+- **TP4-Spec** Teil 3, `docs/guide/operations.md`: Importverhalten
+  (Tombstones, Wiederkehr) beschreiben; ADR-Register aktualisieren.
+
+## Meldung „nicht mehr verfügbar“ (Erweiterung)
+
+Weil ein Widerruf in Produktion die Klassifikation löscht (der Rechteänderungs-
+Pfad von `notify-watchers` sieht dann nichts mehr), melden Tombstones den
+Verlust selbst. Entscheidungen des Nutzers:
+
+- Neuer Benachrichtigungstyp `no_longer_available`.
+- **Pro zurückgezogenem Dokument eine Meldung** (nicht pro Work und Lauf).
+- Gemeldet wird nur, was **nach dem Beginn der Beobachtung** zurückgezogen
+  wurde (wie bei Kanten).
+- Kein Link: Das Dokument ist durch das Rechtetor nicht mehr abrufbar.
+- Gedächtnis gegen Doppelmeldungen: neue Tabelle `notified_retirement`
+  (Konto, Work, Dokument, `retired_at`; der Zeitstempel gehört zum
+  Schlüssel, damit eine Rücknahme nach einer Rückkehr neu gemeldet wird).
+  Die Tabelle gehört zu den Nutzerdaten; sie zeigt nur auf Tombstone-Klassen.
+- E-Mail: Betreff „Ein beobachtetes Regelwerk ist nicht mehr verfügbar“,
+  Rumpf wie bei den anderen Typen.
+- Oberfläche: Eintrag „Nicht mehr verfügbar“ / „No longer available“ in der
+  Glocke mit eigenem Icon.
+- Schema: Migration `0034` (Tabelle, Erweiterung der CHECK-Beschränkung für
+  `trigger_type`); `Document` im Domänenmodell erhält `retired_at`.
+
+Nicht enthalten: Detailseite oder Link für zurückgezogene Dokumente,
+Alterung von Tombstones. Der Rechteänderungs-Pfad bleibt für den Produzenten
+unverändert.
+
+## Rollback und Tombstones (Erweiterung 2)
+
+Status: umgesetzt.
+
+Die Abschlussprüfung zeigte: Der Rollback aus TP4 baut die Datenbank neu auf,
+importiert die ältere Dump-Version und spielt die Nutzerdaten ein. Tombstones
+stehen in keinem Dump; Nutzerzeilen, die auf sie zeigen, verletzen dann beim
+Einspielen den Fremdschlüssel (nach dem Löschen der Tabellen). Entscheidung
+des Nutzers: vollständig lösen.
+
+- Die Sicherung nimmt die **zurückgezogenen Kennungen samt Fremdschlüssel-
+  Eltern** als eigene, `age`-verschlüsselte JSON-Datei
+  (`<base>.tombstones.age`) mit: alle Zeilen mit `retired_at` in `work`,
+  `document`, `edge` plus der Abschluss über die Fremdschlüssel innerhalb von
+  `source`, `delivery`, `work`, `document`, `edge`. Nie Inhalt, nie Rechte.
+- `export-tombstones` / `import-tombstones` im Kern (Repository-Schicht,
+  `ON CONFLICT DO NOTHING`, eingefügte Zeilen gelten als zurückgezogen).
+- `normly-backup` lädt die Datei vor der `.sha256`-Marke hoch; `normly-deploy
+  rollback` spielt sie nach dem Wissensbestand-Import und vor den
+  Nutzerdaten ein. Ältere Sicherungen ohne Datei bleiben nutzbar, mit
+  deutlicher Warnung.
+
+## Nicht-Ziele
+
+- Alterung und Aufräumen von Tombstones.
+- Link oder Detailseite für zurückgezogene Dokumente (der Glockeneintrag
+  „Nicht mehr verfügbar“ ist ausgeliefert).
+- Lebenszyklus der Nutzerdaten insgesamt (Aufbewahrung, Kontolöschung,
+  Auskunft/Export, Wirkung in Sicherungen): eigener Entwurf, Teil B.
+- Änderung des Austauschformats oder der Exportregeln.
+
+## Offene Punkte
+
+- Aufbewahrung von Tombstones (heute unbegrenzt; Identifikatoren, kein
+  Inhalt): wird in Teil B mitentschieden.
+- Ob zurückgezogene Dokumente einen Link oder eine Detailseite bekommen: Die
+  Glocke zeigt den Eintrag „Nicht mehr verfügbar“ (ausgeliefert, siehe
+  „Meldung“); ein Ziel für den Klick ist eine Produktentscheidung, nicht Teil
+  dieser Änderung.

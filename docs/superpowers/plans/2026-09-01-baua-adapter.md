@@ -601,7 +601,7 @@ existing `"dguv"` entry):
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="DE",
         reviewed_at=date(2026, 9, 1),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
     ),
 ```
 

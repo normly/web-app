@@ -21,7 +21,7 @@ def _setup(db_session):
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="DE",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
     )
     delivery_repo = PostgresDeliveryRepository(db_session)
     delivery_a = delivery_repo.record_delivery(
@@ -81,7 +81,7 @@ def test_revoking_a_delivery_locks_its_own_classification_and_spares_other_deliv
     rights_repo.classify(
         document_id=document.id, jurisdiction="DE", may_process=True, may_index_fulltext=True,
         may_cite_passages=True, may_export_free=True, legal_basis_reference="§ 5 UrhG",
-        classified_at=datetime.now(timezone.utc), classified_by="J. Weber",
+        classified_at=datetime.now(timezone.utc), classified_by="Test Reviewer",
         delivery_id=delivery_a.id,
     )
     doc_repo.add_title(

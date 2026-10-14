@@ -304,6 +304,14 @@ Repo-Einstellung auf STACKIT Git bleibt offen:
   wird bewusst sichtbar/rot gehalten und ist *nicht* als erforderlicher
   Branch-Schutz-Check markiert, bis das gesondert untersucht und behoben
   ist.
+  **Nachtrag 2026-10-08: geklärt und behoben.** Ursache war nicht die
+  Modellversion, sondern fehlende Systemschriften im Container: die
+  Fixture bettet Helvetica nicht ein, pdfium rendert die Seite für das
+  Layout-Modell mit einer Ersatzschrift, und das Modell stuft die
+  Titelzeile als `page_header` (FURNITURE) ein. `fonts-liberation` im
+  `test-core`-Job und im Python-Image behebt es; Nachweis und
+  Einzelvariablen-Tests in der TP2-Spec
+  (`2026-10-08-tp2-image-pipeline-design.md`, Folgearbeiten).
 - **`tests/test_structural_end_to_end.py` in `chat` ist von CI ausgeschlossen
   (nicht fehlerhaft, aber Fixture-Abhängigkeit mit CI inkompatibel).** Diese
   4 Tests spawnen Sibling-Pakete (`api`, `accounts`) via deren lokal-

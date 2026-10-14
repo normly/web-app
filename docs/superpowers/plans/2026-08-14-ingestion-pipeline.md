@@ -246,7 +246,7 @@ def _make_document(db_session, content_hash="sha256:segment-fixture"):
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="DE",
         reviewed_at=date(2026, 1, 15),
-        responsible_person="J. Weber",
+        responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash=content_hash, ingested_at=datetime.now(timezone.utc)
@@ -512,7 +512,7 @@ def test_segments_are_gated_by_jurisdiction(db_session):
         document_id=document.id, jurisdiction="DE", may_process=True, may_index_fulltext=True,
         may_cite_passages=True, may_export_free=True, legal_basis_reference="§ 5 UrhG",
         classified_at=__import__("datetime").datetime.now(__import__("datetime").timezone.utc),
-        classified_by="J. Weber", delivery_id=delivery.id,
+        classified_by="Test Reviewer", delivery_id=delivery.id,
     )
 
     segments = segment_repo.list_segments_for_jurisdiction(document.id, "DE")
@@ -654,7 +654,7 @@ def _make_segment(db_session, content_hash="sha256:embedding-fixture"):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="DGUV", retrieval_path="https://publikationen.dguv.de",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash=content_hash, ingested_at=datetime.now(timezone.utc)
@@ -987,7 +987,7 @@ def _make_delivery(db_session, content_hash="sha256:identity-case-fixture"):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="EUR-Lex", retrieval_path="https://single-market-economy.ec.europa.eu",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="EU",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     return PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash=content_hash, ingested_at=datetime.now(timezone.utc)
@@ -1021,7 +1021,7 @@ def test_resolve_case(db_session):
         reason="ambiguous_match",
     )
 
-    resolved = repo.resolve_case(case.id, resolved_document_id=document.id, resolved_by="J. Weber")
+    resolved = repo.resolve_case(case.id, resolved_document_id=document.id, resolved_by="Test Reviewer")
 
     assert resolved.status == IdentityResolutionStatus.RESOLVED
     assert resolved.resolved_document_id == document.id
@@ -1036,7 +1036,7 @@ def test_reject_case(db_session):
         reason="unparseable_designation",
     )
 
-    rejected = repo.reject_case(case.id, resolved_by="J. Weber")
+    rejected = repo.reject_case(case.id, resolved_by="Test Reviewer")
 
     assert rejected.status == IdentityResolutionStatus.REJECTED
     assert case.id not in {c.id for c in repo.list_pending_cases()}
@@ -1295,7 +1295,7 @@ def test_find_delivery_returns_none_when_absent(db_session):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="EUR-Lex", retrieval_path="https://single-market-economy.ec.europa.eu",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="EU",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     delivery_repo = PostgresDeliveryRepository(db_session)
 
@@ -1306,7 +1306,7 @@ def test_find_delivery_returns_existing_delivery(db_session):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="EUR-Lex", retrieval_path="https://single-market-economy.ec.europa.eu",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="EU",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     delivery_repo = PostgresDeliveryRepository(db_session)
     created = delivery_repo.record_delivery(
@@ -1328,7 +1328,7 @@ def test_find_by_designation_returns_matching_document(db_session):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="EUR-Lex", retrieval_path="https://single-market-economy.ec.europa.eu",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="EU",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash="sha256:designation-find", ingested_at=datetime.now(timezone.utc)
@@ -1444,7 +1444,7 @@ def _setup(db_session):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="DGUV", retrieval_path="https://publikationen.dguv.de",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash="sha256:pipeline-revocation",
@@ -1799,7 +1799,7 @@ def test_resolve_finds_existing_document(db_session):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="EUR-Lex", retrieval_path="https://single-market-economy.ec.europa.eu",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="EU",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash="sha256:resolve-existing",
@@ -1963,7 +1963,7 @@ def _setup(db_session):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="EUR-Lex", retrieval_path="https://single-market-economy.ec.europa.eu",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="EU",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash="sha256:references-fixture",
@@ -2271,7 +2271,7 @@ def _make_source(db_session):
     return PostgresSourceRepository(db_session).create_source(
         publisher="Test", retrieval_path="file:///dev/null",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
 
 

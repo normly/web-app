@@ -21,6 +21,7 @@ from normly_core.graph.postgres.repositories import (
     PostgresEdgeRepository,
     PostgresNotificationRepository,
     PostgresNotifiedEdgeRepository,
+    PostgresNotifiedRetirementRepository,
     PostgresRightsNotificationBaselineRepository,
     PostgresRightsRepository,
     PostgresWatchlistRepository,
@@ -36,6 +37,7 @@ _EMAIL_SUBJECTS = {
     NotificationTriggerType.NEW_EDITION: "Neue Ausgabe eines beobachteten Regelwerks",
     NotificationTriggerType.NATIONAL_ADOPTION: "Neue nationale Fassung eines beobachteten Regelwerks",
     NotificationTriggerType.RIGHTS_CHANGE: "Rechteänderung an einem beobachteten Regelwerk",
+    NotificationTriggerType.NO_LONGER_AVAILABLE: "Ein beobachtetes Regelwerk ist nicht mehr verfügbar",
 }
 
 
@@ -50,6 +52,7 @@ def run_notify_watchers(session: Session, email_sender: EmailSender) -> NotifyWa
     watchlist_repo = PostgresWatchlistRepository(session)
     notification_repo = PostgresNotificationRepository(session)
     notified_edge_repo = PostgresNotifiedEdgeRepository(session)
+    notified_retirement_repo = PostgresNotifiedRetirementRepository(session)
     account_repo = PostgresAccountRepository(session)
     document_repo = PostgresDocumentRepository(session)
     edge_repo = PostgresEdgeRepository(session)
@@ -101,6 +104,35 @@ def run_notify_watchers(session: Session, email_sender: EmailSender) -> NotifyWa
                     account_id=account.id, work_id=watch.work_id,
                     trigger_type=trigger_type, trigger_edge_id=edge.id,
                 )
+
+        for document in documents:
+            # Tombstoned documents (retired by a knowledge-base import) are
+            # returned by list_documents_for_work_unchecked. Only retirements
+            # after the watch began are news; the retirement timestamp is part
+            # of the dedup key, so a retirement after a return notifies anew.
+            retired_at = document.retired_at
+            if retired_at is None or retired_at <= watch.created_at:
+                continue
+            if notified_retirement_repo.has_been_notified(
+                account_id=account.id, work_id=watch.work_id,
+                document_id=document.id, retired_at=retired_at,
+            ):
+                continue
+            notification = _create_and_maybe_email(
+                notification_repo, email_sender, account=account, work_id=watch.work_id,
+                trigger_type=NotificationTriggerType.NO_LONGER_AVAILABLE,
+                trigger_edge_id=None, trigger_document_id=document.id,
+                trigger_jurisdiction=None,
+                may_process=None, may_index_fulltext=None,
+                may_cite_passages=None, may_export_free=None,
+            )
+            notifications_created += 1
+            if notification.emailed_at is not None:
+                emails_sent += 1
+            notified_retirement_repo.mark_notified(
+                account_id=account.id, work_id=watch.work_id,
+                document_id=document.id, retired_at=retired_at,
+            )
 
         for document_id in document_ids:
             for classification in rights_repo.list_classifications_for_document_unchecked(

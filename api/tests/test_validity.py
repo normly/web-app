@@ -18,7 +18,7 @@ def _seed_classified_document(db_session, *, jurisdiction="DE"):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="DGUV", retrieval_path="https://www.dguv.de/publikationen",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash="sha256:api-validity-fixture",

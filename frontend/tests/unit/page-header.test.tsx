@@ -205,6 +205,54 @@ describe("PageHeader", () => {
     expect(within(item).getByText(new Date("2026-01-15T00:00:00Z").toLocaleDateString("de"))).toBeInTheDocument();
   });
 
+  it("labels a no_longer_available notification (de) and uses a dedicated icon, not the fallback", async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            id: "n1", workId: "w1", triggerType: "no_longer_available", triggerDocumentId: null,
+            triggerJurisdiction: null, createdAt: "2026-01-15T00:00:00Z", readAt: null,
+          },
+        ]),
+        { status: 200 },
+      ),
+    );
+
+    renderPageHeader(<PageHeader titleKey="nav.chat" />);
+    fireEvent.click(screen.getByRole("button", { name: "Benachrichtigungen" }));
+    const item = await screen.findByTestId("notification-n1");
+
+    expect(within(item).getByText("Nicht mehr verfügbar")).toBeInTheDocument();
+    expect(item.querySelector("svg.lucide-bell")).toBeNull();
+    expect(item.querySelector("svg")).not.toBeNull();
+  });
+
+  it("labels a no_longer_available notification in English", async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            id: "n1", workId: "w1", triggerType: "no_longer_available", triggerDocumentId: null,
+            triggerJurisdiction: null, createdAt: "2026-01-15T00:00:00Z", readAt: null,
+          },
+        ]),
+        { status: 200 },
+      ),
+    );
+
+    render(
+      <LocaleProvider initialLocale="en">
+        <JurisdictionProvider initialJurisdiction="DE">
+          <SidebarProvider><PageHeader titleKey="nav.chat" /></SidebarProvider>
+        </JurisdictionProvider>
+      </LocaleProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
+    const item = await screen.findByTestId("notification-n1");
+
+    expect(within(item).getByText("No longer available")).toBeInTheDocument();
+  });
+
   it("gives an unread notification a screen-reader-accessible 'Neu' label, not just a colored dot", async () => {
     global.fetch = vi.fn().mockResolvedValue(
       new Response(

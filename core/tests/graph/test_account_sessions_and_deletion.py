@@ -4,6 +4,8 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
+import sqlalchemy as sa
+
 from normly_core.graph.domain import (
     AccountTokenPurpose,
     ChatMessageRole,
@@ -23,6 +25,7 @@ from normly_core.graph.postgres.repositories import (
     PostgresDocumentRepository,
     PostgresEdgeRepository,
     PostgresNotifiedEdgeRepository,
+    PostgresNotifiedRetirementRepository,
     PostgresRightsNotificationBaselineRepository,
     PostgresSourceRepository,
     PostgresWorkRepository,
@@ -198,9 +201,21 @@ def test_delete_account_removes_watchlist_and_notification_rows(db_session):
     )
     db_session.flush()
 
+    # notified_retirement is the fifth such table, with the same FK to account.
+    PostgresNotifiedRetirementRepository(db_session).mark_notified(
+        account_id=account.id, work_id=work.id, document_id=document.id,
+        retired_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+    )
+    db_session.flush()
+
     account_repo.delete_account(account.id)
 
     assert account_repo.get_account_by_id(account.id) is None
+    remaining = db_session.execute(
+        sa.text("SELECT count(*) FROM notified_retirement WHERE account_id = :a"),
+        {"a": account.id},
+    ).scalar_one()
+    assert remaining == 0
 
 
 def test_delete_account_does_not_touch_another_accounts_data(db_session):

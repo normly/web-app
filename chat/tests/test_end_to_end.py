@@ -146,21 +146,14 @@ def test_synthesis_question_in_english_answers_in_english_against_german_segment
     assert len(body["citations"]) > 0
 
 
-def test_session_continues_across_two_requests(dguv_fixture, e2e_client):
-    first = e2e_client.post(
-        "/v1/chat",
-        json={"jurisdiction": "DE", "language": "de", "message": "Erste Frage zum Schweißen?"},
-    )
-    token = first.json()["session_token"]
-
-    second = e2e_client.post(
-        "/v1/chat",
-        json={
-            "session_token": token, "jurisdiction": "DE", "language": "de",
-            "message": "Zweite Frage zum Schweißen?",
-        },
-    )
-    assert second.json()["session_token"] == token
+def test_anonymous_requests_are_answered_without_a_session_token(dguv_fixture, e2e_client):
+    # Anonymous chats are not stored, so no session continues across requests.
+    for message in ("Erste Frage zum Schweißen?", "Zweite Frage zum Schweißen?"):
+        response = e2e_client.post(
+            "/v1/chat", json={"jurisdiction": "DE", "language": "de", "message": message},
+        )
+        assert response.status_code == 200
+        assert response.json()["session_token"] is None
 
 
 def test_synthesis_with_no_relevant_segments_returns_a_fallback_without_calling_ollama(

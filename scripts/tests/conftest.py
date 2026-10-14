@@ -1,0 +1,160 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 normly contributors
+
+"""
+Harness: run the real shell scripts with fake binaries first on PATH. Each fake
+appends its argv to $CALLS and may be scripted through env vars, so tests can
+assert order and arguments of every external command.
+"""
+
+import os
+import stat
+import subprocess
+from pathlib import Path
+
+import pytest
+
+SCRIPTS = Path(__file__).parents[1]
+
+FAKE = """#!/usr/bin/env bash
+echo "$(basename "$0") $*" >> "$CALLS"
+# the image tag each docker call saw (tests assert that jobs pin the running release)
+[ "$(basename "$0")" != docker ] || echo "${NORMLY_IMAGE_TAG-<unset>}" >> "$CALLS.tags"
+override="FAKE_$(basename "$0" | tr 'a-z-' 'A-Z_')_EXIT"
+if [ "${!override:-0}" != "0" ]; then exit "${!override}"; fi
+fail_on="FAKE_$(basename "$0" | tr 'a-z-' 'A-Z_')_FAIL_ON"
+if [ -n "${!fail_on:-}" ]; then
+  case " $* " in *"${!fail_on}"*) exit 1 ;; esac
+fi
+tomb_default='{"format": 1, "created_at": "2026-10-09T00:00:00+00:00", "rows": {"source": [], "delivery": [], "work": [], "document": [], "edge": []}}'
+del_default='{"format": 1, "created_at": "2026-10-09T00:00:00+00:00", "entries": []}'
+digest="sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+case "$(basename "$0")" in
+  psql)
+    case " $* " in
+      *to_regclass*) printf '%s\\n' "${FAKE_PSQL_REGCLASS-deletion_log}"; exit 0 ;;
+      *" since="*)
+        # the deletion log query: rows "kind|entity_id|deleted_at"; optionally the
+        # second and later queries differ from the first (FAKE_PSQL_COUNTER)
+        out="${FAKE_PSQL_DELETIONS_OUT-}"
+        if [ -n "${FAKE_PSQL_COUNTER:-}" ]; then
+          if [ -e "$FAKE_PSQL_COUNTER" ]; then out="${FAKE_PSQL_DELETIONS_SECOND_OUT-$out}"; fi
+          : > "$FAKE_PSQL_COUNTER"
+        fi
+        [ -z "$out" ] || printf '%s\\n' "$out"
+        exit 0 ;;
+    esac ;;
+  cosign)
+    if [ -z "${FAKE_COSIGN_OUT:-}" ]; then
+      printf '[{"critical":{"image":{"docker-manifest-digest":"%s"}}}]\\n' "$digest"
+      exit 0
+    fi ;;
+  docker)
+    case " $* " in
+      *" image inspect "*)
+        if [ -n "${FAKE_DOCKER_INSPECT_OUT:-}" ]; then printf '%s\\n' "$FAKE_DOCKER_INSPECT_OUT"
+        else ref="${!#}"; printf '["%s@%s"]\\n' "${ref%:*}" "$digest"; fi
+        exit 0 ;;
+      *ScriptDirectory*) printf '%s\\n' "${FAKE_DOCKER_HEAD_OUT:-rev1}"; exit 0 ;;
+      *" export-tombstones "*)
+        printf '%s\\n' "${FAKE_DOCKER_TOMBSTONES_OUT-$tomb_default}"; exit 0 ;;
+      *" import-tombstones "*)
+        # record what arrived on stdin so tests can assert on it
+        if [ -n "${FAKE_DOCKER_STDIN_FILE:-}" ]; then cat > "$FAKE_DOCKER_STDIN_FILE"; fi ;;
+      *" export-deletions "*)
+        out="${FAKE_DOCKER_DELETIONS_OUT-$del_default}"
+        # optional: the second and later exports differ from the first
+        if [ -n "${FAKE_DOCKER_COUNTER:-}" ]; then
+          if [ -e "$FAKE_DOCKER_COUNTER" ]; then out="${FAKE_DOCKER_DELETIONS_SECOND_OUT-$out}"; fi
+          : > "$FAKE_DOCKER_COUNTER"
+        fi
+        printf '%s\\n' "$out"; exit 0 ;;
+      *" replay-deletions --check"*)
+        exit "${FAKE_DOCKER_REPLAY_CHECK_EXIT:-0}" ;;
+      *" replay-deletions"*)
+        if [ -n "${FAKE_DOCKER_REPLAY_STDIN_FILE:-}" ]; then cat > "$FAKE_DOCKER_REPLAY_STDIN_FILE"; fi
+        exit "${FAKE_DOCKER_REPLAY_EXIT:-0}" ;;
+      *"exchange info"*)
+        [ -z "${FAKE_DOCKER_INFO_EMPTY:-}" ] || exit 0
+        printf '%s\\n' "${FAKE_DOCKER_INFO_OUT:-${FAKE_DOCKER_OUT:-2026.10.1}}"; exit 0 ;;
+    esac ;;
+  rclone)
+    # a remote .meta.json fetched by copyto lands as a local file
+    if [ "$1" = copyto ]; then
+      case "$2" in *:*) case "$3" in *:*) ;; *meta.json)
+        meta="${FAKE_RCLONE_META:-}"
+        [ -n "$meta" ] || meta='{"alembic_revision": "rev1"}'
+        printf '%s' "$meta" > "$3" ;;
+      *tombstones.age) printf '%s' "${FAKE_RCLONE_TOMBSTONES-$tomb_default}" > "$3" ;; esac ;; esac
+    fi ;;
+esac
+out="FAKE_$(basename "$0" | tr 'a-z-' 'A-Z_')_OUT"
+if [ -n "${!out:-}" ]; then printf '%s\\n' "${!out}"; fi
+if [ -n "${FAKE_DOCKER_EXIT_ON:-}" ] && [ "$(basename "$0")" = docker ]; then
+  case " $* " in *" $FAKE_DOCKER_EXIT_ON "*) exit 1 ;; esac
+fi
+# fake tools that write a file named after -o / --file
+case "$(basename "$0")" in
+  rclone) if [ "$1" = copyto ] && [ -n "${FAKE_RCLONE_KEEP_DIR:-}" ]; then
+            cp "$2" "$FAKE_RCLONE_KEEP_DIR/$(basename "$3")"
+          fi ;;
+  pg_dump) for a in "$@"; do case "$a" in --file=*) : > "${a#--file=}";; esac; done ;;
+  age) prev=""; for a in "$@"; do [ "$prev" = "-o" ] && echo cipher > "$a"; prev="$a"; done
+       # a decrypted tombstone file is its (seeded, recognisable) input
+       case " $* " in *" -d "*) for a in "$@"; do case "$a" in *tombstones.age) cp "$a" "${a%.age}.json" ;; esac; done ;; esac ;;
+esac
+exit 0
+"""
+
+
+@pytest.fixture()
+def harness(tmp_path):
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    for name in ("docker", "cosign", "rclone", "age", "pg_dump", "pg_restore", "psql", "sha256sum"):
+        path = bin_dir / name
+        path.write_text(FAKE)
+        path.chmod(path.stat().st_mode | stat.S_IEXEC)
+    calls = tmp_path / "calls.log"
+    calls.write_text("")
+    fake_backup = bin_dir / "fake-normly-backup"
+    fake_backup.write_text("#!/usr/bin/env bash\necho 20261009T100000Z-pre-0.1.2\n")
+    fake_backup.chmod(fake_backup.stat().st_mode | stat.S_IEXEC)
+    env = {
+        **os.environ,
+        "PATH": f"{bin_dir}:{os.environ['PATH']}",
+        "CALLS": str(calls),
+        "FAKE_PSQL_OUT": "rev0001",  # default Alembic head for normly-backup's lookup
+        "NORMLY_DIR": str(tmp_path / "normly"),
+        "NORMLY_DATABASE_URL": "postgresql+psycopg://u:p@db:5432/normly",
+        "NORMLY_BACKUP_AGE_RECIPIENT": "age1recipient",
+        "NORMLY_BACKUP_REMOTE": "stackit:bucket",
+        "NORMLY_COMPOSE": "docker compose",
+        "NORMLY_BACKUP_BIN": str(fake_backup),
+    }
+    (tmp_path / "normly").mkdir()
+
+    class Harness:
+        def run(self, script, *args, extra_env=None, input_text=None):
+            merged = {**env, **(extra_env or {})}
+            # a None value removes the variable (e.g. to force a read from .env)
+            merged = {k: v for k, v in merged.items() if v is not None}
+            return subprocess.run(
+                [str(SCRIPTS / script), *args], env=merged,
+                capture_output=True, text=True, input=input_text,
+            )
+
+        def set_current_tag(self, tag="0.1.2"):
+            (tmp_path / "normly" / "state").mkdir(exist_ok=True)
+            (tmp_path / "normly" / "state" / "current_tag").write_text(f"{tag}\n")
+
+        def tags(self):
+            tags_file = Path(f"{calls}.tags")
+            return tags_file.read_text().splitlines() if tags_file.exists() else []
+
+        def calls(self):
+            return calls.read_text().splitlines()
+
+        dir = tmp_path / "normly"
+
+    return Harness()

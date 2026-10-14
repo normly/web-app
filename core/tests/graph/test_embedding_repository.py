@@ -19,7 +19,7 @@ def _make_segment(db_session, content_hash="sha256:embedding-fixture"):
     source = PostgresSourceRepository(db_session).create_source(
         publisher="DGUV", retrieval_path="https://publikationen.dguv.de",
         legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
-        reviewed_at=date(2026, 1, 15), responsible_person="J. Weber",
+        reviewed_at=date(2026, 1, 15), responsible_person="Test Reviewer",
     )
     delivery = PostgresDeliveryRepository(db_session).record_delivery(
         source_id=source.id, content_hash=content_hash, ingested_at=datetime.now(timezone.utc)

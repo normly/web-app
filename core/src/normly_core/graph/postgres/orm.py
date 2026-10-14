@@ -112,6 +112,10 @@ class DocumentORM(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+    #: Set when an import no longer finds this row in the dump (takedown). The
+    #: row stays as an identifier tombstone; not part of the exchange format
+    #: (ADR-026).
+    retired_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     origin_issuer: Mapped[str]
     origin_number: Mapped[str]
     edition: Mapped[str]
@@ -182,6 +186,10 @@ class WorkORM(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+    #: Set when an import no longer finds this row in the dump (takedown). The
+    #: row stays as an identifier tombstone; not part of the exchange format
+    #: (ADR-026).
+    retired_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     status: Mapped[WorkStatus] = mapped_column(
         sa.Enum(
             WorkStatus,
@@ -241,6 +249,10 @@ class EdgeORM(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+    #: Set when an import no longer finds this row in the dump (takedown). The
+    #: row stays as an identifier tombstone; not part of the exchange format
+    #: (ADR-026).
+    retired_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     from_document_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), sa.ForeignKey("document.id"), nullable=False
     )
@@ -429,6 +441,12 @@ class AccountORM(Base):
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), server_default=sa.func.now()
     )
+    # Set when the warning e-mail for an abandoned registration was delivered;
+    # reset when the account is no longer abandoned. Never exported.
+    deletion_warned_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    # Set whenever a session is created (every sign-in path). Unlike the session
+    # row it survives logout, so a sign-in stays visible as activity.
+    last_login_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     first_name: Mapped[str | None]
     last_name: Mapped[str | None]
     avatar_image: Mapped[bytes | None] = mapped_column(sa.LargeBinary)
@@ -683,6 +701,45 @@ class NotifiedEdgeORM(Base):
     )
 
 
+class NotifiedRetirementORM(Base):
+    __tablename__ = "notified_retirement"
+
+    # Dedup bookkeeping for NO_LONGER_AVAILABLE, same idea as NotifiedEdgeORM.
+    # retired_at is part of the key: a document that returns and is retired
+    # again carries a new timestamp and so produces a new notification.
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("account.id"), primary_key=True
+    )
+    work_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("work.id"), primary_key=True
+    )
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("document.id"), primary_key=True
+    )
+    retired_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), primary_key=True
+    )
+    notified_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
+
+
+class DeletionLogORM(Base):
+    __tablename__ = "deletion_log"
+
+    # Which deletions must be replayed after a rollback to an older backup.
+    # Carries no personal data and, deliberately, no foreign key: the
+    # identifiers point at rows that no longer exist.
+    kind: Mapped[str] = mapped_column(sa.String(12), primary_key=True)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    deleted_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        sa.CheckConstraint("kind IN ('account', 'chat_session')", name="deletion_log_kind"),
+        sa.Index("ix_deletion_log_deleted_at", "deleted_at"),
+    )
+
+
 class ChatSessionORM(Base):
     __tablename__ = "chat_session"
 
@@ -762,3 +819,17 @@ class RateLimitBucketORM(Base):
     # window_start and runs on every request; without this index that
     # filter forces a full table scan each time.
     __table_args__ = (sa.Index("ix_rate_limit_bucket_window_start", "window_start"),)
+
+
+class KnowledgeBaseImportORM(Base):
+    """Single-row record of which knowledge-base dump is currently imported."""
+
+    __tablename__ = "knowledge_base_import"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    dump_version: Mapped[str]
+    exchange_schema_version: Mapped[int]
+    embedding_model_revision: Mapped[str]
+    imported_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
+
+    __table_args__ = (sa.CheckConstraint("id = 1", name="ck_knowledge_base_import_single_row"),)
