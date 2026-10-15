@@ -33,6 +33,7 @@ describe("SheetContent", () => {
 
 describe("Sidebar mobile sheet", () => {
   const originalInnerWidth = window.innerWidth;
+  const originalMatchMedia = window.matchMedia;
 
   beforeEach(() => {
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({
@@ -47,12 +48,10 @@ describe("Sidebar mobile sheet", () => {
 
   afterEach(() => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: originalInnerWidth });
+    window.matchMedia = originalMatchMedia;
   });
 
-  it.each<[Locale, string]>([
-    ["de", "Schließen"],
-    ["en", "Close"],
-  ])("labels the close button with the translated common.close (%s)", (locale, expected) => {
+  function openMobileSidebar(locale: Locale) {
     render(
       <LocaleProvider initialLocale={locale}>
         <SidebarProvider>
@@ -64,6 +63,22 @@ describe("Sidebar mobile sheet", () => {
       </LocaleProvider>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Toggle Sidebar" }));
+  }
+
+  it.each<[Locale, string]>([
+    ["de", "Schließen"],
+    ["en", "Close"],
+  ])("labels the close button with the translated common.close (%s)", (locale, expected) => {
+    openMobileSidebar(locale);
     expect(screen.getByRole("button", { name: expected })).toBeInTheDocument();
+  });
+
+  it.each<[Locale, string, string]>([
+    ["de", "Seitenleiste", "Zeigt die mobile Seitenleiste an."],
+    ["en", "Sidebar", "Displays the mobile sidebar."],
+  ])("titles and describes the sheet dialog in the active locale (%s)", (locale, title, description) => {
+    openMobileSidebar(locale);
+    const dialog = screen.getByRole("dialog", { name: title });
+    expect(dialog).toHaveAccessibleDescription(description);
   });
 });
