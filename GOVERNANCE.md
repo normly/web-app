@@ -1,66 +1,65 @@
 # Governance
 
-## Grundgedanke
+## Guiding principle
 
-Der freie Kern von normly soll unabhängig von den wirtschaftlichen Interessen
-einzelner Beteiligter bestehen können. Deshalb sind Trägerschaft und
-kommerzielle Verwertung getrennt.
+The free core of normly must be able to exist independently of the economic
+interests of individual participants. This is why the governing body and
+commercial exploitation are kept separate.
 
-## Struktur
+## Structure
 
-**Trägerorganisation** — hält Marke, offene Daten und Quellcode, verantwortet
-den freien Kern und die Beziehungen zu Herausgebern und Community.
+**Trägerorganisation** — holds the trademark, open data and source code, is
+responsible for the free core and for relationships with publishers and the
+community.
 
-**Kommerzielle Gesellschaft** *(geplant, noch nicht gegründet)* — betreibt
-kostenpflichtige Dienste: Managed Hosting, Compliance-Instanzen,
-Integrationen, lizenzierte Bestände. Sie lizenziert von der Trägerorganisation
-zu marktüblichen Konditionen.
+**Commercial company** *(planned, not yet founded)* — operates paid services:
+managed hosting, compliance instances, integrations, licensed collections. It
+licenses from the Trägerorganisation on customary market terms.
 
-Diese Trennung ist der Grund, warum der Kern keine Abhängigkeit auf proprietäre
-Bestandteile haben darf: Der freie Kern muss auch ohne die kommerzielle Seite
-weiterexistieren können.
+This separation is the reason why the core must not depend on proprietary
+components: the free core must be able to keep existing without the commercial
+side.
 
-## Rollen
+## Roles
 
-**Beitragende** — alle, die etwas einbringen: Code, Daten, Korrekturen,
-Dokumentation, Übersetzungen. Keine formale Voraussetzung außer der
-DCO-Signatur.
+**Contributors** — everyone who contributes something: code, data,
+corrections, documentation, translations. No formal prerequisite other than the
+DCO signature.
 
-**Maintainende** — dürfen zusammenführen und tragen Verantwortung für einen
-Bereich. Aufnahme durch bestehende Maintainende nach nachhaltigem Beitrag über
-einen längeren Zeitraum. Die aktuelle Liste steht in `MAINTAINERS.md`.
+**Maintainers** — may merge and are responsible for an area. Admitted by
+existing maintainers after a sustained contribution over a longer period. The
+current list is in `MAINTAINERS.md`.
 
-**Technische Leitung** — entscheidet, wenn im Maintainer-Kreis keine Einigung
-zustande kommt, und verantwortet die Einhaltung der Architekturgrundsätze.
+**Technical lead** — decides when the maintainers cannot reach agreement, and
+is responsible for compliance with the architecture principles.
 
-## Entscheidungen
+## Decisions
 
-Im Regelfall im Konsens innerhalb des betroffenen Bereichs. Was keinen Konsens
-findet, wird im Maintainer-Kreis besprochen; bleibt es strittig, entscheidet
-die technische Leitung.
+As a rule by consensus within the affected area. Anything that finds no
+consensus is discussed among the maintainers; if it remains disputed, the
+technical lead decides.
 
-**Architekturentscheidungen** werden als ADR in [docs/adr/](docs/adr/)
-dokumentiert — mit Begründung und den verworfenen Alternativen. Eine
-Entscheidung ohne dokumentierte Begründung ist keine getroffene Entscheidung.
+**Architecture decisions** are documented as ADRs in [docs/adr/](docs/adr/) —
+with the rationale and the rejected alternatives. A decision without a
+documented rationale is not a decision that has been made.
 
-Wesentliche Änderungen werden vor der Umsetzung als Issue zur Diskussion
-gestellt.
+Significant changes are put up for discussion as an issue before
+implementation.
 
-## Was nicht zur Disposition steht
+## What is not up for discussion
 
-Einige Festlegungen sind Bedingung dafür, dass das Projekt seinen Zweck
-erfüllt. Sie können nicht durch einen einzelnen Pull Request geändert werden,
-sondern nur durch einen ADR mit ausdrücklicher Zustimmung der
-Trägerorganisation:
+Some commitments are a precondition for the project to fulfil its purpose.
+They cannot be changed by a single pull request, only by an ADR with the
+explicit approval of the Trägerorganisation:
 
-- Lizenzmodell (AGPL-3.0 Kern, Apache-2.0 SDKs, ODbL Daten)
-- DCO als Beitragsmodell
-- Unabhängigkeit des Kerns von proprietären Bestandteilen
-- Freier Zugang zu frei lizenzierbaren Inhalten ohne Konto
-- Ausschluss personalisierter Werbung
-- Datenhaltung und Betrieb in Europa
+- License model (AGPL-3.0 core, Apache-2.0 SDKs, ODbL data)
+- DCO as the contribution model
+- Independence of the core from proprietary components
+- Free access to freely licensable content without an account
+- Exclusion of personalized advertising
+- Data storage and operation in Europe
 
-## Änderungen an diesem Dokument
+## Changes to this document
 
-Über einen Pull Request, mit Zustimmung der Mehrheit der Maintainenden und der
-Trägerorganisation.
+Through a pull request, with the approval of the majority of the maintainers
+and of the Trägerorganisation.

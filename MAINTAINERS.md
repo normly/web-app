@@ -1,16 +1,16 @@
-# Maintainende
+# Maintainers
 
-Zuständigkeiten je Bereich. Bei Pull Requests wird die Freigabe der jeweils
-zuständigen Person benötigt.
+Responsibilities by area. Pull requests need approval from the person
+responsible for the respective area.
 
-| Bereich | Zuständig |
+| Area | Responsible |
 |---|---|
-| Gesamtprojekt, technische Leitung | *(zu ergänzen)* |
-| Kern und API | *(zu ergänzen)* |
-| Referenzgraph und Datenmodell | *(zu ergänzen)* |
-| Verarbeitungskette und Quellen | *(zu ergänzen)* |
-| Infrastruktur und Auslieferung | *(zu ergänzen)* |
+| Overall project, technical lead | *(to be added)* |
+| Core and API | *(to be added)* |
+| Reference graph and data model | *(to be added)* |
+| Processing chain and sources | *(to be added)* |
+| Infrastructure and delivery | *(to be added)* |
 
-Aufnahme in diesen Kreis erfolgt durch die bestehenden Maintainenden nach
-nachhaltigem Beitrag über einen längeren Zeitraum. Näheres in
+Admission to this group is by the existing maintainers after a sustained
+contribution over a longer period. Details in
 [GOVERNANCE.md](GOVERNANCE.md).
