@@ -199,206 +199,206 @@ Companies pay for reliability, not for data.**
 
 ---
 
-## ADR-008 — Graph-First-Anfrageverarbeitung
+## ADR-008 — Graph-first query processing
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Anfragen werden zuerst gegen den Referenzgraph aufgelöst. Ein
-Sprachmodell wird nur aufgerufen, wenn Synthese über Fließtext nötig ist.
+**Decision:** Queries are resolved against the reference graph first. A
+language model is only invoked when synthesis over running text is needed.
 
-**Begründung:** Strukturfragen („was ersetzt X", „welche Vorschrift verweist auf
-Y") sind aus dem Graph exakt beantwortbar — deterministisch, in Millisekunden,
-ohne Tokenkosten. Ein Modellaufruf wäre teurer, langsamer und fehleranfälliger.
-Gerade bei Gültigkeits- und Ersetzungsfragen sind Halluzinationen besonders
-folgenschwer.
+**Rationale:** Structural questions ("what replaces X", "which regulation
+references Y") can be answered exactly from the graph — deterministically, in
+milliseconds, without token costs. A model call would be more expensive, slower
+and more error-prone. Especially with validity and replacement questions,
+hallucinations have particularly serious consequences.
 
-**Doppelter Gewinn:** geringere Inferenzkosten *und* höhere Verlässlichkeit
-genau dort, wo Fehler am teuersten wären. Ergänzend: Caching gleicher Anfragen,
-kleines Modell für Routing, großes nur für komplexe Synthesen, Kontingente in
-der freien Nutzung.
-
----
-
-## ADR-009 — Keine personalisierte Werbung
-
-**Status:** beschlossen
-
-**Entscheidung:** Personalisierte Werbung auf Basis von Suchanfragen,
-Chatverläufen oder Nutzerprofilen ist ausgeschlossen. Zulässig: kontextfreie
-Verzeichniseinträge, Affiliate auf Shoplinks, bezahlte Einträge im
-Konformitätsverzeichnis.
-
-**Begründung:**
-
-- *Rechnerisch:* Eine Chat-Sitzung erzeugt kaum Werbeplätze, verbraucht aber
-  mehrere LLM-Aufrufe mit langen Kontexten. Kleine, deutschsprachige
-  Fachzielgruppe bei hohen Kosten pro Anfrage — strukturell die schlechteste
-  Kombination für Werbefinanzierung.
-- *Datenschutz:* Die Fragen sind ungewöhnlich sensibel — ein
-  Sicherheitsbeauftragter nach einem Unfall, ein Mittelständler vor einer
-  Produkteinführung. Das ist Wettbewerbsinformation und teils haftungsrelevant.
-- *Neutralität:* Wer sagt, was der anerkannte Stand der Technik ist, kann nicht
-  gleichzeitig Produkte bewerben. Gegenüber DIN und VDI ein unnötiger
-  Angriffspunkt.
-
-**Der bessere Hebel ist die Kostenseite** — siehe ADR-008.
+**Double gain:** lower inference costs *and* higher reliability exactly
+where errors would be most expensive. In addition: caching of identical queries,
+a small model for routing, a large one only for complex syntheses, quotas in
+free use.
 
 ---
 
-## ADR-010 — Auslieferung als Container, Daten getrennt vom Image
+## ADR-009 — No personalized advertising
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Signierte, versionierte Container-Images plus lauffähiges
-Compose-Setup. Der freie Wissensbestand ist **nicht** Teil des Images, sondern
-ein eigenständig versionierter Dump, der beim ersten Start bezogen wird.
+**Decision:** Personalized advertising based on search queries, chat
+histories or user profiles is ruled out. Permitted: context-free directory
+entries, affiliate on shop links, paid entries in the conformity
+directory.
 
-**Begründung:** Ein AGPL-Kern, den außer dem Projekt selbst niemand betreiben
-kann, ist praktisch nicht offen. Das Image ist der Nachweis der
-Selbst-Hostbarkeit — und dasselbe Artefakt, das im Managed Hosting läuft.
-Die Trennung von Code und Daten ist nötig, weil sich Normenstände deutlich
-häufiger ändern als der Code; sonst wächst das Image und jede Datenaktualisierung
-erzwingt einen Neubau.
+**Rationale:**
 
-**Registry:** **Nachtrag 2026-09-14 (ADR-021):** GitHub Container Registry
-(GHCR) im Repository `normly/web-app` ist die führende Registry für den
-freien Kern — löst den vorherigen Nachtrag vom 2026-09-05 (ADR-019, STACKIT
-Container Registry alleinig) wieder ab. STACKIT Container Registry bleibt
-für Artefakte der kommerziellen Schicht bzw. spätere Normen-Datenprojekte
-verfügbar, ist aber nicht mehr die Registry des Kern-Images. Docker Hub
-allenfalls später als eigenständiger Spiegel, falls Pull-Limits für anonyme
-Zugriffe zum echten Problem werden.
+- *Arithmetic:* A chat session generates hardly any ad slots, but consumes
+  several LLM calls with long contexts. A small, German-speaking specialist
+  target group at high cost per query — structurally the worst
+  combination for advertising financing.
+- *Data protection:* The questions are unusually sensitive — a
+  safety officer after an accident, a mid-sized company before a
+  product launch. That is competitive information and partly liability-relevant.
+- *Neutrality:* Whoever says what the recognized state of the art is cannot
+  advertise products at the same time. Towards DIN and VDI an unnecessary
+  point of attack.
 
----
-
-## ADR-011 — Internationalisierung von Beginn an
-
-**Status:** beschlossen
-
-**Entscheidung:** Der Referenzgraph wird von Anfang an für weltweite Abdeckung
-ausgelegt: global kollisionsfreies Identifikatorschema, sprachunabhängige
-Knotenidentität, nationale Übernahmen als Beziehungen, mehrsprachige
-Bezeichnungen. Lizenzklassifikation **je Rechtsraum**, nicht global.
-
-**Begründung:** Ein nachträglicher Umbau des Identifikatorschemas ist die
-teuerste denkbare Altlast. DIN EN ISO 9001 und BS EN ISO 9001 sind dasselbe
-Dokument — ohne sprachunabhängige Identität entstehen Dubletten, die
-Verweisketten unbrauchbar machen.
-
-Der frei veröffentlichbare Anteil ist **nicht** global einheitlich: § 5 UrhG
-gilt nur in Deutschland; in den USA ist die Lage über die
-Edicts-of-Government-Doktrin tendenziell großzügiger; für harmonisierte
-EU-Normen ist EuGH C-588/21 (2024) gesondert zu bewerten. Eine globale
-Klassifikation wäre entweder rechtswidrig oder unnötig restriktiv.
-
-**Folgeaufgabe:** Die rechtliche Bewertung je Rechtsraum ist eine laufende
-Aufgabe, keine einmalige Klärung. Braucht später eine Rolle oder einen Prozess.
+**The better lever is the cost side** — see ADR-008.
 
 ---
 
-## ADR-012 — Kein Scraping kommerziell verwerteter Katalogbestände
+## ADR-010 — Shipping as a container, data separate from the image
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Katalog- und Metadatenbestände von Herausgebern, die diese
-selbst kommerziell verwerten (insbesondere DIN Media / Nautos, vormals
-Perinorm), werden **ausschließlich vertraglich** bezogen. Automatisierte
-Erfassung ist ausgeschlossen — auch dann, wenn die Bestände öffentlich
-zugänglich sind. Umgesetzt als Positivliste im Quellenregister (Kategorien
-A–D, REQ-PIPE-002) mit technischer Sperre (REQ-PIPE-008).
+**Decision:** Signed, versioned container images plus a runnable
+Compose setup. The free knowledge base is **not** part of the image, but
+an independently versioned dump that is obtained on first start.
 
-**Begründung:**
+**Rationale:** An AGPL core that no one except the project itself can operate
+is practically not open. The image is the proof of
+self-hostability — and the same artifact that runs in managed hosting.
+The separation of code and data is necessary because norm editions change
+considerably more often than the code; otherwise the image grows and every data update
+forces a rebuild.
 
-1. *Der Katalog ist das Produkt.* Nautos umfasst rund 2,35 Mio. Datensätze aus
-   29 Ländern inklusive monatlicher Aktualisierung durch die
-   Normungsorganisationen — also genau den Katalog samt Änderungsverfolgung, den
-   normly bräuchte. Ihn nachzubauen heißt, das Umsatzprodukt genau der
-   Organisationen anzugreifen, mit denen verhandelt werden soll.
-2. *Rechtlich.* Ein Normenkatalog ist eine geschützte Datenbank. § 87b UrhG
-   untersagt neben der Entnahme wesentlicher Teile auch die **wiederholte und
-   systematische** Entnahme unwesentlicher Teile, soweit sie der normalen
-   Auswertung zuwiderläuft — das beschreibt periodisches Scraping mit Abgleich
-   exakt. Die TDM-Schranke des § 44b greift bei maschinenlesbarem
-   Nutzungsvorbehalt nicht.
-3. *Strategisch — der schwerste Punkt.* normly verhandelt darüber, dass
-   Herausgeber Inhalte **freiwillig** bereitstellen und dafür beteiligt werden
-   (ADR-013). Paralleles Abgreifen ist das exakte Gegenteil dieser Erzählung und
-   würde die Verhandlungen beschädigen.
-
-**Konsequenz:** Der Erstbestand kommt aus frei zugänglichen Quellen
-(REQ-PIPE-009): EU-Amtsblatt via EUR-Lex (Listen harmonisierter Normen, datiert
-und maschinenlesbar), Verweise aus Gesetzen und Verordnungen, DGUV- und
-BAuA-Verzeichnisse, Arbeitsprogramme von CEN/CENELEC, Katalogdaten von ISO/IEC.
-Das ist zugleich der für den Referenzgraph wertvollste Teil, weil dort die
-Verweise **aus dem Recht** stehen.
-
-**Verworfen:** Nautos-Lizenz als Datenquelle für den eigenen Bestand — solche
-Lizenzen schließen die Weiterverwendung in einem eigenen Produkt typischerweise
-aus. Vor einer solchen Lizenz wären die Vertragsbedingungen genau zu prüfen.
-
-**Nicht regelbar durch Vorsatz:** Die Sperre ist bewusst *technisch* formuliert
-(Adapter der Kategorie D lassen sich auf gekennzeichnete Quellen nicht
-konfigurieren), nicht als Richtlinie. Sobald Werkstudenten oder externe
-Beitragende Adapter schreiben, entscheidet die Spezifikation, nicht das
-Bauchgefühl.
+**Registry:** **Addendum 2026-09-14 (ADR-021):** GitHub Container Registry
+(GHCR) in the repository `normly/web-app` is the leading registry for the
+free core — supersedes the previous addendum of 2026-09-05 (ADR-019, STACKIT
+Container Registry exclusively) in turn. STACKIT Container Registry remains
+available for artifacts of the commercial layer or later norm data projects,
+but is no longer the registry of the core image. Docker Hub
+at most later as an independent mirror, should pull limits for anonymous
+access become a real problem.
 
 ---
 
-## ADR-013 — Metadaten zuerst: Partnerschaftsleiter statt Volltext-Sprung
+## ADR-011 — Internationalization from the start
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Gegenüber Herausgebern wird zuerst um **Katalogmetadaten**
-gebeten, nicht um Volltexte. Volltextzulieferung ist die zweite Stufe, gestützt
-auf reale Attributionszahlen aus der ersten.
+**Decision:** The reference graph is designed for worldwide coverage from the
+start: globally collision-free identifier scheme, language-independent
+node identity, national adoptions as relationships, multilingual
+designations. License classification **per jurisdiction**, not global.
 
-**Begründung:** Metadaten kosten einen Herausgeber fast nichts und bringen ihm
-Sichtbarkeit und Verkäufe über Weiterleitung. Volltext ist die große Hürde,
-Metadaten die kleine. Ein Herausgeber, der monatliche Metadaten-Deltas ohnehin
-an Nautos liefert, hat mit einer zweiten Lieferung keinen zusätzlichen Aufwand.
+**Rationale:** A later rebuild of the identifier scheme is the
+most expensive legacy burden imaginable. DIN EN ISO 9001 and BS EN ISO 9001 are the same
+document — without language-independent identity, duplicates arise that
+make reference chains unusable.
 
-Sobald die erste Stufe läuft, liegen prüffähige Attributionszahlen vor
-(REQ-PART-002/003). Damit verändert sich das Volltextgespräch grundlegend: Es
-geht dann um einen Prozentsatz auf belegbaren Zahlen statt um die Frage, ob man
-normly überhaupt glaubt.
+The freely publishable share is **not** globally uniform: § 5 UrhG
+applies only in Germany; in the USA the situation tends to be more generous
+through the edicts-of-government doctrine; for harmonized
+EU norms, CJEU C-588/21 (2024) must be assessed separately. A global
+classification would be either unlawful or unnecessarily restrictive.
 
-**Kernaussage für Verhandlungen:** normly tritt nicht als Wettbewerber auf, der
-Verkaufserlöse verdrängt, sondern als Kanal, der neue Erlöse erschließt und
-nachvollziehbar zurückführt.
-
-**Erster Gesprächspartner:** Austrian Standards (Volltextbereitstellung
-angekündigt).
+**Follow-up task:** The legal assessment per jurisdiction is an ongoing
+task, not a one-time clarification. Later needs a role or a process.
 
 ---
 
-## ADR-014 — Verschlüsselung: kryptographisches Löschen je Herausgeber
+## ADR-012 — No scraping of commercially exploited catalog collections
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Verschlüsselung ruhender Daten für **alle** Bestände
-(Datenbank, Objektspeicher, Indizes, Protokolle, Sicherungen). Schlüssel im
-STACKIT Secrets Manager, getrennt von den Daten, mit Rotation und
-Zugriffsprotokoll. **Ein eigener Datenschlüssel je Herausgeber.** Dazu Schutz
-vor Massenextraktion (Ratenbegrenzung, Kontingente, Anomalieerkennung).
+**Decision:** Catalog and metadata collections of publishers who
+exploit them commercially themselves (in particular DIN Media / Nautos, formerly
+Perinorm) are obtained **exclusively by contract**. Automated
+acquisition is ruled out — even when the collections are publicly
+accessible. Implemented as an allowlist in the source register (categories
+A–D, REQ-PIPE-002) with a technical block (REQ-PIPE-008).
+
+**Rationale:**
+
+1. *The catalog is the product.* Nautos comprises around 2.35 million records from
+   29 countries, including monthly updates by the
+   standardization organizations — that is, exactly the catalog including change tracking that
+   normly would need. Rebuilding it means attacking the revenue product of exactly the
+   organizations with which negotiations are to take place.
+2. *Legally.* A norm catalog is a protected database. § 87b UrhG
+   prohibits not only the extraction of substantial parts but also the **repeated and
+   systematic** extraction of insubstantial parts, insofar as this conflicts with normal
+   exploitation — that describes periodic scraping with reconciliation
+   exactly. The TDM exception of § 44b does not apply where there is a machine-readable
+   rights reservation.
+3. *Strategically — the weightiest point.* normly negotiates for
+   publishers to provide content **voluntarily** and to receive a share in return
+   (ADR-013). Parallel harvesting is the exact opposite of this narrative and
+   would damage the negotiations.
+
+**Consequence:** The initial collection comes from freely accessible sources
+(REQ-PIPE-009): EU Official Journal via EUR-Lex (lists of harmonized norms, dated
+and machine-readable), references from laws and regulations, DGUV and
+BAuA registers, work programmes of CEN/CENELEC, catalog data from ISO/IEC.
+This is at the same time the most valuable part for the reference graph, because that is where the
+references **from the law** are.
+
+**Rejected:** A Nautos license as a data source for our own collection — such
+licenses typically exclude reuse in one's own product.
+Before such a license, the contract terms would have to be examined closely.
+
+**Not governable by intent:** The block is deliberately formulated *technically*
+(category D adapters cannot be configured for flagged sources),
+not as a policy. As soon as student employees or external
+contributors write adapters, the specification decides, not
+gut feeling.
+
+---
+
+## ADR-013 — Metadata first: partnership ladder instead of full-text leap
+
+**Status:** accepted
+
+**Decision:** Publishers are first asked for **catalog metadata**,
+not for full texts. Full-text supply is the second stage, based
+on real attribution figures from the first.
+
+**Rationale:** Metadata costs a publisher almost nothing and brings them
+visibility and sales through referrals. Full text is the big hurdle,
+metadata the small one. A publisher that delivers monthly metadata deltas
+to Nautos anyway has no additional effort with a second delivery.
+
+As soon as the first stage is running, auditable attribution figures are available
+(REQ-PART-002/003). This fundamentally changes the full-text conversation: it is
+then about a percentage on verifiable figures instead of the question of whether one
+believes normly at all.
+
+**Key message for negotiations:** normly does not appear as a competitor that
+displaces sales revenue, but as a channel that opens up new revenue and
+traceably passes it back.
+
+**First conversation partner:** Austrian Standards (full-text provision
+announced).
+
+---
+
+## ADR-014 — Encryption: cryptographic erasure per publisher
+
+**Status:** accepted
+
+**Decision:** Encryption of data at rest for **all** collections
+(database, object storage, indexes, logs, backups). Keys in the
+STACKIT Secrets Manager, separate from the data, with rotation and
+access logging. **A separate data key per publisher.** In addition, protection
+against bulk extraction (rate limiting, quotas, anomaly detection).
 → REQ-SEC-001…004
 
-**Begründung — der eigentliche Punkt sind die Backups:** REQ-PART-001 sagt zu,
-dass ein Herausgeber Bestände **jederzeit** zurückziehen kann. REQ-PIPE-005
-löst das über die Abstammungskette für Datenbank, Index und Exporte — aber
-**nicht für Sicherungskopien.** Bestehende Backups enthalten die Inhalte
-weiterhin, und selektive Bereinigung ist praktisch nicht durchführbar.
+**Rationale — the actual point is the backups:** REQ-PART-001 promises
+that a publisher can withdraw collections **at any time**. REQ-PIPE-005
+solves this via the lineage chain for database, index and exports — but
+**not for backup copies.** Existing backups still contain the content,
+and selective cleanup is practically not feasible.
 
-Ein Schlüssel je Herausgeber schließt die Lücke: Vertragsende → Schlüssel
-vernichten → Inhalte sind überall unlesbar, auch in Backups, ohne dass ein Byte
-gelöscht werden muss.
+A data key per publisher closes the gap: contract end → destroy the key
+→ content is unreadable everywhere, even in backups, without a single byte
+having to be deleted.
 
-**Verhandlungsargument:** nicht „wir löschen zuverlässig", sondern „wir *können*
-es danach technisch nicht mehr lesen". Das ist qualitativ etwas anderes und in
-einem Lizenzgespräch deutlich belastbarer.
+**Negotiating argument:** not "we delete reliably", but "we technically *cannot*
+read it any longer afterwards". That is qualitatively something different and
+considerably more robust in a licensing conversation.
 
-**Nebenbefund:** Kapitel 3.3.2 deckte nur Transportverschlüsselung ab. Die
-Formulierung „Vaults oder Env-Variablen" war sachlich schief — Umgebungsvariablen
-sind kein Secrets-Manager. Korrigiert.
+**Side finding:** Chapter 3.3.2 covered only transport encryption. The
+wording "vaults or env variables" was factually off — environment variables
+are not a secrets manager. Corrected.
 
 ---
 
