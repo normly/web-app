@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Work on branch `docs/english-migration` (already contains the two spec commits). Nothing is pushed and no merge request is opened without the owner's explicit confirmation (billed pipeline runs).
-- Only the main session commits. Subagents translate and report; they never run `git commit`. Every commit: `git commit -s` plus the trailer `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`. Never run `git config`.
+- Only the main session commits. Subagents translate and report; they never run `git commit`. Every commit: `git commit -s` plus the trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Never run `git config`.
 - Commits use Conventional Commits, English, e.g. `docs: translate GOVERNANCE.md to English`.
 - Binding terminology (spec): Norm→norm, Regelwerk→standards, "Normen und Regelwerke"→"norms and standards", Herausgeber→publisher, Referenzgraph→reference graph, Wissensbasis/Wissensbestand→knowledge base, Rechteklassifikation→rights classification, Rechtsraum→jurisdiction, Ausgabestand→edition, Quelllieferung→source delivery, Abstammung→lineage, Herkunft (attribute)→provenance, Rücknahme→withdrawal, Rollback (deployment)→rollback, Sicherung→backup, Tombstone→tombstone, Verarbeitungskette→processing chain, Beitragsfassade→contribution facade, Nachtrag→addendum, Akzeptanzkriterium/Abnahmekriterium→acceptance criterion, Konto-/Kontolöschung→account deletion. `Normenausschuss` and `Trägerorganisation` stay German. Compounds follow their stem.
 - A word or passage with no clear rendering under this terminology: stop and ask the owner. Do not decide.
@@ -239,7 +239,7 @@ Expected: no suspect lines; only `docs/glossary.md` changed. (Set `S` as in Task
 git add docs/glossary.md
 git commit -s -m "docs: add binding terminology entries to the glossary
 
-Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -310,7 +310,7 @@ Expected: `3 issues found` (grep prints `1`). If more issues appear, read them w
 git add -A
 git commit -s -m "docs: rename German file names to English and fix links
 
-Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 git show --stat --format= HEAD | tail -15
 ```
 Expected: renames recorded as renames (`=>`), nothing outside the file list changed.
@@ -359,7 +359,7 @@ Expected: `PARITY OK` twice; no suspect lines (a quoted German name flagged by t
 git add GOVERNANCE.md MAINTAINERS.md
 git commit -s -m "docs: translate GOVERNANCE.md and MAINTAINERS.md to English
 
-Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -399,7 +399,7 @@ Expected: `PARITY OK`; no suspect lines.
 git add TRADEMARK.md
 git commit -s -m "docs: translate TRADEMARK.md to English
 
-Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -486,7 +486,7 @@ Expected: no suspect lines; the count is `0`.
 git add docs/normly_development-phases.svg docs/normly_processing-chain.svg
 git commit -s -m "docs: translate diagram labels to English
 
-Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -522,7 +522,7 @@ Expected: the first command prints only the new glossary lines that mention *Reg
 git add README.md CONTRIBUTING.md
 git commit -s -m "docs: replace leftover German loanword Regelwerk
 
-Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -587,7 +587,7 @@ Compare each rule in the "Non-negotiable" and "Architecture rules" sections one 
 git add CLAUDE.md
 git commit -s -m "docs: translate CLAUDE.md to English and make English the repo-wide language
 
-Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -619,7 +619,7 @@ Summarise per file how many lines and what kind (comment, string literal, config
 ```bash
 cd /home/snake/Dokumente/Projekte/01_normly/normly-app
 git status --short                       # expected: clean
-git log --oneline main..HEAD             # expected: 2 spec commits + 1 plan commit + 7 task commits (Tasks 2-8)
+git log --oneline main..HEAD             # expected: 2 spec commits + 2 plan commits + 7 task commits (Tasks 2-8)
 git grep -n -E '01-einfuehrung|02-produktueberblick|03-anforderungen|05-verifikation|06-anhaenge|lizenzmodell\.md|normen-graph|normly_(Entwicklungsphasen|Verarbeitungskette)' -- . ':!docs/superpowers'   # expected: empty
 python3 -I $S/german_left.py CLAUDE.md GOVERNANCE.md TRADEMARK.md MAINTAINERS.md docs/glossary.md   # expected: empty
 $S/docsvenv/bin/zensical build 2>&1 | tee $S/build-final.log | tail -3; grep -c '^3 issues found' $S/build-final.log   # expected: 1
