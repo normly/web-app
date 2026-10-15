@@ -84,31 +84,56 @@ added here.
 
 | German | English |
 |---|---|
+| abgelöst durch / ersetzt / ergänzt (ADR status) | superseded by / replaces / amends |
 | Abstammung | lineage |
 | Akzeptanzkriterium, Abnahmekriterium | acceptance criterion (both; the SRS uses them as synonyms) |
+| Alterung (of tombstones) | expiry |
 | anerkannter Stand der Technik | recognized state of the art |
 | Attributionserfassung | attribution capture (exception to Erfassung → acquisition: recording attribution data per answer) |
+| Aufbewahrung | retention |
+| Aufräumbefehl | cleanup command |
 | Ausgabestand | edition |
 | Auslieferung (shipping software to operators) | shipping |
 | Ausspielung (output to users at the end of the processing chain) | output |
 | Begründung / Entscheidung / Konsequenz | Rationale / Decision / Consequence |
 | Beitragsfassade | contribution facade (explained at first mention) |
+| Beobachtungsliste | watchlist |
+| beschlossen / favorisiert / offen (ADR status) | accepted / preferred / open |
 | Bestand, Bestände | collection, collections |
+| Betreiber | operator |
+| Bezeichner (of a norm, e.g. "DIN EN ISO 9001") | designation (code: `DocumentDesignation`) |
+| Bezeichner (programming sense) | identifier |
+| Entscheidungsdokumentation | architecture decision records |
 | Erfassung, Datenerfassung | acquisition, data acquisition |
 | Ersetzung | replacement (matches the graph edge `REPLACES`; the existing "supersession" in the README stays) |
 | Herausgeber | publisher |
 | Herkunft (attribute) | provenance |
 | (sachliche) Herkunftsangabe | (factual) statement of origin |
+| Herkunftsadresse | client IP address |
+| Identifikator, Identifikatorschema | identifier, identifier scheme |
+| Kennung (record ID, e.g. "zurückgezogene Kennungen", "Google-Kennung") | ID |
 | kommunizierbarer Prototyp | presentable prototype |
+| Kontingent | quota |
 | Konto-, Kontolöschung | account deletion |
+| Kontobezug | account reference |
+| Kopierschutz | copy protection |
+| kryptographisches Löschen | cryptographic erasure |
 | Lizenzklassifikation | license classification (distinct from rights classification) |
+| Löschprotokoll | deletion log |
+| Massenextraktion | bulk extraction |
 | Nachtrag | addendum |
+| Nachverfolgbarkeit | traceability |
+| Neulieferung | re-delivery |
+| Nicht betroffen (ADR label) | Not affected |
 | Norm, Normen | norm, norms |
 | Normen und Regelwerke / Normen- und Regelwerkswissen | norms and standards / knowledge about norms and standards |
 | Normenausschuss, Trägerorganisation | unchanged (German loanwords, see above) |
 | Nutzungsvorbehalt | rights reservation |
+| Offene Punkte | Open items |
+| Partnerschaftsleiter / Volltext-Sprung (ADR-013) | partnership ladder / full-text leap |
 | Quellenregister | source register |
 | Quelllieferung | source delivery |
+| Ratenbegrenzung | rate limiting |
 | Rechteklassifikation | rights classification |
 | Rechtsraum | jurisdiction |
 | Referenzgraph | reference graph |
@@ -117,10 +142,15 @@ added here.
 | Rücknahme | withdrawal |
 | Rückzug | withdrawal (same concept as Rücknahme, REQ-PIPE-005) |
 | Schlüssel, Datenschlüssel je Herausgeber | data key per publisher |
+| Schlüsselzeremonie | key ceremony |
+| Selbsthoster | self-hosters |
 | Sicherung | backup |
 | Tombstone | tombstone |
 | Trägerschaft | stewardship |
+| Umsetzung (ADR label) | Implementation |
 | Verarbeitungskette | processing chain |
+| Verworfen (ADR label) | Rejected |
+| Widerruf | revocation (code: `revoked_at`) |
 | Wissensbasis, Wissensbestand | knowledge base |
 
 **Compounds follow their stem.** Rechtsnorm → legal norm, EU-Normen → EU
