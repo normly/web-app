@@ -150,7 +150,7 @@ the most expensive legacy burden.
   number kept separate.
 - **One standard = one node, language-independent.** DIN EN ISO 9001 and
   BS EN ISO 9001 are the same document; national adoptions and
-  translations are relationships or attributes.
+  translations are relationships and attributes, respectively.
 - **License classification per jurisdiction**, not global. § 5 UrhG
   applies only in Germany. → ADR-011
 
