@@ -2,8 +2,8 @@
 
 ## Guiding principle
 
-The free core of normly must be able to exist independently of the economic
-interests of individual participants. This is why the governing body and
+The free core of normly should be able to exist independently of the economic
+interests of individual participants. This is why stewardship and
 commercial exploitation are kept separate.
 
 ## Structure
