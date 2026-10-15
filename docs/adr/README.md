@@ -1,200 +1,199 @@
-# normly — Entscheidungsdokumentation (ADR)
+# normly — Architecture decision records (ADR)
 
-Stand: 10.08.2026 · Bezug: SRS/SDD v0.2 (Redline)
+As of: 10.08.2026 · Reference: SRS/SDD v0.2 (redline)
 
-Dieses Dokument hält fest, **was** entschieden wurde und **warum**. Die
-Umsetzung steht in der SRS/SDD; hier stehen die Begründungen, die dort
-keinen Platz haben und die erfahrungsgemäß als erstes vergessen werden.
+This document records **what** was decided and **why**. The
+implementation is in the SRS/SDD; here are the rationales that have no
+place there and that, experience shows, are the first to be forgotten.
 
-Status je Eintrag: `beschlossen` · `favorisiert` · `offen`
-
----
-
-## ADR-001 — Open-Core-Modell statt White-Label-Produkt
-
-**Status:** beschlossen
-
-**Entscheidung:** Ein quelloffener, selbst hostbarer Kern trägt die frei
-verfügbare Wissensbasis und den Referenzgraph. Kommerzielle Zusatzdienste
-setzen darauf auf und sollen in eine eigene Gesellschaft ausgegründet werden.
-
-**Begründung:** Die ursprüngliche Vision („Normenwissen für jeden") und das
-White-Label-Geschäftsmodell widersprachen sich. Der Rechtsformwechsel allein
-löst das Urheberrechtsproblem nicht — auch eine gemeinnützige Organisation,
-die DIN-/VDI-/DVGW-Volltexte weitergibt, bleibt für diese Häuser ein
-Wettbewerber. Tragfähig ist nur die Trennung: frei ist, was frei sein darf;
-bezahlt wird für Prozess, Haftungssicherheit und Integration.
-
-**Konsequenz:** Der Kern darf keine Abhängigkeit auf proprietäre Bestandteile
-haben (REQ-OSS-002). Verworfen wurde die Variante „alles in einer GmbH".
+Status per entry: `accepted` · `preferred` · `open`
 
 ---
 
-## ADR-002 — Lizenzmodell: AGPL-3.0 / Apache-2.0 / ODbL
+## ADR-001 — Open-core model instead of a white-label product
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Kern unter AGPL-3.0. Client-SDKs und API-Spezifikation unter
-Apache-2.0. Daten und Referenzgraph unter offener Datenlizenz mit
-Share-Alike-Wirkung (ODbL).
+**Decision:** An open-source, self-hostable core carries the freely
+available knowledge base and the reference graph. Commercial add-on services
+build on it and are to be spun off into a separate company.
 
-**Begründung:** Die AGPL schließt über § 13 die Lücke der Netzwerknutzung —
-wer den Kern als gehosteten Dienst betreibt, muss Änderungen offenlegen. Das
-ist der Schutz gegen einen Fork durch eine Normungsorganisation oder einen
-großen Softwarehersteller. Apache-2.0 für SDKs und API-Spezifikation sichert
-maximale Verbreitung dort, wo keine schützenswerte Logik liegt.
+**Rationale:** The original vision ("knowledge about norms for everyone") and the
+white-label business model contradicted each other. Changing the legal form alone
+does not solve the copyright problem — even a non-profit organization
+that passes on DIN/VDI/DVGW full texts remains a
+competitor for these organizations. Only the separation is viable: free is what may be free;
+payment is for process, liability certainty and integration.
 
-**Verworfen:** Apache-2.0 als alleinige Kernlizenz (gibt den Code ohne
-Gegenleistung an potenzielle Wettbewerber). MPL-2.0 (dateibasiertes Copyleft
-ist durch Auslagern in neue Dateien umgehbar, SaaS-Lücke bleibt offen —
-kombiniert die Nachteile beider Seiten).
-
-**Wichtig:** Die AGPL blockiert die Drittsoftware-Integration nicht. Ein
-Plugin, das über HTTP mit einer normly-Instanz spricht, ist ein getrenntes
-Programm. Die AGPL greift erst, wenn jemand den Server selbst modifiziert und
-betreibt.
+**Consequence:** The core must not have any dependency on proprietary components
+(REQ-OSS-002). The variant "everything in one GmbH" was rejected.
 
 ---
 
-## ADR-003 — Beitragsmodell: DCO statt CLA
+## ADR-002 — License model: AGPL-3.0 / Apache-2.0 / ODbL
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Externe Beiträge über das Developer Certificate of Origin.
-Jeder Commit trägt eine `Signed-off-by`-Zeile. Keine Rechteübertragung.
+**Decision:** Core under AGPL-3.0. Client SDKs and API specification under
+Apache-2.0. Data and reference graph under an open data license with
+share-alike effect (ODbL).
 
-**Begründung:** Das DCO senkt die Hürde für Beitragende und passt zum Anspruch
-auf frei zugängliches Normenwissen.
+**Rationale:** Through § 13, the AGPL closes the network-use gap —
+anyone who operates the core as a hosted service must disclose changes. That
+is the protection against a fork by a standardization body or a
+large software vendor. Apache-2.0 for SDKs and API specification ensures
+maximum adoption where no logic worth protecting resides.
 
-**Bewusst in Kauf genommen:** Damit ist **Dual-Licensing dauerhaft
-ausgeschlossen.** Sobald der erste externe Beitrag im Kern liegt, sind die
-Rechte verteilt und niemand kann mehr eine kommerzielle Ausnahmelizenz zur
-AGPL verkaufen. Diese Einnahmequelle entfällt.
+**Rejected:** Apache-2.0 as the sole core license (gives the code away without
+anything in return to potential competitors). MPL-2.0 (file-based copyleft
+can be circumvented by moving code into new files, the SaaS gap stays open —
+combines the disadvantages of both sides).
 
-**Verworfen:** CLA (hätte Dual-Licensing ermöglicht, wurde zugunsten der
-Community-Offenheit abgelehnt). Ebenfalls verworfen: DCO mit permissiver
-Inbound-Lizenz (Beiträge unter Apache-2.0, Auslieferung unter AGPL) — hätte
-die Relizenzierung offengehalten.
-
-**Offen:** Wer ist Rechteinhaber im LICENSE- und Copyright-Header — Person,
-künftige Trägerorganisation oder GmbH? Vor dem ersten externen Beitrag klären.
-
----
-
-## ADR-004 — STACKIT Git als führende Plattform, GitHub als Beitragsfassade
-
-**Status:** war teilweise abgelöst durch ADR-019 (2026-09-05), das die
-Beitragsfassade auf GitHub verwarf. Seit ADR-021 (2026-09-14) gilt für
-Quellcode, CI und Registry wieder die hier ursprünglich getroffene
-GitHub-Aufteilung, allerdings mit GitHub als führend statt als reiner
-Beitragsfassade — siehe ADR-021 für den aktuellen Stand.
-
-**Entscheidung:** STACKIT Git (Forgejo) mit STACKIT Pipelines ist führend für
-Quellcode, Build, Artefakte, Zugangsdaten und Deployment. GitHub dient als
-öffentliche Beitragsfassade: Issues, Pull Requests, Sichtbarkeit. Dort keine
-Zugangsdaten, Runner, Build-Artefakte oder Deployment-Rechte.
-
-**Begründung:** Ein öffentliches Image und öffentlicher Quellcode sind
-souveränitätsrechtlich unkritisch — schützenswert sind Betrieb, Daten und
-Credentials. Der Split gibt Sichtbarkeit ohne Souveränitätsverlust und ist
-gegenüber Normungspartnern sogar das stärkere Argument: der Code ist offen und
-prüfbar, Daten und Betrieb liegen in Deutschland.
-
-**Praktisch:** STACKIT Pipelines sind weitgehend GitHub-Actions-kompatibel,
-ein späterer Wechsel der Workflows ist billig. Beiträge werden nur an **einer**
-Stelle entgegengenommen — zwei parallele Issue-Tracker wirken wie ein totes
-Projekt.
-
-**Verworfen:** GitHub + Vercel als Ursprung (hätte eine Ausnahmeklausel gegen
-die eigene Spezifikation erfordert). Reines STACKIT ohne öffentliche Fassade
-(Verlust an Sichtbarkeit und externen Beiträgen).
+**Important:** The AGPL does not block third-party software integration. A
+plugin that talks to a normly instance over HTTP is a separate
+program. The AGPL only applies when someone modifies and
+operates the server itself.
 
 ---
 
-## ADR-005 — Kein Vercel, Deployment durchgängig auf STACKIT
+## ADR-003 — Contribution model: DCO instead of CLA
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Kein Vercel. Next.js als Container (`standalone`-Output) über
-die STACKIT Container Registry, Betrieb zunächst auf VM mit Compose, später
+**Decision:** External contributions via the Developer Certificate of Origin.
+Every commit carries a `Signed-off-by` line. No transfer of rights.
+
+**Rationale:** The DCO lowers the barrier for contributors and fits the aim
+of freely accessible knowledge about norms.
+
+**Knowingly accepted:** This **permanently rules out
+dual licensing.** As soon as the first external contribution is in the core, the
+rights are distributed and no one can sell a commercial exception license to the
+AGPL any longer. This source of revenue is lost.
+
+**Rejected:** CLA (would have enabled dual licensing, was turned down in favor of
+community openness). Also rejected: DCO with a permissive
+inbound license (contributions under Apache-2.0, shipping under AGPL) — would have
+kept relicensing open.
+
+**Open:** Who is the rights holder in the LICENSE and copyright header — a person,
+a future Trägerorganisation or a GmbH? Clarify before the first external contribution.
+
+---
+
+## ADR-004 — STACKIT Git as the leading platform, GitHub as contribution facade
+
+**Status:** was partially superseded by ADR-019 (2026-09-05), which rejected the
+contribution facade (a public front end on GitHub that only receives contributions) on GitHub. Since ADR-021 (2026-09-14), the GitHub split originally made here applies again to
+source code, CI and registry, but with GitHub as leading instead of as a mere
+contribution facade — see ADR-021 for the current state.
+
+**Decision:** STACKIT Git (Forgejo) with STACKIT Pipelines is leading for
+source code, build, artifacts, credentials and deployment. GitHub serves as the
+public contribution facade: issues, pull requests, visibility. No
+credentials, runners, build artifacts or deployment rights there.
+
+**Rationale:** A public image and public source code are
+uncritical in terms of sovereignty — what is worth protecting is operations, data and
+credentials. The split gives visibility without loss of sovereignty and is
+even the stronger argument towards standardization partners: the code is open and
+auditable, data and operations are in Germany.
+
+**In practice:** STACKIT Pipelines are largely GitHub Actions compatible,
+a later switch of the workflows is cheap. Contributions are accepted in only **one**
+place — two parallel issue trackers look like a dead
+project.
+
+**Rejected:** GitHub + Vercel as the origin (would have required an exception clause against
+our own specification). Pure STACKIT without a public facade
+(loss of visibility and external contributions).
+
+---
+
+## ADR-005 — No Vercel, deployment entirely on STACKIT
+
+**Status:** accepted
+
+**Decision:** No Vercel. Next.js as a container (`standalone` output) via
+the STACKIT Container Registry, operation initially on a VM with Compose, later
 SKE.
 
-**Begründung:** Vercel bindet automatische Deployments nur an GitHub, GitLab
-und Bitbucket — Forgejo ist nicht dabei, der Komfortvorteil entfällt also
-ohnehin. Der Mehraufwand ist zu Projektbeginn am kleinsten, und die
-US-Ausnahmeklausel in der SRS entfällt vollständig.
+**Rationale:** Vercel ties automatic deployments only to GitHub, GitLab
+and Bitbucket — Forgejo is not among them, so the convenience advantage is lost
+anyway. The extra effort is smallest at the start of the project, and the
+US exception clause in the SRS is dropped entirely.
 
-**Nebenbedingung:** LLM-Inferenz und Vektorsuche laufen ohnehin nicht auf
-Serverless-Plattformen (Laufzeitgrenzen, keine GPUs). Der Kern ist daher als
-eigenständiger Dienst mit HTTP-API konzipiert.
+**Side condition:** LLM inference and vector search do not run on
+serverless platforms anyway (runtime limits, no GPUs). The core is therefore designed as a
+standalone service with an HTTP API.
 
 ---
 
-## ADR-006 — PostgreSQL statt Neo4j für den Referenzgraph
+## ADR-006 — PostgreSQL instead of Neo4j for the reference graph
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** PostgreSQL Flex mit pgvector. Graphzugriff hinter einer
-abstrahierten Schnittstelle gekapselt (REQ-GRAPH-004), Speichertechnologie
-austauschbar.
+**Decision:** PostgreSQL Flex with pgvector. Graph access encapsulated behind an
+abstracted interface (REQ-GRAPH-004), storage technology
+interchangeable.
 
-**Begründung:**
+**Rationale:**
 
-1. STACKIT bietet kein Managed Neo4j. Neo4j müsste selbst auf SKE betrieben
-   werden — Backup, Failover, Updates inklusive. PostgreSQL Flex bringt das mit.
-2. Neo4j Community (GPLv3) hat kein Clustering und keine Hot Backups; Enterprise
-   ist proprietär und teuer. Beides untergräbt das Self-Hosting-Versprechen aus
+1. STACKIT offers no managed Neo4j. Neo4j would have to be operated on SKE ourselves
+   — backup, failover, updates included. PostgreSQL Flex provides this out of the box.
+2. Neo4j Community (GPLv3) has no clustering and no hot backups; Enterprise
+   is proprietary and expensive. Both undermine the self-hosting promise of
    REQ-OSS-002.
-3. Die Abfragen sind flach (ein bis drei Sprünge, begrenzte Ersetzungsketten).
-   Rekursive CTEs reichen. Neo4j spielt seine Stärke bei tiefen, variabel langen
-   Traversierungen aus — nicht das Muster hier.
-4. Graph und Embeddings liegen in derselben Datenbank, derselben Transaktion,
-   demselben Backup. Zwei Systeme synchron zu halten ist eine dauerhafte
-   Fehlerquelle.
+3. The queries are shallow (one to three hops, bounded replacement chains).
+   Recursive CTEs suffice. Neo4j plays to its strength in deep, variable-length
+   traversals — not the pattern here.
+4. Graph and embeddings live in the same database, the same transaction,
+   the same backup. Keeping two systems in sync is a permanent
+   source of errors.
 
-**Auch bei weltweiter Abdeckung gültig:** Bei geschätzt 2–4 Mio. Dokumenten und
-50–200 Mio. Kanten bleibt das für PostgreSQL unkritisch. Neo4j skaliert nicht
-horizontal durch Sharding; Postgres lässt sich nach Herausgeber oder Rechtsraum
-partitionieren.
+**Valid even at worldwide coverage:** With an estimated 2–4 million documents and
+50–200 million edges, this remains uncritical for PostgreSQL. Neo4j does not scale
+horizontally through sharding; Postgres can be partitioned by publisher or
+jurisdiction.
 
-**Das eigentliche Skalierungsrisiko** ist der Vektorindex, nicht der Graph.
-Bei weltweiter Abdeckung sind mehrere Milliarden Textabschnitte zu erwarten —
-dort wird pgvector deutlich früher zum Engpass. Retrieval-Schicht daher ebenso
-kapseln.
+**The actual scaling risk** is the vector index, not the graph.
+At worldwide coverage, several billion text sections are to be expected —
+there pgvector becomes the bottleneck much sooner. Therefore encapsulate the retrieval layer
+as well.
 
 ---
 
-## ADR-007 — Referenzgraph bleibt offen
+## ADR-007 — Reference graph stays open
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Der Referenzgraph wird nicht zurückgehalten, sondern unter
-ODbL veröffentlicht — geschichtet in einen freien und einen kommerziellen Teil.
+**Decision:** The reference graph is not withheld but published under
+ODbL — layered into a free and a commercial part.
 
-**Begründung:** Offen heißt nicht schutzlos. Das Datenbankherstellerrecht
-(§§ 87a ff. UrhG) schützt die wesentliche Investition in Beschaffung und
-Aufbereitung und macht die Share-Alike-Klausel durchsetzbar: Wer den Graph in
-ein eigenes Produkt einbaut, muss die abgeleitete Datenbank unter denselben
-Bedingungen offenlegen. Das ist bei Daten der Gegenpart zur AGPL beim Code.
+**Rationale:** Open does not mean unprotected. The database maker's right
+(§§ 87a ff. UrhG (German Copyright Act)) protects the substantial investment in procurement and
+preparation and makes the share-alike clause enforceable: anyone who builds the graph into
+their own product must disclose the derived database under the same
+terms. For data, this is the counterpart to the AGPL for code.
 
-Geheimhaltung wäre der schwächere Schutz — der Graph ist aus den Quelldokumenten
-rekonstruierbar. Ohne den Graph bliebe vom freien Kern ein Chatbot über
-DGUV-/BAuA-Dokumente übrig; die Trägerorganisation hätte keine
-Existenzberechtigung.
+Secrecy would be the weaker protection — the graph can be reconstructed from the source documents.
+Without the graph, all that would remain of the free core is a chatbot over
+DGUV/BAuA documents; the Trägerorganisation would have no
+reason to exist.
 
-**Trennlinie:**
+**Dividing line:**
 
-| Frei (ODbL) | Kommerziell |
+| Free (ODbL) | Commercial |
 |---|---|
-| Schema, Identifikatoren | Aktualitätsgarantie mit SLA |
-| Verweise zwischen öffentlichen Regelwerken | Verweise auf Abschnittsebene in lizenzierten Normen |
-| Ersetzungsketten, Gültigkeitsstände | Konfidenzangaben, Belegstellen für Audits |
-| Verweise Gesetz → Norm | Branchenspezifische Anreicherungen |
-| Periodischer Dump | SLA-API mit Änderungsbenachrichtigung |
+| Schema, identifiers | Currency guarantee with SLA |
+| References between public standards | Section-level references in licensed norms |
+| Replacement chains, validity states | Confidence ratings, evidence citations for audits |
+| References law → norm | Industry-specific enrichments |
+| Periodic dump | SLA API with change notification |
 
-Der letzte Punkt ist der wirtschaftlich entscheidende: **Ein monatlicher Dump
-und eine garantiert aktuelle API mit Haftungszusage sind verschiedene Produkte.
-Firmen zahlen für Verlässlichkeit, nicht für Daten.**
+The last point is the economically decisive one: **A monthly dump
+and a guaranteed up-to-date API with a liability commitment are different products.
+Companies pay for reliability, not for data.**
 
 ---
 
