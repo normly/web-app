@@ -73,7 +73,11 @@ describe("HomePageContent", () => {
         return Promise.resolve(new Response(JSON.stringify([]), { status: 401 }));
       }
       if (url === "/api/chat/new-session") {
-        return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+        // Resolve on a later tick, like a real request: the list is only
+        // cleared once the server has answered.
+        return new Promise((resolve) =>
+          setTimeout(() => resolve(new Response(JSON.stringify({ ok: true }), { status: 200 })), 20),
+        );
       }
       return Promise.resolve(
         new Response(JSON.stringify({ answer: "Answer", answer_type: "fallback", citations: [] })),
@@ -104,6 +108,8 @@ describe("HomePageContent", () => {
     await waitFor(() =>
       expect(global.fetch).toHaveBeenCalledWith("/api/chat/new-session", { method: "POST" }),
     );
-    expect(screen.queryByText("Ist DIN EN ISO 9001 gültig?")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByText("Ist DIN EN ISO 9001 gültig?")).not.toBeInTheDocument(),
+    );
   });
 });
