@@ -1,186 +1,188 @@
-# normly — Arbeitsanweisungen
+# normly — Working instructions
 
-Plattform für Normen- und Regelwerkswissen. Open Core: freier Kern unter
-AGPL-3.0, kommerzielle Dienste getrennt davon.
+Platform for knowledge of norms and standards. Open core: free core under
+AGPL-3.0, commercial services kept separate from it.
 
-Ausführlicher Kontext: `docs/adr/` (Entscheidungen samt Begründung),
-`docs/srs/` (Anforderungen, Einstieg über `docs/srs/README.md` mit dem
-Requirement-Index). Diese Datei enthält nur, was bei **jeder** Aufgabe gilt.
+Detailed context: `docs/adr/` (decisions with their rationale),
+`docs/srs/` (requirements, entry point `docs/srs/README.md` with the
+requirement index). This file contains only what applies to **every** task.
 
-## Nicht verhandelbar
+## Non-negotiable
 
-Diese Regeln haben rechtliche oder strategische Gründe. Bei Konflikt mit einer
-Aufgabe: nachfragen, nicht umgehen.
+These rules have legal or strategic reasons. In case of conflict with a
+task: ask, do not work around them.
 
-- **Keine US-Dienste für Betrieb, Nutzerdaten, Normen-Wissensbasis, Secrets
-  oder Produktions-Deployment.** Das läuft ausschließlich auf STACKIT, ohne
-  Ausnahme. **Ausnahme seit ADR-021 (2026-09-14):** Quellcode, CI/CD und
-  Container-Registry des freien Kerns liegen auf GitHub
-  (`github.com/normly/web-app`) — einfachere Kollaboration war der
-  ausschlaggebende Grund. STACKIT Git (`jwokittel/normly-webapp`) wird
-  dafür nicht mehr genutzt, ist für die Wissensbasis nicht mehr
-  vorgesehen (ADR-025) und wird gelöscht; die Wissensbasis liegt als Dump
-  im STACKIT Object Storage. → ADR-021 (löst ADR-019 ab)
-- **Kein Scraping kommerziell verwerteter Katalogbestände** (DIN Media/Nautos
-  und vergleichbare). Nur vertraglich beziehen. Gilt auch bei öffentlicher
-  Zugänglichkeit. → ADR-012
-- **Keine personalisierte Werbung**, keine Nutzerprofile zu Werbezwecken. →
-  ADR-009
-- **Keine urheberrechtlich geschützten Volltexte** in freien Exporten oder im
-  öffentlichen Repository.
-- **Keine DRM-, Offline-Schutz- oder Kennzeichnungslogik im freien Kern.**
-  Offenliegender Schutzcode ist kein Schutz. Der Kern stellt nur Schnittstellen
-  bereit. → ADR-015
-- **Der Kern darf nicht von proprietären Bestandteilen abhängen.** Er muss ohne
-  sie baubar, testbar und lauffähig sein.
-- **Sprachmodelle nur als Open-Weight-Modelle mit OSI-Lizenz, betrieben auf
-  STACKIT.** Keine Anfrage erreicht den Modellhersteller; europäische
-  Herkunft ist Präferenz, nicht Pflicht. → ADR-022
+- **No US services for operations, user data, the norms knowledge base,
+  secrets or production deployment.** These run exclusively on STACKIT,
+  without exception. **Exception since ADR-021 (2026-09-14):** source code,
+  CI/CD and the container registry of the free core live on GitHub
+  (`github.com/normly/web-app`) — easier collaboration was the deciding
+  reason. STACKIT Git (`jwokittel/normly-webapp`) is no longer used for
+  this, is no longer intended for the knowledge base (ADR-025) and will be
+  deleted; the knowledge base lives as a dump in STACKIT Object Storage.
+  → ADR-021 (supersedes ADR-019)
+- **No scraping of commercially exploited catalog holdings** (DIN
+  Media/Nautos and comparable ones). Obtain only by contract. Applies even
+  when publicly accessible. → ADR-012
+- **No personalized advertising**, no user profiles for advertising
+  purposes. → ADR-009
+- **No copyrighted full texts** in free exports or in the public
+  repository.
+- **No DRM, offline-protection or marking logic in the free core.**
+  Exposed protection code is no protection. The core only provides
+  interfaces. → ADR-015
+- **The core must not depend on proprietary components.** It must be
+  buildable, testable and runnable without them.
+- **Language models only as open-weight models with an OSI license,
+  operated on STACKIT.** No request reaches the model vendor; European
+  origin is a preference, not a requirement. → ADR-022
 
-## Bei jeder Codeänderung
+## For every code change
 
-- **Lizenzheader** in neuen Quelldateien: AGPL-3.0 (Kern), Apache-2.0 (SDKs,
-  API-Spezifikation).
-- **Commits** brauchen `Signed-off-by` (DCO). Conventional Commits, SemVer.
-- **Kein direkter Push auf `main`** — Merge Request mit Review und grüner
-  Pipeline.
-- **Keine Secrets im Code**, auch nicht in Tests oder Beispielen.
+- **License headers** in new source files: AGPL-3.0 (core), Apache-2.0
+  (SDKs, API specification).
+- **Commits** need `Signed-off-by` (DCO). Conventional Commits, SemVer.
+- **No direct push to `main`** — merge request with review and a green
+  pipeline.
+- **No secrets in code**, not even in tests or examples.
 
-## Arbeitsweise: Wann abstimmen, wann direkt umsetzen
+## Working mode: when to align first, when to implement directly
 
-Diese Regeln gelten in jedem Permission-Modus, auch in Auto-Mode. Auto-Mode betrifft
-nur Werkzeugentscheidungen (Dateien lesen, Befehle ausführen), nicht die Frage,
-ob ein Design abgestimmt wird.
+These rules apply in every permission mode, including auto mode. Auto mode
+only affects tool decisions (reading files, running commands), not the
+question of whether a design is aligned first.
 
-### Zuerst `brainstorming`-Skill aufrufen und Rückfragen stellen, wenn mindestens eines zutrifft:
-- eine neue Komponente, Seite, Route, Tabelle oder ein neuer Service entsteht
-- sich eine Interaktion oder ein Verhalten für den Nutzer ändert (Ablauf, Zustand, Sichtbarkeit, Bedienung)
-- mehr als zwei Dateien angefasst werden
-- eine Schnittstelle, ein Datenmodell oder eine Migration betroffen ist
-- die Anforderung mehr als eine sinnvolle Umsetzung zulässt
+### First invoke the `brainstorming` skill and ask clarifying questions if at least one of these applies:
+- a new component, page, route, table or service is created
+- an interaction or a behavior changes for the user (flow, state, visibility, operation)
+- more than two files are touched
+- an interface, a data model or a migration is affected
+- the requirement allows more than one sensible implementation
 
-Erst nach bestätigtem Design wird implementiert. Keine Edits vorher.
+Implementation starts only after the design is confirmed. No edits before that.
 
-### Direkt umsetzen, ohne Brainstorming:
-- Bugfix mit klarer Ursache
-- reine Optik ohne Verhaltensänderung (Farbe, Abstand, Text, Icon-Tausch)
-- Änderungen an höchstens zwei Dateien, die genau eine Umsetzung zulassen
+### Implement directly, without brainstorming:
+- bug fix with a clear cause
+- purely visual change without a change in behavior (color, spacing, text, icon swap)
+- changes to at most two files that allow exactly one implementation
 
-Im Zweifel gilt die erste Liste.
+When in doubt, the first list applies.
 
-### Weitere Skills
-- Fehlersuche immer mit `systematic-debugging`, nicht ad hoc.
-- Vor „fertig" immer `verification-before-completion`.
+### Other skills
+- Debugging always with `systematic-debugging`, not ad hoc.
+- Before "done", always `verification-before-completion`.
 
-## Architekturregeln
+## Architecture rules
 
-- **Datenbankzugriff nur über die Repository-Schicht.** Keine SQL- oder
-  graphspezifischen Abfragen in der Fachlogik — die Speichertechnologie muss
-  austauschbar bleiben. → ADR-006
-- **Abstammung mitführen.** Jedes abgeleitete Artefakt (Abschnitt, Segment,
-  Einbettung, Graphkante, Exportdatei) referenziert seine Quelllieferung. Ohne
-  das ist die zugesagte Rücknahme nicht einlösbar. Nachträglich nicht
-  herstellbar.
-- **Graph zuerst, Modell nur bei Bedarf.** Strukturfragen (Ersetzung,
-  Gültigkeit, Verweise) werden deterministisch aus dem Graph beantwortet, ohne
-  LLM-Aufruf. → ADR-008
-- **Rechteklassifikation ist das einzige Tor.** Kein zweiter Prüfpfad, keine
-  verteilten Prüfungen. Fehlende Klassifikation heißt „nicht verarbeiten", nicht
-  „vorläufig erlaubt".
-- **Verarbeitungsschritte idempotent.** Wiederholung erzeugt kein abweichendes
-  Ergebnis.
-- **Lizenzierte Bestände getrennt je Herausgeber** — inklusive eigenem
-  Datenschlüssel. Ermöglicht kryptographisches Löschen bei Vertragsende, auch in
-  Backups. Berechtigungsprüfung bei jedem Zugriff. → ADR-014
-- **Offline-Zugriff nur über die Abstraktionsschicht.** Keine direkten
-  Speicherzugriffe (IndexedDB, Keychain, Keystore) in der Anwendungslogik —
-  Browser- und native Ablage müssen austauschbar bleiben. → ADR-016
-- **Alles Persistierte verschlüsselt:** Datenbank, Objektspeicher, Indizes,
-  Protokolle, Sicherungen. Schlüssel nie neben den Daten.
+- **Database access only through the repository layer.** No SQL or
+  graph-specific queries in the domain logic — the storage technology must
+  remain replaceable. → ADR-006
+- **Carry lineage along.** Every derived artifact (section, segment,
+  embedding, graph edge, export file) references its source delivery.
+  Without this, the promised withdrawal cannot be honored. Cannot be
+  established retroactively.
+- **Graph first, model only when needed.** Structural questions
+  (replacement, validity, references) are answered deterministically from
+  the graph, without an LLM call. → ADR-008
+- **Rights classification is the only gate.** No second check path, no
+  distributed checks. Missing classification means "do not process", not
+  "provisionally allowed".
+- **Make processing steps idempotent.** Repetition produces no different
+  result.
+- **Licensed holdings kept separate per publisher** — including a data key
+  per publisher. Enables cryptographic deletion at the end of a contract,
+  even in backups. Authorization check on every access. → ADR-014
+- **Offline access only through the abstraction layer.** No direct storage
+  access (IndexedDB, Keychain, Keystore) in the application logic —
+  browser and native storage must remain interchangeable. → ADR-016
+- **Everything persisted is encrypted:** database, object storage, indexes,
+  logs, backups. Keys never next to the data.
 
-## Neue Datenquellen
+## New data sources
 
-Jede Quelle braucht einen Registereintrag mit Kategorie:
+Every source needs a register entry with a category:
 
-| | Kategorie | Grundlage |
+| | Category | Basis |
 |---|---|---|
-| A | Amtliche Werke, Rechtstexte | § 5 UrhG o. Ä. |
-| B | Frei lizenzierte Regelwerke | Lizenz des Herausgebers |
-| C | Vertraglich bezogen | Vertragsreferenz |
-| D | Sonstige öffentlich zugänglich | Einzelfallprüfung + § 44b Abs. 3 |
+| A | Official works, legal texts | § 5 UrhG (German Copyright Act) or similar |
+| B | Freely licensed standards | License of the publisher |
+| C | Obtained by contract | Contract reference |
+| D | Other publicly accessible | Case-by-case review + § 44b Abs. 3 (German Copyright Act, rights reservation for text and data mining) |
 
-Keine Kategorie zuordenbar → nicht erfassen. Kategorie D niemals für
-kommerziell verwertete Kataloge.
+No category assignable → do not acquire. Never category D for commercially
+exploited catalogs.
 
-## Technischer Rahmen
+## Technical framework
 
-- **Datenhaltung:** PostgreSQL (Flex) mit pgvector — Graph und Embeddings in
-  einer Datenbank. Kein Neo4j. → ADR-006
-- **Auslieferung:** signierte Container-Images plus lauffähiges Compose-Setup.
-  Der Wissensbestand liegt **nicht** im Image, sondern als eigenständig
-  versionierter Dump. Code und Daten getrennt versioniert. → ADR-010
-- **Registry:** GitHub Container Registry (GHCR) im Repository
-  `normly/web-app`, führend für den freien Kern. → ADR-021
-- **CI:** GitHub Actions im Repository `normly/web-app`. Der Port von
-  `.forgejo/workflows/ci.yml` steht als Folgearbeit noch aus. → ADR-021
-- **Frontend:** Next.js mit `standalone`-Output, zugleich installierbare PWA.
-  Keine plattformspezifischen Primitive — alles muss im Container hinter
-  beliebigem Reverse Proxy laufen.
-- **Mobil:** PWA ist der einzige mobile Zugang bis Phase 2. Eine native App
-  kommt erst mit lizenzierten Offline-Volltexten und gehört zur kommerziellen
-  Schicht. Nicht an ein eigenes Sprachmodell gekoppelt. → ADR-016
-- **Kommerzielle Schicht heißt nicht kostenpflichtiger Zugang.** Die native App
-  ist kostenfrei, freie Inhalte sind darin ohne Konto abrufbar. Entgelt nur für
-  lizenzierte Volltexte und deren geschützte Offline-Nutzung.
-- **Keine Kontopflicht für freie Inhalte.** Suche, Referenzgraph und freie
-  Regelwerke funktionieren ohne Anmeldung. Konto nur für: höhere Kontingente,
-  Verläufe, Uploads, lizenzierte Inhalte, Offline-Nutzung, Bezahldienste — diese
-  Liste ist abschließend. → ADR-017
-- **SSO ist optional**, nie Voraussetzung für freie Inhalte. → REQ-INT-003
-- **Kontingentzählung serverseitig**, nie über Cookies oder Browser-Speicher.
-  Gleiche Infrastruktur wie die Ratenbegrenzung aus REQ-SEC-004.
+- **Data storage:** PostgreSQL (Flex) with pgvector — graph and embeddings
+  in one database. No Neo4j. → ADR-006
+- **Distribution:** signed container images plus a runnable Compose setup.
+  The knowledge base is **not** in the image but exists as an
+  independently versioned dump. Code and data versioned separately.
+  → ADR-010
+- **Registry:** GitHub Container Registry (GHCR) in the repository
+  `normly/web-app`, primary for the free core. → ADR-021
+- **CI:** GitHub Actions in the repository `normly/web-app`. Porting
+  `.forgejo/workflows/ci.yml` is still pending as follow-up work. → ADR-021
+- **Frontend:** Next.js with `standalone` output, at the same time an
+  installable PWA. No platform-specific primitives — everything must run in
+  the container behind any reverse proxy.
+- **Mobile:** The PWA is the only mobile access until phase 2. A native app
+  comes only with licensed offline full texts and belongs to the commercial
+  layer. Not tied to a language model of its own. → ADR-016
+- **Commercial layer does not mean paid access.** The native app is free of
+  charge; free content in it is accessible without an account. Fees only
+  for licensed full texts and their protected offline use.
+- **No account requirement for free content.** Search, reference graph and
+  free standards work without signing in. Account only for: higher quotas,
+  histories, uploads, licensed content, offline use, paid services — this
+  list is exhaustive. → ADR-017
+- **SSO is optional**, never a prerequisite for free content. → REQ-INT-003
+- **Quota counting on the server side**, never via cookies or browser
+  storage. Same infrastructure as the rate limiting from REQ-SEC-004.
 
-## Identifikatoren
+## Identifiers
 
-Von Anfang an weltweit gedacht — nachträglicher Umbau ist die teuerste Altlast.
+Designed for worldwide use from the start — rebuilding after the fact is
+the most expensive legacy burden.
 
-- Global kollisionsfreies Schema, Herausgeber / Nummer / Ausgabestand /
-  Teilnummer getrennt.
-- **Ein Regelwerk = ein Knoten, sprachunabhängig.** DIN EN ISO 9001 und BS EN
-  ISO 9001 sind dasselbe Dokument; nationale Übernahmen und Übersetzungen sind
-  Beziehungen bzw. Attribute.
-- **Lizenzklassifikation je Rechtsraum**, nicht global. § 5 UrhG gilt nur in
-  Deutschland. → ADR-011
+- Globally collision-free scheme, publisher / number / edition / part
+  number kept separate.
+- **One standard = one node, language-independent.** DIN EN ISO 9001 and
+  BS EN ISO 9001 are the same document; national adoptions and
+  translations are relationships or attributes.
+- **License classification per jurisdiction**, not global. § 5 UrhG
+  applies only in Germany. → ADR-011
 
-## Sprache
+## Language
 
-Code, Bezeichner und Commits auf Englisch. **Dokumentation ebenfalls auf
-Englisch** (`docs/`-Inhalte, Code-Referenz, Guides) — internationale
-Reichweite hat Vorrang. Fachbegriffe aus dem Normenwesen behalten ihren
-deutschen Begriff, wo es keine etablierte Entsprechung gibt (z. B.
-`Normenausschuss`), unabhängig von der Sprache der umgebenden Doku. Diese
-Datei (CLAUDE.md) bleibt auf Deutsch. Die App-eigene Sprachumschaltung
-(Deutsch/Englisch für Endnutzer) ist davon unberührt. → ADR-020
+Everything in this repository is in English: code, identifiers, commits,
+documentation (`docs/`, code reference, guides), ADRs, the SRS, specs and
+plans under `docs/superpowers/`, root files, and this file. International
+reach takes priority. Terms from the standards domain keep their German
+form where there is no established English equivalent (e.g.
+`Normenausschuss`, `Trägerorganisation`), regardless of the language of
+the surrounding text. The app's own language switch (German/English for
+end users) is unaffected. → ADR-020
 
-Teilweise migriert (2026-09-14): README.md, CONTRIBUTING.md, SECURITY.md
-und CODE_OF_CONDUCT.md sind jetzt auf Englisch. Weiterhin auf Deutsch und
-vorerst unverändert: docs/adr/, docs/srs/, GOVERNANCE.md, TRADEMARK.md —
-deren Migration bleibt ein eigenes, späteres Projekt, siehe ADR-020-Nachtrag.
-`docs/superpowers/` (interne Specs, Pläne, Ledger für die KI-gestützte
-Entwicklung) ist davon unabhängig zu betrachten — das sind Arbeitsdokumente
-für den Entwicklungsprozess, keine Dokumentation im Sinne dieser Regel, und
-bleiben wie CLAUDE.md selbst auf Deutsch.
+Terminology is binding and defined in `docs/glossary.md`: *Norm* is
+"norm", *Regelwerk* is "standards" (the broader term, which includes
+norms); "norms and standards" names both together.
 
-## Weitere Repository-Dateien
+Migration in progress (2026-10-15): `docs/adr/`, `docs/srs/` and
+`docs/superpowers/` are still being translated, see
+`docs/superpowers/specs/2026-10-15-english-docs-migration-design.md`. Until
+then they remain German; new text in them is written in English.
 
-`CONTRIBUTING.md` (DCO-Ablauf), `SECURITY.md` (Meldeweg), `GOVERNANCE.md`
-(Rollen und Entscheidungswege), `TRADEMARK.md` (Markennutzung),
-`CODE_OF_CONDUCT.md`. Bei Änderungen an Ablauf oder Regeln diese Dateien
-mitziehen — sie sind nach außen sichtbar und werden gelesen.
+## Other repository files
 
-## Wenn etwas unklar ist
+`CONTRIBUTING.md` (DCO process), `SECURITY.md` (reporting channel),
+`GOVERNANCE.md` (roles and decision paths), `TRADEMARK.md` (trademark
+use), `CODE_OF_CONDUCT.md`. When the process or the rules change, update
+these files too — they are publicly visible and are read.
 
-Bei Konflikt zwischen dieser Datei und einer Aufgabenstellung: nachfragen. Die
-Regeln oben haben rechtliche oder strategische Gründe, die aus einer einzelnen
-Aufgabe nicht ersichtlich sein müssen. Neue Architekturentscheidungen bekommen
-einen eigenen Eintrag in `docs/adr/`.
+## When something is unclear
+
+In case of conflict between this file and a task: ask. The rules above
+have legal or strategic reasons that need not be apparent from a single
+task. New architecture decisions get their own entry in `docs/adr/`.
