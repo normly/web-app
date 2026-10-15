@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1420" width="1080" height="1420" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#6b7280"/>
+    </marker>
+    <marker id="art" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0f766e"/>
+    </marker>
+  </defs>
+
+  <rect width="1080" height="1420" fill="#fbfbfa"/>
+
+  <text x="48" y="52" font-size="25" font-weight="600" fill="#1c1c1a">normly — Development phases</text>
+  <text x="48" y="78" font-size="14" fill="#6b7280">Free core first · commercial layer on top · full texts for a revenue share as the long-term goal</text>
+  <line x1="48" y1="96" x2="1032" y2="96" stroke="#e2e0dc" stroke-width="1"/>
+
+  <!-- spine -->
+  <line x1="86" y1="150" x2="86" y2="1250" stroke="#d6d2cb" stroke-width="2"/>
+
+  <!-- PHASE 0 -->
+  <circle cx="86" cy="168" r="9" fill="#0f766e"/>
+  <text x="118" y="160" font-size="12" font-weight="600" fill="#9a9793">PHASE 0 · NOW — until December</text>
+  <text x="118" y="184" font-size="19" font-weight="600" fill="#1c1c1a">Working, presentable prototype</text>
+
+  <rect x="118" y="200" width="430" height="176" rx="8" fill="#f0f7f6" stroke="#4f9a92" stroke-width="1.5"/>
+  <text x="138" y="226" font-size="13.5" font-weight="600" fill="#0f5f58">Free core (AGPL-3.0)</text>
+  <text x="138" y="250" font-size="12.5" fill="#2f6b65">· Standalone web application, no widget</text>
+  <text x="138" y="270" font-size="12.5" fill="#2f6b65">· Open-source LLM, no in-house normlyLLM</text>
+  <text x="138" y="290" font-size="12.5" fill="#2f6b65">· PostgreSQL + pgvector, repository layer</text>
+  <text x="138" y="310" font-size="12.5" fill="#2f6b65">· Container + Compose, data outside the image</text>
+  <text x="138" y="330" font-size="12.5" fill="#2f6b65">· STACKIT Git + pipelines · PWA, no native app</text>
+  <text x="138" y="350" font-size="12.5" fill="#2f6b65">· DCO, SBOM, license scan, signed artifacts</text>
+  <text x="528" y="226" font-size="11" fill="#5d8b86" text-anchor="end">REQ-OSS · REQ-GIT</text>
+
+  <rect x="566" y="200" width="430" height="176" rx="8" fill="#fff" stroke="#c9c5be" stroke-width="1.5"/>
+  <text x="586" y="226" font-size="13.5" font-weight="600" fill="#1c1c1a">Data collection — categories A and B only</text>
+  <text x="586" y="250" font-size="12.5" fill="#5c5952">· EUR-Lex: harmonized norms, dated</text>
+  <text x="586" y="270" font-size="12.5" fill="#5c5952">· References from laws and regulations</text>
+  <text x="586" y="290" font-size="12.5" fill="#5c5952">· DGUV and BAuA standards</text>
+  <text x="586" y="310" font-size="12.5" fill="#5c5952">· Work programs CEN / CENELEC, ISO / IEC</text>
+  <text x="586" y="334" font-size="12.5" font-weight="600" fill="#8a2f2f">· no scraping of commercial catalogs</text>
+  <text x="586" y="356" font-size="12.5" font-weight="600" fill="#0f5f58">· reference graph already takes shape here</text>
+  <text x="976" y="226" font-size="11" fill="#9a9793" text-anchor="end">REQ-PIPE-009</text>
+
+  <line x1="86" y1="400" x2="86" y2="424" stroke="#6b7280" stroke-width="1.5" marker-end="url(#ar)"/>
+
+  <!-- PHASE 1 -->
+  <circle cx="86" cy="452" r="9" fill="#0f766e"/>
+  <text x="118" y="444" font-size="12" font-weight="600" fill="#9a9793">PHASE 1 · MVP</text>
+  <text x="118" y="468" font-size="19" font-weight="600" fill="#1c1c1a">Public free core + first partnership</text>
+
+  <rect x="118" y="484" width="430" height="156" rx="8" fill="#f0f7f6" stroke="#4f9a92" stroke-width="1.5"/>
+  <text x="138" y="510" font-size="13.5" font-weight="600" fill="#0f5f58">Free core — public</text>
+  <text x="138" y="534" font-size="12.5" fill="#2f6b65">· Chat with source citations, graph-first resolution</text>
+  <text x="138" y="554" font-size="12.5" fill="#2f6b65">· Public API (specified under Apache-2.0)</text>
+  <text x="138" y="574" font-size="12.5" fill="#2f6b65">· Free dump: ODbL, RDF / JSON-LD</text>
+  <text x="138" y="594" font-size="12.5" fill="#2f6b65">· PWA offline-capable (free content)</text>
+  <text x="138" y="614" font-size="12.5" fill="#2f6b65">· Referral to the publisher's shop</text>
+  <text x="528" y="510" font-size="11" fill="#5d8b86" text-anchor="end">REQ-GRAPH-001/003</text>
+
+  <rect x="566" y="484" width="430" height="156" rx="8" fill="#f2f6fb" stroke="#7ea3cc" stroke-width="1.5"/>
+  <text x="586" y="510" font-size="13.5" font-weight="600" fill="#1e4e79">Partner portal — metadata first</text>
+  <text x="586" y="534" font-size="12.5" fill="#31597f">· Submission, status tracking, withdrawal</text>
+  <text x="586" y="554" font-size="12.5" fill="#31597f">· Rights metadata as a required field</text>
+  <text x="586" y="574" font-size="12.5" fill="#31597f">· Attribution capture from day one</text>
+  <text x="586" y="598" font-size="12.5" font-weight="600" fill="#1e4e79">First discussion partner: Austrian Standards</text>
+  <text x="586" y="620" font-size="12" fill="#5a7fa5">Ask = catalog metadata, not full text</text>
+  <text x="976" y="510" font-size="11" fill="#5a7fa5" text-anchor="end">REQ-PART-001/002</text>
+
+  <line x1="86" y1="664" x2="86" y2="688" stroke="#6b7280" stroke-width="1.5" marker-end="url(#ar)"/>
+
+  <!-- PHASE 2 -->
+  <circle cx="86" cy="716" r="9" fill="#1e4e79"/>
+  <text x="118" y="708" font-size="12" font-weight="600" fill="#9a9793">PHASE 2 · MONETIZATION</text>
+  <text x="118" y="732" font-size="19" font-weight="600" fill="#1c1c1a">Commercial layer — GmbH spin-off</text>
+
+  <rect x="118" y="748" width="430" height="176" rx="8" fill="#f2f6fb" stroke="#7ea3cc" stroke-width="1.5"/>
+  <text x="138" y="774" font-size="13.5" font-weight="600" fill="#1e4e79">Paid services</text>
+  <text x="138" y="798" font-size="12.5" fill="#31597f">· Managed hosting with SLA, multi-tenancy</text>
+  <text x="138" y="818" font-size="12.5" fill="#31597f">· Compliance instance with audit trail</text>
+  <text x="138" y="838" font-size="12.5" fill="#31597f">· Subscription model, payment integration (Stripe)</text>
+  <text x="138" y="858" font-size="12.5" fill="#31597f">· API keys, quotas, billing</text>
+  <text x="138" y="878" font-size="12.5" fill="#31597f">· Analytics reports for publishers</text>
+  <text x="138" y="898" font-size="12.5" fill="#31597f">· Native app: protected offline full texts</text>
+  <text x="528" y="774" font-size="11" fill="#5a7fa5" text-anchor="end">REQ-COM-001…004</text>
+
+  <rect x="566" y="748" width="430" height="176" rx="8" fill="#f0f7f6" stroke="#4f9a92" stroke-width="1.5"/>
+  <text x="586" y="774" font-size="13.5" font-weight="600" fill="#0f5f58">Publishers' revenue share</text>
+  <text x="586" y="798" font-size="12.5" fill="#2f6b65">· Pro rata per source · data key per publisher</text>
+  <text x="586" y="818" font-size="12.5" fill="#2f6b65">· Auditable settlement report, exportable</text>
+  <text x="586" y="838" font-size="12.5" fill="#2f6b65">· External audit can recalculate it</text>
+  <text x="586" y="862" font-size="12.5" font-weight="600" fill="#0f5f58">The lever for the full-text negotiation</text>
+  <text x="586" y="884" font-size="12" fill="#3f6b66">Real figures instead of model calculations</text>
+  <text x="586" y="906" font-size="12.5" font-weight="600" fill="#8a2f2f">Excluded: personalized advertising</text>
+  <text x="976" y="774" font-size="11" fill="#5d8b86" text-anchor="end">REQ-PART-003</text>
+
+  <line x1="86" y1="948" x2="86" y2="972" stroke="#6b7280" stroke-width="1.5" marker-end="url(#ar)"/>
+
+  <!-- PHASE 3 -->
+  <circle cx="86" cy="1000" r="9" fill="#1e4e79"/>
+  <text x="118" y="992" font-size="12" font-weight="600" fill="#9a9793">PHASE 3 · SCALING</text>
+  <text x="118" y="1016" font-size="19" font-weight="600" fill="#1c1c1a">Integration into third-party software — the core USP</text>
+
+  <rect x="118" y="1032" width="430" height="136" rx="8" fill="#f2f6fb" stroke="#7ea3cc" stroke-width="2"/>
+  <text x="138" y="1058" font-size="13.5" font-weight="600" fill="#1e4e79">Third-party system integration</text>
+  <text x="138" y="1082" font-size="12.5" fill="#31597f">· CAD, ERP, expert systems via the open API</text>
+  <text x="138" y="1102" font-size="12.5" fill="#31597f">· Stable extension interface, no fork needed</text>
+  <text x="138" y="1122" font-size="12.5" fill="#31597f">· Largest expected revenue driver</text>
+  <text x="138" y="1146" font-size="12" fill="#5a7fa5">Own normlyLLM optional, not a prerequisite</text>
+  <text x="528" y="1058" font-size="11" fill="#5a7fa5" text-anchor="end">REQ-COM-001/002</text>
+
+  <rect x="566" y="1032" width="430" height="136" rx="8" fill="#fff" stroke="#c9c5be" stroke-width="1.5"/>
+  <text x="586" y="1058" font-size="13.5" font-weight="600" fill="#1c1c1a">Internationalization</text>
+  <text x="586" y="1082" font-size="12.5" fill="#5c5952">· Worldwide collection, multilingual</text>
+  <text x="586" y="1102" font-size="12.5" fill="#5c5952">· License classification per jurisdiction</text>
+  <text x="586" y="1122" font-size="12.5" fill="#5c5952">· Vector index scaled separately</text>
+  <text x="586" y="1146" font-size="12" fill="#7a766e">Schema designed for this from the start</text>
+  <text x="976" y="1058" font-size="11" fill="#9a9793" text-anchor="end">REQ-GRAPH-005/006</text>
+
+  <line x1="86" y1="1192" x2="86" y2="1216" stroke="#6b7280" stroke-width="1.5" marker-end="url(#ar)"/>
+
+  <!-- Fernziel -->
+  <circle cx="86" cy="1244" r="9" fill="#fbfbfa" stroke="#0f766e" stroke-width="2.5"/>
+  <rect x="118" y="1206" width="878" height="76" rx="8" fill="#f0f7f6" stroke="#4f9a92" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="138" y="1232" font-size="15.5" font-weight="600" fill="#0f5f58">Long-term goal · full texts in the collection — on a contractual basis, for a revenue share</text>
+  <text x="138" y="1256" font-size="12.5" fill="#2f6b65">normly is then not a competitor that displaces sales revenue, but a channel that opens up new revenue</text>
+  <text x="138" y="1274" font-size="12.5" fill="#2f6b65">and traceably passes it back. Section level in the graph thus becomes reachable.</text>
+
+  <!-- feedback -->
+  <path d="M1010 1244 L1040 1244 L1040 562 L1002 562" fill="none" stroke="#0f766e" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#art)"/>
+  <text x="1052" y="900" font-size="11.5" fill="#0f766e" text-anchor="middle" transform="rotate(90 1052 900)">each stage strengthens the negotiating position of the next</text>
+
+  <line x1="48" y1="1330" x2="1032" y2="1330" stroke="#e2e0dc" stroke-width="1"/>
+  <rect x="48" y="1346" width="14" height="14" rx="3" fill="#f0f7f6" stroke="#4f9a92" stroke-width="1.5"/>
+  <text x="70" y="1358" font-size="12" fill="#5c5952">free core (AGPL / ODbL)</text>
+  <rect x="250" y="1346" width="14" height="14" rx="3" fill="#f2f6fb" stroke="#7ea3cc" stroke-width="1.5"/>
+  <text x="272" y="1358" font-size="12" fill="#5c5952">commercial layer (GmbH)</text>
+  <rect x="474" y="1346" width="14" height="14" rx="3" fill="#fff" stroke="#c9c5be" stroke-width="1.5"/>
+  <text x="496" y="1358" font-size="12" fill="#5c5952">data and foundations</text>
+  <text x="674" y="1358" font-size="12" fill="#8a2f2f">red = permanently excluded</text>
+</svg>

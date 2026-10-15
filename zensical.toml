@@ -13,8 +13,8 @@ nav = [
     "guide/operations.md",
   ] },
   { "Concepts" = [
-    "concepts/normen-graph.md",
-    "concepts/lizenzmodell.md",
+    "concepts/norm-graph.md",
+    "concepts/license-model.md",
   ] },
   { "Architecture decisions" = "adr/README.md" },
   { "Requirements (SRS)" = "srs/README.md" },

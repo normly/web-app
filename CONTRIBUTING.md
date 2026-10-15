@@ -4,7 +4,7 @@ Thanks for wanting to contribute. This document describes how that works in
 practice.
 
 Contributions are explicitly **not just code**. Correcting a cross-reference
-between Regelwerke, reporting a wrong supersession chain, or suggesting a
+between standards, reporting a wrong supersession chain, or suggesting a
 source contributes to the most valuable part of the project — practical
 domain knowledge is often more useful here than a patch.
 
@@ -117,7 +117,7 @@ Detailed rationale: [docs/adr/](docs/adr/).
 
 - **Errors in the data** — a wrong reference, an outdated validity status,
   a missing supersession: file an issue with a source. Especially welcome.
-- **New sources** — which Regelwerk, which publisher, which legal basis for
+- **New sources** — which standard, which publisher, which legal basis for
   use.
 - **Translations and terminology** — normly is meant to work worldwide in
   the long run.

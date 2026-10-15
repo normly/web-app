@@ -627,7 +627,7 @@ Betriebsrealität.
 **Konsequenz:** Löst ADR-004 teilweise ab (STACKIT-Git-Teil bleibt
 unverändert bestehen, der GitHub-Beitragsfassade-Teil entfällt). REQ-GIT-002
 („Öffentliche Beitragsfassade") ist damit hinfällig und in
-`docs/srs/03-anforderungen.md` entsprechend markiert. Der in
+`docs/srs/03-requirements.md` entsprechend markiert. Der in
 `docs/superpowers/specs/2026-09-02-ci-pipeline-design.md` /
 `docs/superpowers/plans/2026-09-02-ci-pipeline.md` dokumentierte
 Push-Mirror-Schritt wird nicht umgesetzt.
@@ -722,7 +722,7 @@ Image-Registry.
   Produktions-Deployment — dafür bleibt STACKIT ohne Ausnahme. Für
   Quellcode, CI/CD und Container-Registry des freien Kerns gilt ab jetzt
   die hier getroffene Ausnahme.
-- `docs/srs/03-anforderungen.md` ist entsprechend zu aktualisieren:
+- `docs/srs/03-requirements.md` ist entsprechend zu aktualisieren:
   REQ-GIT-001 (führende Plattform), REQ-GIT-002 (Beitragsweg), REQ-BUILD-002
   (CI/CD-Infrastruktur), REQ-INST-001 (Ausnahme im Fließtext) und
   REQ-DIST-004 (Registry-Verweis).

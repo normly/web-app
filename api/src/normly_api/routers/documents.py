@@ -57,7 +57,7 @@ def document_to_response(document: Document, session: Session) -> DocumentRespon
     # depends on). It is not settled here.
     delivery = PostgresDeliveryRepository(session).get_delivery(document.created_via_delivery_id)
     if delivery is None:
-        # Lineage is mandatory ("Abstammung mitführen"), so this is a broken
+        # Lineage is mandatory ("Carry lineage along"), so this is a broken
         # invariant, not a client error. Raise something explicit: an
         # AttributeError on None would surface as an anonymous 500 with no
         # indication of which link in the chain is missing. Neither is caught

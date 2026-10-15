@@ -26,4 +26,4 @@ Details: [ADR-006](../adr/README.md#adr-006-postgresql-statt-neo4j-fur-den-refer
 
 The reference graph itself is open (ODbL) — layered into a free and a
 commercial part, not withheld. What's free is described in
-[License Model](lizenzmodell.md).
+[License Model](license-model.md).
