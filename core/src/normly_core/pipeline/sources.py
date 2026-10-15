@@ -60,9 +60,9 @@ SOURCE_REGISTRY: dict[str, SourceRegistryEntry] = {
     "baua": SourceRegistryEntry(
         publisher="BAuA",
         retrieval_path="https://www.baua.de/DE/Angebote/Regelwerk",
-        # TRGS/TRBS/TRBA sind amtliche Bekanntmachungen einer
-        # Bundesoberbehörde (BAuA im GMBl) -- § 5 UrhG, wie die DGUV- und
-        # EUR-Lex-Einträge. Siehe design spec, "Rechtegrundlage: Kategorie A".
+        # TRGS/TRBS/TRBA are official announcements of a higher
+        # federal authority (BAuA in the GMBl) -- § 5 UrhG, like the DGUV and
+        # EUR-Lex entries. See design spec, "Rechtegrundlage: Kategorie A".
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="DE",
         reviewed_at=date(2026, 9, 1),

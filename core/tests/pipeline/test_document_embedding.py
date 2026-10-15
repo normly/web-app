@@ -123,7 +123,7 @@ def test_backfill_attributes_lineage_to_the_designations_delivery_not_the_docume
 ):
     # The document is created (empty, no designation) by one delivery, and
     # only gets its primary designation -- the text actually embedded --
-    # from a second, later, different delivery. Per "Abstammung mitführen"
+    # from a second, later, different delivery. Per "Carry lineage along"
     # the embedding's delivery_id must point at the delivery that produced
     # the content it derives from (the designation), not the one that
     # happened to first create the Document row.
