@@ -17,7 +17,7 @@ standard.
 
 - **[Guide](guide/getting-started.md)** — getting started for users and
   operators
-- **[Concepts](concepts/normen-graph.md)** — the underlying principles
+- **[Concepts](concepts/norm-graph.md)** — the underlying principles
   (graph first, license model)
 - **[Architecture decisions](adr/README.md)** — why it's built the way
   it's built

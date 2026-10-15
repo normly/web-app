@@ -30,7 +30,7 @@ established English equivalent.
 
 **Category A–D**
 : Rights classification per source, see
-  [License Model](concepts/lizenzmodell.md#rights-classification-by-category).
+  [License Model](concepts/license-model.md#rights-classification-by-category).
 
 **Norm**
 : A document issued by a standardization body (German *Norm*), for
