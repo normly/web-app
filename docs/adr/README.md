@@ -42,7 +42,7 @@ share-alike effect (ODbL).
 anyone who operates the core as a hosted service must disclose changes. That
 is the protection against a fork by a standardization body or a
 large software vendor. Apache-2.0 for SDKs and API specification ensures
-maximum adoption where no logic worth protecting resides.
+maximum reach where no logic worth protecting resides.
 
 **Rejected:** Apache-2.0 as the sole core license (gives the code away without
 anything in return to potential competitors). MPL-2.0 (file-based copyleft
@@ -84,8 +84,10 @@ a future Trägerorganisation or a GmbH? Clarify before the first external contri
 ## ADR-004 — STACKIT Git as the leading platform, GitHub as contribution facade
 
 **Status:** was partially superseded by ADR-019 (2026-09-05), which rejected the
-contribution facade (a public front end on GitHub that only receives contributions) on GitHub. Since ADR-021 (2026-09-14), the GitHub split originally made here applies again to
-source code, CI and registry, but with GitHub as leading instead of as a mere
+contribution facade on GitHub (a public presence for issues, pull requests and
+visibility, holding no credentials or deployment rights). Since ADR-021
+(2026-09-14), the GitHub split originally made here applies again to source
+code, CI and registry, but with GitHub as leading instead of as a mere
 contribution facade — see ADR-021 for the current state.
 
 **Decision:** STACKIT Git (Forgejo) with STACKIT Pipelines is leading for
@@ -171,7 +173,7 @@ as well.
 ODbL — layered into a free and a commercial part.
 
 **Rationale:** Open does not mean unprotected. The database maker's right
-(§§ 87a ff. UrhG (German Copyright Act)) protects the substantial investment in procurement and
+(§§ 87a ff. UrhG, German Copyright Act) protects the substantial investment in procurement and
 preparation and makes the share-alike clause enforceable: anyone who builds the graph into
 their own product must disclose the derived database under the same
 terms. For data, this is the counterpart to the AGPL for code.
