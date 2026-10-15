@@ -2,9 +2,9 @@
 
 **AI-powered norms and standards, open to everyone.**
 
-normly makes knowledge about standards and Regelwerke as freely accessible as
+normly makes knowledge about norms and standards as freely accessible as
 the law allows — and builds an open, machine-readable reference graph on top
-of it: which Regelwerke reference each other, what was superseded by what,
+of it: which standards reference each other, what was superseded by what,
 and which legal provision references which standard.
 
 > ⚠️ **Early development stage.** This repository is under construction.
@@ -13,7 +13,7 @@ and which legal provision references which standard.
 ## Why
 
 Anyone who wants to know which standard applies to a task, whether it's still
-valid, and what it superseded, finds no good answer today. Regelwerke are
+valid, and what it superseded, finds no good answer today. Standards are
 scattered across different publishers, their cross-references are nowhere
 captured in a machine-readable way, and many freely available texts —
 accident-prevention regulations, technical rules, EU directives — are public
