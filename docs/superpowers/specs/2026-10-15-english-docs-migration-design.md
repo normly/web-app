@@ -1,7 +1,7 @@
 # Migrating all repository content to English — design
 
 Date: 2026-10-15
-Status: draft, awaiting review
+Status: approved by the owner, 2026-10-15
 
 ## Goal
 
@@ -79,14 +79,14 @@ never interchangeable: *norm* is the German *Norm*, *standard* is the German
 *Regelwerk*. "Standard" in its ordinary technical sense ("standard library",
 "standard output") is untouched.
 
-## Already-English documents need a term sweep
+## Already-English documents: minimal term sweep
 
 README, CONTRIBUTING, `docs/index.md`, `docs/glossary.md`, `docs/concepts/`,
-`docs/guide/` currently use "standards" for *Norm* and keep *Regelwerke* as a
-German word. With the mapping above both are wrong. MR 1 sweeps these public
-documents by hand: every occurrence of "standard(s)", "regulation(s)" and
-"Regelwerk(e)" is checked in context and rewritten where it means *Norm* or
-*Regelwerk*. Each change is a term change only, no rewording.
+`docs/guide/` already use "standards" in a sense that is correct in English.
+The owner confirmed (2026-10-15) that this stays. MR 1 therefore only
+replaces the German loanword *Regelwerk(e)* where it still appears in these
+documents (e.g. README: "standards and Regelwerke") with "standards" — a term
+change only, no rewording — and adds the glossary entries.
 
 The already-English documents in `docs/superpowers/` are historical working
 papers and are **not** swept; only files translated in MR 4 follow the new
@@ -120,7 +120,7 @@ Heading anchors in `docs/adr/README.md` change when headings are translated
    `docs/glossary.md` (including the norm/standard and lineage/provenance
    distinctions); translation of `GOVERNANCE.md`, `TRADEMARK.md`,
    `MAINTAINERS.md`, `CLAUDE.md`; both SVGs; all file renames above; term
-   sweep of the already-English public docs; update of the "Sprache" /
+   sweep of the already-English public docs (leftover *Regelwerk* only); update of the "Sprache" /
    "Language" section in `CLAUDE.md` to "everything in English". Also a sample
    audit of non-Markdown files (comments, configs) for stray German; findings
    are reported to the owner, not fixed unasked.
@@ -160,8 +160,8 @@ are billed).
   licensing and withdrawal.
 - **Broken links** from renames and anchors. Mitigation: repository-wide
   search and automated link check.
-- **norm/standard confusion** in the term sweep. Mitigation: context-checked
-  by hand, no search-and-replace.
+- **norm/standard confusion** while translating. Mitigation: the glossary
+  distinction, checked by hand in review, no blind search-and-replace.
 - **Intermediate mixed-language state** between MRs. Accepted.
 
 ## Out of scope
