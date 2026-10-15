@@ -9,7 +9,7 @@ responsible for the respective area.
 | Core and API | *(to be added)* |
 | Reference graph and data model | *(to be added)* |
 | Processing chain and sources | *(to be added)* |
-| Infrastructure and delivery | *(to be added)* |
+| Infrastructure and shipping | *(to be added)* |
 
 Admission to this group is by the existing maintainers after a sustained
 contribution over a longer period. Details in

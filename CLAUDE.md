@@ -21,7 +21,7 @@ task: ask, do not work around them.
   this, is no longer intended for the knowledge base (ADR-025) and will be
   deleted; the knowledge base lives as a dump in STACKIT Object Storage.
   → ADR-021 (supersedes ADR-019)
-- **No scraping of commercially exploited catalog holdings** (DIN
+- **No scraping of commercially exploited catalog collections** (DIN
   Media/Nautos and comparable ones). Obtain only by contract. Applies even
   when publicly accessible. → ADR-012
 - **No personalized advertising**, no user profiles for advertising
@@ -89,7 +89,7 @@ When in doubt, the first list applies.
   "provisionally allowed".
 - **Make processing steps idempotent.** Repetition produces no different
   result.
-- **Licensed holdings kept separate per publisher** — including a data key
+- **Licensed collections kept separate per publisher** — including a data key
   per publisher. Enables cryptographic deletion at the end of a contract,
   even in backups. Authorization check on every access. → ADR-014
 - **Offline access only through the abstraction layer.** No direct storage
@@ -116,7 +116,7 @@ exploited catalogs.
 
 - **Data storage:** PostgreSQL (Flex) with pgvector — graph and embeddings
   in one database. No Neo4j. → ADR-006
-- **Distribution:** signed container images plus a runnable Compose setup.
+- **Shipping:** signed container images plus a runnable Compose setup.
   The knowledge base is **not** in the image but exists as an
   independently versioned dump. Code and data versioned separately.
   → ADR-010
@@ -128,8 +128,8 @@ exploited catalogs.
   installable PWA. No platform-specific primitives — everything must run in
   the container behind any reverse proxy.
 - **Mobile:** The PWA is the only mobile access until phase 2. A native app
-  comes only with licensed offline full texts and belongs to the commercial
-  layer. Not tied to a language model of its own. → ADR-016
+  comes only once licensed offline full texts are offered and belongs to the
+  commercial layer. Not tied to a language model of its own. → ADR-016
 - **Commercial layer does not mean paid access.** The native app is free of
   charge; free content in it is accessible without an account. Fees only
   for licensed full texts and their protected offline use.
@@ -163,7 +163,9 @@ reach takes priority. Terms from the standards domain keep their German
 form where there is no established English equivalent (e.g.
 `Normenausschuss`, `Trägerorganisation`), regardless of the language of
 the surrounding text. The app's own language switch (German/English for
-end users) is unaffected. → ADR-020
+end users) is unaffected. → ADR-020 (addendum pending in the ADR
+translation; the decision is recorded in
+`docs/superpowers/specs/2026-10-15-english-docs-migration-design.md`)
 
 Terminology is binding and defined in `docs/glossary.md`: *Norm* is
 "norm", *Regelwerk* is "standards" (the broader term, which includes

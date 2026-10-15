@@ -69,6 +69,8 @@ names. This completes the migration begun in ADR-020 (and its addendum of
 | Konto-, Kontolöschung | account deletion |
 | Normenausschuss, Trägerorganisation | unchanged (German loanwords, see glossary) |
 
+Further decisions made during MR 1 are recorded in `docs/glossary.md`, section Terminology (binding), which is the authoritative list from MR 1 on.
+
 **Compounds follow their stem.** Rechtsnorm → legal norm, EU-Normen → EU norms,
 Regelwerkswissen → knowledge about standards, Regelwerksreihen → standards
 series, Regelwerksverzeichnisse → standards registers. If a compound has no
@@ -109,7 +111,9 @@ Done with `git mv`, followed by a repository-wide search for the old names
 and a fix of every inbound link (README, `docs/srs/README.md`, ADRs, specs,
 plans, `docs/` navigation). Filenames of specs and plans (dated, topic slugs)
 are already English except `datenmodell-referenzgraph-schema`
-(2026-08-11 spec and plan), which becomes `data-model-reference-graph-schema`.
+(2026-08-11 spec and plan), which becomes `data-model-reference-graph-schema`
+— that rename is not part of MR 1 but moves to MR 4. Mentions and links of
+renamed files inside `docs/superpowers/` are likewise fixed in MR 4.
 
 Heading anchors in `docs/adr/README.md` change when headings are translated
 (MR 2); inbound anchors are fixed in the same MR.

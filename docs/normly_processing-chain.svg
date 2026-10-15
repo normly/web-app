@@ -11,7 +11,7 @@
   <rect width="1080" height="1360" fill="#fbfbfa"/>
 
   <text x="48" y="52" font-size="25" font-weight="600" fill="#1c1c1a">normly — Processing chain</text>
-  <text x="48" y="78" font-size="14" fill="#6b7280">From source to delivery · one chain, provenance as an attribute · SRS ch. 3.12</text>
+  <text x="48" y="78" font-size="14" fill="#6b7280">From source to output · one chain, provenance as an attribute · SRS ch. 3.12</text>
   <line x1="48" y1="96" x2="1032" y2="96" stroke="#e2e0dc" stroke-width="1"/>
 
   <!-- lineage rail -->
@@ -38,8 +38,8 @@
   <text x="48" y="338" font-size="12" font-weight="600" fill="#9a9793">2 · INGEST ADAPTERS</text>
   <rect x="48" y="350" width="268" height="86" rx="8" fill="#fff" stroke="#c9c5be" stroke-width="1.5"/>
   <text x="68" y="376" font-size="14.5" font-weight="600" fill="#1c1c1a">Web scraper</text>
-  <text x="68" y="397" font-size="12.5" fill="#5c5952">Catalogs, norm</text>
-  <text x="68" y="414" font-size="12.5" fill="#5c5952">indexes · metadata</text>
+  <text x="68" y="397" font-size="12.5" fill="#5c5952">Catalogs,</text>
+  <text x="68" y="414" font-size="12.5" fill="#5c5952">norm registers · metadata</text>
 
   <rect x="334" y="350" width="268" height="86" rx="8" fill="#fff" stroke="#c9c5be" stroke-width="1.5"/>
   <text x="354" y="376" font-size="14.5" font-weight="600" fill="#1c1c1a">API adapter</text>
@@ -111,7 +111,7 @@
   <line x1="468" y1="1052" x2="468" y2="1090" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/>
 
   <!-- 8 output -->
-  <text x="48" y="1112" font-size="12" font-weight="600" fill="#9a9793">8 · DELIVERY — THREE GATES WITH DIFFERENT FILTERS</text>
+  <text x="48" y="1112" font-size="12" font-weight="600" fill="#9a9793">8 · OUTPUT — THREE GATES WITH DIFFERENT FILTERS</text>
 
   <rect x="48" y="1124" width="268" height="94" rx="8" fill="#f0f7f6" stroke="#4f9a92" stroke-width="1.5"/>
   <text x="68" y="1150" font-size="14.5" font-weight="600" fill="#0f5f58">Free dump</text>
