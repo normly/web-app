@@ -270,7 +270,7 @@ def test_docling_classifies_paragraph_headings_as_list_items_not_section_headers
     a numbered list. This is exactly why extract_structure() stays
     pattern-based instead of trusting Docling's element classification --
     see docs/superpowers/specs/2026-08-30-docling-migration-design.md,
-    "Empirischer Befund" and "Entscheidungsverfahren für künftige Adapter".
+    "Empirical finding" and "Decision procedure for future adapters".
 
     If this test starts failing after a future Docling version upgrade,
     that is a deliberate signal that the classification behavior changed --

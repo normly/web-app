@@ -286,7 +286,7 @@ def list_sessions(
 ) -> list[ChatSessionSummary]:
     # Unlike the main /v1/chat endpoint, an account token is REQUIRED here,
     # not optional -- listing sessions is inherently an account-only
-    # operation (REQ-ACC-004 lists "gespeicherte Verläufe" as account-gated).
+    # operation (REQ-ACC-004 lists "saved histories" as account-gated).
     if authorization is None or not (
         authorization[:len(_BEARER_PREFIX)].lower() == _BEARER_PREFIX.lower()
     ):
@@ -570,8 +570,8 @@ open point, not solved here.
 // Copyright (C) 2026 normly contributors
 
 // App-shell caching only -- no push-event handler. Real Web Push delivery
-// depends on Google FCM / Apple APNs (see the design spec's "Entschieden
-// mit dem Auftraggeber" Punkt 5), deliberately out of scope. A future
+// depends on Google FCM / Apple APNs (see the design spec's "Decided
+// with the owner" item 5), deliberately out of scope. A future
 // push handler would live in this same file without needing a rewrite.
 //
 // Plain JavaScript, not TypeScript: this file is served as-is from

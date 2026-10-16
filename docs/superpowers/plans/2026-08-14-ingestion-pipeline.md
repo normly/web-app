@@ -2697,7 +2697,7 @@ from normly_core.pipeline.domain import (
 # Column indices in the Commission's "Summary list of harmonised standards" table,
 # 0-based, matching the real, verified layout: Legislation reference, ESO, Reference
 # number of the standard, Title of the standard, Type, ... (remaining columns unused
-# for now, see design spec's Offene Punkte).
+# for now, see design spec's Open items).
 _COLUMN_ESO = 1
 _COLUMN_STANDARD_REFERENCE = 2
 _COLUMN_TITLE = 3

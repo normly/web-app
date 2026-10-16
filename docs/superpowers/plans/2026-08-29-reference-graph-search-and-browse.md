@@ -176,7 +176,7 @@ class RateLimitRepository(Protocol):
     A generic, jurisdiction-independent request counter used to enforce
     REQ-ACC-003's anonymous quota. Not part of the graph model, but kept in
     the same repository layer as everything else that touches the database,
-    per CLAUDE.md's "Datenbankzugriff nur über die Repository-Schicht".
+    per CLAUDE.md's "Database access only through the repository layer".
     """
 
     def record_and_check(
@@ -328,7 +328,7 @@ _REQUESTS_PER_WINDOW = 60
 
 def _client_origin_address(request: Request) -> str:
     # Trusts X-Forwarded-For from the immediate reverse proxy, per CLAUDE.md's
-    # "hinter beliebigem Reverse Proxy" deployment assumption -- this is only
+    # "behind any reverse proxy" deployment assumption -- this is only
     # safe because the proxy is the sole path to this service; a caller
     # reaching api/ directly could otherwise spoof this header. Falls back to
     # the direct connection address when absent (e.g. local/test requests).
