@@ -163,18 +163,16 @@ reach takes priority. Terms from the standards domain keep their German
 form where there is no established English equivalent (e.g.
 `Normenausschuss`, `Trägerorganisation`), regardless of the language of
 the surrounding text. The app's own language switch (German/English for
-end users) is unaffected. → ADR-020 (addendum pending in the ADR
-translation; the decision is recorded in
-`docs/superpowers/specs/2026-10-15-english-docs-migration-design.md`)
+end users) is unaffected. → ADR-020
 
 Terminology is binding and defined in `docs/glossary.md`: *Norm* is
 "norm", *Regelwerk* is "standards" (the broader term, which includes
 norms); "norms and standards" names both together.
 
-Migration in progress (2026-10-15): `docs/adr/`, `docs/srs/` and
-`docs/superpowers/` are still being translated, see
-`docs/superpowers/specs/2026-10-15-english-docs-migration-design.md`. Until
-then they remain German; new text in them is written in English.
+Migration in progress (2026-10-15): `docs/srs/` and `docs/superpowers/`
+are still being translated, see
+`docs/superpowers/specs/2026-10-15-english-docs-migration-design.md`.
+Until then they remain German; new text in them is written in English.
 
 ## Other repository files
 

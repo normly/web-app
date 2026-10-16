@@ -682,6 +682,16 @@ separate, later project, in particular `docs/adr/` and `docs/srs/` because of
 their size. No change in content to the four translated files,
 only a change of language.
 
+**Addendum 2026-10-15 — complete migration:** At the owner's request,
+everything in the repository moves to English, including `CLAUDE.md` and
+the working documents under `docs/superpowers/`. The exception for
+`docs/superpowers/` and `CLAUDE.md` stated above no longer applies. The
+migration runs in four merge requests: foundation (root files,
+`CLAUDE.md`, diagrams, file names, binding glossary), the ADRs (this
+document), the SRS, and `docs/superpowers/`. Terminology is binding and
+recorded in `docs/glossary.md`, section "Terminology (binding)". Design:
+`docs/superpowers/specs/2026-10-15-english-docs-migration-design.md`.
+
 ---
 
 ## ADR-021 — Return to GitHub for source code, CI and registry
