@@ -619,232 +619,232 @@ The following serve above all as inspiration for the presentation to the end use
 
 ## 3.6 AI/ML
 
-Dieser Abschnitt definiert Anforderungen, die speziell für Systeme gelten, deren Kern aus maschinellem Lernen oder datengesteuerten Komponenten besteht. Diese Anforderungen ergänzen die in den vorangegangenen Abschnitten behandelten funktionalen, nicht-funktionalen und qualitativen Aspekte. Sie befassen sich jedoch mit ML-spezifischen Überlegungen hinsichtlich Lebenszyklus und Datenqualität.
+This section defines requirements that apply specifically to systems whose core consists of machine learning or data-driven components. These requirements complement the functional, non-functional and qualitative aspects covered in the preceding sections. However, they address ML-specific considerations regarding lifecycle and data quality.
 
-### 3.6.1 Modell Spezifikationen
+### 3.6.1 Model specifications
 
-Um eine schnelle und kostengünstige Entwicklung sicherstellen zu können, werden wir zu Beginn auf Open Source LLM setzen. Es ist sicherzustellen, dass Deutsch und Englisch vorrangig unterstützt werden. Gefolgt von Französisch, Spanisch und Italienisch.
+In order to be able to ensure fast and cost-effective development, we will initially rely on open source LLMs. It is to be ensured that German and English are supported with priority. Followed by French, Spanish and Italian.
 
-- Sprachmodell: [<u>Llama 3.1</u>](https://ai.meta.com/blog/meta-llama-3-1/) (Open Source und erlaubt die kommerzielle Nutzung für eigene Produkte). Derzeit führend, aber kann ersetzt werden.
+- Language model: [<u>Llama 3.1</u>](https://ai.meta.com/blog/meta-llama-3-1/) (open source and permits commercial use for own products). Currently primary, but can be replaced.
 
-### 3.6.2 Daten Management
+### 3.6.2 Data management
 
-Das Daten Management ist für normly von zentraler Bedeutung. Mit steigender Skalierung ist von vielen zehntausend Dokumenten auszugehen, dessen Informationen verarbeitet werden müssen. Zudem werden Dokumente (Normen) aktualisiert, erweitert oder für unfülgitg erklärt. Die Sicherstellung der Datenintegrität ist daher entscheidend!
+Data management is of central importance for normly. With increasing scale, many tens of thousands of documents are to be expected whose information must be processed. In addition, documents (norms) are updated, extended or declared invalid. Ensuring data integrity is therefore crucial!
 
-Die aktuelle ungefähre Anzahl an Normen und damit verbunden (geschätzten Textseiten) ist wie folgt:
+The current approximate number of norms and, associated with it, (estimated text pages) is as follows:
 
 |                |                          |
 |----------------|--------------------------|
-| **Land**       | **Gesamtbestand Normen** |
-| Deutschland    | 38.000+                  |
-| Italien        | 48.000+                  |
-| China          | 200.000+                 |
-| Japan          | 25.000+                  |
-| USA            | 40.000+                  |
-| Frankreich     | 30.000+                  |
-| Großbritannien | 27.000+                  |
-| Indien         | 20.000+                  |
-| Russland       | 30.000+                  |
+| **Country**    | **Total collection of norms** |
+| Germany        | 38,000+                  |
+| Italy          | 48,000+                  |
+| China          | 200,000+                 |
+| Japan          | 25,000+                  |
+| USA            | 40,000+                  |
+| France         | 30,000+                  |
+| United Kingdom | 27,000+                  |
+| India          | 20,000+                  |
+| Russia         | 30,000+                  |
 
-Es ist also mit knapp einer halben Millionen Normen zu rechnen. Bei einer durchschnittlichen Anzahl von 40 Seiten pro Norm entspricht das über 20 Mio Seiten an technischen Informationen (zuzüglich Graphen, Tabellen, Zeichnungen und Formeln).
+Just under half a million norms are therefore to be expected. At an average of 40 pages per norm, this corresponds to over 20 million pages of technical information (plus graphs, tables, drawings and formulas).
 
-Diese Zahlen bilden ausschließlich den deutschsprachigen Raum ab. Zielhorizont von normly ist die weltweite Abdeckung. Weltweit ist von einer Größenordnung von mehreren Millionen Normendokumenten auszugehen, entsprechend einem mittleren dreistelligen Millionenbereich an Textseiten und mehreren Milliarden Textabschnitten für das Retrieval. Das Datenmanagement ist daher von Beginn an auf diese Zielgröße auszulegen. Insbesondere sind Graph- und Metadatenhaltung einerseits und Vektorindex andererseits so zu kapseln, dass sie unabhängig voneinander skaliert und ausgetauscht werden können.
+These figures cover exclusively the German-speaking region. The target horizon of normly is worldwide coverage. Worldwide, an order of magnitude of several million norm documents is to be expected, corresponding to a mid three-digit million range of text pages and several billion text sections for retrieval. Data management is therefore to be designed for this target size from the start. In particular, graph and metadata storage on the one hand and the vector index on the other hand are to be encapsulated in such a way that they can be scaled and replaced independently of each other.
 
 ### 3.6.3 Human-in-the-Loop
 
-Das Sprachmodell gibt nur Zusammenfassungen und antwortet auf die gestellten Fragen anhand der zur Verfügung stehenden Normen. normly stellt keine gesetzlich basierte Rechtsberatung. Der Mensch muss die Antworten immer noch verifizieren.
+The language model only provides summaries and answers the questions asked on the basis of the available norms. normly does not provide legally based legal advice. The human must still verify the answers.
 
-### 3.6.4 Model Lifecycle und Operations
+### 3.6.4 Model lifecycle and operations
 
-Die Sprachmodelle sind fortwährend den neuesten zur Verfügung stehenden Versionen anzupassen. Im Zuge der Internationalisierung sind neben deutsch und englisch (Start Sprachen) zudem weitere Sprachen erforderlich.
+The language models are to be continually adapted to the latest available versions. In the course of internationalization, further languages are required in addition to German and English (start languages).
 
-## 3.7 Open Source und Governance
+## 3.7 Open source and governance
 
-Dieses Kapitel definiert Anforderungen an Lizenzierung, Rechteordnung und Governance des quelloffenen Kerns sowie an die Abgrenzung zur kommerziellen Schicht.
+This chapter defines requirements for the licensing, rights framework and governance of the open-source core, as well as for the delimitation from the commercial layer.
 
-### REQ-OSS-001 — Lizenzmodell des freien Kerns
+### REQ-OSS-001 — License model of the free core
 
-**Statement:** Der Quellcode des Kerns steht unter der GNU Affero General Public License 3.0 (AGPL-3.0). Client-SDKs und die API-Spezifikation stehen unter Apache-2.0. Die frei verfügbaren Inhalte und der Referenzgraph stehen unter einer offenen Datenlizenz (ODbL oder CC-BY-SA).
+**Statement:** The source code of the core is under the GNU Affero General Public License 3.0 (AGPL-3.0). Client SDKs and the API specification are under Apache-2.0. The freely available content and the reference graph are under an open data license (ODbL or CC-BY-SA).
 
-**Rationale:** Die AGPL schließt die Lücke der Netzwerknutzung und verhindert, dass Dritte den Kern als geschlossenen Dienst betreiben. Die permissive Lizenz für SDKs und API-Spezifikation sichert maximale Verbreitung.
+**Rationale:** The AGPL closes the network-use gap and prevents third parties from operating the core as a closed service. The permissive license for SDKs and API specification ensures maximum reach.
 
-**Akzeptanzkriterium:** LICENSE-Datei je Repository vorhanden; Lizenzhinweis in allen Quelldateien; Datenlizenz in der Veröffentlichung ausgewiesen.
+**Acceptance criteria:** LICENSE file present per repository; license notice in all source files; data license stated in the publication.
 
-**Abnahmekriterium:** Lizenz-Review bestätigt konsistente Auszeichnung aller Bestandteile.
+**Acceptance test:** A license review confirms consistent labeling of all components.
 
-### REQ-OSS-002 — Trennung von freiem Kern und kommerzieller Schicht
+### REQ-OSS-002 — Separation of free core and commercial layer
 
-**Statement:** Der freie Kern darf keine Abhängigkeit auf proprietäre Bestandteile besitzen und muss ohne diese vollständig lauffähig sein. Kommerzielle Module docken ausschließlich über dokumentierte Erweiterungspunkte an.
+**Statement:** The free core must not have any dependency on proprietary components and must be fully runnable without them. Commercial modules attach exclusively via documented extension points.
 
-**Rationale:** Ohne diese Trennung ist das Open-Core-Modell weder lizenzrechtlich noch gegenüber der Community belastbar.
+**Rationale:** Without this separation, the open-core model is robust neither in terms of license law nor towards the community.
 
-**Akzeptanzkriterium:** Der Kern lässt sich ohne kommerzielle Module bauen, testen und betreiben; keine Importe aus proprietären Paketen im Kern.
+**Acceptance criteria:** The core can be built, tested and operated without commercial modules; no imports from proprietary packages in the core.
 
-**Abnahmekriterium:** Build des Kerns ohne kommerzielle Repositories erfolgreich; Abhängigkeitsprüfung in der Pipeline ohne Befund.
+**Acceptance test:** Build of the core without commercial repositories succeeds; dependency check in the pipeline without findings.
 
-### REQ-OSS-003 — Beitragsmodell (DCO)
+### REQ-OSS-003 — Contribution model (DCO)
 
-**Statement:** Externe Beiträge werden über das Developer Certificate of Origin (DCO) angenommen. Jeder Commit trägt eine Signed-off-by-Zeile. Eine Übertragung von Rechten (CLA) findet nicht statt.
+**Statement:** External contributions are accepted via the Developer Certificate of Origin (DCO). Every commit carries a Signed-off-by line. No transfer of rights (CLA) takes place.
 
-**Rationale:** Das DCO senkt die Hürde für Beitragende und stützt den Anspruch auf frei zugängliches Normenwissen. Die Konsequenz, dass eine spätere kommerzielle Ausnahmelizenz zur AGPL damit ausgeschlossen ist, wurde bewusst in Kauf genommen.
+**Rationale:** The DCO lowers the barrier for contributors and supports the aim of freely accessible knowledge about norms. The consequence that a later commercial exception license to the AGPL is thereby ruled out was knowingly accepted.
 
-**Akzeptanzkriterium:** DCO-Prüfung als verpflichtender Schritt in der Pipeline; CONTRIBUTING-Datei beschreibt das Verfahren.
+**Acceptance criteria:** DCO check as a mandatory step in the pipeline; CONTRIBUTING file describes the procedure.
 
-**Abnahmekriterium:** Ein Merge Request ohne Signed-off-by wird automatisiert abgelehnt.
+**Acceptance test:** A merge request without Signed-off-by is automatically rejected.
 
-### REQ-OSS-004 — Community-Governance und Sicherheitsprozess
+### REQ-OSS-004 — Community governance and security process
 
-**Statement:** Das Projekt führt einen dokumentierten Maintainer-Kreis, einen Verhaltenskodex sowie eine Sicherheitsrichtlinie mit definiertem Meldeweg und Reaktionsfrist.
+**Statement:** The project maintains a documented group of maintainers, a code of conduct and a security policy with a defined reporting channel and response deadline.
 
-**Rationale:** Nachvollziehbare Governance ist Voraussetzung für Vertrauen und für die Mitwirkung Dritter.
+**Rationale:** Transparent governance is a prerequisite for trust and for the participation of third parties.
 
-**Akzeptanzkriterium:** CODE_OF_CONDUCT, SECURITY und GOVERNANCE im Repository vorhanden; Meldeweg für Schwachstellen benannt.
+**Acceptance criteria:** CODE_OF_CONDUCT, SECURITY and GOVERNANCE present in the repository; reporting channel for vulnerabilities named.
 
-**Abnahmekriterium:** Ein Testbericht über den Meldeweg wird innerhalb der definierten Frist beantwortet.
+**Acceptance test:** A test report via the reporting channel is answered within the defined deadline.
 
-### REQ-OSS-005 — Lizenzkonformität der Abhängigkeiten
+### REQ-OSS-005 — License compliance of dependencies
 
-**Statement:** Für jeden Release wird eine Software Bill of Materials (SBOM) erzeugt und die Lizenzen aller Abhängigkeiten automatisiert geprüft. Mit der AGPL unvereinbare Lizenzen führen zum Abbruch des Builds.
+**Statement:** For every release, a Software Bill of Materials (SBOM) is generated and the licenses of all dependencies are checked automatically. Licenses incompatible with the AGPL cause the build to abort.
 
-**Rationale:** Vermeidung von Lizenzverstößen und von Rechtsunsicherheit bei Nachnutzern.
+**Rationale:** Avoidance of license violations and of legal uncertainty for downstream users.
 
-**Akzeptanzkriterium:** SBOM je Release als Artefakt; Lizenz-Scan als Pflichtschritt in der Pipeline.
+**Acceptance criteria:** SBOM per release as an artifact; license scan as a mandatory step in the pipeline.
 
-**Abnahmekriterium:** Ein eingeschleuster inkompatibler Abhängigkeitseintrag lässt den Build fehlschlagen.
+**Acceptance test:** An injected incompatible dependency entry makes the build fail.
 
-### REQ-OSS-006 — Markenrechte
+### REQ-OSS-006 — Trademark rights
 
-**Statement:** Die Marke normly ist nicht Bestandteil der Open-Source-Lizenz. Für die Nutzung der Marke durch Dritte gilt eine gesonderte Markenrichtlinie.
+**Statement:** The normly trademark is not part of the open-source license. A separate trademark policy applies to the use of the trademark by third parties.
 
-**Rationale:** Die Marke ist der Vermögenswert, über den Qualität und Herkunft gesteuert werden; sie muss unabhängig von der Codelizenz kontrollierbar bleiben.
+**Rationale:** The trademark is the asset through which quality and provenance are controlled; it must remain controllable independently of the code license.
 
-**Akzeptanzkriterium:** Markenrichtlinie im Repository veröffentlicht; Hinweis in der LICENSE-Datei.
+**Acceptance criteria:** Trademark policy published in the repository; notice in the LICENSE file.
 
-**Abnahmekriterium:** Rechtliche Prüfung bestätigt die Trennung von Code- und Markenlizenz.
+**Acceptance test:** A legal review confirms the separation of code license and trademark license.
 
-## 3.8 Quellcodeverwaltung und Git-Workflow
+## 3.8 Source code management and Git workflow
 
-Dieses Kapitel definiert Anforderungen an Plattform, Ablauf und Absicherung der Quellcodeverwaltung.
+This chapter defines requirements for the platform, process and safeguarding of source code management.
 
-### REQ-GIT-001 — GitHub als führende Plattform für den Kern-Quellcode
+### REQ-GIT-001 — GitHub as the primary platform for the core source code
 
-**Status:** Neu gefasst durch ADR-021 (2026-09-14); löst die vorherige Fassung (STACKIT Git als alleinige Plattform, ADR-019) ab.
+**Status:** Revised by ADR-021 (2026-09-14); supersedes the previous version (STACKIT Git as the sole platform, ADR-019).
 
-**Statement:** Führende Plattform für Quellcode, Beiträge, CI/CD und Container-Registry des freien Kerns ist GitHub (`github.com/normly/web-app`). Betrieb, Deployment, Secrets-Management und die Normen-Wissensbasis bleiben davon getrennt und ausschließlich auf STACKIT (siehe REQ-INST-001, REQ-BUILD-002). STACKIT Git (`jwokittel/normly-webapp`) wird nicht mehr für Quellcode genutzt und ist für die Wissensbasis nicht mehr vorgesehen (ADR-025); die Wissensbasis liegt als Dump im STACKIT Object Storage.
+**Statement:** The primary platform for source code, contributions, CI/CD and container registry of the free core is GitHub (`github.com/normly/web-app`). Operations, deployment, secrets management and the norms knowledge base remain separate from this and exclusively on STACKIT (see REQ-INST-001, REQ-BUILD-002). STACKIT Git (`jwokittel/normly-webapp`) is no longer used for source code and is no longer intended for the knowledge base (ADR-025); the knowledge base resides as a dump in STACKIT Object Storage.
 
-**Rationale:** ADR-021 — einfachere Kollaboration für den offenen Kern-Quellcode überwiegt den Souveränitätsvorteil einer alleinigen STACKIT-Plattform für Code, CI und Registry. Die Souveränitätsbeschränkung aus Kapitel 2.3 gilt unverändert für Betrieb, Daten und Secrets.
+**Rationale:** ADR-021 — easier collaboration for the open core source code outweighs the sovereignty advantage of a single STACKIT platform for code, CI and registry. The sovereignty restriction from chapter 2.3 continues to apply unchanged to operations, data and secrets.
 
-**Akzeptanzkriterium:** Quellcode, Pipelines und Container-Registry des freien Kerns liegen in GitHub; kein Betriebs- oder Deployment-Zugangsdatum ist dort hinterlegt.
+**Acceptance criteria:** Source code, pipelines and container registry of the free core reside on GitHub; no operations or deployment credential is stored there.
 
-**Abnahmekriterium:** Infrastruktur-Review bestätigt, dass Betrieb, Deployment und Secrets-Management ausschließlich auf STACKIT laufen und die GitHub-Seite frei von Betriebszugangsdaten ist.
+**Acceptance test:** An infrastructure review confirms that operations, deployment and secrets management run exclusively on STACKIT and that the GitHub side is free of operations credentials.
 
-### REQ-GIT-002 — Beitragsweg über GitHub
+### REQ-GIT-002 — Contribution path via GitHub
 
-**Status:** Neu gefasst durch ADR-021 (2026-09-14). War von 2026-09-05 bis 2026-09-14 hinfällig (ADR-019); GitHub ist jetzt keine reine Beitragsfassade mehr, sondern die führende Plattform gemäß REQ-GIT-001.
+**Status:** Revised by ADR-021 (2026-09-14). Was obsolete from 2026-09-05 to 2026-09-14 (ADR-019); GitHub is now no longer a mere contribution facade but the primary platform according to REQ-GIT-001.
 
-**Statement:** Externe wie interne Beiträge (Issues, Pull Requests) laufen über GitHub im Repository `normly/web-app`. Es gibt keinen zweiten, parallel gepflegten Beitragsweg.
+**Statement:** External as well as internal contributions (issues, pull requests) go through GitHub in the repository `normly/web-app`. There is no second contribution path maintained in parallel.
 
-**Rationale:** Sichtbarkeit und niedrige Beitragshürde; siehe ADR-021 für die vollständige Begründung des Plattformwechsels.
+**Rationale:** Visibility and a low barrier to contribution; see ADR-021 for the full rationale of the platform switch.
 
-**Akzeptanzkriterium:** Beiträge werden ausschließlich über GitHub entgegengenommen.
+**Acceptance criteria:** Contributions are accepted exclusively via GitHub.
 
-**Abnahmekriterium:** Review bestätigt, dass kein zweiter aktiv gepflegter Issue-Tracker oder Beitragsweg besteht.
+**Acceptance test:** A review confirms that no second actively maintained issue tracker or contribution path exists.
 
-### REQ-GIT-003 — Branch- und Release-Strategie
+### REQ-GIT-003 — Branch and release strategy
 
-**Statement:** Es gilt ein dokumentierter Branching-Ablauf mit geschütztem Hauptzweig, semantischer Versionierung (SemVer), einheitlichem Commit-Format und signierten Release-Tags.
+**Statement:** A documented branching process applies, with a protected main branch, semantic versioning (SemVer), a uniform commit format and signed release tags.
 
-**Rationale:** Nachvollziehbarkeit von Änderungen und verlässliche Versionsstände für Nachnutzer.
+**Rationale:** Traceability of changes and reliable versions for downstream users.
 
-**Akzeptanzkriterium:** Direkte Pushes auf den Hauptzweig sind unterbunden; jeder Release trägt ein signiertes Tag.
+**Acceptance criteria:** Direct pushes to the main branch are prevented; every release carries a signed tag.
 
-**Abnahmekriterium:** Ein Versuch, direkt auf den Hauptzweig zu pushen, wird abgewiesen.
+**Acceptance test:** An attempt to push directly to the main branch is rejected.
 
-### REQ-GIT-004 — Merge-Request-Richtlinie
+### REQ-GIT-004 — Merge request policy
 
-**Statement:** Änderungen gelangen ausschließlich über Merge Requests in den Hauptzweig. Voraussetzung sind mindestens eine fachliche Freigabe, eine erfolgreiche Pipeline und die Zustimmung der zuständigen Codeverantwortlichen.
+**Statement:** Changes reach the main branch exclusively via merge requests. Prerequisites are at least one subject-matter approval, a successful pipeline and the consent of the responsible code owners.
 
-**Rationale:** Qualitätssicherung und Vier-Augen-Prinzip; Schutz vor unbeabsichtigten Regressionen.
+**Rationale:** Quality assurance and the four-eyes principle; protection against unintended regressions.
 
-**Akzeptanzkriterium:** Merge ohne Freigabe oder mit fehlgeschlagener Pipeline ist technisch nicht möglich.
+**Acceptance criteria:** Merging without approval or with a failed pipeline is technically not possible.
 
-**Abnahmekriterium:** Ein Merge Request mit rotem Pipeline-Status lässt sich nicht zusammenführen.
+**Acceptance test:** A merge request with a red pipeline status cannot be merged.
 
-### REQ-GIT-005 — Integrität der Lieferkette
+### REQ-GIT-005 — Supply chain integrity
 
-**Statement:** Commits und Build-Artefakte werden signiert. Für jeden Release werden Herkunftsnachweis und SBOM veröffentlicht.
+**Statement:** Commits and build artifacts are signed. For every release, proof of provenance and an SBOM are published.
 
-**Rationale:** Schutz vor Manipulation und Voraussetzung für die Nachvollziehbarkeit in regulierten Umgebungen.
+**Rationale:** Protection against tampering and a prerequisite for traceability in regulated environments.
 
-**Akzeptanzkriterium:** Signaturprüfung als Pflichtschritt vor dem Rollout; Artefakte signiert in der GitHub Container Registry abgelegt (ADR-021, ADR-023: cosign keyless, SLSA-Provenance und SBOM je Image).
+**Acceptance criteria:** Signature verification as a mandatory step before rollout; artifacts stored signed in the GitHub Container Registry (ADR-021, ADR-023: cosign keyless, SLSA provenance and SBOM per image).
 
-**Abnahmekriterium:** Ein unsigniertes Artefakt wird von der Auslieferung abgewiesen.
+**Acceptance test:** An unsigned artifact is rejected by the shipping process.
 
-**Stand (2026-10-08):** Signatur, Provenance und SBOM je Image sind mit ADR-023 umgesetzt. Die Prüfung als Pflichtschritt vor dem Start auf der Zielumgebung ist mit dem Rollout-Skript `normly-deploy` umgesetzt (ADR-024, 2026-10-09).
+**As of (2026-10-08):** Signature, provenance and SBOM per image are implemented with ADR-023. The verification as a mandatory step before the start on the target environment is implemented with the rollout script `normly-deploy` (ADR-024, 2026-10-09).
 
-## 3.9 Referenzgraph
+## 3.9 Reference graph
 
-Dieses Kapitel definiert Anforderungen an Aufbau, Lizenzierung und Nutzung des Normen-Referenzgraphen.
+This chapter defines requirements for the structure, licensing and use of the norm reference graph.
 
-### REQ-GRAPH-001 — Offener Normen-Referenzgraph
+### REQ-GRAPH-001 — Open norm reference graph
 
-**Statement:** Das System führt einen maschinenlesbaren Referenzgraph über Regelwerke. Erfasst werden stabile Identifikatoren, Verweise zwischen Regelwerken, Ersetzungs- und Zurückziehungsketten, Ausgabestände sowie Verweise aus Gesetzen und Verordnungen auf Normen. Schema und Inhalte des freien Teils werden unter einer offenen Datenlizenz mit Share-Alike-Wirkung (ODbL) veröffentlicht.
+**Statement:** The system maintains a machine-readable reference graph over standards. It records stable identifiers, references between standards, replacement and withdrawal chains, editions, and references from laws and regulations to norms. Schema and content of the free part are published under an open data license with share-alike effect (ODbL).
 
-**Rationale:** Der Referenzgraph ist das eigentliche Alleinstellungsmerkmal von normly. Seine Offenheit ist kein Verzicht auf Schutz: Das Datenbankherstellerrecht nach §§ 87a ff. UrhG in Verbindung mit der Share-Alike-Klausel verhindert, dass Dritte den Graph in ein geschlossenes Produkt überführen. Zugleich begründet die Offenheit die Rolle als neutrale Infrastruktur gegenüber den Normungsorganisationen.
+**Rationale:** The reference graph is normly's actual unique selling point. Its openness is not a waiver of protection: the database maker's right under §§ 87a ff. UrhG in conjunction with the share-alike clause prevents third parties from turning the graph into a closed product. At the same time, the openness establishes the role as neutral infrastructure towards the standardization bodies.
 
-**Akzeptanzkriterium:** Vollständiger Dump in einem offenen, dokumentierten Format; Schema versioniert und öffentlich; Lizenzhinweis maschinenlesbar mitgeführt.
+**Acceptance criteria:** Complete dump in an open, documented format; schema versioned and public; license notice carried along in machine-readable form.
 
-**Abnahmekriterium:** Ein Dritter kann den veröffentlichten Dump ohne Rückfrage einlesen und Verweisketten reproduzieren.
+**Acceptance test:** A third party can read in the published dump without further inquiry and reproduce reference chains.
 
-### REQ-GRAPH-002 — Schichtung von freiem und kommerziellem Graphanteil
+### REQ-GRAPH-002 — Layering of free and commercial graph share
 
-**Statement:** Frei veröffentlicht werden Schema, Identifikatoren, Verweise zwischen öffentlich zugänglichen Regelwerken, Ersetzungsketten und Gültigkeitsstände. Der kommerziellen Schicht vorbehalten sind: Aktualitätsgarantie mit SLA und Änderungsbenachrichtigung, Verweise bis auf Abschnittsebene innerhalb lizenzierter Normen, Konfidenzangaben und Belegstellen für Auditzwecke sowie branchenspezifische Anreicherungen.
+**Statement:** Schema, identifiers, references between publicly accessible standards, replacement chains and validity states are published freely. Reserved for the commercial layer are: currency guarantee with SLA and change notification, references down to section level within licensed norms, confidence ratings and evidence citations for audit purposes, and industry-specific enrichments.
 
-**Rationale:** Verweise, die die interne Gliederung geschützter Normen abbilden, dürfen je nach Lizenzvertrag nicht frei veröffentlicht werden. Zugleich zahlen gewerbliche Kunden für Verlässlichkeit und Aktualität, nicht für den Datenbestand als solchen; ein periodischer Dump und eine SLA-gestützte API sind unterschiedliche Produkte.
+**Rationale:** References that map the internal structure of protected norms must not be published freely, depending on the license agreement. At the same time, commercial customers pay for reliability and currency, not for the data collection as such; a periodic dump and an SLA-backed API are different products.
 
-**Akzeptanzkriterium:** Jede Kante und jeder Knoten des Graphen trägt eine Herkunfts- und Lizenzklassifikation je Rechtsraum gemäß REQ-GRAPH-006; der freie Export enthält je Rechtsraum ausschließlich dort frei lizenzierbare Elemente.
+**Acceptance criteria:** Every edge and every node of the graph carries a provenance and license classification per jurisdiction according to REQ-GRAPH-006; the free export contains, per jurisdiction, exclusively elements that are freely licensable there.
 
-**Abnahmekriterium:** Ein Export des freien Anteils enthält nachweislich keine lizenzpflichtigen Abschnittsverweise.
+**Acceptance test:** An export of the free share demonstrably contains no section references subject to licensing.
 
-### REQ-GRAPH-003 — Graph-First-Anfrageverarbeitung
+### REQ-GRAPH-003 — Graph-first query processing
 
-**Statement:** Anfragen werden zuerst gegen den Referenzgraph aufgelöst. Ein Sprachmodell wird nur aufgerufen, wenn die Anfrage eine Synthese über Fließtext erfordert. Strukturfragen (Ersetzung, Gültigkeit, Verweisbeziehungen) sind deterministisch und ohne Modellaufruf zu beantworten.
+**Statement:** Queries are resolved against the reference graph first. A language model is only invoked when the query requires synthesis over running text. Structural questions (replacement, validity, reference relationships) are to be answered deterministically and without a model call.
 
-**Rationale:** Strukturfragen sind aus dem Graph exakt beantwortbar. Ein Modellaufruf wäre hier teurer, langsamer und fehleranfälliger; gerade bei Gültigkeits- und Ersetzungsfragen sind Halluzinationen besonders folgenschwer.
+**Rationale:** Structural questions can be answered exactly from the graph. A model call would be more expensive, slower and more error-prone here; especially with validity and replacement questions, hallucinations have particularly serious consequences.
 
-**Akzeptanzkriterium:** Klassifikation jeder Anfrage vor der Verarbeitung; deterministische Antwort mit Quellenangabe für Strukturfragen; Zwischenspeicherung wiederkehrender Anfragen.
+**Acceptance criteria:** Classification of every query before processing; deterministic answer with citation for structural questions; caching of recurring queries.
 
-**Abnahmekriterium:** Ein definierter Satz von Strukturfragen wird vollständig ohne Modellaufruf und mit korrekter Quellenangabe beantwortet.
+**Acceptance test:** A defined set of structural questions is answered completely without a model call and with correct citations.
 
-### REQ-GRAPH-004 — Technologieoffenheit der Graphhaltung
+### REQ-GRAPH-004 — Technology independence of graph storage
 
-**Statement:** Der Zugriff auf den Referenzgraph erfolgt ausschließlich über eine abstrahierte Schnittstelle innerhalb der Anwendung. Die konkrete Speichertechnologie ist austauschbar und darf nicht in die Fachlogik durchschlagen. Für den Start wird eine bei STACKIT betreibbare, quelloffene Datenbank eingesetzt.
+**Statement:** Access to the reference graph takes place exclusively via an abstracted interface within the application. The concrete storage technology is interchangeable and must not leak into the domain logic. For the start, an open-source database that can be operated at STACKIT is used.
 
-**Rationale:** Betreiber eigener Instanzen sollen den freien Kern ohne zusätzliche Lizenzkosten und ohne fremdgehostete Spezialdatenbank betreiben können. Eine spätere Migration auf eine dedizierte Graphdatenbank muss ohne Eingriff in die Fachlogik möglich bleiben.
+**Rationale:** Operators of their own instances should be able to operate the free core without additional license costs and without an externally hosted special-purpose database. A later migration to a dedicated graph database must remain possible without intervening in the domain logic.
 
-**Akzeptanzkriterium:** Keine datenbankspezifischen Abfragen außerhalb der Zugriffsschicht; Austausch der Speichertechnologie ist durch Tests abgedeckt.
+**Acceptance criteria:** No database-specific queries outside the access layer; swapping the storage technology is covered by tests.
 
-**Abnahmekriterium:** Architektur-Review bestätigt, dass die Fachlogik keine Kenntnis der konkreten Graphtechnologie besitzt.
+**Acceptance test:** An architecture review confirms that the domain logic has no knowledge of the concrete graph technology.
 
-### REQ-GRAPH-005 — Internationalisierung des Referenzgraphen
+### REQ-GRAPH-005 — Internationalization of the reference graph
 
-**Statement:** Der Referenzgraph ist von Beginn an für weltweite Abdeckung auszulegen. Erforderlich sind: ein global kollisionsfreies Identifikatorschema, das Herausgeber, Dokumentnummer, Ausgabestand und Teilnummer getrennt abbildet; eine sprachunabhängige Knotenidentität, bei der ein Regelwerk einen Knoten bildet und nationale Übernahmen sowie Übersetzungen als Beziehungen bzw. Attribute geführt werden; mehrsprachige Bezeichnungen je Knoten.
+**Statement:** The reference graph is to be designed for worldwide coverage from the start. Required are: a globally collision-free identifier scheme that maps publisher, document number, edition and part number separately; a language-independent node identity in which one standard forms one node and national adoptions and translations are kept as relationships and attributes, respectively; multilingual designations per node.
 
-**Rationale:** Ein nachträglicher Umbau des Identifikatorschemas ist die teuerste denkbare Altlast. Ein Regelwerk wie EN ISO 9001 wird von mehreren nationalen Gremien in unterschiedlichen Sprachen übernommen; ohne sprachunabhängige Identität entstehen Dubletten, die Verweisketten unbrauchbar machen.
+**Rationale:** A later rebuild of the identifier scheme is the most expensive legacy burden imaginable. A standard such as EN ISO 9001 is adopted by several national bodies in different languages; without language-independent identity, duplicates arise that make reference chains unusable.
 
-**Akzeptanzkriterium:** Identifikatorschema dokumentiert und versioniert; nationale Übernahmen sind als Beziehung zum Ursprungsdokument abgebildet; je Knoten sind Bezeichnungen in mehreren Sprachen führbar.
+**Acceptance criteria:** Identifier scheme documented and versioned; national adoptions are mapped as a relationship to the original document; designations in several languages can be kept per node.
 
-**Abnahmekriterium:** Ein Regelwerk mit Übernahmen durch mindestens drei nationale Gremien wird als ein Knoten mit zugeordneten Übernahmen dargestellt.
+**Acceptance test:** A standard with adoptions by at least three national bodies is represented as one node with assigned adoptions.
 
-### REQ-GRAPH-006 — Rechtsraumabhängige Lizenzklassifikation
+### REQ-GRAPH-006 — Jurisdiction-specific license classification
 
-**Statement:** Die Lizenz- und Veröffentlichungsfähigkeit von Knoten und Kanten wird je Rechtsraum klassifiziert und geführt. Exporte und API-Antworten werden anhand des jeweils maßgeblichen Rechtsraums gefiltert.
+**Statement:** The licensability and publishability of nodes and edges are classified and kept per jurisdiction. Exports and API responses are filtered on the basis of the jurisdiction applicable in each case.
 
-**Rationale:** Der frei veröffentlichbare Anteil ist nicht global einheitlich: § 5 UrhG gilt nur in Deutschland, die Lage bei per Verweis in Gesetze aufgenommenen Normen ist je Rechtsordnung unterschiedlich, und für harmonisierte europäische Normen ist die Rechtslage durch die Entscheidung des EuGH in der Rechtssache C-588/21 gesondert zu bewerten. Eine globale Klassifikation wäre entweder rechtswidrig oder unnötig restriktiv.
+**Rationale:** The freely publishable share is not globally uniform: § 5 UrhG applies only in Germany, the situation for norms incorporated into laws by reference differs per legal system, and for harmonized European norms the legal situation is to be assessed separately due to the decision of the Court of Justice of the European Union (CJEU) in case C-588/21. A global classification would be either unlawful or unnecessarily restrictive.
 
-**Akzeptanzkriterium:** Klassifikation je Rechtsraum am Datenmodell hinterlegt; Exportfilter wählbar; Herkunft der rechtlichen Bewertung dokumentiert und mit Datum versehen.
+**Acceptance criteria:** Classification per jurisdiction stored in the data model; export filter selectable; provenance of the legal assessment documented and dated.
 
-**Abnahmekriterium:** Zwei Exporte für unterschiedliche Rechtsräume liefern nachweislich unterschiedliche, jeweils zulässige Umfänge.
+**Acceptance test:** Two exports for different jurisdictions demonstrably deliver different scopes, each of them permissible.
 
 ## 3.10 Inhaltepartnerschaften und Vergütung
 
