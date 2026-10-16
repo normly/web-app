@@ -1,4 +1,4 @@
-# Referenzgraph-Suche/-Browsing Implementation Plan
+# Reference Graph Search/Browsing Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -2524,23 +2524,23 @@ git commit -s -m "test: add end-to-end search-and-detail coverage"
 
 **Spec coverage:**
 
-| Spec-Abschnitt | Task |
+| Spec section | Task |
 |---|---|
-| Funktionsumfang: Suche + Detailseite + Graph-Browsing + Browse-nach-Herausgeber | Task 2 (Endpunkt deckt beides), Task 7, Task 8 |
-| Ratenbegrenzung (REQ-ACC-003, Herkunftsadresse) | Task 1 |
-| Sitzungsmerkmal für Ratenbegrenzung (`normly_anon_id`) | Task 3 (Vergabe), Task 1 (Nutzung im Schlüssel), Task 5 (Weiterleitung) |
-| Jurisdiktion als app-weiter Zustand, behebt fest kodiertes "DE" im Chat | Task 4 |
-| Neue BFF-Route-Handler (search/edges/validity) mit korrektem Encoding | Task 5 |
-| Neue UI-Bausteine (Pagination, Badge) | Task 6 |
-| i18n (Suche, Kantentyp-Bezeichnungen, Gültigkeitsstatus) | Task 6 |
-| `/search`-Seite | Task 7 |
-| `/documents/[id]`-Detailseite mit klickbaren Verweisen | Task 8 |
-| Fehlerbehandlung (429, leere Trefferliste, 404, nicht erreichbar) | Task 7 (429, leer), Task 8 (404) |
-| Testkonzept (core/api/frontend/e2e) | jede Task trägt ihre eigenen Tests; Task 9 bündelt e2e + Regression |
+| Scope: search + detail page + graph browsing + browse by publisher | Task 2 (endpoint covers both), Task 7, Task 8 |
+| Rate limiting (REQ-ACC-003, client IP address) | Task 1 |
+| Session identifier for rate limiting (`normly_anon_id`) | Task 3 (issuance), Task 1 (use in the key), Task 5 (forwarding) |
+| Jurisdiction as app-wide state, fixes the hardcoded "DE" in the chat | Task 4 |
+| New BFF route handlers (search/edges/validity) with correct encoding | Task 5 |
+| New UI building blocks (Pagination, Badge) | Task 6 |
+| i18n (search, edge type labels, validity status) | Task 6 |
+| `/search` page | Task 7 |
+| `/documents/[id]` detail page with clickable references | Task 8 |
+| Error handling (429, empty result list, 404, unreachable) | Task 7 (429, empty), Task 8 (404) |
+| Test concept (core/api/frontend/e2e) | every task carries its own tests; Task 9 bundles e2e + regression |
 
 No gap found — every section of the approved spec maps to at least one task.
 
-**Placeholder scan:** No "TBD"/"TODO" found. The spec's own "Offene Punkte" (full
+**Placeholder scan:** No "TBD"/"TODO" found. The spec's own "Open items" (full
 anomaly detection, jurisdictions beyond DE/EU, full-text index) are out of this
 plan's scope by explicit spec decision, not placeholders left behind by this plan.
 

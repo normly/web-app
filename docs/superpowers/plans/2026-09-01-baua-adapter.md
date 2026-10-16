@@ -1,4 +1,4 @@
-# BAuA-Adapter (TRGS/TRBS/TRBA) Implementation Plan
+# BAuA Adapter (TRGS/TRBS/TRBA) Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -28,19 +28,19 @@ no new dependency), `reportlab` (dev-only, test fixtures), `pytest`.
   copyright line, exactly matching `dguv.py`'s first two lines (CLAUDE.md).
 - Every commit needs `Signed-off-by: normly <anonymous-jw@pm.me>` (DCO, CLAUDE.md).
 - One `BauaAdapter` covers all three series (TRGS, TRBS, TRBA) under a single registry
-  entry, publisher `"BAuA"` — not three adapters (spec, "Ziel dieses Teilprojekts").
-- Legal basis category is **A** (amtliches Werk, § 5 UrhG "amtliche Bekanntmachungen")
+  entry, publisher `"BAuA"` — not three adapters (spec, "Goal of this sub-project").
+- Legal basis category is **A** (official work, § 5 UrhG (German Copyright Act) "amtliche Bekanntmachungen", i.e. official notices)
   — same tier as the existing `"dguv"`/`"eur-lex"` registry entries (spec,
-  "Rechtegrundlage: Kategorie A").
+  "Legal basis: category A").
 - `extract_structure()` returns exactly one segment holding the full document text,
-  `heading=None` — no numbered-section splitting in this pass (spec, "Entscheidung:
-  Struktur-Tiefe Phase 1"). Do not add heading detection as part of this plan.
+  `heading=None` — no numbered-section splitting in this pass (spec, "Decision:
+  structure depth phase 1"). Do not add heading detection as part of this plan.
 - File-glob convention: `baua_trgs_*.pdf`, `baua_trbs_*.pdf`, `baua_trba_*.pdf` (spec,
-  "Dateikonvention").
+  "File convention").
 - No committed binary fixture PDFs for this adapter (deviates slightly from the DGUV/
   EUR-Lex precedent of one committed fixture each) — Phase 1 has no persistent
   "verify Docling's real element-classification behavior" assertion to anchor a fixed
-  file against (see the DGUV design spec's "Empirischer Befund", which does not apply
+  file against (see the DGUV design spec's "Empirical finding", which does not apply
   here since Phase 1 never inspects element types, only item text). All BAuA test
   fixtures are generated at test time with `reportlab`, same helper pattern
   `test_dguv_adapter.py` already uses.
@@ -653,7 +653,7 @@ Signed-off-by: normly <anonymous-jw@pm.me>"
 
 - Run the full `core` test suite once more (`cd core && python -m pytest -v`) to
   confirm nothing outside `tests/pipeline/` regressed.
-- Update `docs/superpowers/specs/2026-09-01-baua-adapter-design.md`'s "Offene Punkte"
+- Update `docs/superpowers/specs/2026-09-01-baua-adapter-design.md`'s "Open items / follow-up work"
   is already accurate as written (real-document verification and automated procurement
   remain open) — no spec edit needed unless implementation surfaced a new deviation.
 - Update the `project_baua_adapter_brainstorm` memory to reflect completion once this

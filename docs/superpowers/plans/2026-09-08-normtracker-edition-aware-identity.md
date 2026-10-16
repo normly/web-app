@@ -1,10 +1,10 @@
-# Editions-bewusste Identitätsauflösung Implementation Plan
+# Edition-Aware Identity Resolution Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make `identity.resolve()` and `find_by_designation` edition-aware so a new DGUV Vorschrift edition sharing its predecessor's exact designation is recognized as a genuinely new `Document` (not silently merged into the existing one), inherits the predecessor's `work_id`, and gets a real `REPLACES` edge to it.
 
-**Architecture:** DGUV already parses (and discards) its "vom `<Datum>`" issue date — capture it into a new `RawRecord.edition` field. Make `find_by_designation` accept an optional `edition` filter, and make `identity.resolve()` use it to tell "same edition, re-ingested" apart from "known designation, new edition" apart from "genuinely new designation." Wire the new "new edition" outcome into `runner.py` to reuse the predecessor's Work and create a `REPLACES` edge, alongside (not instead of) the existing Inkrafttreten-section-based detection.
+**Architecture:** DGUV already parses (and discards) its "vom `<date>`" issue date — capture it into a new `RawRecord.edition` field. Make `find_by_designation` accept an optional `edition` filter, and make `identity.resolve()` use it to tell "same edition, re-ingested" apart from "known designation, new edition" apart from "genuinely new designation." Wire the new "new edition" outcome into `runner.py` to reuse the predecessor's Work and create a `REPLACES` edge, alongside (not instead of) the existing Inkrafttreten-section-based detection.
 
 **Tech Stack:** Python 3.12, SQLAlchemy, Alembic, pytest, Postgres via testcontainers (already used throughout `core/tests/`).
 
@@ -1039,7 +1039,7 @@ Task reviewers: standard model for all four, given the real cross-task coupling 
 
 ## Self-Review
 
-**Spec coverage:** the spec's three "Ziel" items are each covered — item 1 (capture the issue date) by Task 1, item 2 (edition-aware resolve/find_by_designation) by Tasks 2-3-4, item 3 (Work inheritance + auto-REPLACES) by Task 4. The spec's Nicht-Ziele are respected by construction: no task touches `eur_lex.py`/`baua.py`; no backfill logic anywhere; `_extract_predecessor_reference` is untouched (Task 4's new runner branch is additive, confirmed by re-reading the full `process()` function — the Inkrafttreten-based path via `references.extract_references` still runs unconditionally later in the same function, regardless of which branch created `document`).
+**Spec coverage:** the spec's three "Goal" items are each covered — item 1 (capture the issue date) by Task 1, item 2 (edition-aware resolve/find_by_designation) by Tasks 2-3-4, item 3 (Work inheritance + auto-REPLACES) by Task 4. The spec's Non-goals are respected by construction: no task touches `eur_lex.py`/`baua.py`; no backfill logic anywhere; `_extract_predecessor_reference` is untouched (Task 4's new runner branch is additive, confirmed by re-reading the full `process()` function — the Inkrafttreten-based path via `references.extract_references` still runs unconditionally later in the same function, regardless of which branch created `document`).
 
 **Placeholder scan:** none found. The one gap from the first self-review pass — Task 3's exact test file and its fixture-building convention — was resolved by reading the actual file (`core/tests/graph/test_delivery_find_and_document_find.py`, confirmed to build every fixture inline with no shared setup helper) before finalizing; all three of Task 3's new tests now use that file's real, verified inline style directly, no "find it yourself" notes remain anywhere in the plan.
 

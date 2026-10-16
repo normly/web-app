@@ -1,9 +1,9 @@
-# Frontend Profil-Overlay Implementation Plan
+# Frontend Profile Overlay Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the standalone `/account` page with a small, geblurrtes
-Dialog-Overlay (Claude-style: bounded width/height, backdrop-blur, opened
+**Goal:** Replace the standalone `/account` page with a small, blurred
+dialog overlay (Claude-style: bounded width/height, backdrop-blur, opened
 from the sidebar's user menu, not a full page) — reusing the six already-
 built account sections unchanged, just reorganized behind a left-nav
 switcher instead of one long scroll.
@@ -26,8 +26,8 @@ dependencies.
 ## Global Constraints
 
 - Design spec: `docs/superpowers/specs/2026-09-05-frontend-shadcn-redesign-design.md`
-  — this plan implements only the "### Profil-Overlay" section (lines
-  120-142). It does NOT touch `AppShell`'s Chat/Suche nav, `PageHeader`,
+  — this plan implements only the "### Profile overlay" section (lines
+  120-142). It does NOT touch `AppShell`'s Chat/Search nav, `PageHeader`,
   the chat page, or auth pages — those are other plans.
 - **Reuse the six existing account sections completely unchanged.**
   `NameAvatarSection`, `EmailSection`, `PasswordSection`,
@@ -36,11 +36,11 @@ dependencies.
   form, save action, and BFF-route calls (`/api/account/profile`,
   `/api/account/email`, `/api/account/password`, `/api/account/sessions`,
   `/api/account/export`, `/api/account/delete`, `/api/account/avatar`).
-  This plan is "reines UI-Remapping, keine neue Logik" per the spec — no
+  This plan is "pure UI remapping, no new logic" per the spec — no
   task touches these six files' internals, only Task 1's narrow
   color-token fix (see below).
-- **No Google-link section.** The spec says "plus Google-Verknüpfungsstatus
-  falls vorhanden" — no such section exists anywhere in this codebase
+- **No Google-link section.** The spec says "plus Google link status
+  if present" — no such section exists anywhere in this codebase
   today (confirmed: `grep -rli google frontend/src/components/account`
   finds nothing), so there is nothing to include. Do not build one; that
   would be new scope this plan doesn't own.
@@ -50,12 +50,12 @@ dependencies.
   reference only (left-nav + content-card two-column pattern), the same
   way `ai-chat-v2` was structural-reference-only for the chat page in an
   earlier plan.
-- **No shared "Speichern"-Leiste (bottom save bar).** The spec describes
+- **No shared "Save" bar (bottom save bar).** The spec describes
   `settings-profile4`'s own structure as including one, but each of the
   six existing account sections already has its own inline save button
   tied to its own already-working handler — there is no single unified
   "save everything" action to hook a shared bar to, and inventing one
-  would be new logic, contradicting the spec's own "keine neue Logik"
+  would be new logic, contradicting the spec's own "no new logic"
   instruction for this plan. Each section keeps saving itself
   independently, exactly as it does today.
 - **No `diceui` file-upload dependency.** `settings-profile4`'s own avatar
@@ -66,8 +66,8 @@ dependencies.
   install or reference the diceui component anywhere.
 - **Exactly two nav groups become one: "Konto & Daten" combines Export and
   Delete-Account** under a single left-nav entry, per the spec's own
-  section list ("Profil (Name, Avatar), E-Mail, Passwort, Sitzungen (mit
-  Widerruf), Konto & Daten (Export, Löschen)") — five nav items total,
+  section list ("profile (name, avatar), email, password, sessions (with
+  revocation), account & data (export, delete)") — five nav items total,
   not six.
 - **Opening mechanism is client state, not a route.** The spec explicitly
   leaves this as an implementation detail. This plan's choice: `AppShell`
@@ -314,8 +314,8 @@ to:
 
 (This affects every `Dialog` in the app, including the existing
 `AuthDialog` — a deliberate, low-risk shared improvement matching the
-spec's "geblurrter Hintergrund... ähnlich dem bisherigen Auth-Modal, nur
-größer," which reads as the auth modal keeping the same overlay treatment,
+spec's "blurred background... similar to the previous auth modal, only
+larger," which reads as the auth modal keeping the same overlay treatment,
 just newly blurred, not as something scoped only to the profile overlay.)
 
 - [ ] **Step 7: Write the failing tests for `ProfileOverlay`**
@@ -690,7 +690,7 @@ JSX between `SidebarHeader` and `SidebarFooter` stays exactly as-is.)
 
 Now that the "Konto" item is a plain `onClick` handler, not `asChild`
 wrapping a `<Link>`, the now-unused `Link` import may still be needed
-elsewhere in this file (it's also used for the `NAV_ITEMS` Chat/Suche
+elsewhere in this file (it's also used for the `NAV_ITEMS` Chat/Search
 links and the "Konto"-adjacent... check: if `Link` has no other remaining
 usage in this file after this change, remove the import; if `NAV_ITEMS`'
 `<Link href={href}>` still uses it, as it does, keep it).
@@ -788,5 +788,5 @@ Constraints). Once confirmed: push `frontend/profile-overlay`, open a PR
 against `main` on the `stackit` remote — mention the Playwright e2e
 residual (Task 4, Step 5) in the PR description — wait for the CI
 pipeline's `test-frontend` job to go green, then ask the user to merge
-(same confirm-first rule applies). Plans 5 (Auth-Seiten) and 6 (Suche &
-Dokument-Detail) remain in this redesign; neither depends on this plan.
+(same confirm-first rule applies). Plans 5 (auth pages) and 6 (search &
+document detail) remain in this redesign; neither depends on this plan.

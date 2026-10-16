@@ -26,8 +26,8 @@ matters, see Task 1), `next-themes` (new dependency), existing
 ## Global Constraints
 
 - Design spec: `docs/superpowers/specs/2026-09-05-frontend-shadcn-redesign-design.md`
-  — this plan implements only that spec's section 1 ("Theme-Fundament").
-- **No Mandanten-Branding-Farbe.** `NORMLY_BRAND_COLOR_HSL` and
+  — this plan implements only that spec's section 1 ("Theme foundation").
+- **No tenant branding color.** `NORMLY_BRAND_COLOR_HSL` and
   `frontend/src/lib/config.ts`'s `getInstanceConfig()` stay in the code
   completely unchanged (REQ-DIST-003), but nothing added in this plan
   reads or references `--brand`/`--brand-foreground` — those two variables

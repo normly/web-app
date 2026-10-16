@@ -50,8 +50,8 @@ existing `pytest` + real fixture PDFs.
   `TextItem`) without first verifying that classification against a real
   fixture of that source — verified empirically during design that
   `SectionHeaderItem` is not reliable for DGUV's plainly-formatted §-headings
-  (they come back as `ListItem`). See the design doc's "Entscheidungsverfahren
-  für künftige Adapter" for the procedure every future adapter should follow.
+  (they come back as `ListItem`). See the design doc's "Decision procedure
+  for future adapters" for the procedure every future adapter should follow.
 
 ---
 
@@ -252,7 +252,7 @@ string with the same one-segment-per-line shape Docling's items give,
 joined with `"\n"`. The existing regex-based boundary logic keeps working
 unmodified against that string — this is a deliberate design choice (see
 `docs/superpowers/specs/2026-08-30-docling-migration-design.md`,
-"Empirischer Befund"), not an oversight.
+"Empirical finding"), not an oversight.
 
 - [ ] **Step 1: Write the failing test for the classification finding**
 

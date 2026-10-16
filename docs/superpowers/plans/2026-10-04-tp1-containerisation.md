@@ -62,7 +62,7 @@ Python packages locally: `core/.venv`, `api/.venv`, `chat/.venv`, `accounts/.ven
 - `scripts/sync-to-vm.sh` — rsync mirroring of the working tree to the VM (development tool for E8).
 - `core/src/normly_core/migrate.py` — `python -m normly_core.migrate`: Alembic `upgrade head` from `NORMLY_DATABASE_URL`.
 - `core/tests/test_migrate.py`.
-- `chat/src/normly_chat/llm_client.py` — `LlmClient`-Protokoll, `OpenAiCompatibleClient`, `build_llm_client_from_env`.
+- `chat/src/normly_chat/llm_client.py` — `LlmClient` protocol, `OpenAiCompatibleClient`, `build_llm_client_from_env`.
 - `chat/tests/test_llm_client.py`.
 
 **Changed:**
