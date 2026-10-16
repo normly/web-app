@@ -94,12 +94,14 @@ added here.
 | Attributionserfassung | attribution capture (recording attribution data per answer; see Erfassen → capture) |
 | Aufbewahrung | retention |
 | Aufräumbefehl | cleanup command |
+| Auftraggeber (the project owner) | owner |
 | Ausgabestand | edition |
 | ausliefern (content shown in the display, not as a file, REQ-DRM-004) | serve |
 | Auslieferung (shipping software to operators) | shipping (software to operators) |
 | Auslieferung (of a file to an end user), ausgeliefert, Dateiauslieferung | handed out, file download (distinct from shipping software to operators) |
 | Ausspielung (output to users at the end of the processing chain) | output |
 | baut auf (ADR status) | builds on |
+| Befund, Befunde (review) | finding(s) |
 | Begründung / Entscheidung / Konsequenz | Rationale / Decision / Consequence |
 | Beitragsfassade | contribution facade (explained at first mention) |
 | Beitragsweg | contribution path |
@@ -107,6 +109,7 @@ added here.
 | beschlossen / favorisiert / offen (ADR status) | accepted / preferred / open |
 | Bestand, Bestände | collection, collections (content); data stores (in the sense of storage: database, object storage, indexes, logs, backups) |
 | Betreiber | operator |
+| Betriebsguide | operations guide |
 | Bezeichner (of a norm, e.g. "DIN EN ISO 9001") | designation (code: `DocumentDesignation`) |
 | Bezeichner (programming sense) | identifier |
 | Bezugsquelle (des Herausgebers) | (publisher's) point of purchase |
@@ -114,11 +117,14 @@ added here.
 | Datenlizenz | data license |
 | Datenstand, Datenstände | data state (point in time, e.g. rollback); data version(s) (versioned knowledge base dump) |
 | Drittsoftware, Drittsysteme | third-party software, third-party systems |
+| Editionshistorie | edition history |
 | Entscheidungsdokumentation | architecture decision records |
 | Erfassen, Erfassung (recording usage, attribution, billing data or delivery metadata, REQ-PART-001/002) | capture |
 | Erfassung, Datenerfassung (taking in sources and data, processing chain, REQ-PIPE) | acquisition, data acquisition |
 | Ersetzung | replacement (matches the graph edge `REPLACES`; the existing "supersession" in the README stays) |
 | Expertensysteme | expert systems |
+| Fassung, Fassungen (of a norm) | version(s) (edition stays for Ausgabestand) |
+| Folgearbeit, Folgeaufgabe | follow-up work, follow-up task |
 | führend (platform, registry) | primary |
 | gekennzeichnet (plain labeling, e.g. als bezahlt, als Zitat) | labeled as paid, marked as quotations (plain sense, not the DRM marking) |
 | Hauptzweig | main branch |
@@ -129,6 +135,7 @@ added here.
 | hinfällig (status) | obsolete |
 | Identifikator, Identifikatorschema | identifier, identifier scheme |
 | Identitätsauflösung | identity resolution |
+| Implementierungsplan | implementation plan |
 | Inhaltepartnerschaft | content partnership |
 | Inhaltezulieferung | content supply |
 | Kennung (record ID, e.g. "Google-Kennung") | ID |
@@ -169,6 +176,7 @@ added here.
 | Quelllieferung | source delivery |
 | Ratenbegrenzung | rate limiting |
 | Rechteklassifikation | rights classification |
+| Rechtetor | rights gate |
 | Rechtsraum | jurisdiction |
 | Referenzgraph | reference graph |
 | Regelwerk, Regelwerke | standards |
@@ -182,6 +190,7 @@ added here.
 | Sicherung | backup |
 | Sicherungs-Stand / -Stände | backup(s) |
 | Stand (date, as a label) | As of |
+| Teilprojekt | sub-project |
 | Tombstone | tombstone |
 | Trägerschaft | stewardship |
 | Umsatzbeteiligung | revenue share |
