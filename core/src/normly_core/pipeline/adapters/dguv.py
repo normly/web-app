@@ -141,7 +141,7 @@ def _normalise_issue_date(match: re.Match[str]) -> str | None:
 # in a §-heading reliably is.
 _TAKES_EFFECT_HEADING = re.compile("inkrafttreten", re.IGNORECASE)
 
-# Isolates the clause naming whoever is being retired: "tritt ... außer
+# Isolates the clause naming whoever is being withdrawn: "tritt ... außer
 # Kraft" is this section's one fixed phrase for it, regardless of how the
 # surrounding sentence is otherwise worded ("Gleichzeitig tritt ... außer
 # Kraft", "... tritt gleichzeitig außer Kraft", etc.) -- non-greedy so it
@@ -183,7 +183,7 @@ def _normalise_quotes(text: str) -> str:
 def _extract_predecessor_reference(lines: list[str]) -> RawReference | None:
     """Find the Inkrafttreten/Außerkrafttreten section within an already
     logical-line-split document (see `_logical_lines`) and, if it names a
-    predecessor being retired, return the RawReference for it.
+    predecessor being withdrawn, return the RawReference for it.
 
     Mirrors extract_structure()'s own heading-boundary walk (a section runs
     from its own heading line up to, but not including, the next heading

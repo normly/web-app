@@ -217,7 +217,7 @@ changed) if any fails:
   but `<base>.tombstones.age` is missing, the backup is treated as damaged and
   the rollback aborts. A backup from before the tombstone file existed has no
   such flag: the script prints a clear warning (a foreign-key error is
-  possible while restoring user data that points at withdrawn documents) and
+  possible while restoring user data that points at retired documents) and
   the rollback continues.
 
 - **Deletions since the backup.** Accounts and chats that users deleted after
@@ -303,7 +303,7 @@ Then it:
    count as retired and have no rights classification, so every rights-gated
    read hides them; a later normal import that contains the row makes it
    active again. Only identifiers come back, never the content or rights of
-   withdrawn documents. This step is skipped (with the warning above) for
+   retired documents. This step is skipped (with the warning above) for
    backups without a tombstone file;
 6. restores the user data with `pg_restore --data-only`;
 7. replays the deletions: `python -m normly_core.exchange replay-deletions`
@@ -507,7 +507,7 @@ Replace `NORMLY_KB_BASE_URL` with the real public dump URL. If `kb_version` is
 `none`, skip step 5. A backup from before the tombstone file existed has no
 `.tombstones.age` (and no `"tombstones": true` in its `meta.json`); skip the
 tombstone download, decryption and import, and expect a foreign-key error in step 7 if user data points at
-withdrawn documents. For exact counts, run `SELECT count(*)` for each table
+retired documents. For exact counts, run `SELECT count(*)` for each table
 that `python -m normly_core.exchange tables user` lists and compare with
 production. Clean up afterwards: `docker rm -f restore-test`, and delete the
 decrypted dump.
@@ -712,7 +712,7 @@ while works, documents and edges stay as tombstones marked `retired_at` (edges
 are also revoked) and missing deliveries are marked withdrawn. User data such as
 watchlists, notifications and chat history is kept; chat citations only lose
 their segment reference. A tombstone that returns in a later dump becomes active
-again. Watchers of a withdrawn document get a "no longer available"
+again. Watchers of a retired document get a "no longer available"
 notification the next time `notify-watchers` runs, but only watchers whose
 watch is older than the withdrawal and who have notifications enabled. An import of a dump without
 any documents is refused while the database holds documents; pass

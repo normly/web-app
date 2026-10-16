@@ -374,7 +374,7 @@ print("yes" if json.load(sys.stdin).get("tombstones") is True else "no")' < "$WO
       || die "backup $backup has unreadable metadata; nothing was changed"
     [ "$meta_flag" = no ] \
       || die "backup $backup is damaged: its metadata promises a tombstone file but $backup.tombstones.age is missing; nothing was changed"
-    echo "WARNING: backup has no tombstone file; a foreign-key error is possible while restoring user data that points at withdrawn documents" >&2
+    echo "WARNING: backup has no tombstone file; a foreign-key error is possible while restoring user data that points at retired documents" >&2
   fi
 
   # The knowledge-base dump must be fetchable and valid BEFORE the database is
