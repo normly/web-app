@@ -229,7 +229,7 @@ to it wouldn't resolve on the built site, only when browsing the raw repo.)
 
 !!! warning "No runnable version yet"
     According to [ADR-010](
-    ../adr/README.md#adr-010-shipping-as-a-container-data-separate-from-the-image)
+    ../adr/README.md#adr-010-shipping-as-a-container-data-separate-from-the-image),
     shipping is planned as signed
     container images plus a Compose setup, with the knowledge base as a
     separately versioned dump. This page describes the planned
@@ -262,7 +262,8 @@ grep -o 'Noch keine lauffähige Version' site/guide/self-hosting/index.html
 Expected: one match in each. (Path may be `site/guide/getting-started.html`
 instead of the `.../index.html` directory form depending on
 `use_directory_urls` — check `ls site/guide/` if the above path doesn't
-exist and adjust.)
+exist and adjust.) The greps search for the original German strings of
+the pages as written at the time (the pages above are shown in English).
 
 - [ ] **Step 5: Verify the ADR-010 anchor link resolves**
 
@@ -671,7 +672,7 @@ established English equivalent.
 
 **Category A–D**
 : Rights classification per source, see
-  [License Model](concepts/license-model.md#rechteklassifikation-nach-kategorie).
+  [License Model](concepts/license-model.md#rights-classification-by-category).
 ```
 
 (Adds a **Work** entry — new domain term introduced by the Normtracker work
