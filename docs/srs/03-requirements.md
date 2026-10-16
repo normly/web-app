@@ -625,7 +625,7 @@ This section defines requirements that apply specifically to systems whose core 
 
 In order to be able to ensure fast and cost-effective development, we will initially rely on open source LLMs. It is to be ensured that German and English are supported with priority. Followed by French, Spanish and Italian.
 
-- Language model: [<u>Llama 3.1</u>](https://ai.meta.com/blog/meta-llama-3-1/) (open source and permits commercial use for own products). Currently primary, but can be replaced.
+- Language model: [<u>Llama 3.1</u>](https://ai.meta.com/blog/meta-llama-3-1/) (open source and permits commercial use for own products). Currently leading, but can be replaced.
 
 ### 3.6.2 Data management
 
@@ -635,7 +635,7 @@ The current approximate number of norms and, associated with it, (estimated text
 
 |                |                          |
 |----------------|--------------------------|
-| **Country**    | **Total collection of norms** |
+| **Country**    | **Total number of norms** |
 | Germany        | 38,000+                  |
 | Italy          | 48,000+                  |
 | China          | 200,000+                 |
@@ -788,7 +788,7 @@ This chapter defines requirements for the structure, licensing and use of the no
 
 ### REQ-GRAPH-001 — Open norm reference graph
 
-**Statement:** The system maintains a machine-readable reference graph over standards. It records stable identifiers, references between standards, replacement and withdrawal chains, editions, and references from laws and regulations to norms. Schema and content of the free part are published under an open data license with share-alike effect (ODbL).
+**Statement:** The system maintains a machine-readable reference graph over standards. It records stable identifiers, references between standards, replacement chains and chains of withdrawn norms, editions, and references from laws and regulations to norms. Schema and content of the free part are published under an open data license with share-alike effect (ODbL).
 
 **Rationale:** The reference graph is normly's actual unique selling point. Its openness is not a waiver of protection: the database maker's right under §§ 87a ff. UrhG in conjunction with the share-alike clause prevents third parties from turning the graph into a closed product. At the same time, the openness establishes the role as neutral infrastructure towards the standardization bodies.
 
