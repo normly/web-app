@@ -146,7 +146,7 @@ from normly_core.pipeline.docling_extraction import (
 from normly_core.pipeline.domain import RawRecord, RawSection, RightsRule
 
 # BAuA's three technical-rule series share one designation shape: a series
-# prefix, a running number, and an optional "Teil N" suffix for a
+# prefix, a running number, and an optional "Teil N" ("part N") suffix for a
 # multi-part rule (e.g. "TRGS 500 Teil 1"). See design spec, "Designation
 # detection".
 _DESIGNATION_PATTERN = re.compile(
@@ -237,8 +237,8 @@ class BauaAdapter:
 
     def classify_rights(self, record: RawRecord) -> RightsRule:
         # Narrower than the Protocol's `RightsRule | None` on purpose: every
-        # TRGS/TRBS/TRBA is an amtliche Bekanntmachung, so this source is
-        # always classifiable and never hands the runner a "cannot
+        # TRGS/TRBS/TRBA is an amtliche Bekanntmachung (official announcement), so
+        # this source is always classifiable and never hands the runner a "cannot
         # classify". See design spec, "Legal basis: category A".
         return RightsRule(
             jurisdiction="DE", may_process=True, may_index_fulltext=True,
@@ -595,8 +595,8 @@ existing `"dguv"` entry):
     "baua": SourceRegistryEntry(
         publisher="BAuA",
         retrieval_path="https://www.baua.de/DE/Angebote/Regelwerk",
-        # TRGS/TRBS/TRBA are official notices of a
-        # federal higher authority (BAuA in the GMBl) -- § 5 UrhG, like the DGUV and
+        # TRGS/TRBS/TRBA are official announcements of a higher
+        # federal authority (BAuA in the GMBl) -- § 5 UrhG, like the DGUV and
         # EUR-Lex entries. See design spec, "Legal basis: category A".
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="DE",

@@ -1481,7 +1481,7 @@ def determine_work_assignment(
     """
     Only REPLACES/WITHDRAWN_BY/ADOPTED_FROM references count as a Work-linking
     signal -- REFERENCES and BASED_ON_LAW connect documents that are never the
-    same Regelwerk. A reference whose target cannot be resolved yet is treated
+    same standard. A reference whose target cannot be resolved yet is treated
     as no signal at all (not ambiguous): that document either does not exist
     yet, or the separate `reference_target_not_found` identity-resolution case
     that `references.extract_references` raises for it is the right place to

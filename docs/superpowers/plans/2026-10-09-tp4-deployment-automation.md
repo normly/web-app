@@ -139,10 +139,10 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'normly_core.exchange'
 """
 Which table belongs to which backup/exchange group.
 
-Three groups (TP4 spec, Teil 2):
+Three groups (TP4 spec, Part 2):
 
 * knowledge -- the free knowledge base. Reproducible from source deliveries,
-  distributed as a versioned dump (Teil 3), never part of the daily backup.
+  distributed as a versioned dump (Part 3), never part of the daily backup.
 * user -- accounts, chats, watchlists, notifications. Small, irreplaceable,
   backed up daily. Rows reference knowledge rows by foreign key, which is why
   the dump must keep IDs unchanged.
@@ -2300,7 +2300,7 @@ def test_run_rejects_unknown_kind(harness):
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 normly contributors
 #
-# Encrypted backup of the user-data tables (TP4 spec, Teil 2).
+# Encrypted backup of the user-data tables (TP4 spec, Part 2).
 #
 #   normly-backup run [--kind daily|pre-<tag>]   dump, encrypt, upload; the
 #                                                last stdout line is the base name
@@ -2600,7 +2600,7 @@ For this, the harness from Task 6 supports `FAKE_DOCKER_EXIT_ON=<word>` (the fak
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 normly contributors
 #
-# Pull-based rollout and rollback on the VM (TP4 spec, Teil 1; ADR-024).
+# Pull-based rollout and rollback on the VM (TP4 spec, Part 1; ADR-024).
 #
 #   normly-deploy deploy <vX.Y.Z>
 #   normly-deploy rollback --age-identity FILE [--yes]
