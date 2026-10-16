@@ -15,7 +15,7 @@
 - **Binding terminology:** `docs/glossary.md`, section "Terminology (binding)", as extended by Task 2. Every translator reads that section first. Already-English sources for the same facts (use their wording for the same concept): `CLAUDE.md`, `docs/adr/README.md` (ADRs cite and mirror many requirements), `docs/glossary.md` definitions, `docs/guide/*`, `docs/concepts/*`.
 - A word or passage with no clear rendering under the glossary: stop and ask the owner (implementers mark `[[QUESTION n]]` and return NEEDS_CONTEXT). Every answer is added to the glossary table in the same MR.
 - Faithful translation: no content changes, no corrections; outdated statements stay. Modal force exact (muss→must, soll→should, kann→can/may, darf nicht→must not, nur→only, nie→never, kein→no). "bzw." → "respectively" only where it maps items, otherwise "or".
-- Requirement block shape stays: `#### REQ-XXX-NNN — Title`, then the fields in their order. Field labels: **Statement**, **Rationale** (already English), **Acceptance criteria** (Akzeptanzkriterium), **Acceptance test** (Abnahmekriterium), **Further information** (Weitere Informationen), **Status**, **Important** (Wichtig), "Stand (date)" → "As of (date)". Trailing two-space line breaks after field lines are kept.
+- Requirement block shape stays: `### REQ-XXX-NNN — Title` or `#### REQ-XXX-NNN — Title` (the original uses both levels — keep each heading at its level), then the fields in their order. Field labels: **Statement**, **Rationale** (already English), **Acceptance criteria** (Akzeptanzkriterium), **Acceptance test** (Abnahmekriterium), **Further information** (Weitere Informationen), **Status**, **Important** (Wichtig), "Stand (date)" → "As of (date)". Trailing two-space line breaks after field lines are kept.
 - Unchanged: `REQ-…` IDs, ADR numbers, chapter numbers, dates, code spans, paths, product/vendor names. German statute/standard names stay German with an English gloss at first mention per file (e.g. "§ 5 UrhG (German Copyright Act)"). German quotation marks „…" → "…". References to CLAUDE.md sections use its English headings.
 - Fixed headings/captions: `# 4. Verification` (05), `# 5. Appendices` (06), `## 3.12 Data acquisition and processing chain`, "Figure 1: Development phases", "Figure 2: Processing chain" (the SVGs' English titles).
 - The repo's `site/` may be root-owned: always build from a scratch copy (recipe below).
@@ -82,7 +82,7 @@ sys.stdout.write("".join(out))
 S=<path>; cd /home/snake/Dokumente/Projekte/01_normly/normly-app
 for r in "1 4" "5 5" "6 9" "10 12" "13 16"; do python3 -I $S/srs_chunk.py docs/srs/03-requirements.md $r | wc -w; done
 python3 -I $S/srs_chunk.py docs/srs/03-requirements.md 1 4 | head -1
-python3 -I $S/srs_chunk.py docs/srs/03-requirements.md 13 16 | grep -c '^#### REQ-'
+python3 -I $S/srs_chunk.py docs/srs/03-requirements.md 13 16 | grep -c -E '^#{3,4} REQ-'
 ```
 Expected: five counts summing to the file's ~9,890 words (≈1,950 / 1,770 / 2,040 / 1,980 / 2,140); first line `# 3. Anforderungen`; the last chunk contains the REQ-SEC, REQ-DRM, REQ-MOB and REQ-ACC requirements (16).
 
@@ -91,7 +91,7 @@ Expected: five counts summing to the file's ~9,890 words (≈1,950 / 1,770 / 2,0
 ```bash
 mkdir -p $S/orig/srs && for f in README 01-introduction 02-product-overview 03-requirements 05-verification 06-appendices; do git show main:docs/srs/$f.md > $S/orig/srs/$f.md; done
 <build recipe>
-python3 -c "import re,sys; print('\n'.join(i for i in re.findall(r'<h4 id=\"([^\"]+)\"', open(sys.argv[1],encoding='utf-8').read()) if i.startswith('req-')))" $S/buildtree/site/srs/03-requirements/index.html > $S/srs-ids-de.txt
+python3 -c "import re,sys; print('\n'.join(i for i in re.findall(r'<h[34] id=\"([^\"]+)\"', open(sys.argv[1],encoding='utf-8').read()) if i.startswith('req-')))" $S/buildtree/site/srs/03-requirements/index.html > $S/srs-ids-de.txt
 wc -l $S/srs-ids-de.txt; head -2 $S/srs-ids-de.txt
 ```
 Expected: build check `1`; 78 ids, first `req-ui-001-chat-oberflache-der-eigenstandigen-webanwendung`. If the built page path differs, find it with `ls $S/buildtree/site/srs/` and use it here and in Task 9.
@@ -218,7 +218,7 @@ Each chunk task follows the same steps; only the range differs. The translator e
 
 **Interfaces:**
 - Consumes: `$S/srs_chunk.py`, `$S/parity.py`, `$S/german_left.py`, `$S/orig/srs/03-requirements.md`, the glossary from Task 2.
-- Produces: the translated range. Requirement headings keep `#### REQ-XXX-NNN — ` so Task 9 can map anchors by ID.
+- Produces: the translated range. Requirement headings keep their level and the shape `REQ-XXX-NNN — ` so Task 9 can map anchors by ID.
 
 - [ ] **Step 1: Translate the range** using the translation brief from Task 3.
 
@@ -260,7 +260,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```bash
 S=<path>; cd /home/snake/Dokumente/Projekte/01_normly/normly-app
 <build recipe>
-python3 -c "import re,sys; print('\n'.join(i for i in re.findall(r'<h4 id=\"([^\"]+)\"', open(sys.argv[1],encoding='utf-8').read()) if i.startswith('req-')))" $S/buildtree/site/srs/03-requirements/index.html > $S/srs-ids-en.txt
+python3 -c "import re,sys; print('\n'.join(i for i in re.findall(r'<h[34] id=\"([^\"]+)\"', open(sys.argv[1],encoding='utf-8').read()) if i.startswith('req-')))" $S/buildtree/site/srs/03-requirements/index.html > $S/srs-ids-en.txt
 python3 -I - $S/srs-ids-de.txt $S/srs-ids-en.txt > $S/srs-id-map.txt <<'EOF'
 import re, sys
 key = lambda i: re.match(r"req-[a-z]+-\d+[a-z]?", i).group(0)
@@ -346,7 +346,7 @@ S=<path>; cd /home/snake/Dokumente/Projekte/01_normly/normly-app
 git status --short
 for f in README 01-introduction 02-product-overview 03-requirements 05-verification 06-appendices; do printf '%s: ' $f; python3 -I $S/parity.py $S/orig/srs/$f.md docs/srs/$f.md | tail -1; done
 python3 -I $S/german_left.py docs/srs/*.md
-grep -c '^#### REQ-' docs/srs/03-requirements.md        # 78
+grep -c -E '^#{3,4} REQ-' docs/srs/03-requirements.md        # 78
 grep -c '[„“]' docs/srs/*.md                              # 0 per file
 <build recipe>                                             # 1
 ```
