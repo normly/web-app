@@ -1042,176 +1042,176 @@ This chapter describes the path by which content of different provenance — fre
 
 Figure 2: Processing chain
 
-## 3.13 Verschlüsselung und Schutz lizenzierter Inhalte
+## 3.13 Encryption and protection of licensed content
 
-Dieses Kapitel ergänzt die allgemeinen Sicherheitsanforderungen aus Kapitel 3.3.2 um Vorgaben zur Verschlüsselung ruhender Daten, zur Schlüsselverwaltung sowie zum Schutz vertraglich bezogener Volltextbestände.
+This section supplements the general security requirements from section 3.3.2 with provisions on the encryption of data at rest, on key management and on the protection of full-text collections obtained by contract.
 
-### REQ-SEC-001 — Verschlüsselung ruhender Daten
+### REQ-SEC-001 — Encryption of data at rest
 
-**Statement:** Alle persistierten Daten werden verschlüsselt abgelegt: Datenbankinhalte, Objektspeicher, Suchindizes, Protokolldaten und sämtliche Sicherungskopien. Dies gilt unabhängig davon, ob es sich um frei verfügbare oder um lizenzierte Inhalte handelt.
+**Statement:** All persisted data is stored encrypted: database contents, object storage, search indexes, log data and all backups. This applies regardless of whether the content is freely available or licensed.
 
-**Rationale:** Die bisherigen Anforderungen decken ausschließlich die Transportverschlüsselung ab. Sobald lizenzierte Volltexte im Bestand liegen, ist die Verschlüsselung ruhender Daten Gegenstand jeder Vertragsprüfung durch die Herausgeber. Eine einheitliche Behandlung aller Bestände vermeidet zudem, dass die Schutzwirkung von einer korrekten Klassifikation abhängt.
+**Rationale:** The previous requirements cover only transport encryption. As soon as licensed full texts are in the collection, the encryption of data at rest is the subject of every contract review by the publishers. A uniform treatment of all collections also avoids the protective effect depending on a correct classification.
 
-**Akzeptanzkriterium:** Verschlüsselung ist für alle Speicherorte nachweisbar aktiv; unverschlüsselte Ablagen sind technisch ausgeschlossen; Sicherungskopien sind einbezogen.
+**Acceptance criteria:** Encryption is demonstrably active for all storage locations; unencrypted storage is technically ruled out; backups are included.
 
-**Abnahmekriterium:** Ein Sicherheitsaudit weist für jeden Speicherort den aktiven Verschlüsselungszustand nach.
+**Acceptance test:** A security audit demonstrates the active encryption state for every storage location.
 
-### REQ-SEC-002 — Schlüsselverwaltung
+### REQ-SEC-002 — Key management
 
-**Statement:** Schlüssel werden im STACKIT Secrets Manager verwaltet und niemals gemeinsam mit den durch sie geschützten Daten abgelegt. Es gelten dokumentierte Rotationsfristen, eine Trennung der Zugriffsrechte zwischen Betrieb und Anwendung sowie eine vollständige Protokollierung jedes Zugriffs auf Schlüsselmaterial. Der Verlust einzelner Schlüssel darf nicht zum Verlust des Gesamtbestands führen.
+**Statement:** Keys are managed in the STACKIT Secrets Manager and never stored together with the data they protect. Documented rotation periods, a separation of access rights between operations and application, and complete logging of every access to key material apply. The loss of individual keys must not lead to the loss of the entire collection.
 
-**Rationale:** Verschlüsselung ohne belastbares Schlüsselkonzept ist eine Zusage ohne Substanz. Die Trennung von Schlüssel und Daten sowie die Protokollierung sind Voraussetzung dafür, gegenüber Herausgebern und Auditoren nachweisfähig zu sein.
+**Rationale:** Encryption without a robust key concept is a promise without substance. The separation of key and data as well as the logging are the prerequisite for being able to provide evidence towards publishers and auditors.
 
-**Akzeptanzkriterium:** Rotationsfristen dokumentiert und technisch durchgesetzt; Zugriffe auf Schlüsselmaterial protokolliert; Rollentrennung wirksam.
+**Acceptance criteria:** Rotation periods documented and technically enforced; accesses to key material logged; role separation effective.
 
-**Abnahmekriterium:** Eine Schlüsselrotation wird ohne Betriebsunterbrechung durchgeführt und ist im Protokoll nachvollziehbar.
+**Acceptance test:** A key rotation is carried out without interruption of operations and is traceable in the log.
 
-### REQ-SEC-003 — Herausgeberspezifische Datenschlüssel und kryptographisches Löschen
+### REQ-SEC-003 — Publisher-specific data keys and cryptographic erasure
 
-**Statement:** Vertraglich bezogene Volltextbestände werden je Herausgeber mit einem eigenen Datenschlüssel verschlüsselt. Bei Beendigung eines Vertrages oder beim Rückzug eines Bestandes nach REQ-PART-001 wird der zugehörige Schlüssel vernichtet. Die betroffenen Daten sind damit auch in bestehenden Sicherungskopien dauerhaft unlesbar. Die Vernichtung wird protokolliert und dem Herausgeber bestätigt.
+**Statement:** Full-text collections obtained by contract are encrypted with a separate data key per publisher. When a contract ends or a collection is withdrawn under REQ-PART-001, the associated key is destroyed. The affected data is thereby permanently unreadable, even in existing backups. The destruction is logged and confirmed to the publisher.
 
-**Rationale:** Die in REQ-PART-001 zugesagte Rückziehbarkeit lässt sich für Sicherungskopien nicht durch Löschen einlösen: Bestehende Sicherungen enthalten die Inhalte weiterhin, und ihre selektive Bereinigung ist praktisch nicht durchführbar. Das kryptographische Löschen schließt diese Lücke und ist zugleich das stärkste Argument in Lizenzverhandlungen — nach Vertragsende sind die Inhalte technisch nicht mehr lesbar, nicht lediglich als gelöscht markiert.
+**Rationale:** The withdrawability promised in REQ-PART-001 cannot be fulfilled for backups by deletion: existing backups still contain the content, and their selective cleanup is practically not feasible. Cryptographic erasure closes this gap and is at the same time the strongest argument in license negotiations — after the contract ends, the content is technically no longer readable, not merely marked as deleted.
 
-**Akzeptanzkriterium:** Ein Datenschlüssel je Herausgeber; kein Bestand ist mit einem gemeinsamen Schlüssel verschlüsselt; Vernichtung ist ein protokollierter Vorgang mit Bestätigung.
+**Acceptance criteria:** One data key per publisher; no collection is encrypted with a shared key; destruction is a logged operation with confirmation.
 
-**Abnahmekriterium:** Nach Vernichtung eines Schlüssels sind die zugehörigen Inhalte weder im Produktivbestand noch in einer Sicherungskopie lesbar; die Bestätigung liegt dem Herausgeber vor.
+**Acceptance test:** After a key is destroyed, the associated content is readable neither in the production data stores nor in any backup; the confirmation is in the publisher's possession.
 
-### REQ-SEC-004 — Schutz vor Massenextraktion
+### REQ-SEC-004 — Protection against bulk extraction
 
-**Statement:** Zugriffe auf lizenzierte Bestände werden durch Ratenbegrenzung, Kontingente und Anomalieerkennung geschützt. Auffällige Zugriffsmuster, die auf eine systematische Extraktion hindeuten, führen zu Drosselung oder Sperrung und werden protokolliert. Zugriffsprotokolle sind je Herausgeber auswertbar.
+**Statement:** Accesses to licensed collections are protected by rate limiting, quotas and anomaly detection. Conspicuous access patterns that indicate systematic extraction lead to throttling or blocking and are logged. Access logs can be evaluated per publisher.
 
-**Rationale:** Herausgeber sorgen sich weniger um unbefugten Zugriff von außen als darum, dass berechtigte Nutzer den Bestand systematisch abziehen. Ohne wirksamen Schutz gegen Massenextraktion ist die Zusage aus REQ-PART-004 nicht belastbar und eine Volltextbereitstellung nicht verhandelbar.
+**Rationale:** Publishers are less concerned about unauthorized access from outside than about authorized users systematically draining the collection. Without effective protection against bulk extraction, the promise from REQ-PART-004 is not robust and providing full texts is not negotiable.
 
-**Akzeptanzkriterium:** Ratenbegrenzung und Kontingente je Zugang aktiv; Anomalieerkennung mit definierten Schwellwerten; Auswertung je Herausgeber möglich.
+**Acceptance criteria:** Rate limiting and quotas active per access; anomaly detection with defined thresholds; evaluation per publisher possible.
 
-**Abnahmekriterium:** Ein simulierter Extraktionsversuch wird erkannt, gedrosselt und protokolliert.
+**Acceptance test:** A simulated extraction attempt is detected, throttled and logged.
 
-## 3.14 Geschützte Anzeige und Offline-Nutzung
+## 3.14 Protected display and offline use
 
-Dieses Kapitel definiert Anforderungen an die Anzeige lizenzierter Volltexte. Ziel ist, dass Inhalte innerhalb der Anwendung vollständig nutzbar sind — auch offline — ohne dass daraus weitergebbare Kopien entstehen. Der Schutz wirkt abschreckend und nachverfolgbar, nicht absolut; diese Einschränkung ist bewusst und gegenüber Herausgebern offen zu benennen.
+This section defines requirements for the display of licensed full texts. The goal is that content is fully usable within the application — also offline — without this producing copies that can be passed on. The protection works as a deterrent and through traceability, not absolutely; this limitation is deliberate and is to be stated openly towards publishers.
 
-### REQ-DRM-001 — Anzeige ohne herausgebbare Datei
+### REQ-DRM-001 — Display without a file that can be handed out
 
-**Statement:** Lizenzierte Volltexte werden ausschließlich innerhalb der Anwendung angezeigt. Es wird keine vollständige, eigenständig verwendbare Dokumentdatei an den Endnutzer ausgeliefert. Die Anzeige erfolgt abschnittsweise und bedarfsgesteuert; ein Export als PDF oder gleichwertiges Format ist für lizenzierte Inhalte nicht vorgesehen. Ebenso ist das markieren von Text in den Volltexten nicht möglich, um copy&paste zu vermeiden.
+**Statement:** Licensed full texts are displayed exclusively within the application. No complete, independently usable document file is handed out to the end user. The display takes place section by section and on demand; an export as PDF or an equivalent format is not provided for licensed content. Likewise, selecting text in the full texts is not possible, in order to prevent copy and paste.
 
-**Rationale:** Der wirtschaftliche Schaden für die Herausgeber entsteht nicht durch das Lesen, sondern durch die Weitergabe vollständiger Dateien. Wer keine Datei erhält, kann keine weitergeben. Dies ist zugleich das Argument, mit dem normly den Herausgebern hilft, die Verbreitung nicht lizenzierter PDF-Kopien zurückzudrängen: ein bequemer legaler Zugang ist wirksamer als jede Rechtsverfolgung.
+**Rationale:** The economic damage for the publishers does not arise from reading, but from passing on complete files. Whoever receives no file cannot pass one on. This is at the same time the argument with which normly helps the publishers to push back the spread of unlicensed PDF copies: convenient legal access is more effective than any legal prosecution.
 
-**Akzeptanzkriterium:** Kein Endpunkt liefert lizenzierte Inhalte als vollständige Datei aus; die Anzeige erfolgt in Teilabrufen; Abrufe sind protokolliert.
+**Acceptance criteria:** No endpoint hands out licensed content as a complete file; the display takes place in partial retrievals; retrievals are logged.
 
-**Abnahmekriterium:** Ein Prüfversuch zeigt, dass sich aus den ausgelieferten Daten keine vollständige Dokumentdatei rekonstruieren lässt, ohne die Anwendung zu umgehen.
+**Acceptance test:** A test attempt shows that no complete document file can be reconstructed from the data handed out without circumventing the application.
 
-### REQ-DRM-002 — Offline-Nutzung mit befristeter Berechtigung
+### REQ-DRM-002 — Offline use with time-limited authorization
 
-**Statement:** Nutzer können lizenzierte Inhalte für die Offline-Nutzung vorhalten. Die lokale Ablage erfolgt verschlüsselt, gebunden an Nutzer und Gerät, mit befristeter Gültigkeit. Nach Ablauf der Frist ist eine erneute Berechtigung erforderlich. Endet die Lizenz des Nutzers oder wird der Bestand nach REQ-PART-001 zurückgezogen, verliert die lokale Ablage ihre Gültigkeit.
+**Statement:** Users can keep licensed content available for offline use. The local storage is encrypted, bound to user and device, with time-limited validity. After the period expires, a renewed authorization is required. If the user's license ends or the collection is withdrawn under REQ-PART-001, the local storage loses its validity.
 
-**Rationale:** Offline-Verfügbarkeit ist für die Zielgruppe wesentlich — auf Baustellen und in Werkshallen ist keine verlässliche Verbindung gegeben. Ohne Offline-Fähigkeit bleibt die PDF-Kopie für die Nutzer die praktischere Lösung, und der Zweck der Anforderung wird verfehlt.
+**Rationale:** Offline availability is essential for the target group — on construction sites and in factory halls, no reliable connection is available. Without offline capability, the PDF copy remains the more practical solution for users, and the purpose of the requirement is missed.
 
-**Akzeptanzkriterium:** Lokale Ablage verschlüsselt und an Nutzer und Gerät gebunden; Gültigkeitsdauer konfigurierbar; Entzug der Berechtigung wirkt bei der nächsten Verbindung.
+**Acceptance criteria:** Local storage encrypted and bound to user and device; validity period configurable; revocation of the authorization takes effect at the next connection.
 
-**Abnahmekriterium:** Ein offline vorgehaltener Inhalt ist nach Ablauf der Frist ohne erneute Berechtigung nicht mehr lesbar und außerhalb der Anwendung zu keinem Zeitpunkt lesbar.
+**Acceptance test:** Content kept available offline is no longer readable after the period expires without a renewed authorization, and is at no point readable outside the application.
 
-### REQ-DRM-003 — Nutzerbezogene Kennzeichnung
+### REQ-DRM-003 — User-specific marking
 
-**Statement:** Angezeigte lizenzierte Inhalte tragen eine nutzerbezogene Kennzeichnung, sichtbar sowie in nicht ohne Weiteres entfernbarer Form. Anhand einer aufgefundenen Kopie muss sich der Zugang bestimmen lassen, über den sie entstanden ist.
+**Statement:** Displayed licensed content carries a user-specific marking, visible and in a form that cannot easily be removed. From a copy that is found, it must be possible to determine the access through which it was created.
 
-**Rationale:** Bildschirmfotos, Abfotografieren und Texterkennung lassen sich technisch nicht verhindern. Erreichbar ist Nachverfolgbarkeit: Wer weiß, dass eine Weitergabe auf ihn zurückfällt, gibt seltener weiter. Für Herausgeber ist gerade dies der Mehrwert gegenüber der heutigen Situation, in der eine kursierende PDF-Kopie keiner Quelle zuzuordnen ist.
+**Rationale:** Screenshots, photographing the screen and text recognition cannot be prevented technically. What is achievable is traceability: whoever knows that passing on content will fall back on them passes it on less often. For publishers, precisely this is the added value compared to today's situation, in which a circulating PDF copy cannot be attributed to any source.
 
-**Akzeptanzkriterium:** Kennzeichnung je Zugang eindeutig; in der Anzeige nicht abschaltbar; Zuordnung aus einer Kopie reproduzierbar.
+**Acceptance criteria:** Marking unique per access; cannot be switched off in the display; attribution from a copy reproducible.
 
-**Abnahmekriterium:** Aus einem Bildschirmfoto einer Anzeige lässt sich der zugehörige Zugang eindeutig bestimmen.
+**Acceptance test:** From a screenshot of a display, the associated access can be determined unambiguously.
 
-### REQ-DRM-004 — Zuordnung der Schutzkomponenten zur kommerziellen Schicht
+### REQ-DRM-004 — Assignment of the protection components to the commercial layer
 
-**Statement:** Die geschützte Anzeige, die verschlüsselte Offline-Ablage und die Kennzeichnung sind Bestandteil der kommerziellen Schicht und nicht des quelloffenen Kerns. Der Kern stellt hierfür ausschließlich Schnittstellen bereit. Frei verfügbare Inhalte unterliegen diesen Beschränkungen nicht und bleiben ohne Einschränkung exportierbar.
+**Statement:** The protected display, the encrypted offline storage and the marking are part of the commercial layer and not of the open-source core. The core provides only interfaces for this. Freely available content is not subject to these restrictions and remains exportable without limitation.
 
-**Rationale:** Ein Schutzmechanismus, dessen Quellcode vollständig offenliegt, bietet keinen wirksamen Schutz — die Umgehung wäre aus dem Quelltext unmittelbar ableitbar. Die Zuordnung zur kommerziellen Schicht löst diesen Widerspruch, ohne die Quelloffenheit des Kerns einzuschränken. Zugleich stellt sie sicher, dass der freie Kern nicht durch Beschränkungen belastet wird, die für seine Inhalte gar nicht erforderlich sind.
-**Akzeptanzkriterium:** Der Kern ist ohne die Schutzkomponenten vollständig lauffähig; frei verfügbare Inhalte sind ohne Beschränkung abrufbar und exportierbar.
-**Abnahmekriterium:** Eine Instanz des freien Kerns läuft ohne die Schutzkomponenten und liefert frei verfügbare Inhalte uneingeschränkt aus.
+**Rationale:** A protection mechanism whose source code is fully exposed offers no effective protection — the circumvention could be derived directly from the source code. The assignment to the commercial layer resolves this contradiction without restricting the open-source nature of the core. At the same time, it ensures that the free core is not burdened by restrictions that are not even necessary for its content.
+**Acceptance criteria:** The core is fully runnable without the protection components; freely available content can be retrieved and exported without restriction.
+**Acceptance test:** An instance of the free core runs without the protection components and delivers freely available content without restriction.
 
-## 3.15 Mobile Bereitstellung
+## 3.15 Mobile provision
 
-Dieses Kapitel definiert, über welche Wege normly auf mobilen Geräten bereitgestellt wird. Die Aufteilung folgt der Grenze zwischen freiem Kern und kommerzieller Schicht: Frei verfügbare Inhalte werden über eine Progressive Web App bereitgestellt, lizenzierte Volltexte erfordern eine native Anwendung.
+This section defines the channels through which normly is provided on mobile devices. The split follows the boundary between the free core and the commercial layer: freely available content is provided via a Progressive Web App, licensed full texts require a native application.
 
-### REQ-MOB-001 — Progressive Web App als primärer mobiler Zugang
+### REQ-MOB-001 — Progressive Web App as primary mobile access
 
-**Statement:** Die Anwendung wird als installierbare Progressive Web App bereitgestellt, auf derselben Codebasis wie die Desktop-Anwendung. Frei verfügbare Inhalte sind über einen Service Worker offline nutzbar. Die PWA ist Bestandteil des freien Kerns.
+**Statement:** The application is provided as an installable Progressive Web App, on the same codebase as the desktop application. Freely available content can be used offline via a service worker. The PWA is part of the free core.
 
-**Rationale:** Eine gemeinsame Codebasis vermeidet doppelten Aufwand und deckt den gesamten Bedarf bis zum ersten Volltextvertrag ab. Für frei verfügbare Inhalte bestehen keine Schutzanforderungen, die über die Möglichkeiten des Browsers hinausgehen.
+**Rationale:** A shared codebase avoids duplicate effort and covers the entire need until the first full-text contract. For freely available content, there are no protection requirements that go beyond the capabilities of the browser.
 
-**Akzeptanzkriterium:** Installierbar auf Android und iOS; frei verfügbare Inhalte offline abrufbar; keine getrennte mobile Codebasis.
+**Acceptance criteria:** Installable on Android and iOS; freely available content retrievable offline; no separate mobile codebase.
 
-**Abnahmekriterium:** Die Anwendung wird auf einem mobilen Gerät installiert und im Flugmodus mit frei verfügbaren Inhalten genutzt.
+**Acceptance test:** The application is installed on a mobile device and used in airplane mode with freely available content.
 
-### REQ-MOB-002 — Native Anwendung für lizenzierte Offline-Inhalte
+### REQ-MOB-002 — Native application for licensed offline content
 
-**Statement:** Die Offline-Bereitstellung lizenzierter Volltexte nach REQ-DRM-002 erfolgt ausschließlich über eine native Anwendung für Android und iOS. Diese nutzt die hardwaregestützte Schlüsselablage des Betriebssystems und die verfügbaren Mechanismen zur Einschränkung von Bildschirmaufnahmen. Die native Anwendung ist Bestandteil der kommerziellen Schicht. Diese Zuordnung betrifft Eigentum, Lizenzierung und Wartung, nicht den Zugang für Nutzer: Die Anwendung ist kostenfrei beziehbar und nutzbar. Frei verfügbare Inhalte sind darin ohne Anmeldung und ohne Entgelt abrufbar. Kostenpflichtig sind ausschließlich lizenzierte Volltexte und deren geschützte Offline-Bereitstellung.
+**Statement:** The offline provision of licensed full texts under REQ-DRM-002 takes place exclusively via a native application for Android and iOS. It uses the operating system's hardware-backed key storage and the available mechanisms for restricting screen recordings. The native application is part of the commercial layer. This assignment concerns ownership, licensing and maintenance, not user access: the application can be obtained and used free of charge. Freely available content in it can be retrieved without sign-in and without a fee. Only licensed full texts and their protected offline provision are subject to a charge.
 
-**Rationale:** Im Browser existiert kein Ort, an dem ein Schlüssel geschützt abgelegt werden kann; lokale Speicher sind einsehbar. Die in REQ-DRM-002 geforderte Bindung an Nutzer und Gerät ist dort nicht umsetzbar. Native Plattformen bieten mit Keychain und Keystore eine belastbare Grundlage.
+**Rationale:** In the browser there is no place where a key can be stored protected; local storage is inspectable. The binding to user and device required in REQ-DRM-002 cannot be implemented there. Native platforms offer a robust foundation with Keychain and Keystore.
 
-**Akzeptanzkriterium:** Schlüsselablage über die Plattformmechanismen; Bindung an Nutzer und Gerät nachweisbar; freier Kern bleibt ohne native Anwendung vollständig nutzbar; die Anwendung ist ohne Konto und ohne Zahlung installier- und nutzbar.
+**Acceptance criteria:** Key storage via the platform mechanisms; binding to user and device demonstrable; the free core remains fully usable without the native application; the application can be installed and used without an account and without payment.
 
-**Abnahmekriterium:** Ein lizenzierter Inhalt ist offline ausschließlich innerhalb der nativen Anwendung lesbar.
+**Acceptance test:** Licensed content is readable offline exclusively within the native application.
 
-### REQ-MOB-003 — Abstrahierte Offline-Schicht
+### REQ-MOB-003 — Abstracted offline layer
 
-**Statement:** Der Zugriff auf lokal vorgehaltene Inhalte erfolgt über eine einheitliche Abstraktion, deren Implementierung je Plattform ausgetauscht wird. Die Anwendungslogik unterscheidet nicht zwischen Browser- und nativer Ablage.
+**Statement:** Access to locally kept content takes place via a uniform abstraction whose implementation is swapped per platform. The application logic does not distinguish between browser and native storage.
 
-**Rationale:** Ohne diese Trennung müsste die Offline-Logik für die native Anwendung vollständig neu gebaut werden. Die Abstraktion ist zu Beginn nahezu kostenlos und später nur mit erheblichem Aufwand nachrüstbar. Sie ist zugleich Voraussetzung dafür, dass beide Anwendungen dieselben frei verfügbaren Inhalte gleichwertig bereitstellen.
+**Rationale:** Without this separation, the offline logic would have to be rebuilt completely for the native application. The abstraction is almost free at the beginning and can only be retrofitted later with considerable effort. It is at the same time the prerequisite for both applications providing the same freely available content on an equal footing.
 
-**Akzeptanzkriterium:** Keine plattformspezifischen Speicherzugriffe außerhalb der Abstraktionsschicht; Austausch durch Tests abgedeckt.
+**Acceptance criteria:** No platform-specific storage accesses outside the abstraction layer; swapping covered by tests.
 
-**Abnahmekriterium:** Architektur-Review bestätigt, dass die Anwendungslogik keine Kenntnis der konkreten Ablageform besitzt.
+**Acceptance test:** An architecture review confirms that the application logic has no knowledge of the concrete form of storage.
 
-### REQ-MOB-004 — Vertriebswege und Lizenzverträglichkeit
+### REQ-MOB-004 — Distribution channels and license compatibility
 
-**Statement:** Die native Anwendung der kommerziellen Schicht wird kostenfrei über die Plattform-Stores von Apple und Google vertrieben; Entgelte fallen ausschließlich für den Zugang zu lizenzierten Inhalten an. Sie ist ein eigenständiger Client, der ausschließlich über die unter Apache-2.0 spezifizierte API mit dem Server kommuniziert, und unterliegt nicht der AGPL. Ergänzend kann ein quelloffener Client des freien Kerns über F-Droid bereitgestellt werden.
+**Statement:** The native application of the commercial layer is distributed free of charge via the platform stores of Apple and Google; fees are charged exclusively for access to licensed content. It is a separate client that communicates with the server exclusively via the API specified under Apache-2.0, and is not subject to the AGPL. In addition, an open-source client of the free core may be provided via F-Droid.
 
-**Rationale:** Die Nutzungsbedingungen des Apple App Store gelten als unvereinbar mit den Bedingungen von AGPL und GPL. Die Trennung in einen eigenständigen Client über eine permissiv lizenzierte Schnittstelle löst diesen Konflikt, ohne die Quelloffenheit des Kerns einzuschränken. F-Droid setzt vollständig quelloffene, reproduzierbare Builds voraus und kommt daher nur für den freien Client in Betracht.
+**Rationale:** The terms of use of the Apple App Store are considered incompatible with the terms of the AGPL and GPL. The separation into a separate client via a permissively licensed interface resolves this conflict without restricting the open-source nature of the core. F-Droid requires fully open-source, reproducible builds and is therefore only an option for the free client.
 
-**Akzeptanzkriterium:** Keine AGPL-lizenzierten Bestandteile in der Store-Anwendung; Kommunikation ausschließlich über die öffentliche API; Lizenzprüfung dokumentiert.
+**Acceptance criteria:** No AGPL-licensed components in the store application; communication exclusively via the public API; license review documented.
 
-**Abnahmekriterium:** Eine Lizenzprüfung bestätigt die Trennung von freiem Kern und Store-Anwendung.
+**Acceptance test:** A license review confirms the separation of the free core and the store application.
 
-## 3.16 Zugang und Kontopflicht
+## 3.16 Access and account requirement
 
-Dieses Kapitel regelt, welche Funktionen ohne Konto nutzbar sind und ab wann eine Anmeldung erforderlich wird. Maßgeblich ist nicht der Zugangsweg, sondern die Lizenzklassifikation der Inhalte.
+This section governs which functions are usable without an account and from when a sign-in becomes necessary. The decisive factor is not the access path, but the license classification of the content.
 
-### REQ-ACC-001 — Anonyme Basisnutzung
+### REQ-ACC-001 — Anonymous base use
 
-**Statement:** Suche, Abfrage des Referenzgraphen und Anzeige frei verfügbarer Inhalte sind ohne Konto und ohne Anmeldung nutzbar. Eine Registrierung ist für den Kernzweck der Anwendung nicht erforderlich. Dies gilt für alle Zugangswege gleichermaßen: Webanwendung, Progressive Web App und native Anwendung.
+**Statement:** Search, querying the reference graph and display of freely available content are usable without an account and without sign-in. Registration is not required for the core purpose of the application. This applies equally to all access paths: web application, Progressive Web App and native application.
 
-**Rationale:** Eine Registrierungspflicht ist die höchste Hürde in der Nutzerreise und steht im Widerspruch zur Vision eines frei zugänglichen Normenwissens. Zudem sollen Betreiber eigener Instanzen keine Nutzerverwaltung vorhalten müssen, um frei verfügbare Regelwerke bereitzustellen. Ohne Konto entstehen zugleich keine personenbezogenen Daten, die geschützt werden müssten.
+**Rationale:** A registration requirement is the highest hurdle in the user journey and contradicts the vision of freely accessible knowledge about norms. In addition, operators of their own instances should not have to maintain user management in order to provide freely available standards. Without an account, no personal data arises that would have to be protected.
 
-**Akzeptanzkriterium:** Vollständiger Frage-Antwort-Zyklus ohne Anmeldung durchführbar; keine Registrierungsaufforderung vor der ersten Nutzung.
+**Acceptance criteria:** Complete question-answer cycle can be carried out without sign-in; no registration prompt before first use.
 
-**Abnahmekriterium:** Eine frisch installierte Instanz beantwortet eine Anfrage zu einem frei verfügbaren Regelwerk ohne Anmeldung.
+**Acceptance test:** A freshly installed instance answers a request about a freely available standard without sign-in.
 
-### REQ-ACC-002 — Inhaltliche Begrenzung anonymer Zugänge
+### REQ-ACC-002 — Content limitation of anonymous access
 
-**Statement:** Anonyme Zugänge erreichen ausschließlich Inhalte, die nach REQ-PIPE-004 als frei lizenzierbar klassifiziert sind. Lizenzierte Volltexte sind ohne authentifizierten und berechtigten Zugang technisch nicht erreichbar. Die Antwortlänge ist begrenzt; ein systematischer Abruf aufeinanderfolgender Abschnitte ist ausgeschlossen.
+**Statement:** Anonymous access reaches exclusively content that is classified as freely licensable under REQ-PIPE-004. Licensed full texts are technically unreachable without authenticated and authorized access. The answer length is limited; systematic retrieval of consecutive sections is ruled out.
 
-**Rationale:** Gegenüber Herausgebern muss belegbar sein, dass lizenzierte Inhalte über anonyme Zugänge grundsätzlich nicht erreichbar sind — unabhängig von Kontingenten oder Ratenbegrenzung. Diese strukturelle Zusage ist in Verhandlungen belastbarer als eine reine Registrierungspflicht, die den Zugriff lediglich zurechenbar machen würde.
+**Rationale:** Towards publishers it must be demonstrable that licensed content is fundamentally unreachable via anonymous access — regardless of quotas or rate limiting. This structural promise is more robust in negotiations than a mere registration requirement, which would only make access attributable.
 
-**Akzeptanzkriterium:** Kein anonymer Zugriffspfad auf lizenzierte Bestände; Antwortlänge konfigurierbar begrenzt; keine Abrufreihenfolge über zusammenhängende Abschnitte.
+**Acceptance criteria:** No anonymous access path to licensed collections; answer length limited configurably; no retrieval sequence across contiguous sections.
 
-**Abnahmekriterium:** Ein Prüfversuch belegt, dass lizenzierte Inhalte über keinen anonymen Zugang erreichbar sind.
+**Acceptance test:** A test attempt proves that licensed content is not reachable via any anonymous access.
 
-### REQ-ACC-003 — Kontingent für anonyme Nutzung
+### REQ-ACC-003 — Quota for anonymous use
 
-**Statement:** Anonyme Zugänge unterliegen einem begrenzten Anfragekontingent je Zeitfenster. Die Zählung erfolgt serverseitig anhand eines vergebenen Sitzungsmerkmals in Verbindung mit der Herkunftsadresse, nicht über clientseitig gespeicherte Werte. Bei Erreichen des Kontingents wird auf die Anmeldung verwiesen.
+**Statement:** Anonymous access is subject to a limited request quota per time window. Counting takes place server-side based on an assigned session attribute in combination with the client IP address, not via values stored on the client side. When the quota is reached, the user is referred to sign-in.
 
-**Rationale:** Das Kontingent begrenzt die Inferenzkosten der anonymen Nutzung und schafft einen sachlichen Anlass zur Registrierung, ohne sie zu erzwingen. Eine clientseitige Zählung wäre durch Zurücksetzen des Browsers wirkungslos. Da eine adressbasierte Begrenzung durch Adresswechsel umgehbar bleibt, ist sie kein Schutzmechanismus gegen Massenextraktion; diese Aufgabe erfüllt REQ-SEC-004.
+**Rationale:** The quota limits the inference costs of anonymous use and creates a factual reason to register, without enforcing it. Client-side counting would be ineffective because the browser can be reset. Since address-based limiting remains circumventable by changing addresses, it is not a protection mechanism against bulk extraction; that task is fulfilled by REQ-SEC-004.
 
-**Akzeptanzkriterium:** Kontingent konfigurierbar; Zählung serverseitig; Zurücksetzen clientseitiger Daten hebt die Begrenzung nicht auf; gemeinsame Infrastruktur mit REQ-SEC-004.
+**Acceptance criteria:** Quota configurable; counting server-side; resetting client-side data does not lift the limit; shared infrastructure with REQ-SEC-004.
 
-**Abnahmekriterium:** Nach Ausschöpfung des Kontingents führt das Löschen der Browserdaten nicht zu weiteren freien Anfragen.
+**Acceptance test:** After the quota is exhausted, deleting the browser data does not lead to further free requests.
 
-### REQ-ACC-004 — Kontopflichtige Funktionen
+### REQ-ACC-004 — Functions requiring an account
 
-**Statement:** Ein Konto ist erforderlich für: erhöhte Anfragekontingente, gespeicherte Verläufe und Merklisten, das Hochladen eigener Dokumente, den Zugang zu lizenzierten Inhalten, die Offline-Nutzung nach REQ-DRM-002 sowie sämtliche kostenpflichtigen Dienste. Diese Aufzählung ist abschließend; weitere Funktionen dürfen nicht ohne Anpassung dieser Anforderung mit einer Kontopflicht versehen werden.
+**Statement:** An account is required for: higher request quotas, saved histories and bookmark lists, uploading own documents, access to licensed content, offline use under REQ-DRM-002, and all paid services. This list is exhaustive; further functions must not be made subject to an account requirement without amending this requirement.
 
-**Rationale:** Eine abschließende Aufzählung verhindert, dass die Kontopflicht schrittweise auf Funktionen ausgeweitet wird, die sie nicht benötigen. Alle genannten Funktionen setzen eine zurechenbare Identität voraus — sei es für Kontingente, Abrechnung, Gerätebindung oder die nutzerbezogene Kennzeichnung nach REQ-DRM-003.
+**Rationale:** An exhaustive list prevents the account requirement from being gradually extended to functions that do not need it. All functions named require an attributable identity — be it for quotas, billing, device binding or the user-specific marking under REQ-DRM-003.
 
-**Akzeptanzkriterium:** Keine Kontopflicht außerhalb der genannten Funktionen; die Zuordnung ist im Berechtigungsmodell abgebildet.
+**Acceptance criteria:** No account requirement outside the functions named; the assignment is mapped in the authorization model.
 
-**Abnahmekriterium:** Eine Prüfung der Zugriffspfade bestätigt, dass keine weitere Funktion eine Anmeldung erzwingt.
+**Acceptance test:** A review of the access paths confirms that no other function enforces a sign-in.
