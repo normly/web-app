@@ -1,108 +1,108 @@
-# Design: LLM-Chat mit anonymer und kontogebundener Sitzungshistorie (v1)
+# Design: LLM Chat with Anonymous and Account-Bound Session History (v1)
 
-**Datum:** 2026-08-20 (Sitzungsidentität überarbeitet: 2026-08-21)
-**Status:** genehmigt
-**Teilprojekt:** fünftes von mehreren zur Umsetzung des normly-MVP (freier Kern)
+**Date:** 2026-08-20 (session identity revised: 2026-08-21)
+**Status:** approved
+**Sub-project:** fifth of several for implementing the normly MVP (free core)
 
-> **Nachtrag 2026-08-21:** Diese Spec wurde ursprünglich mit rein anonymer Sitzungsidentität
-> genehmigt, dann zurückgestellt, bis das inzwischen abgeschlossene Accounts-Teilprojekt
-> (viertes Teilprojekt) echte Konten bereitstellt. Jetzt überarbeitet: Abschnitt „Entschieden
-> mit dem Auftraggeber" Punkt 1, Nicht-Ziele, Datenmodell und Datenfluss tragen die optionale
-> Kontoverknüpfung nach. Der Rest der Spec (Architektur, RAG-Ablauf, LLM-Betrieb,
-> Rechte-Gate-Fragen) ist unverändert gültig.
+> **Addendum 2026-08-21:** This spec was originally approved with purely anonymous session identity,
+> then deferred until the meanwhile completed accounts sub-project
+> (fourth sub-project) provides real accounts. Now revised: section "Decided
+> with the owner" item 1, Non-goals, Data model and Data flow add the optional
+> account linking. The rest of the spec (architecture, RAG flow, LLM operation,
+> rights gate questions) remains valid unchanged.
 
-## Kontext
+## Context
 
-Die ersten drei Teilprojekte (Datenmodell & Referenzgraph-Schema, Ingestion-Pipeline,
-Backend-API) haben einen befüllten Referenzgraph mit echten Daten aus EUR-Lex und DGUV sowie
-eine öffentliche, lesende HTTP-API für deterministische Graph-Anfragen gebaut. Es gibt noch
-keine Möglichkeit, Fragen in natürlicher Sprache zu stellen — REQ-FUNC-001/002/003 und
-REQ-INT-004 beschreiben genau das.
+The first three sub-projects (data model & reference graph schema, ingestion pipeline,
+backend API) built a populated reference graph with real data from EUR-Lex and DGUV as well as
+a public, read-only HTTP API for deterministic graph queries. There is not yet
+any way to ask questions in natural language — REQ-FUNC-001/002/003 and
+REQ-INT-004 describe exactly that.
 
-SRS Kapitel 3.1/3.2 hängt an „Chat" weitere, teils deutlich größere Anforderungen:
-nutzerbasierte Dokumenten-Uploads (REQ-INT-002A/B/C), SSO (REQ-INT-003). Das ist zu groß für
-ein Teilprojekt.
+SRS chapter 3.1/3.2 attaches further, partly considerably larger requirements to "chat":
+user-based document uploads (REQ-INT-002A/B/C), SSO (REQ-INT-003). That is too large for
+one sub-project.
 
-**Entschieden mit dem Auftraggeber:**
+**Decided with the owner:**
 
-1. Umfang: ein zustandsbehafteter Chat-Endpunkt inkl. Sitzungshistorie („erneut öffnen",
-   REQ-INT-002A), aber ohne Nutzer-Uploads. Sitzungsidentität primär über einen anonymen, vom
-   Client gehaltenen Token — keine Kontopflicht, kein Login erzwungen (ADR-017/REQ-ACC-001;
-   „Verläufe" steht zwar auf CLAUDE.mds abschließender Liste der Kontopflicht-Gründe, ist hier
-   aber ausdrücklich optional, nicht verpflichtend). Seit der Überarbeitung vom 2026-08-21 kann
-   eine `chat_session` zusätzlich optional mit einem echten Konto aus dem Accounts-Teilprojekt
-   verknüpft werden — siehe „Sitzungsidentität und Kontoverknüpfung" unten.
-2. LLM-Betrieb: selbst gehostet auf STACKIT-GPU-Infrastruktur, kein externer US-API-Anbieter —
-   konsistent mit CLAUDE.mds „keine US-Dienste für Betrieb" und ADR-005s Feststellung, dass
-   LLM-Inferenz „ohnehin nicht auf Serverless-Plattformen" läuft. Modell: Llama 3.1 8B
-   Instruct (REQ-INT-004s eigenes Beispiel), Inferenz-Server: Ollama (einfacher zu
-   containerisieren als vLLM, für die aktuelle Nutzungsgröße ausreichend; vLLMs
-   Durchsatzvorteile wären hier verfrüht).
-3. Klassifikation Strukturfrage vs. Synthesefrage: regelbasiert, kein Modellaufruf fürs
-   Routing selbst (ADR-008, „ohne Tokenkosten").
-4. Architektur: eigenes Top-Level-Paket `chat/`, ruft `api/` als gewöhnlicher HTTP-Client für
-   Strukturfragen auf (wie ein externes Drittsystem) — hält `api/`s bereits geprüfte
-   „rein lesend"-Eigenschaft intakt. Eigene, schreibende Tabellen (`chat_session`,
-   `chat_message`, `chat_message_citation`) im bestehenden `core`-Schema.
-5. Ein einfacher Verbatim-Überlapp-Check (REQ-FUNC-002s „Plagiatsprüfung ohne Treffer") ist
-   Teil dieses Teilprojekts, nicht Folgearbeit.
-6. Zusätzlich zum Verbatim-Überlapp-Check ein begrenzter Faithfulness-Check per
-   Selbstprüfung: ein zweiter, gezielter Ollama-Aufruf bewertet nach der eigentlichen
-   Synthese-Antwort, ob deren Aussagen durch die zitierten Segmente gedeckt sind (siehe
-   Datenfluss). Das ist ausdrücklich keine vollständige Faktenprüfung gegen eine externe
-   Wahrheitsquelle (bleibt Nicht-Ziel), sondern eine zusätzliche, heuristische
-   Fehlerbremse auf Basis desselben Modells.
+1. Scope: a stateful chat endpoint incl. session history ("reopen",
+   REQ-INT-002A), but without user uploads. Session identity primarily via an anonymous,
+   client-held token — no account requirement, no login enforced (ADR-017/REQ-ACC-001;
+   "histories" is on CLAUDE.md's exhaustive list of reasons for an account requirement, but is
+   explicitly optional here, not mandatory). Since the revision of 2026-08-21, a `chat_session` can
+   additionally be linked optionally to a real account from the accounts sub-project
+   — see "Session identity and account linking" below.
+2. LLM operation: self-hosted on STACKIT GPU infrastructure, no external US API provider —
+   consistent with CLAUDE.md's "No US services for operations" and ADR-005's finding that
+   LLM inference does "not run on serverless platforms anyway". Model: Llama 3.1 8B
+   Instruct (REQ-INT-004's own example), inference server: Ollama (simpler to
+   containerize than vLLM, sufficient for the current usage size; vLLM's
+   throughput advantages would be premature here).
+3. Classification of structural question vs. synthesis question: rule-based, no model call for the
+   routing itself (ADR-008, "without token costs").
+4. Architecture: a separate top-level package `chat/`, calls `api/` as an ordinary HTTP client for
+   structural questions (like an external third-party system) — keeps `api/`'s already verified
+   "read-only" property intact. Its own writing tables (`chat_session`,
+   `chat_message`, `chat_message_citation`) in the existing `core` schema.
+5. A simple verbatim-overlap check (REQ-FUNC-002's "Plagiarism check without matches") is
+   part of this sub-project, not follow-up work.
+6. In addition to the verbatim-overlap check, a limited faithfulness check by
+   self-assessment: a second, targeted Ollama call evaluates, after the actual
+   synthesis answer, whether its statements are covered by the cited segments (see
+   Data flow). This is explicitly not a complete fact check against an external
+   source of truth (remains a non-goal), but an additional, heuristic
+   error brake based on the same model.
 
-## Ziel dieses Teilprojekts
+## Goal of this sub-project
 
-Ein Chat-Endpunkt, der Nutzerfragen in natürlicher Sprache entgegennimmt, Strukturfragen
-deterministisch aus dem Graph beantwortet (kein Modellaufruf), Synthesefragen über
-Retrieval-Augmented Generation gegen echten DGUV-Volltext mit einem selbst gehosteten LLM
-beantwortet — paraphrasiert, mit Zitaten, mit Plagiats-Schutz — und bei fehlender Grundlage
-eine erklärende Fallback-Antwort liefert. Die Sitzung ist ohne Konto über einen anonymen
-Token fortsetzbar.
+A chat endpoint that takes user questions in natural language, answers structural questions
+deterministically from the graph (no model call), answers synthesis questions via
+retrieval-augmented generation against real DGUV full text with a self-hosted LLM
+— paraphrased, with citations, with plagiarism protection — and delivers an explanatory
+fallback answer when there is no basis. The session can be continued without an account via an anonymous
+token.
 
-## Nicht-Ziele
+## Non-goals
 
-- **Nutzer-Uploads, Isolation, Ablauffrist** (REQ-INT-002A/B/C, der Upload-Teil) — eigenes,
-  späteres Teilprojekt. Nur die Sitzungshistorie aus REQ-INT-002A wird hier umgesetzt, nicht
-  die Dokumenten-Upload-Fähigkeit selbst.
-- **Eigene Authentifizierungslogik in `chat/`.** `chat/` prüft ein mitgeschicktes
-  Konto-Token nur bei `accounts/` (HTTP-Aufruf, wie `api/`) — kein eigenes Login, keine
-  eigene Session-Verwaltung für Konten. Ob überhaupt ein Konto-Token mitgeschickt wird,
-  bleibt vollständig dem Client überlassen; anonyme Sitzungen funktionieren unverändert ohne
-  jede Berührung mit `accounts/`.
-- **Rate-Limiting/Kontingent** (REQ-SEC-004, serverseitige Kontingentzählung) — wie im
-  Backend-API-Teilprojekt eigene Infrastrukturentscheidung, nicht Teil dieses Teilprojekts.
-- **Verifikation gegen eine externe Wahrheitsquelle.** REQ-FUNC-001 wird über
-  kontextgebundenes Prompting (nur aus abgerufenen Segmenten antworten) plus dem in
-  „Entschieden mit dem Auftraggeber" Punkt 6 beschriebenen Faithfulness-Check angestrebt —
-  beides sind Heuristiken auf Basis desselben Modells, keine Garantie. Eine belastbare,
-  von Grund auf verlässliche Faktenprüfung (z. B. gegen eine kuratierte Wissensbasis oder
-  mit einem dedizierten, unabhängigen Verifikationsmodell) bleibt ein eigenes, größeres
-  Forschungsthema und ist hier nicht Teil des Umfangs.
-- **Produktions-Deployment/Skalierung des Inferenz-Servers** (SKE, GPU-Provisionierung,
-  Lastverteilung) — analog zu den vorigen Teilprojekten eine spätere
-  Deployment-Entscheidung.
-- **Sprachen über Deutsch/Englisch hinaus.** `language` ist von Anfang an `"de"`/`"en"`
-  (siehe Architektur) — weitere Sprachen sind Folgearbeit, kein Übersetzungsdienst für
-  beliebige Zielsprachen in diesem Teilprojekt.
+- **User uploads, isolation, expiry** (REQ-INT-002A/B/C, the upload part) — a separate,
+  later sub-project. Only the session history from REQ-INT-002A is implemented here, not
+  the document upload capability itself.
+- **Authentication logic of its own in `chat/`.** `chat/` only checks a supplied
+  account token with `accounts/` (HTTP call, like `api/`) — no login of its own, no
+  session management of its own for accounts. Whether an account token is sent at all
+  is left entirely to the client; anonymous sessions work unchanged without
+  any contact with `accounts/`.
+- **Rate limiting/quota** (REQ-SEC-004, server-side quota counting) — as in the
+  backend API sub-project, a separate infrastructure decision, not part of this sub-project.
+- **Verification against an external source of truth.** REQ-FUNC-001 is aimed at through
+  context-bound prompting (answer only from retrieved segments) plus the
+  faithfulness check described in "Decided with the owner" item 6 —
+  both are heuristics based on the same model, no guarantee. A robust,
+  fundamentally reliable fact check (e.g. against a curated knowledge base or
+  with a dedicated, independent verification model) remains a separate, larger
+  research topic and is not part of the scope here.
+- **Production deployment/scaling of the inference server** (SKE, GPU provisioning,
+  load balancing) — analogous to the previous sub-projects, a later
+  deployment decision.
+- **Languages beyond German/English.** `language` is `"de"`/`"en"` from the start
+  (see Architecture) — further languages are follow-up work, no translation service for
+  arbitrary target languages in this sub-project.
 
-## Architektur
+## Architecture
 
-### Paketstruktur
+### Package structure
 
-Drei Ansätze wurden abgewogen:
+Three approaches were weighed:
 
-1. **Eigenes `chat/`-Verzeichnis, ruft `api/` als HTTP-Client für Strukturfragen.**
-2. Chat-Endpunkte direkt in `api/` ergänzen — verworfen: bricht die bereits geprüfte
-   Invariante „API ist rein lesend", vermischt zwei unterschiedliche Schutzbedürfnisse
-   (öffentliche, anonyme Lese-API vs. sitzungsgebundene, schreibende Chat-Historie).
-3. Chat-Logik direkt in `core/` statt eines eigenen Dienstes — verworfen: `core/` ist
-   Bibliothek + CLI, kein Webdienst; würde FastAPI/LLM-Client-Abhängigkeiten in jede
-   `core`-Installation ziehen, dasselbe Argument wie gegen Ansatz 2 im Backend-API-Design.
+1. **A separate `chat/` directory, calls `api/` as an HTTP client for structural questions.**
+2. Add chat endpoints directly to `api/` — rejected: breaks the already verified
+   invariant "API is read-only", mixes two different protection needs
+   (public, anonymous read API vs. session-bound, writing chat history).
+3. Chat logic directly in `core/` instead of a separate service — rejected: `core/` is
+   library + CLI, not a web service; would pull FastAPI/LLM client dependencies into every
+   `core` installation, the same argument as against approach 2 in the backend API design.
 
-**Entschieden: Ansatz 1.**
+**Decided: approach 1.**
 
 ```
 chat/
@@ -118,86 +118,86 @@ chat/
   tests/
 ```
 
-`chat/` spricht mit `api/` ausschließlich über dessen öffentliche HTTP-Schnittstelle — wie
-ein externes Drittsystem, kein direkter Python-Import der `api`-Router. Das ist bewusst
-Dogfooding der eigenen öffentlichen API.
+`chat/` talks to `api/` exclusively via its public HTTP interface — like
+an external third-party system, no direct Python import of the `api` routers. This is deliberate
+dogfooding of our own public API.
 
-### Datenmodell (neue Tabellen im bestehenden `core`-Schema)
+### Data model (new tables in the existing `core` schema)
 
-| Tabelle | Spalten | Zweck |
+| Table | Columns | Purpose |
 |---|---|---|
-| `chat_session` | `id` (PK), `session_token` (eindeutig, opak), `account_id` (FK auf `account`, **nullable**), `jurisdiction`, `language` (`de`/`en`), `created_at` | Sitzungsidentität — anonym (`account_id IS NULL`) oder kontoverknüpft |
-| `chat_message` | `id` (PK), `session_id` (FK), `role` (`user`/`assistant`), `content`, `answer_type` (`structural`/`synthesis`/`fallback`), `created_at` | Chat-Verlauf |
-| `chat_message_citation` | `message_id` (FK), `document_id` (FK), `segment_id` (FK, nullable) | Abstammung der Antwort — welches Dokument/Segment die Antwort stützt |
+| `chat_session` | `id` (PK), `session_token` (unique, opaque), `account_id` (FK to `account`, **nullable**), `jurisdiction`, `language` (`de`/`en`), `created_at` | Session identity — anonymous (`account_id IS NULL`) or account-linked |
+| `chat_message` | `id` (PK), `session_id` (FK), `role` (`user`/`assistant`), `content`, `answer_type` (`structural`/`synthesis`/`fallback`), `created_at` | Chat history |
+| `chat_message_citation` | `message_id` (FK), `document_id` (FK), `segment_id` (FK, nullable) | Lineage of the answer — which document/segment supports the answer |
 
-`session_token` ist ein zufälliger, ausreichend langer opaker String (kein JWT nötig — keine
-eingebetteten Ansprüche, nur ein Nachschlage-Schlüssel). Der Client erhält ihn bei der ersten
-Anfrage und schickt ihn bei Folgeanfragen mit; ein fehlender oder unbekannter Token startet
-eine neue Sitzung, kein Fehler.
+`session_token` is a random, sufficiently long opaque string (no JWT needed — no
+embedded claims, only a lookup key). The client receives it with the first
+request and sends it along with follow-up requests; a missing or unknown token starts
+a new session, not an error.
 
-`account_id` ist `NULL` für rein anonyme Sitzungen und bleibt es für die gesamte Lebensdauer
-der Sitzung, solange kein gültiges Konto-Token mitgeschickt wird — siehe unten. Ein Konto kann
-mehrere `chat_session`-Zeilen haben (ein Gerät/Browser = eine Sitzung, wie schon bisher); es
-gibt keine automatische Zusammenführung mehrerer Geräte-Verläufe zu einer Sitzung.
+`account_id` is `NULL` for purely anonymous sessions and stays so for the entire lifetime
+of the session as long as no valid account token is sent — see below. An account can
+have several `chat_session` rows (one device/browser = one session, as before); there
+is no automatic merging of several device histories into one session.
 
-### Sitzungsidentität und Kontoverknüpfung
+### Session identity and account linking
 
-`POST /v1/chat` akzeptiert optional einen `Authorization: Bearer <accounts-Sitzungstoken>`-
-Header. `chat/` verifiziert einen mitgeschickten Konto-Token ausschließlich über einen
-HTTP-Aufruf gegen `accounts/` (`GET /v1/accounts/session`) — derselbe „Dienst als
-HTTP-Client"-Grundsatz wie bei `api/`, kein direkter Zugriff auf `accounts`-Tabellen. Drei
-Fälle:
+`POST /v1/chat` optionally accepts an `Authorization: Bearer <accounts-Sitzungstoken>`
+header. `chat/` verifies a supplied account token exclusively via an
+HTTP call against `accounts/` (`GET /v1/accounts/session`) — the same "service as
+HTTP client" principle as with `api/`, no direct access to `accounts` tables. Three
+cases:
 
-1. **Kein oder ungültiger Konto-Token.** Verhalten unverändert zur Ursprungsspec: rein
-   anonyme Sitzung über `session_token`, keine Berührung mit `accounts/`.
-2. **Gültiger Konto-Token, `chat_session` noch nicht verknüpft** (`account_id IS NULL`).
-   Die Sitzung wird jetzt mit der Konto-ID verknüpft (`UPDATE chat_session SET account_id =
-   ...`), der bisherige Nachrichtenverlauf bleibt vollständig erhalten und ist ab diesem
-   Zeitpunkt auch von anderen, mit demselben Konto verknüpften Geräten aus sichtbar (über
-   eine künftige „Sitzungen auflisten"-Fähigkeit, hier nicht Teil des Umfangs — siehe Offene
-   Punkte).
-3. **Gültiger Konto-Token, `chat_session` bereits an eine ANDERE Konto-ID gebunden.**
-   Schutz vor Geräte-/Nutzerwechsel: statt die fremde Sitzung weiterzuverwenden, wird eine
-   neue `chat_session` für dieses Konto angelegt und ein neuer `session_token`
-   zurückgegeben (wie beim allerersten Request). Verhindert, dass die Nachrichten einer
-   Person in den Verlauf einer anderen landen, nur weil beide dasselbe Gerät mit
-   wiederverwendetem `session_token` benutzt haben.
+1. **No or invalid account token.** Behavior unchanged from the original spec: purely
+   anonymous session via `session_token`, no contact with `accounts/`.
+2. **Valid account token, `chat_session` not yet linked** (`account_id IS NULL`).
+   The session is now linked to the account ID (`UPDATE chat_session SET account_id =
+   ...`), the previous message history is fully preserved and from this
+   point on is also visible from other devices linked to the same account (via
+   a future "list sessions" capability, not part of the scope here — see Open
+   items).
+3. **Valid account token, `chat_session` already bound to a DIFFERENT account ID.**
+   Protection against a change of device/user: instead of reusing the other person's session, a
+   new `chat_session` is created for this account and a new `session_token`
+   is returned (as with the very first request). Prevents one
+   person's messages from ending up in another's history just because both used the same device with a
+   reused `session_token`.
 
-Ein abgelaufener/unbekannter Konto-Token wird wie „kein Token" behandelt (Fall 1) — kein
-Fehler, kein Detail-Leak, konsistent mit `accounts/`s eigenem Umgang mit `/session`.
+An expired/unknown account token is treated like "no token" (case 1) — no
+error, no detail leak, consistent with `accounts/`'s own handling of `/session`.
 
-`language` ist ein expliziter Client-Parameter (`"de"` oder `"en"`), kein automatisch
-erkannter — dasselbe Muster wie `jurisdiction`: deterministisch, kein zusätzlicher
-Erkennungs-Dienst/-Modell nötig. Er steuert (a) welche Textbausteine `structural.py` für
-Strukturantworten verwendet (b) die Sprachanweisung im Synthese-Prompt an das LLM. Die
-Ähnlichkeitssuche selbst ist davon unabhängig: `multilingual-e5-large` ist sprachübergreifend
-— eine englische Frage findet auch deutsche DGUV-Segmente, das LLM formuliert die Antwort
-dann trotzdem auf Englisch. `chat/`s Antwort (paraphrasiert) ist damit sprachlich unabhängig
-von der Quellsprache der zitierten Segmente.
+`language` is an explicit client parameter (`"de"` or `"en"`), not an automatically
+detected one — the same pattern as `jurisdiction`: deterministic, no additional
+detection service/model needed. It controls (a) which text templates `structural.py` uses for
+structural answers (b) the language instruction in the synthesis prompt to the LLM. The
+similarity search itself is independent of it: `multilingual-e5-large` is cross-lingual
+— an English question also finds German DGUV segments, and the LLM then still phrases the answer
+in English. `chat/`'s answer (paraphrased) is thus linguistically independent
+of the source language of the cited segments.
 
-Repository-Zugriff nach demselben Muster wie überall im Projekt: `ChatRepository` (o. ä.) in
+Repository access follows the same pattern as everywhere in the project: `ChatRepository` (or similar) in
 `core/src/normly_core/graph/postgres/repositories.py`, Protocol in `domain.py`,
-Alembic-Migration für die drei Tabellen.
+Alembic migration for the three tables.
 
-### Neue Repository-Fähigkeit: Ähnlichkeitssuche
+### New repository capability: similarity search
 
 `SegmentRepository.find_similar_segments_for_jurisdiction(query_vector: list[float],
-jurisdiction: str, limit: int = 5) -> list[Segment]` — pgvector-Ähnlichkeitssuche
-(`ORDER BY embedding.vector <=> :query_vector LIMIT :limit`), mit denselben
-Rechte-Gate-Bedingungen wie das bestehende `list_segments_for_jurisdiction`
-(`may_process`, `may_index_fulltext`, `revoked_at IS NULL`) — nur mit
-Distanz-Sortierung statt Vollständigkeit. Kein zweiter Prüfpfad: dieselbe
-Rechteklassifikations-Logik, nur eine andere Sortierung/Begrenzung.
+jurisdiction: str, limit: int = 5) -> list[Segment]` — pgvector similarity search
+(`ORDER BY embedding.vector <=> :query_vector LIMIT :limit`), with the same
+rights gate conditions as the existing `list_segments_for_jurisdiction`
+(`may_process`, `may_index_fulltext`, `revoked_at IS NULL`) — only with
+distance ordering instead of completeness. No second check path: the same
+rights classification logic, only a different ordering/limit.
 
-`EmbeddingModel` (aus der Ingestion-Pipeline, `core/src/normly_core/pipeline/embeddings.py`)
-bekommt eine neue Methode `embed_query(text: str) -> list[float]` (Präfix `"query: "` statt
-`"passage: "`, e5-Konvention für Suchanfragen vs. Index-Inhalte) — die bestehende `embed()`
-bleibt unverändert, keine Breaking Change für die Ingestion-Pipeline.
+`EmbeddingModel` (from the ingestion pipeline, `core/src/normly_core/pipeline/embeddings.py`)
+gets a new method `embed_query(text: str) -> list[float]` (prefix `"query: "` instead of
+`"passage: "`, the e5 convention for search queries vs. index content) — the existing `embed()`
+stays unchanged, no breaking change for the ingestion pipeline.
 
-## Datenfluss
+## Data flow
 
 `POST /v1/chat` — `{session_token: str | None, jurisdiction: str, language: Literal["de", "en"], message: str}`,
-optionaler Header `Authorization: Bearer <accounts-Sitzungstoken>`
+optional header `Authorization: Bearer <accounts-Sitzungstoken>`
 
 ```
 Kein/unbekannter session_token? -> neue chat_session anlegen, neuen Token zurückgeben
@@ -250,106 +250,106 @@ chat_message (Nutzerfrage) + chat_message (Antwort) + chat_message_citation(s) s
 -> Response: {session_token, answer, answer_type, citations}
 ```
 
-Kein LLM-Aufruf für Strukturfragen und für jeden Fallback-Fall, der schon vor der Generierung
-feststeht (kein Treffer, kein Dokument) — nur eine tatsächlich versuchte Synthese ruft das
-Modell auf, im Erfolgsfall zweimal (Generierung + Faithfulness-Check), beim
-Verbatim-Überlapp-Treffer nur einmal (ADR-008s „doppelter Gewinn": geringere Kosten und höhere
-Verlässlichkeit genau dort, wo Fehler am teuersten wären — der zweite Aufruf ist bewusst nur
-die Ausnahme, nicht die Regel, teurer als der ADR ursprünglich vorsah, aber immer noch auf den
-einen Fall begrenzt, der es zählt).
+No LLM call for structural questions and for any fallback case that is already
+known before generation (no match, no document) — only an actually attempted synthesis calls the
+model, twice in the success case (generation + faithfulness check), only once on a
+verbatim-overlap hit (ADR-008's "Double gain": lower costs and higher
+reliability exactly where errors would be most expensive — the second call is deliberately only
+the exception, not the rule, more expensive than the ADR originally envisaged, but still limited to the
+one case where it matters).
 
-## Fehlerbehandlung
+## Error handling
 
-| Fall | Verhalten |
+| Case | Behavior |
 |---|---|
-| Fehlende/leere `message` oder `jurisdiction` | 400 |
-| Unbekannter/fehlender `session_token` | Kein Fehler — neue Session wird angelegt |
-| Fehlender/ungültiger/abgelaufener Konto-Token im `Authorization`-Header | Kein Fehler — wie „kein Konto-Token" behandelt, Chat funktioniert anonym weiter |
-| Strukturfrage, aber Dokument in `api/` nicht auffindbar (404) | Fallback-Antwort, kein Chat-Fehler |
-| Synthesefrage ohne relevante Segmente | Fallback-Antwort, kein Modellaufruf |
-| LLM-Antwort enthält 15+ aufeinanderfolgende Wörter aus einem zitierten Quellsegment | Antwort verworfen, Fallback-Antwort stattdessen, Vorfall geloggt |
-| Faithfulness-Check bewertet die Antwort als nicht durch den Kontext gedeckt | Antwort verworfen, Fallback-Antwort stattdessen, Vorfall geloggt |
-| Ollama nicht erreichbar | 503, kein Detail-Leak |
-| Datenbank- oder `api/`-/`accounts/`-Verbindung down | 503, kein Detail-Leak |
+| Missing/empty `message` or `jurisdiction` | 400 |
+| Unknown/missing `session_token` | No error — a new session is created |
+| Missing/invalid/expired account token in the `Authorization` header | No error — treated like "no account token", chat continues to work anonymously |
+| Structural question, but document not found in `api/` (404) | Fallback answer, no chat error |
+| Synthesis question without relevant segments | Fallback answer, no model call |
+| LLM answer contains 15+ consecutive words from a cited source segment | Answer discarded, fallback answer instead, incident logged |
+| Faithfulness check rates the answer as not covered by the context | Answer discarded, fallback answer instead, incident logged |
+| Ollama unreachable | 503, no detail leak |
+| Database or `api/`/`accounts/` connection down | 503, no detail leak |
 
-## Testkonzept
+## Test concept
 
-- Echtes Ollama mit echtem Llama 3.1 8B Instruct in den Tests (kein Mocking des Modells) —
-  konsistent mit dem bisherigen Projektstil (echtes Embedding-Modell in der
-  Ingestion-Pipeline, echtes Postgres überall). Die verfügbare 24-GB-GPU reicht dafür.
-- `api/` und `accounts/` laufen als echte Prozesse in den Tests, `chat/` ruft sie wirklich
-  über HTTP auf — kein Mocking, genau wie ein externes Drittsystem sie nutzen würde.
-- Klassifikation (`classify.py`) isoliert und ohne Modell/DB getestet — reine
-  Funktionslogik, schnell.
-- Strukturfrage-Pfad: End-to-End gegen echte DGUV-/EUR-Lex-Testdaten, prüft zusätzlich, dass
-  kein Ollama-Aufruf stattfindet (Zähler/Spy auf dem Ollama-Client).
-- Synthesefrage-Pfad: End-to-End mit echten DGUV-Segmenten, prüft Zitate, den
-  Verbatim-Überlapp-Check und den Faithfulness-Check — jeweils positiv (normale Paraphrase
-  bzw. gedeckte Aussage wird durchgelassen) und negativ (ein absichtlich
-  Volltext-wiederholender Test-Prompt erzwingt den Fallback über den Verbatim-Check; ein
-  absichtlich Kontext-fremde Behauptungen einstreuender Test-Prompt erzwingt den Fallback
-  über den Faithfulness-Check). Prüft außerdem, dass der Faithfulness-Check bei einem klaren
-  Verbatim-Treffer NICHT mehr aufgerufen wird (Zähler/Spy auf dem Ollama-Client, zweiter
-  Aufruf bleibt aus).
-- Rechteklassifikations-Asymmetrie: dieselbe Frage liefert für einen Rechtsraum ohne
-  Klassifikation ausschließlich den Fallback (keine Segmente sichtbar) — analog zum
-  bestehenden Muster aus den vorigen Teilprojekten.
-- Zweisprachigkeit: dieselbe Synthesefrage einmal mit `language="de"`, einmal mit
-  `language="en"` gegen dieselben (deutschen) DGUV-Segmente — prüft, dass die
-  Ähnlichkeitssuche in beiden Fällen dieselben Segmente findet (sprachübergreifendes
-  Embedding-Modell) und die Antwort jeweils tatsächlich in der angeforderten Sprache
-  formuliert ist.
-- Sitzungs-Fortsetzung: zwei Anfragen mit demselben `session_token` landen in derselben
-  `chat_session`, mit vollständiger `chat_message`-Historie in der richtigen Reihenfolge.
-- Kontoverknüpfung: eine anonyme Sitzung mit bestehendem Verlauf, gefolgt von einer Anfrage
-  mit demselben `session_token` plus gültigem Konto-Token — prüft, dass `account_id` gesetzt
-  wird UND der bisherige Verlauf erhalten bleibt. Ein zweiter Test mit ungültigem/abgelaufenem
-  Konto-Token prüft, dass die Sitzung anonym bleibt (kein Fehler). Ein dritter Test prüft den
-  Konto-Wechsel-Schutz: `chat_session` bereits an Konto A gebunden, Anfrage mit gültigem Token
-  für Konto B — muss eine neue `chat_session` mit neuem `session_token` erzeugen, ohne
-  Konto As Sitzung zu berühren.
+- Real Ollama with the real Llama 3.1 8B Instruct in the tests (no mocking of the model) —
+  consistent with the project style so far (real embedding model in the
+  ingestion pipeline, real Postgres everywhere). The available 24 GB GPU is sufficient for this.
+- `api/` and `accounts/` run as real processes in the tests, `chat/` really calls them
+  over HTTP — no mocking, exactly as an external third-party system would use them.
+- Classification (`classify.py`) tested in isolation and without model/DB — pure
+  function logic, fast.
+- Structural question path: end-to-end against real DGUV/EUR-Lex test data, additionally checks that
+  no Ollama call takes place (counter/spy on the Ollama client).
+- Synthesis question path: end-to-end with real DGUV segments, checks citations, the
+  verbatim-overlap check and the faithfulness check — each positively (a normal paraphrase
+  or a covered statement is let through) and negatively (a test prompt that deliberately
+  repeats full text forces the fallback via the verbatim check; a test prompt that deliberately
+  inserts claims foreign to the context forces the fallback
+  via the faithfulness check). Also checks that the faithfulness check is NOT called anymore on a clear
+  verbatim hit (counter/spy on the Ollama client, the second
+  call does not happen).
+- Rights classification asymmetry: the same question returns exclusively the fallback for a jurisdiction without
+  classification (no segments visible) — analogous to the
+  existing pattern from the previous sub-projects.
+- Bilingualism: the same synthesis question once with `language="de"`, once with
+  `language="en"` against the same (German) DGUV segments — checks that the
+  similarity search finds the same segments in both cases (cross-lingual
+  embedding model) and that the answer is actually phrased in the requested language
+  each time.
+- Session continuation: two requests with the same `session_token` end up in the same
+  `chat_session`, with the complete `chat_message` history in the correct order.
+- Account linking: an anonymous session with existing history, followed by a request
+  with the same `session_token` plus a valid account token — checks that `account_id` is set
+  AND the previous history is preserved. A second test with an invalid/expired
+  account token checks that the session stays anonymous (no error). A third test checks the
+  account-switch protection: `chat_session` already bound to account A, request with a valid token
+  for account B — must create a new `chat_session` with a new `session_token` without
+  touching account A's session.
 
-## Bezug zu Requirements und ADRs
+## Relation to requirements and ADRs
 
-| Requirement/ADR | Abdeckung in diesem Design |
+| Requirement/ADR | Coverage in this design |
 |---|---|
-| REQ-FUNC-001 | Synthese-Antworten ausschließlich aus abgerufenen, rechtsraumsichtbaren Segmenten (Prompt-Bindung); Strukturantworten ausschließlich aus dem Graph; zusätzlich Faithfulness-Check als Nachkontrolle |
-| REQ-FUNC-002 | Paraphrasierungs-Anweisung im Prompt + Verbatim-Überlapp-Check als Nachkontrolle |
-| REQ-FUNC-003 | Fallback-Antwort für jeden Fall ohne belastbare Grundlage (kein Treffer, kein Dokument, Plagiats-Verdacht, nicht gedeckte Aussage) |
-| REQ-INT-002A (nur Historie-Teil) | `chat_session`/`chat_message` erlauben „Chat erneut öffnen" über den `session_token`, ohne Konto — optional zusätzlich über ein verknüpftes Konto |
-| REQ-INT-004 | Ollama als austauschbare Inferenz-Schicht hinter `synthesis.py`; Modellwechsel ohne Änderung an `chat/`s öffentlicher Schnittstelle |
-| REQ-GRAPH-003 | Regelbasierte Klassifikation vor jedem Modellaufruf, Strukturfragen deterministisch über `api/` |
-| ADR-005 | Selbst gehostetes LLM (Ollama/Llama 3.1) statt externer US-API |
-| ADR-008 | Kein Modellaufruf für Routing, Strukturfragen oder Fallback-Fälle |
-| ADR-017 / REQ-ACC-001 | Anonymer `session_token` bleibt der Normalfall — Chat funktioniert ohne Login; Kontoverknüpfung ist rein optional, nie Voraussetzung |
+| REQ-FUNC-001 | Synthesis answers exclusively from retrieved segments visible in the jurisdiction (prompt binding); structural answers exclusively from the graph; additionally a faithfulness check as a post-check |
+| REQ-FUNC-002 | Paraphrasing instruction in the prompt + verbatim-overlap check as a post-check |
+| REQ-FUNC-003 | Fallback answer for every case without a robust basis (no match, no document, suspected plagiarism, uncovered statement) |
+| REQ-INT-002A (history part only) | `chat_session`/`chat_message` allow "reopen chat" via the `session_token`, without an account — optionally additionally via a linked account |
+| REQ-INT-004 | Ollama as an interchangeable inference layer behind `synthesis.py`; model change without changes to `chat/`'s public interface |
+| REQ-GRAPH-003 | Rule-based classification before any model call, structural questions deterministically via `api/` |
+| ADR-005 | Self-hosted LLM (Ollama/Llama 3.1) instead of an external US API |
+| ADR-008 | No model call for routing, structural questions or fallback cases |
+| ADR-017 / REQ-ACC-001 | Anonymous `session_token` stays the normal case — chat works without login; account linking is purely optional, never a prerequisite |
 
-## Offene Punkte / Folgearbeiten
+## Open items / follow-up work
 
-- **Nutzer-Uploads** (REQ-INT-002A/B/C, der Upload-Teil) — eigenes, späteres Teilprojekt.
-- **„Sitzungen auflisten" für ein Konto.** Ein Konto kann mehrere `chat_session`-Zeilen
-  haben (eine pro Gerät/Browser, das verknüpft wurde), aber dieses Teilprojekt liefert keinen
-  Endpunkt, der einem eingeloggten Nutzer alle seine Sitzungen anzeigt oder zwischen ihnen
-  wechseln lässt — nur die Verknüpfung selbst. Eigene Folgearbeit.
-- **Rate-Limiting/Kontingent** (REQ-SEC-004) — eigene Infrastrukturentscheidung, wie im
-  Backend-API-Teilprojekt.
-- **Sitzungs-Ablauf/Bereinigung.** `chat_session`/`chat_message` haben aktuell keine
-  automatische Löschfrist. REQ-INT-002C (7 Tage Default) gilt explizit für Uploads, nicht für
-  Chat-Historie — ob eine analoge Frist für Chat-Sitzungen sinnvoll ist, ist hier nicht
-  entschieden.
-- **Zwei-Modell-Strategie** (ADR-008 erwähnt „kleines Modell für Routing, großes nur für
-  komplexe Synthesen") — für den Start reicht ein Modell plus regelbasiertes Routing; ein
-  zweites, kleineres Modell für unschärfere Klassifikationsfälle ist mit dem aktuellen
-  Bestand nicht beobachtbar nötig.
-- **Belastbare Faktenprüfung gegen eine externe Wahrheitsquelle** (kuratierte Wissensbasis,
-  unabhängiges Verifikationsmodell) — siehe Nicht-Ziele, eigenes, größeres Forschungsthema.
-  Der modellbasierte Faithfulness-Check aus diesem Teilprojekt ist eine Heuristik, keine
-  Garantie; seine tatsächliche Trefferquote (Falsch-Positive/-Negative) ist erst nach
-  Produktivbetrieb mit echten Fragen beobachtbar und könnte eine spätere Kalibrierung
-  nötig machen.
-- **Produktions-Deployment des Inferenz-Servers** (GPU-Provisionierung auf STACKIT,
-  Skalierung, SKE-Anbindung) — spätere Deployment-Entscheidung, analog zu den vorigen
-  Teilprojekten.
-- **Mehrere gleichzeitige Chat-Anfragen/Warteschlange bei Ollama.** Mit einer einzelnen GPU
-  und Ollamas Standard-Betrieb ist Parallelität begrenzt — für die aktuelle Nutzungsgröße
-  unproblematisch, bei wachsendem Bestand zu prüfen (siehe auch die vLLM-Alternative aus der
-  Architektur-Diskussion).
+- **User uploads** (REQ-INT-002A/B/C, the upload part) — a separate, later sub-project.
+- **"List sessions" for an account.** An account can have several `chat_session` rows
+  (one per device/browser that was linked), but this sub-project delivers no
+  endpoint that shows a signed-in user all of their sessions or lets them switch
+  between them — only the linking itself. Separate follow-up work.
+- **Rate limiting/quota** (REQ-SEC-004) — a separate infrastructure decision, as in the
+  backend API sub-project.
+- **Session expiry/cleanup.** `chat_session`/`chat_message` currently have no
+  automatic deletion period. REQ-INT-002C (default 7 days) applies explicitly to uploads, not to
+  chat history — whether an analogous period makes sense for chat sessions is not
+  decided here.
+- **Two-model strategy** (ADR-008 mentions "a small model for routing, a large one only for complex
+  syntheses") — for the start, one model plus rule-based routing is enough; a
+  second, smaller model for fuzzier classification cases is not observably needed with the current
+  collection.
+- **Robust fact check against an external source of truth** (curated knowledge base,
+  independent verification model) — see Non-goals, a separate, larger research topic.
+  The model-based faithfulness check from this sub-project is a heuristic, not a
+  guarantee; its actual hit rate (false positives/negatives) is only observable after
+  production operation with real questions and could make a later calibration
+  necessary.
+- **Production deployment of the inference server** (GPU provisioning on STACKIT,
+  scaling, SKE connection) — a later deployment decision, analogous to the previous
+  sub-projects.
+- **Several simultaneous chat requests/queue at Ollama.** With a single GPU
+  and Ollama's default operation, parallelism is limited — unproblematic for the current usage size,
+  to be checked with a growing collection (see also the vLLM alternative from the
+  architecture discussion).

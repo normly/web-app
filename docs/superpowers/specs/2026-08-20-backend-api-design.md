@@ -1,76 +1,76 @@
-# Design: Backend-API — deterministische Graph-Anfragen (v1)
+# Design: Backend API — Deterministic Graph Queries (v1)
 
-**Datum:** 2026-08-20
-**Status:** zur Durchsicht
-**Teilprojekt:** drittes von mehreren zur Umsetzung des normly-MVP (freier Kern)
+**Date:** 2026-08-20
+**Status:** for review
+**Sub-project:** third of several for implementing the normly MVP (free core)
 
-## Kontext
+## Context
 
-Die ersten beiden Teilprojekte (Datenmodell & Referenzgraph-Schema, Ingestion-Pipeline)
-haben das PostgreSQL-Schema, die Repository-Schicht und einen befüllten Referenzgraph mit
-echten Daten aus EUR-Lex und DGUV gebaut. Die Daten liegen in der Datenbank, aber es gibt
-keinen Weg nach außen — kein HTTP-Zugriff, keine Dokumentation, kein Drittsystem kann sie
-abfragen.
+The first two sub-projects (data model & reference graph schema, ingestion pipeline)
+built the PostgreSQL schema, the repository layer and a populated reference graph with
+real data from EUR-Lex and DGUV. The data is in the database, but there is
+no way out — no HTTP access, no documentation, no third-party system can
+query it.
 
-REQ-INT-001 beschreibt eine öffentliche, dokumentierte HTTP-API. SRS Kapitel 3.1 hängt
-daran weitere, deutlich größere Anforderungen: nutzerbasierte Dokumenten-Uploads mit
-Isolation und Ablauffrist (REQ-INT-002A/B/C), SSO (REQ-INT-003), eine LLM-Schnittstelle für
-Chat-Antworten (REQ-INT-004, REQ-FUNC-001/002/003). Das ist zu groß für ein Teilprojekt.
+REQ-INT-001 describes a public, documented HTTP API. SRS chapter 3.1 attaches
+further, considerably larger requirements to it: user-based document uploads with
+isolation and expiry (REQ-INT-002A/B/C), SSO (REQ-INT-003), an LLM interface for
+chat answers (REQ-INT-004, REQ-FUNC-001/002/003). That is too large for one sub-project.
 
-**Entschieden mit dem Auftraggeber:**
+**Decided with the owner:**
 
-1. Umfang: nur deterministische Graph-Anfragen (REQ-GRAPH-003) über den bereits befüllten
-   freien Bestand — Suche/Lookup, Verweise/Beziehungen, Ersetzungs-/Gültigkeitsketten, sowie
-   ein vollständiger Dump des freien Graphanteils (REQ-GRAPH-001). Kein LLM-Aufruf, keine
-   Nutzer-Uploads, kein Login — passend zu ADR-017/REQ-ACC-001 (keine Kontopflicht für freie
-   Inhalte).
-2. Tech-Stack: FastAPI (Python), neues Top-Level-Paket `api/`, abhängig von `normly_core`.
-   Erzeugt die OpenAPI-Spezifikation automatisch aus den Endpunkt-Signaturen (erfüllt
-   REQ-INT-001s Akzeptanzkriterium direkt), eingebautes Swagger-UI erfüllt SRS 3.6.2s
-   „Swagger Instanz... ist zwingend".
-3. Die API ist rein lesend. Ingestion bleibt CLI-only (Ingestion-Pipeline-Teilprojekt).
-4. Ratenbegrenzung/Kontingent (REQ-SEC-004, serverseitige Kontingentzählung für anonyme
-   Nutzung) bewusst nicht Teil dieses Teilprojekts — eigene Infrastrukturentscheidung, siehe
-   Offene Punkte.
+1. Scope: only deterministic graph queries (REQ-GRAPH-003) over the already populated
+   free collection — search/lookup, references/relationships, replacement/validity chains, as well as
+   a complete dump of the free part of the graph (REQ-GRAPH-001). No LLM call, no
+   user uploads, no login — in line with ADR-017/REQ-ACC-001 (no account requirement for free
+   content).
+2. Tech stack: FastAPI (Python), new top-level package `api/`, depending on `normly_core`.
+   Generates the OpenAPI specification automatically from the endpoint signatures (fulfills
+   REQ-INT-001's acceptance criteria directly), the built-in Swagger UI fulfills SRS 3.6.2's
+   "A Swagger instance ... is mandatory".
+3. The API is read-only. Ingestion stays CLI-only (ingestion pipeline sub-project).
+4. Rate limiting/quota (REQ-SEC-004, server-side quota counting for anonymous
+   use) deliberately not part of this sub-project — a separate infrastructure decision, see
+   Open items.
 
-## Ziel dieses Teilprojekts
+## Goal of this sub-project
 
-Eine öffentliche, versionierte, vollständig als OpenAPI dokumentierte HTTP-API, über die ein
-Drittsystem ohne Kenntnis der internen Implementierung Normen nachschlagen, ihre Verweise
-und Beziehungen abfragen, ihren Gültigkeitsstatus prüfen, ihre Ursprungsquelle (Herausgeber
-und Bezugs-URL) einsehen und den freien Graphanteil vollständig exportieren kann — alles
-deterministisch aus dem Graph beantwortet, ohne Modellaufruf (REQ-GRAPH-003).
+A public, versioned HTTP API, fully documented as OpenAPI, through which a
+third-party system can, without knowledge of the internal implementation, look up norms, query their references
+and relationships, check their validity status, see their source of origin (publisher
+and retrieval URL) and export the free part of the graph completely — all
+answered deterministically from the graph, without a model call (REQ-GRAPH-003).
 
-## Nicht-Ziele
+## Non-goals
 
-- **Nutzer-Uploads, Isolation, Ablauffrist** (REQ-INT-002A/B/C) — eigenes, späteres
-  Teilprojekt.
-- **SSO-Authentifizierung** (REQ-INT-003) — nicht nötig, solange keine kontogebundenen
-  Funktionen existieren.
-- **LLM-Schnittstelle / Chat-Antworten** (REQ-INT-004, REQ-FUNC-001/002/003) — eigenes,
-  späteres Teilprojekt; setzt vermutlich auf dieser API auf.
-- **Ratenbegrenzung, Kontingente, Anomalieerkennung** (REQ-SEC-004) — eigene
-  Infrastrukturentscheidung, siehe Offene Punkte.
-- **Schreibende Endpunkte.** Ingestion bleibt CLI-only.
-- **Kommerzielle Schicht** (SLA, Abschnittsebene-Verweise in lizenzierten Normen,
-  Konfidenzangaben) — es gibt aktuell keine lizenzierten Bestände in der Datenbank
-  (nur Kategorie-A-Quellen aus dem Ingestion-Pipeline-Teilprojekt).
+- **User uploads, isolation, expiry** (REQ-INT-002A/B/C) — a separate, later
+  sub-project.
+- **SSO authentication** (REQ-INT-003) — not needed as long as no account-bound
+  functions exist.
+- **LLM interface / chat answers** (REQ-INT-004, REQ-FUNC-001/002/003) — a separate,
+  later sub-project; presumably builds on this API.
+- **Rate limiting, quotas, anomaly detection** (REQ-SEC-004) — a separate
+  infrastructure decision, see Open items.
+- **Writing endpoints.** Ingestion stays CLI-only.
+- **Commercial layer** (SLA, section-level references in licensed norms,
+  confidence statements) — there are currently no licensed collections in the database
+  (only category A sources from the ingestion pipeline sub-project).
 
-## Architektur
+## Architecture
 
-### Paketstruktur
+### Package structure
 
-Drei Ansätze wurden abgewogen:
+Three approaches were weighed:
 
-1. **Eigenes `api/`-Verzeichnis (FastAPI), abhängig von `normly_core`.**
-2. FastAPI innerhalb von `core/` — verworfen: vermischt zwei Auslieferungsformen
-   (Bibliothek+CLI vs. Webdienst), zieht Web-Framework-Abhängigkeiten in jede Installation,
-   die nur die Bibliothek braucht.
-3. GraphQL/RPC statt REST — verworfen: REQ-INT-001 verlangt explizit eine
-   OpenAPI-dokumentierte HTTP-API; klassisches REST passt besser zu Drittsystem-Integration
-   (CAD/ERP) als GraphQL. Verfrühte Abweichung vom Vorgabenweg.
+1. **A separate `api/` directory (FastAPI), depending on `normly_core`.**
+2. FastAPI inside `core/` — rejected: mixes two forms of shipping
+   (library+CLI vs. web service), pulls web framework dependencies into every installation
+   that only needs the library.
+3. GraphQL/RPC instead of REST — rejected: REQ-INT-001 explicitly requires an
+   OpenAPI-documented HTTP API; classic REST fits third-party system integration
+   (CAD/ERP) better than GraphQL. A premature departure from the prescribed path.
 
-**Entschieden: Ansatz 1.**
+**Decided: approach 1.**
 
 ```
 api/
@@ -87,15 +87,15 @@ api/
   tests/
 ```
 
-Passt zum bereits sichtbaren Muster separater Top-Level-Komponenten mit eigenen
-Container-Images (CLAUDE.md „Auslieferung: signierte Container-Images").
+Fits the already visible pattern of separate top-level components with their own
+container images (CLAUDE.md "Shipping: signed container images").
 
-### Schema-Grenze
+### Schema boundary
 
-Die API antwortet mit eigenen Pydantic-Modellen, nicht mit den `normly_core.graph.domain`-
-Dataclasses direkt. Das hält REQ-GRAPH-004s Vorgabe ein (Fachlogik/Speichertechnologie
-bleibt hinter einer Abstraktion) und lässt die API-Version unabhängig vom Kern-Paket
-weiterentwickeln:
+The API answers with its own Pydantic models, not with the `normly_core.graph.domain`
+dataclasses directly. This complies with REQ-GRAPH-004's requirement (domain logic/storage technology
+stays behind an abstraction) and lets the API version evolve independently of the core
+package:
 
 ```python
 class DesignationResponse(BaseModel):
@@ -151,89 +151,88 @@ class ExportResponse(BaseModel):
     edges: list[EdgeResponse]
 ```
 
-Jeder Endpunkt nimmt `jurisdiction` als Pflicht-Query-Parameter — die
-Rechteklassifikation ist rechtsraumabhängig (REQ-GRAPH-006), und die bestehenden
-Repository-Methoden sind bereits jurisdiction-scoped gebaut; die API reicht diesen
-Parameter nur durch, keine eigene Klassifikationslogik.
+Every endpoint takes `jurisdiction` as a required query parameter — the
+rights classification depends on the jurisdiction (REQ-GRAPH-006), and the existing
+repository methods are already built jurisdiction-scoped; the API only passes this
+parameter through, no classification logic of its own.
 
-**Das eine Tor — sechs Ausprägungen, ein Prinzip.** `DocumentRepository`s eigener Docstring
-markiert `list_designations`, `list_titles`, `find_by_designation` und
-`get_document_unchecked` explizit als *nicht* rechtsraumgefiltert und *nicht* für öffentliche
-Lesepfade bestimmt (Ausnahme: `get_document_unchecked` als reine Existenzprüfung, siehe
-unten) — nur die folgenden sechs Methoden filtern über die Rechteklassifikation und dürfen
-das jeweilige Sichtbarkeitsergebnis bestimmen:
+**The one gate — six variants, one principle.** `DocumentRepository`'s own docstring
+explicitly marks `list_designations`, `list_titles`, `find_by_designation` and
+`get_document_unchecked` as *not* jurisdiction-filtered and *not* intended for public
+read paths (exception: `get_document_unchecked` as a pure existence check, see
+below) — only the following six methods filter via the rights classification and may
+determine the respective visibility result:
 
-| Methode | Zusätzlich zu `may_process`/`revoked_at` | Verwendet von |
+| Method | In addition to `may_process`/`revoked_at` | Used by |
 |---|---|---|
-| `get_document_for_jurisdiction` | — | Suche, Detail, Validity (Existenz+Sichtbarkeit) |
-| `list_documents_for_jurisdiction` | — | (intern/Pipeline, kein HTTP-Endpunkt) |
+| `get_document_for_jurisdiction` | — | Search, detail, validity (existence+visibility) |
+| `list_documents_for_jurisdiction` | — | (internal/pipeline, no HTTP endpoint) |
 | `list_exportable_documents_for_jurisdiction` | `may_export_free=True` | `/v1/export` |
-| `list_edges_for_jurisdiction` / `list_incoming_edges_for_jurisdiction` | — | (intern/Pipeline, kein HTTP-Endpunkt) |
+| `list_edges_for_jurisdiction` / `list_incoming_edges_for_jurisdiction` | — | (internal/pipeline, no HTTP endpoint) |
 | `list_free_layer_edges_for_jurisdiction` / `list_free_layer_incoming_edges_for_jurisdiction` | `layer=FREE` | `/v1/documents/{id}/edges`, `/v1/documents/{id}/validity` |
-| `list_exportable_edges_for_jurisdiction` | `layer=FREE` **und** `may_export_free=True` (beide Seiten) | `/v1/export` |
+| `list_exportable_edges_for_jurisdiction` | `layer=FREE` **and** `may_export_free=True` (both sides) | `/v1/export` |
 
-Diese Tabelle ist in der Abschluss-Review nachträglich entstanden: der erste Umsetzungsstand
-hatte `edges`/`validity` versehentlich an die *ungefilterten* Varianten angeschlossen —
-`layer=COMMERCIAL`-Kanten wären über die anonyme, öffentliche API sichtbar gewesen, exakt der
-Fehler, den die Abschluss-Review für `/v1/export` bereits einmal gefunden und behoben hatte,
-nur in den beiden Geschwister-Endpunkten. `may_export_free` (Sichtbarkeit im Sammel-Export)
-und `layer` (Zugehörigkeit zur freien vs. kommerziellen Schicht des Graphen selbst,
-REQ-GRAPH-002) sind zwei getrennte Konzepte — die `free_layer_*`-Methoden prüfen nur `layer`,
-nicht `may_export_free`, damit ein `may_process=True, may_export_free=False`-Dokument seine
-freien Beziehungen weiterhin über die allgemeinen Lese-Endpunkte zeigen kann, ohne im
-Sammel-Export zu erscheinen.
+This table was added afterwards in the final review: the first implementation state
+had accidentally wired `edges`/`validity` to the *unfiltered* variants —
+`layer=COMMERCIAL` edges would have been visible via the anonymous, public API, exactly the
+error the final review had already found and fixed once for `/v1/export`,
+only in the two sibling endpoints. `may_export_free` (visibility in the bulk export)
+and `layer` (membership in the free vs. commercial layer of the graph itself,
+REQ-GRAPH-002) are two separate concepts — the `free_layer_*` methods check only `layer`,
+not `may_export_free`, so that a `may_process=True, may_export_free=False` document can still show its
+free relationships via the general read endpoints without appearing in the
+bulk export.
 
-Jeder Endpunkt, der ein Dokument zurückgibt, muss zuerst durch eines der sechs Tore. Für
-Suche/Detail/Validity heißt das: `get_document_for_jurisdiction(document_id, jurisdiction)`;
-liefert das `None`, antwortet der Endpunkt mit 404 — unabhängig davon, ob das Dokument
-existiert. Erst nach diesem einen Gate-Aufruf dürfen die ungated Methoden zur Anreicherung
-(Bezeichnungen, Titel) für dasselbe, bereits autorisierte Dokument aufgerufen werden. Für die
-Suche (`find_by_designation`) bedeutet das zweistufig: zuerst Identität auflösen
-(`find_by_designation`, liefert nur eine `document_id`), dann das Gate prüfen
-(`get_document_for_jurisdiction`) — das Suchergebnis kommt ausschließlich aus dem zweiten
-Aufruf, `find_by_designation` dient nur der Identitätsauflösung, nie der Sichtbarkeitsprüfung.
-`/v1/documents/{id}/edges` bildet bewusst eine Ausnahme: es nutzt `get_document_unchecked`
-als reine Existenzprüfung (404 bei unbekannter `document_id`, ohne Rechte-Inhalte
-preiszugeben), gefolgt vom eigentlichen Inhalts-Tor — siehe Fehlerbehandlung.
+Every endpoint that returns a document must first pass through one of the six gates. For
+search/detail/validity that means: `get_document_for_jurisdiction(document_id, jurisdiction)`;
+if that returns `None`, the endpoint answers with 404 — regardless of whether the document
+exists. Only after this one gate call may the ungated methods be called for enrichment
+(designations, titles) of the same, already authorized document. For
+search (`find_by_designation`) this means two stages: first resolve the identity
+(`find_by_designation`, returns only a `document_id`), then check the gate
+(`get_document_for_jurisdiction`) — the search result comes exclusively from the second
+call, `find_by_designation` serves only identity resolution, never the visibility check.
+`/v1/documents/{id}/edges` is a deliberate exception: it uses `get_document_unchecked`
+as a pure existence check (404 for an unknown `document_id`, without revealing any rights
+content), followed by the actual content gate — see Error handling.
 
-**Quellenauflösung.** `document.created_via_delivery_id` verweist auf die Lieferung, die das
-Dokument ursprünglich angelegt hat; darüber `DeliveryRepository.get_delivery(...).source_id`
-und `SourceRepository.get_source(...)` — beide Methoden existieren bereits, keine neue
-Repository-Methode nötig. Das liefert die Quelle, die den Dokumentknoten erzeugt hat, nicht
-notwendigerweise jede Quelle, die je Daten zu diesem Dokument beigetragen hat (ein Dokument
-könnte im Prinzip über mehrere Lieferungen unterschiedlicher Quellen angereichert werden) —
-für den aktuellen Bestand (EUR-Lex, DGUV) ist das gleichbedeutend, siehe Offene Punkte.
+**Source resolution.** `document.created_via_delivery_id` points to the delivery that
+originally created the document; via it `DeliveryRepository.get_delivery(...).source_id`
+and `SourceRepository.get_source(...)` — both methods already exist, no new
+repository method needed. This returns the source that created the document node, not
+necessarily every source that has ever contributed data to this document (a document
+could in principle be enriched via several deliveries from different sources) —
+for the current collection (EUR-Lex, DGUV) this amounts to the same thing, see Open items.
 
-## Endpunkte (v1)
+## Endpoints (v1)
 
-| Endpunkt | Zweck | Repository-Methode(n) |
+| Endpoint | Purpose | Repository method(s) |
 |---|---|---|
-| `GET /v1/documents?designation=&issuer=&jurisdiction=` | Suche/Lookup nach Bezeichnung | `find_by_designation` (Identität) + `get_document_for_jurisdiction` (Tor, siehe „Das eine Tor") |
-| `GET /v1/documents/{id}?jurisdiction=` | Dokument-Detail (Bezeichnungen, Titel mehrsprachig, Ursprungsquelle inkl. URL) | `get_document_for_jurisdiction` (Tor) zuerst, danach `list_designations`/`list_titles` (Anreicherung), `get_delivery`/`get_source` über `document.created_via_delivery_id` |
-| `GET /v1/documents/{id}/edges?jurisdiction=&edge_type=` | Verweise/Beziehungen (references, based_on_law, adopted_from) | `get_document_unchecked` (Existenz) + `list_free_layer_edges_for_jurisdiction` (Tor) |
-| `GET /v1/documents/{id}/validity?jurisdiction=` | Abgeleiteter Gültigkeitsstatus | `get_document_for_jurisdiction` (Tor) zuerst, dann wertet `replaces`/`withdrawn_by`-Kanten aus `list_free_layer_incoming_edges_for_jurisdiction` aus |
-| `GET /v1/export?jurisdiction=&format=json` | Vollständiger Dump des freien Graphanteils (REQ-GRAPH-001) | `list_exportable_documents_for_jurisdiction` + `list_exportable_edges_for_jurisdiction` |
+| `GET /v1/documents?designation=&issuer=&jurisdiction=` | Search/lookup by designation | `find_by_designation` (identity) + `get_document_for_jurisdiction` (gate, see "The one gate") |
+| `GET /v1/documents/{id}?jurisdiction=` | Document detail (designations, multilingual titles, source of origin incl. URL) | `get_document_for_jurisdiction` (gate) first, then `list_designations`/`list_titles` (enrichment), `get_delivery`/`get_source` via `document.created_via_delivery_id` |
+| `GET /v1/documents/{id}/edges?jurisdiction=&edge_type=` | References/relationships (references, based_on_law, adopted_from) | `get_document_unchecked` (existence) + `list_free_layer_edges_for_jurisdiction` (gate) |
+| `GET /v1/documents/{id}/validity?jurisdiction=` | Derived validity status | `get_document_for_jurisdiction` (gate) first, then evaluates `replaces`/`withdrawn_by` edges from `list_free_layer_incoming_edges_for_jurisdiction` |
+| `GET /v1/export?jurisdiction=&format=json` | Complete dump of the free part of the graph (REQ-GRAPH-001) | `list_exportable_documents_for_jurisdiction` + `list_exportable_edges_for_jurisdiction` |
 
-`edge_type` ist als `EdgeType | None` typisiert (nicht als roher String) — ein ungültiger
-Wert liefert 400 statt eine stillschweigend leere Liste.
+`edge_type` is typed as `EdgeType | None` (not as a raw string) — an invalid
+value returns 400 instead of a silently empty list.
 
-Der `validity`-Endpunkt ist bewusst ein eigener, abgeleiteter Endpunkt statt „selbst aus den
-Kanten ableiten" — REQ-INT-001 verlangt, dass ein Drittsystem ohne Kenntnis der internen
-Implementierung anfragen kann; `replaces`/`withdrawn_by`-Semantik soll niemand außerhalb
-dieses Repositories kennen müssen.
+The `validity` endpoint is deliberately a separate, derived endpoint instead of "derive it yourself from the
+edges" — REQ-INT-001 requires that a third-party system can query without knowledge of the internal
+implementation; nobody outside this repository should need to know the `replaces`/`withdrawn_by` semantics.
 
-## Export-Format (`GET /v1/export`)
+## Export format (`GET /v1/export`)
 
-REQ-GRAPH-001 verlangt nur „offenes, dokumentiertes Format" mit maschinenlesbarem
-Lizenzhinweis — schreibt kein konkretes Format vor. Entschieden: einfaches, dokumentiertes
-JSON (kein JSON-LD/RDF — verfrühte Komplexität für den Start, YAGNI), mit eingebettetem
-Lizenzblock (`LicenseNotice`, siehe oben). Bei den aktuell kleinen Beständen (nur
-EUR-Lex/DGUV) reicht eine einzelne JSON-Antwort; Paginierung/Streaming ist YAGNI für den
-Start, siehe Offene Punkte.
+REQ-GRAPH-001 only requires an "open, documented format" with a machine-readable
+license notice — it does not prescribe a concrete format. Decided: simple, documented
+JSON (no JSON-LD/RDF — premature complexity for the start, YAGNI), with an embedded
+license block (`LicenseNotice`, see above). With the currently small collections (only
+EUR-Lex/DGUV) a single JSON response is enough; pagination/streaming is YAGNI for the
+start, see Open items.
 
-## Datenfluss
+## Data flow
 
-Beispiel `GET /v1/documents/{id}/edges`:
+Example `GET /v1/documents/{id}/edges`:
 
 ```
 Router nimmt jurisdiction, edge_type (optional) entgegen
@@ -244,107 +243,107 @@ Router nimmt jurisdiction, edge_type (optional) entgegen
     -> 200 mit (ggf. leerer) Liste
 ```
 
-`edge_type` wird NICHT an die Repository-Methode durchgereicht — `list_free_layer_edges_for_jurisdiction`
-kennt keinen solchen Parameter, das Filtern passiert im Router auf der bereits geladenen Liste.
+`edge_type` is NOT passed through to the repository method — `list_free_layer_edges_for_jurisdiction`
+has no such parameter; the filtering happens in the router on the already loaded list.
 
-Kein Endpunkt schreibt.
+No endpoint writes.
 
-## Fehlerbehandlung
+## Error handling
 
-Zwei unterschiedliche Verhaltensmuster, je nach Antwortform — beide bewusst, nicht
-widersprüchlich:
+Two different behavior patterns, depending on the response form — both deliberate, not
+contradictory:
 
-- **Einzelressourcen** (`/v1/documents/{id}`, `/v1/documents/{id}/validity`, sowie die Suche):
-  `get_document_for_jurisdiction` liefert `None` sowohl bei unbekannter `document_id` als auch
-  bei fehlender Klassifikation — beide Fälle ergeben einheitlich 404, absichtlich nicht
-  unterscheidbar (sonst ließe sich aus der Antwort ablesen, ob ein Dokument existiert, dem
-  Anfragenden aber verborgen bleibt).
-- **Listenressource** (`/v1/documents/{id}/edges`): eine unbekannte `document_id` ergibt 404
-  (eigene Existenzprüfung über `get_document_unchecked`, die keine Rechte-Inhalte preisgibt),
-  eine bekannte, aber im angefragten Rechtsraum nicht klassifizierte `document_id` ergibt 200
-  mit leerer Liste — für eine Liste ist „keine sichtbaren Einträge" ein normales, kein
-  fehlerhaftes Ergebnis.
+- **Single resources** (`/v1/documents/{id}`, `/v1/documents/{id}/validity`, as well as search):
+  `get_document_for_jurisdiction` returns `None` both for an unknown `document_id` and
+  for a missing classification — both cases uniformly result in 404, deliberately
+  indistinguishable (otherwise the response would reveal whether a document exists that
+  remains hidden from the requester).
+- **List resource** (`/v1/documents/{id}/edges`): an unknown `document_id` results in 404
+  (its own existence check via `get_document_unchecked`, which reveals no rights content),
+  a known `document_id` that is not classified in the requested jurisdiction results in 200
+  with an empty list — for a list, "no visible entries" is a normal result, not an
+  erroneous one.
 
-| Fall | Verhalten |
+| Case | Behavior |
 |---|---|
-| Unbekannte `document_id` (Einzelressource) | 404 mit strukturiertem Fehlerkörper (`ErrorResponse`), nicht von „existiert, aber nicht klassifiziert" unterscheidbar |
-| Unbekannte `document_id` (`/edges`) | 404, eigene Existenzprüfung, siehe oben |
-| `document_id` bekannt, aber `jurisdiction` ohne Klassifikation (`/edges`) | 200 mit leerem Ergebnis |
-| Fehlender/ungültiger `jurisdiction`-Parameter | 400 — Pflichtparameter, kein stiller Default (sonst rutscht versehentlich der falsche Rechtsraum durch) |
-| Ungültiger `edge_type`-Wert | 400 (Enum-Validierung durch FastAPI, kein stiller Leerlistenrückgabe mehr) |
-| Datenbankverbindung down (SQLAlchemy/OS-Fehler) | 503, kein Detail-Leak |
-| Unerwarteter interner Fehler (z. B. nicht auflösbare Herkunft) | 500 — bewusst NICHT als 503 maskiert; nur echte Infrastrukturfehler (Datenbank, Verbindung) ergeben 503, ein Programmfehler soll sichtbar bleiben statt einen Retry nahezulegen |
-| `format`-Parameter bei `/v1/export` ungleich `json` | 400 — für den Start ist `json` der einzige gültige Wert, der Parameter existiert für spätere Formate (siehe Offene Punkte), ohne dass sich der Endpunkt-Pfad ändert |
+| Unknown `document_id` (single resource) | 404 with a structured error body (`ErrorResponse`), indistinguishable from "exists, but not classified" |
+| Unknown `document_id` (`/edges`) | 404, own existence check, see above |
+| `document_id` known, but `jurisdiction` without classification (`/edges`) | 200 with an empty result |
+| Missing/invalid `jurisdiction` parameter | 400 — required parameter, no silent default (otherwise the wrong jurisdiction slips through by accident) |
+| Invalid `edge_type` value | 400 (enum validation by FastAPI, no more silent empty-list return) |
+| Database connection down (SQLAlchemy/OS error) | 503, no detail leak |
+| Unexpected internal error (e.g. unresolvable origin) | 500 — deliberately NOT masked as 503; only real infrastructure errors (database, connection) result in 503, a programming error should stay visible instead of suggesting a retry |
+| `format` parameter on `/v1/export` other than `json` | 400 — for the start `json` is the only valid value; the parameter exists for later formats (see Open items) without the endpoint path changing |
 
-Alle 400/404/503-Antworten sind über `ErrorResponse` (`{"detail": str}`) in der
-OpenAPI-Spezifikation dokumentiert — sowohl global (400/503 über `include_router(...,
-responses=...)`) als auch je Endpunkt für die 404-Fälle.
+All 400/404/503 responses are documented via `ErrorResponse` (`{"detail": str}`) in the
+OpenAPI specification — both globally (400/503 via `include_router(...,
+responses=...)`) and per endpoint for the 404 cases.
 
-## Testkonzept
+## Test concept
 
-- FastAPI `TestClient`/`httpx` gegen die App direkt, keine echten Netzwerkaufrufe.
-- Echtes PostgreSQL über denselben Testcontainer-Ansatz wie in `core/tests/conftest.py`
-  (kein Mocking der Datenbank, konsistent mit dem bisherigen Projektstil).
-- Testdaten werden über die Repository-Schicht direkt aufgebaut (nicht über Ingestion) —
-  schnell, fokussiert auf API-Verhalten.
-- Ein Test ruft `/openapi.json` ab und prüft, dass es ein valides OpenAPI-Dokument mit den
-  erwarteten Pfaden ist — mechanische Abnahme von REQ-INT-001s „vollständig als
-  OpenAPI-Spezifikation dokumentiert".
-- Rechteklassifikations-Asymmetrie explizit getestet: derselbe Endpunkt liefert für
-  Rechtsraum A Daten, für B nicht (analog zum bestehenden Muster aus den vorigen
-  Teilprojekten).
+- FastAPI `TestClient`/`httpx` against the app directly, no real network calls.
+- Real PostgreSQL via the same Testcontainer approach as in `core/tests/conftest.py`
+  (no mocking of the database, consistent with the project style so far).
+- Test data is built directly via the repository layer (not via ingestion) —
+  fast, focused on API behavior.
+- One test fetches `/openapi.json` and checks that it is a valid OpenAPI document with the
+  expected paths — mechanical acceptance of REQ-INT-001's "fully documented ... as an
+  OpenAPI specification".
+- Rights classification asymmetry tested explicitly: the same endpoint returns data for
+  jurisdiction A, not for B (analogous to the existing pattern from the previous
+  sub-projects).
 
-## Bezug zu Requirements und ADRs
+## Relation to requirements and ADRs
 
-| Requirement/ADR | Abdeckung in diesem Design |
+| Requirement/ADR | Coverage in this design |
 |---|---|
-| REQ-INT-001 | Öffentliche, OpenAPI-dokumentierte, versionierte HTTP-API (`/v1/`) |
-| REQ-GRAPH-001 | `/v1/export` — vollständiger Dump, offenes JSON-Format, maschinenlesbarer Lizenzhinweis |
-| REQ-GRAPH-002 | Export UND die allgemeinen Lese-Endpunkte filtern auf `layer=FREE`; `/v1/export` zusätzlich auf `may_export_free`. In der Abschluss-Review korrigiert: die ursprüngliche Annahme „keine lizenzierten Bestände vorhanden, daher trivial erfüllt" war die Ursache eines echten Lecks (COMMERCIAL-Kanten waren über `/edges`/`/validity` öffentlich sichtbar) — die Erfüllung ist jetzt strukturell durch die layer-gefilterten Repository-Methoden erzwungen, nicht durch die zufällige Abwesenheit lizenzierter Testdaten |
-| REQ-GRAPH-003 | Alle Endpunkte deterministisch aus dem Graph beantwortet, kein Modellaufruf |
-| REQ-GRAPH-004 | Pydantic-Antwortmodelle statt direkter Domain-/ORM-Objekte — Speichertechnologie bleibt hinter der Repository-Schicht |
-| REQ-GRAPH-006 | `jurisdiction`-Pflichtparameter auf jedem Endpunkt, rechtsraumgefilterte Repository-Methoden |
-| ADR-017 / REQ-ACC-001 | Keine Kontopflicht — API funktioniert vollständig ohne Login |
+| REQ-INT-001 | Public, OpenAPI-documented, versioned HTTP API (`/v1/`) |
+| REQ-GRAPH-001 | `/v1/export` — complete dump, open JSON format, machine-readable license notice |
+| REQ-GRAPH-002 | Export AND the general read endpoints filter on `layer=FREE`; `/v1/export` additionally on `may_export_free`. Corrected in the final review: the original assumption "no licensed collections present, therefore trivially fulfilled" was the cause of a real leak (COMMERCIAL edges were publicly visible via `/edges`/`/validity`) — fulfillment is now enforced structurally by the layer-filtered repository methods, not by the incidental absence of licensed test data |
+| REQ-GRAPH-003 | All endpoints answered deterministically from the graph, no model call |
+| REQ-GRAPH-004 | Pydantic response models instead of direct domain/ORM objects — the storage technology stays behind the repository layer |
+| REQ-GRAPH-006 | `jurisdiction` required parameter on every endpoint, jurisdiction-filtered repository methods |
+| ADR-017 / REQ-ACC-001 | No account requirement — the API works completely without login |
 
-## Offene Punkte / Folgearbeiten
+## Open items / follow-up work
 
-- **Ratenbegrenzung/Kontingent** (REQ-SEC-004, serverseitige Kontingentzählung für anonyme
-  Nutzung) — eigene Infrastrukturentscheidung (Zähl-Mechanismus ohne Cookies/Session), nicht
-  Teil dieses Teilprojekts.
-- **Nutzer-Uploads, SSO, LLM-Chat** (REQ-INT-002A/B/C, REQ-INT-003, REQ-INT-004,
-  REQ-FUNC-001/002/003) — eigene, spätere Teilprojekte.
-- **Paginierung/Streaming für `/v1/export`** — mit den aktuell kleinen Beständen (EUR-Lex,
-  DGUV) nicht nötig; sobald weitere Adapter/Quellen hinzukommen, muss das nachgezogen
-  werden.
-- **Mehrere Quellen je Dokument.** `source` auf `DocumentResponse` zeigt aktuell nur die
-  erzeugende Quelle (`created_via_delivery_id`). Sobald ein Dokument real über mehrere
-  Quellen anreichert wird, braucht es entweder ein `sources: list[SourceResponse]`-Feld
-  oder einen eigenen `/v1/documents/{id}/sources`-Endpunkt — mit dem aktuellen Bestand nicht
-  beobachtbar, daher hier nicht spezifiziert.
-- **Kommerzielle Schicht** (SLA, Abschnittsebene-Verweise, Konfidenzangaben,
-  branchenspezifische Anreicherungen aus REQ-GRAPH-002) — es gibt aktuell keine lizenzierten
-  Bestände; sobald welche über REQ-INT-002/REQ-PART-001 hinzukommen, braucht die API eigene,
-  zugriffsgeschützte Endpunkte dafür.
-- **Deployment/Reverse-Proxy-Konfiguration** — CLAUDE.md verlangt Betrieb hinter beliebigem
-  Reverse Proxy im Container; konkrete STACKIT-Pipeline-Anbindung ist eine spätere
-  Deployment-Entscheidung, analog zu den vorigen Teilprojekten.
-- **OpenAPI dokumentiert einen 422, den es nie gibt.** FastAPI ergänzt automatisch einen
-  422-Eintrag für jeden Endpunkt mit validierten Parametern; der `RequestValidationError`-Handler
-  wandelt aber jeden solchen Fall zur Laufzeit in 400 um, sodass 422 nie tatsächlich
-  zurückkommt — ein totes Schema-Element (eigenes `HTTPValidationError`-Komponentenschema,
-  strukturell verschieden von `ErrorResponse`) für generierte Clients. Aus der Abschluss-Review,
-  bewusst nicht behoben: bräuchte eine `app.openapi()`-Override zur Schema-Nachbearbeitung.
-- **`/v1/documents/{id}/edges` und Einzelressourcen haben unterschiedliche
-  404-vs-200-leer-Semantik**, siehe Fehlerbehandlung — bewusst, aber ein API-Konsument sollte
-  das aus der Dokumentation lernen können, nicht nur aus dem Verhalten.
-- **`/v1/documents` (Suche) liefert ein einzelnes Objekt, keine Liste**, obwohl der Pfad wie
-  eine Kollektion aussieht. Solange „Suche" nur exakte Bezeichnung+Herausgeber unterstützt, ist
-  das eindeutig; sobald unscharfe/mehrdeutige Suche hinzukommt, wäre `list[DocumentResponse]`
-  eine brechende Änderung — property jetzt schon so anlegen, solange nichts davon abhängt, wäre
-  eine Überlegung wert.
-- **N+1-Anfragen im Export** — für jedes Dokument einzeln `list_exportable_edges_for_jurisdiction`
-  aufgerufen. Mit den aktuell kleinen Beständen unproblematisch; bei wachsendem Bestand vor
-  Paginierung (siehe oben) zu adressieren.
-- **`SET TRANSACTION READ ONLY`** wäre eine strukturelle (statt nur durch Review erzwungene)
-  Absicherung von „die API ist rein lesend" — aktuell hält kein Code-Pfad diese Eigenschaft
-  technisch durch, nur die Abwesenheit schreibender Repository-Aufrufe im Quellcode.
+- **Rate limiting/quota** (REQ-SEC-004, server-side quota counting for anonymous
+  use) — a separate infrastructure decision (counting mechanism without cookies/session), not
+  part of this sub-project.
+- **User uploads, SSO, LLM chat** (REQ-INT-002A/B/C, REQ-INT-003, REQ-INT-004,
+  REQ-FUNC-001/002/003) — separate, later sub-projects.
+- **Pagination/streaming for `/v1/export`** — not needed with the currently small collections (EUR-Lex,
+  DGUV); as soon as further adapters/sources are added, this must be
+  caught up on.
+- **Several sources per document.** `source` on `DocumentResponse` currently shows only the
+  creating source (`created_via_delivery_id`). As soon as a document is actually enriched via several
+  sources, this needs either a `sources: list[SourceResponse]` field
+  or a separate `/v1/documents/{id}/sources` endpoint — not observable with the current collection,
+  therefore not specified here.
+- **Commercial layer** (SLA, section-level references, confidence statements,
+  industry-specific enrichments from REQ-GRAPH-002) — there are currently no licensed
+  collections; as soon as some are added via REQ-INT-002/REQ-PART-001, the API needs its own,
+  access-protected endpoints for them.
+- **Deployment/reverse proxy configuration** — CLAUDE.md requires operation behind any
+  reverse proxy in the container; the concrete STACKIT pipeline connection is a later
+  deployment decision, analogous to the previous sub-projects.
+- **OpenAPI documents a 422 that never occurs.** FastAPI automatically adds a
+  422 entry for every endpoint with validated parameters; however, the `RequestValidationError` handler
+  converts every such case into 400 at runtime, so 422 is never actually
+  returned — a dead schema element (its own `HTTPValidationError` component schema,
+  structurally different from `ErrorResponse`) for generated clients. From the final review,
+  deliberately not fixed: would need an `app.openapi()` override for schema post-processing.
+- **`/v1/documents/{id}/edges` and single resources have different
+  404-vs-200-empty semantics**, see Error handling — deliberate, but an API consumer should
+  be able to learn this from the documentation, not only from the behavior.
+- **`/v1/documents` (search) returns a single object, not a list**, even though the path looks like
+  a collection. As long as "search" only supports exact designation+publisher, this is
+  unambiguous; as soon as fuzzy/ambiguous search is added, `list[DocumentResponse]` would be
+  a breaking change — setting it up that way proactively now, while nothing depends on it, would
+  be worth considering.
+- **N+1 queries in the export** — `list_exportable_edges_for_jurisdiction` is called individually for each document.
+  Unproblematic with the currently small collections; to be addressed with a growing collection before
+  pagination (see above).
+- **`SET TRANSACTION READ ONLY`** would be a structural (instead of only review-enforced)
+  safeguard of "the API is read-only" — currently no code path enforces this property
+  technically, only the absence of writing repository calls in the source code.

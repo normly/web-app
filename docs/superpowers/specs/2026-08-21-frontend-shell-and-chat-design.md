@@ -1,96 +1,96 @@
-# Design: Frontend-Grundgerüst und Chat-Oberfläche (v1)
+# Design: Frontend Shell and Chat Interface (v1)
 
-**Datum:** 2026-08-21
-**Status:** genehmigt
-**Teilprojekt:** sechstes von mehreren zur Umsetzung des normly-MVP (freier Kern) — erstes von drei
-Frontend-Teilprojekten
+**Date:** 2026-08-21
+**Status:** approved
+**Sub-project:** sixth of several for implementing the normly MVP (free core) — first of three
+frontend sub-projects
 
-## Kontext
+## Context
 
-Fünf Backend-Dienste sind gebaut und gemergt: `core/` (Bibliothek), `api/` (lesende
-Referenzgraph-API), `accounts/` (Registrierung/Login/Sitzung/Google-OAuth/Magic-Link),
-`chat/` (Strukturfragen + RAG-Synthese über den Referenzgraphen, Sitzungsidentität mit
-optionaler Kontoverknüpfung). Es existiert noch keinerlei Nutzeroberfläche — alle Dienste sind
-bisher ausschließlich per HTTP erreichbar.
+Five backend services are built and merged: `core/` (library), `api/` (read-only
+reference graph API), `accounts/` (registration/login/session/Google OAuth/magic link),
+`chat/` (structural questions + RAG synthesis over the reference graph, session identity with
+optional account linking). No user interface exists yet at all — all services have
+so far been reachable exclusively via HTTP.
 
-Der Gesamtumfang „Frontend" zerfällt in drei unabhängige Bereiche: Chat, Referenzgraph-Suche/
--Browsing, Konto-/Profilverwaltung. Mit dem Auftraggeber abgestimmt: diese werden als drei
-sequenzielle Teilprojekte innerhalb **einer** Next.js-Anwendung umgesetzt (ein Grundgerüst,
-mehrere Bereiche/Routen — kein separates Deployment pro Bereich). Dieses Teilprojekt ist das
-erste: Grundgerüst plus Chat-Oberfläche, der laut SRS Kapitel 3.1.1 (`REQ-UI-001` bis
-`REQ-UI-005`) am genauesten spezifizierte und produktseitig zentrale Fall.
+The overall scope "frontend" breaks down into three independent areas: chat, reference graph search/
+browsing, account/profile management. Agreed with the owner: these are implemented as three
+sequential sub-projects within **one** Next.js application (one shell,
+several areas/routes — no separate deployment per area). This sub-project is the
+first: shell plus chat interface, the case that according to SRS chapter 3.1.1 (`REQ-UI-001` to
+`REQ-UI-005`) is the most precisely specified and central on the product side.
 
-**Entschieden mit dem Auftraggeber:**
+**Decided with the owner:**
 
-1. Umfang dieses Teilprojekts: Next.js-Grundgerüst (Routing, PWA-Basis, Theming/White-Label,
-   WCAG-Basis) **und** die Chat-Oberfläche nach `REQ-UI-001`–`005`, **plus** ein minimaler
-   Login-Einstieg (E-Mail/Passwort, Magic-Link, Google), damit Sitzungen von Anfang an ans
-   Konto verknüpft werden können. Suche/Browsing des Referenzgraphen (Teilprojekt 2) und
-   Profilverwaltung/Kontoeinstellungen (Teilprojekt 3) sind eigene, spätere Teilprojekte.
-2. Styling: Tailwind CSS + shadcn/ui. shadcn/ui liefert Komponenten als Code im Repository
-   (kein Laufzeit-Dienst, kein Widerspruch zu „keine US-Dienste für Betrieb/Build") und baut
-   auf Radix-UI-Primitives auf, die Tastaturbedienung, ARIA-Attribute und Fokus-Management
-   bereits mitbringen — direkter Vorteil für `REQ-UI-004` (WCAG 2.1 AA).
-3. Backend-Anbindung: alle drei Dienste (`api/`, `accounts/`, `chat/`) laufen produktiv hinter
-   demselben Reverse Proxy unter Pfad-Prefixen — aus Sicht des Browsers derselbe Origin wie
-   das Frontend. Keine CORS-Konfiguration nötig.
-4. Sitzungs-Token-Speicherung: httpOnly-Cookies statt `localStorage`. Next.js Route Handler
-   (`/app/api/*`) nehmen Login-/Chat-Antworten server-seitig entgegen und setzen den Token als
-   httpOnly-Cookie — clientseitiges JavaScript sieht den Rohtoken nie, robuster gegen
-   XSS-Token-Diebstahl.
-5. Push-Benachrichtigungen: bewusst **nicht** Teil dieses (oder eines nahen) Teilprojekts.
-   Echte Web-Push-Zustellung läuft im Browser-Standard zwingend über den jeweiligen
-   Anbieter-Push-Dienst (Google FCM für Chrome/Android, Apple APNs für Safari/iOS) — das ist
-   keine Wahl unsererseits, sondern wie der Web-Push-Standard technisch funktioniert, und
-   kollidiert mit „keine US-Dienste für Betrieb". Der für `REQ-MOB-001` ohnehin nötige Service
-   Worker wird aber jetzt schon angelegt (App-Shell-Caching, Installierbarkeit) — ein späterer
-   Push-Handler ließe sich dort ergänzen, ohne die Grundstruktur zu ändern. Siehe Offene
-   Punkte.
-6. UI-Beschriftung von Anfang an DE/EN zweisprachig (nachträglich präzisiert, ursprünglich als
-   Folgearbeit vorgesehen) — Cookie-basiert statt URL-Präfix, siehe „Internationalisierung
-   (DE/EN)" unten.
+1. Scope of this sub-project: Next.js shell (routing, PWA basis, theming/white-label,
+   WCAG basis) **and** the chat interface according to `REQ-UI-001`–`005`, **plus** a minimal
+   login entry point (email/password, magic link, Google), so that sessions can be linked to the
+   account from the start. Search/browsing of the reference graph (sub-project 2) and
+   profile management/account settings (sub-project 3) are separate, later sub-projects.
+2. Styling: Tailwind CSS + shadcn/ui. shadcn/ui delivers components as code in the repository
+   (no runtime service, no conflict with "No US services for operations" (or build)) and builds
+   on Radix UI primitives, which already bring keyboard operation, ARIA attributes and focus management
+   — a direct advantage for `REQ-UI-004` (WCAG 2.1 AA).
+3. Backend connection: all three services (`api/`, `accounts/`, `chat/`) run in production behind
+   the same reverse proxy under path prefixes — from the browser's point of view the same origin as
+   the frontend. No CORS configuration needed.
+4. Session token storage: httpOnly cookies instead of `localStorage`. Next.js route handlers
+   (`/app/api/*`) receive login/chat responses on the server side and set the token as an
+   httpOnly cookie — client-side JavaScript never sees the raw token, more robust against
+   XSS token theft.
+5. Push notifications: deliberately **not** part of this (or a nearby) sub-project.
+   Real web push delivery in the browser standard necessarily runs via the respective
+   vendor push service (Google FCM for Chrome/Android, Apple APNs for Safari/iOS) — this is
+   not a choice on our side but how the web push standard technically works, and
+   collides with "No US services for operations". The service
+   worker needed for `REQ-MOB-001` anyway is, however, already created now (app shell caching, installability) — a later
+   push handler could be added there without changing the basic structure. See Open
+   items.
+6. UI labeling bilingual DE/EN from the start (clarified afterwards, originally planned as
+   follow-up work) — cookie-based instead of a URL prefix, see "Internationalization
+   (DE/EN)" below.
 
-## Ziel dieses Teilprojekts
+## Goal of this sub-project
 
-Eine installierbare, unter eigener Konfiguration anpassbare, DE/EN-zweisprachige
-Chat-Weboberfläche: Texteingabe, Antwortanzeige mit Ladezustand, Quellenverlinkung je Antwort,
-mehrere wechselbare Chat-Sitzungen mit Historie, WCAG-2.1-AA-konform — vollständig nutzbar
-ohne Konto (`REQ-ACC-001`), mit optionalem Login, der die Sitzung ans Konto bindet und damit
-geräteübergreifende Historie ermöglicht.
+An installable, DE/EN-bilingual chat web interface customizable under its own configuration:
+text input, answer display with loading state, source linking per answer,
+several switchable chat sessions with history, WCAG 2.1 AA compliant — fully usable
+without an account (`REQ-ACC-001`), with an optional login that binds the session to the account and thus
+enables cross-device history.
 
-## Nicht-Ziele
+## Non-goals
 
-- **Referenzgraph-Suche/-Browsing unabhängig vom Chat** (gegen `api/`, ohne LLM) — eigenes,
-  direkt anschließendes Teilprojekt (Nr. 2).
-- **Profilverwaltung/Kontoeinstellungen** (E-Mail ändern, Sitzungen einsehen/abmelden, Konto
-  löschen) — eigenes, späteres Teilprojekt (Nr. 3). `accounts/` bietet dafür heute noch keine
-  Endpunkte (nur Registrierung/Login/Logout/Passwort-Reset/Google-OAuth/Magic-Link/
-  Sitzungsprüfung) — Teilprojekt 3 braucht voraussichtlich zusätzliche `accounts/`-Arbeit,
-  nicht nur Frontend.
-- **Push-Benachrichtigungen** — siehe „Entschieden mit dem Auftraggeber" Punkt 5.
-- **Vollständiges Offline-Lesen von Inhalten.** Dieses Teilprojekt liefert nur die
-  PWA-Basisinstallierbarkeit (App-Shell-Caching) — Chat selbst braucht zwingend eine
-  Live-Verbindung zum LLM und ist nicht offline-fähig. Offline-Zugriff auf bereits abgerufene
-  freie Inhalte (`REQ-MOB-001`s eigentliches Offline-Versprechen) gehört zu Teilprojekt 2, wo
-  tatsächlich Dokumentinhalte im UI erscheinen.
-- **Native Anwendung** (`REQ-MOB-002`) — kommerzielle Schicht, eigenes, viel späteres
-  Teilprojekt, an lizenzierte Offline-Volltexte gekoppelt.
-- **Rate-Limiting/Kontingent für anonyme Nutzung** (`REQ-ACC-003`) — eigene
-  Infrastrukturentscheidung, wie in den Backend-Teilprojekten an mehreren Stellen vermerkt,
-  hier nicht Teil des Umfangs. Solange nicht vorhanden, ist die Nutzung in diesem Teilprojekt
-  faktisch unbegrenzt.
-- **Sprachen über Deutsch/Englisch hinaus.** Die UI-Beschriftung ist von Anfang an DE/EN
-  zweisprachig (siehe „Internationalisierung (DE/EN)" unten) — weitere Sprachen sind
-  Folgearbeit, kein allgemeiner Übersetzungsmechanismus für beliebige Sprachen in diesem
-  Teilprojekt.
+- **Reference graph search/browsing independent of the chat** (against `api/`, without an LLM) — a separate,
+  directly following sub-project (no. 2).
+- **Profile management/account settings** (change email, view/sign out sessions, delete
+  account) — a separate, later sub-project (no. 3). `accounts/` does not yet offer any
+  endpoints for this today (only registration/login/logout/password reset/Google OAuth/magic link/
+  session check) — sub-project 3 presumably needs additional `accounts/` work,
+  not only frontend.
+- **Push notifications** — see "Decided with the owner" item 5.
+- **Complete offline reading of content.** This sub-project delivers only the
+  basic PWA installability (app shell caching) — chat itself necessarily needs a
+  live connection to the LLM and is not offline-capable. Offline access to already retrieved
+  free content (`REQ-MOB-001`'s actual offline promise) belongs to sub-project 2, where
+  document content actually appears in the UI.
+- **Native application** (`REQ-MOB-002`) — commercial layer, a separate, much later
+  sub-project, tied to licensed offline full texts.
+- **Rate limiting/quota for anonymous use** (`REQ-ACC-003`) — a separate
+  infrastructure decision, as noted in several places in the backend sub-projects,
+  not part of the scope here. As long as it does not exist, use in this sub-project is
+  effectively unlimited.
+- **Languages beyond German/English.** The UI labeling is DE/EN
+  bilingual from the start (see "Internationalization (DE/EN)" below) — further languages are
+  follow-up work, no general translation mechanism for arbitrary languages in this
+  sub-project.
 
-## Architektur
+## Architecture
 
-### Paketstruktur
+### Package structure
 
-Neues Top-Level-Verzeichnis `frontend/`, Next.js (App Router, TypeScript), `output:
-"standalone"` (deckt sich mit CLAUDE.mds Vorgabe „keine plattformspezifischen Primitive —
-alles muss im Container hinter beliebigem Reverse Proxy laufen").
+New top-level directory `frontend/`, Next.js (App Router, TypeScript), `output:
+"standalone"` (matches CLAUDE.md's rule "No platform-specific primitives — everything must run in
+the container behind any reverse proxy").
 
 ```
 frontend/
@@ -134,81 +134,81 @@ frontend/
     e2e/                      # Playwright, gegen echte chat/+accounts/-Prozesse
 ```
 
-### Theming/White-Label-Konfiguration
+### Theming/white-label configuration
 
-`REQ-UI-001` verlangt, dass Farben, Typografie und Logo pro Instanz konfigurierbar sind, ohne
-den Quellcode zu ändern. Umsetzung: eine zur Startzeit gelesene Konfigurationsdatei/
-Umgebungsvariablen (nicht in den Build eingebrannt, da `output: "standalone"` ein einziges
-Image für beliebig viele Instanzen liefern soll — ein Rebuild pro Instanz widerspräche dem
-Auslieferungsprinzip aus ADR-010). CSS-Variablen (von Tailwind gelesen) plus ein Logo-Pfad
-werden aus dieser Konfiguration in `layout.tsx` in die Seite injiziert.
+`REQ-UI-001` requires that colors, typography and logo are configurable per instance without
+changing the source code. Implementation: a configuration file/environment variables
+read at startup (not burned into the build, since `output: "standalone"` is meant to deliver a single
+image for any number of instances — a rebuild per instance would contradict the
+shipping principle from ADR-010). CSS variables (read by Tailwind) plus a logo path
+are injected into the page from this configuration in `layout.tsx`.
 
-### Internationalisierung (DE/EN)
+### Internationalization (DE/EN)
 
-Die UI-Beschriftung (Buttons, Labels, Fehlermeldungen, Dialogtexte) ist von Anfang an
-zweisprachig (Deutsch/Englisch) — unabhängig von `chat/`s eigenem `language`-Parameter, der
-nur steuert, in welcher Sprache das LLM *antwortet*. Beide hängen zusammen (die UI-Sprache
-bestimmt sinnvollerweise den Startwert für `chat/`s `language`-Feld), sind aber zwei getrennte
-Einstellungen: eine deutschsprachige Oberfläche kann trotzdem eine englische Chat-Antwort
-anzeigen, wenn der Nutzer das im Chat explizit so wählt (falls Teilprojekt 1 eine
-Sprachumschaltung für die Antwortsprache eigens im Chat anbietet — sonst folgt sie einfach der
-UI-Sprache).
+The UI labeling (buttons, labels, error messages, dialog texts) is
+bilingual (German/English) from the start — independent of `chat/`'s own `language` parameter, which
+only controls the language in which the LLM *answers*. The two are related (the UI language
+sensibly determines the initial value for `chat/`'s `language` field), but are two separate
+settings: a German-language interface can still display an English chat answer
+if the user explicitly chooses so in the chat (if sub-project 1 offers a dedicated
+language switch for the answer language in the chat — otherwise it simply follows the
+UI language).
 
-**Kein URL-Präfix** (`/de/...`, `/en/...`) — die Sprache ist ein Cookie-Wert
-(`normly_locale`), keine Route. Das passt zum bestehenden Cookie-basierten Muster
-(Sitzungs-Token) und vermeidet doppelte Routen für eine App, die größtenteils hinter
-Cookie-/Login-Zustand läuft. Ein Umschalter im Header wechselt die Sprache ohne
-Seiten-Neuladung; ohne gesetztes Cookie bestimmt der `Accept-Language`-Header des ersten
-Requests den Startwert (Fallback Deutsch, wenn nicht eindeutig zuordenbar).
+**No URL prefix** (`/de/...`, `/en/...`) — the language is a cookie value
+(`normly_locale`), not a route. This fits the existing cookie-based pattern
+(session token) and avoids duplicate routes for an app that mostly runs behind
+cookie/login state. A switch in the header changes the language without a
+page reload; without a cookie set, the `Accept-Language` header of the first
+request determines the initial value (fallback German if it cannot be assigned unambiguously).
 
-Übersetzungen liegen als einfache Schlüssel-Wert-Wörterbücher (`lib/i18n/de.json`,
-`lib/i18n/en.json`) vor, gelesen über einen React-Context-Provider in `layout.tsx` — für zwei
-Sprachen und reinen UI-Chrome-Text (keine komplexe Pluralisierung/Zahlenformatierung
-absehbar) ist eine schwergewichtige i18n-Bibliothek (z. B. `next-intl` mit
-Locale-Routing-Middleware) nicht nötig und würde vor allem Routing-Komplexität einführen, die
-hier nicht gebraucht wird (siehe „Entschieden mit dem Auftraggeber" zum Verzicht auf
-URL-Präfixe). Jede neue UI-Komponente führt ihre Strings über diesen Provider, nie als
-hartkodierten String — Tests (Komponententests) decken ab, dass beide Sprachwörterbücher für
-dieselbe Komponente vollständig sind (kein fehlender Schlüssel in einer der beiden Sprachen).
+Translations exist as simple key-value dictionaries (`lib/i18n/de.json`,
+`lib/i18n/en.json`), read via a React context provider in `layout.tsx` — for two
+languages and pure UI chrome text (no complex pluralization/number formatting
+foreseeable), a heavyweight i18n library (e.g. `next-intl` with
+locale-routing middleware) is not needed and would mainly introduce routing complexity that
+is not needed here (see "Decided with the owner" on doing without
+URL prefixes). Every new UI component routes its strings through this provider, never as a
+hard-coded string — tests (component tests) cover that both language dictionaries are complete for
+the same component (no missing key in either of the two languages).
 
-### Backend-Anbindung als BFF (Backend for Frontend)
+### Backend connection as a BFF (backend for frontend)
 
-Kein direkter Client-seitiger Aufruf von `accounts/`/`chat/`. Stattdessen: Next.js Route
-Handler unter `/app/api/*` nehmen die Anfrage vom Browser entgegen, reichen sie server-seitig
-an den jeweiligen Backend-Dienst weiter (per internem Netzwerk-Aufruf, adressiert über
-Umgebungsvariablen wie `NORMLY_ACCOUNTS_BASE_URL`/`NORMLY_CHAT_BASE_URL` — demselben Muster
-wie `chat/`s eigene Anbindung an `api/`/`accounts/`), und übersetzen die Antwort in ein
-httpOnly-Cookie (`normly_session` für die anonyme `chat_session`, `normly_account_session` für
-die Konto-Sitzung — getrennt, da eine `chat_session` auch ohne Konto existiert). Folgeanfragen
-lesen das Cookie server-seitig aus dem Request und hängen es als `session_token`/
-`Authorization`-Header an den Backend-Aufruf an — der Browser handhabt nie einen Rohtoken.
+No direct client-side call of `accounts/`/`chat/`. Instead: Next.js route
+handlers under `/app/api/*` receive the request from the browser, pass it on server-side
+to the respective backend service (via an internal network call, addressed via
+environment variables such as `NORMLY_ACCOUNTS_BASE_URL`/`NORMLY_CHAT_BASE_URL` — the same pattern
+as `chat/`'s own connection to `api/`/`accounts/`), and translate the response into an
+httpOnly cookie (`normly_session` for the anonymous `chat_session`, `normly_account_session` for
+the account session — separate, since a `chat_session` also exists without an account). Follow-up requests
+read the cookie server-side from the request and attach it as `session_token`/
+`Authorization` header to the backend call — the browser never handles a raw token.
 
-Produktiv sitzen `frontend/`, `api/`, `accounts/`, `chat/` hinter einem gemeinsamen Reverse
-Proxy unter Pfad-Prefixen — dieselbe Origin wie das Frontend, keine CORS-Konfiguration nötig.
-In der Entwicklung/in Tests wird stattdessen direkt gegen die jeweiligen Dienst-Adressen
-aufgelöst.
+In production, `frontend/`, `api/`, `accounts/`, `chat/` sit behind a shared reverse
+proxy under path prefixes — the same origin as the frontend, no CORS configuration needed.
+In development/in tests, resolution instead goes directly against the respective service
+addresses.
 
-### Seiten- und Komponentenstruktur
+### Page and component structure
 
-- **`/` — Chat-Hauptansicht.** Texteingabe (Absenden per Button oder Enter, `REQ-UI-002`),
-  Nachrichtenverlauf mit Rollen-Unterscheidung (Nutzer/Assistent), visueller Ladeindikator
-  während der Antwort erwartet wird, je Antwort ein oder mehrere Zitat-Chips mit Link zur
-  Originalfundstelle (frei) bzw. Bezugsquelle des Herausgebers (kostenpflichtig, `REQ-UI-003`).
-- **`/chats` — Chat-Historie (`REQ-UI-005`).** Liste vergangener Sitzungen, sortiert nach
-  Erstellungsdatum, ein Klick öffnet die Sitzung erneut (Fortsetzung im `/`-Chat mit
-  geladenem Verlauf). Nur für angemeldete Konten sichtbar/nutzbar — eine rein anonyme,
-  geräteseitige Sitzung hat keine geräteübergreifend abrufbare „Liste", nur die eine laufende
-  Sitzung im Cookie. Das deckt sich mit `chat/`s Design (`account_id`-Verknüpfung ist
-  Voraussetzung für „mehrere Sitzungen einsehen") und ist kein Widerspruch zu `REQ-ACC-001`,
-  da Chat selbst weiterhin ohne Konto voll nutzbar bleibt — nur die Historienübersicht über
-  mehrere Sitzungen hinweg setzt ein Konto voraus.
-- **Login-/Registrierungs-Dialog** (Modal, keine eigene Seite) — erreichbar über einen
-  Header-Button, Chat bleibt davor und danach voll nutzbar. Tabs/Umschalter für
-  E-Mail+Passwort-Login, Registrierung, Magic-Link-Anfrage, „mit Google anmelden"-Button.
+- **`/` — main chat view.** Text input (submit via button or Enter, `REQ-UI-002`),
+  message history with role distinction (user/assistant), a visual loading indicator
+  while the answer is awaited, per answer one or more citation chips with a link to the
+  original source location (free) or the publisher's point of purchase (paid, `REQ-UI-003`).
+- **`/chats` — chat history (`REQ-UI-005`).** List of past sessions, sorted by
+  creation date, a click reopens the session (continuation in the `/` chat with
+  the history loaded). Visible/usable only for signed-in accounts — a purely anonymous,
+  device-side session has no "list" retrievable across devices, only the one running
+  session in the cookie. This matches `chat/`'s design (`account_id` linking is a
+  prerequisite for "viewing several sessions") and is no contradiction to `REQ-ACC-001`,
+  since chat itself remains fully usable without an account — only the history overview across
+  several sessions requires an account.
+- **Login/registration dialog** (modal, not a page of its own) — reachable via a
+  header button, chat remains fully usable before and after. Tabs/switch for
+  email+password login, registration, magic link request, "Sign in with Google" button.
 
-## Datenfluss
+## Data flow
 
-**Chat-Zyklus:**
+**Chat cycle:**
 ```
 Nutzer sendet Nachricht
 -> POST /app/api/chat (Next.js Route Handler)
@@ -223,7 +223,7 @@ Nutzer sendet Nachricht
    Herausgeber/Bezugsquelle für REQ-UI-003s Verlinkung)
 ```
 
-**Login-Zyklus (E-Mail/Passwort, analog für Magic-Link):**
+**Login cycle (email/password, analogous for magic link):**
 ```
 Nutzer sendet Login-Formular
 -> POST /app/api/auth/login -> POST {ACCOUNTS_BASE_URL}/v1/accounts/login
@@ -234,72 +234,72 @@ Nutzer sendet Login-Formular
    "Sitzungsidentität und Kontoverknüpfung") -- bisheriger Verlauf bleibt erhalten
 ```
 
-**Google-OAuth-Zyklus:** Browser wird direkt (nicht über den Route Handler) zu
-`/app/api/auth/google/login` umgeleitet, dieser leitet redirect-technisch zu
-`accounts/`s eigenem `GET /v1/accounts/google/login` weiter (der wiederum zu Google
-umleitet); der Rückweg landet auf `/app/api/auth/google/callback`, der die `accounts/`-Antwort
-entgegennimmt, das Cookie setzt und zurück zur Chat-Ansicht umleitet.
+**Google OAuth cycle:** The browser is redirected directly (not via the route handler) to
+`/app/api/auth/google/login`, which forwards by redirect to
+`accounts/`'s own `GET /v1/accounts/google/login` (which in turn redirects to Google);
+the way back lands on `/app/api/auth/google/callback`, which receives the `accounts/` response,
+sets the cookie and redirects back to the chat view.
 
-## Fehlerbehandlung
+## Error handling
 
-| Fall | Verhalten |
+| Case | Behavior |
 |---|---|
-| `chat/` nicht erreichbar (503) | Route Handler reicht 503 durch; UI zeigt Fehlermeldung mit Retry-Möglichkeit, kein stiller Ladehänger |
-| Login/Registrierung mit ungültigen Daten (400/401) | Fehlermeldung aus der generischen `accounts/`-Antwort direkt im Dialog, keine technischen Details |
-| Sitzungscookie abgelaufen/unbekannt während eines Chats | Kein Fehlerzustand — nächste Anfrage bekommt von `chat/` einfach eine neue anonyme Sitzung, entspricht `chat/`s eigenem Verhalten |
-| Zitat-Auflösung (Dokumentabruf für Link) schlägt fehl | Antwort wird trotzdem angezeigt, nur ohne klickbaren Quellenlink — Degradation, kein Blockierer |
-| Google-OAuth abgelehnt/fehlgeschlagen | `accounts/`s eigene 400-Antwort wird im Dialog als generische Fehlermeldung angezeigt |
+| `chat/` unreachable (503) | Route handler passes 503 through; UI shows an error message with a retry option, no silent loading hang |
+| Login/registration with invalid data (400/401) | Error message from the generic `accounts/` response directly in the dialog, no technical details |
+| Session cookie expired/unknown during a chat | No error state — the next request simply gets a new anonymous session from `chat/`, matches `chat/`'s own behavior |
+| Citation resolution (document fetch for the link) fails | The answer is still displayed, only without a clickable source link — degradation, not a blocker |
+| Google OAuth declined/failed | `accounts/`'s own 400 response is displayed in the dialog as a generic error message |
 
-## Testkonzept
+## Test concept
 
-- **Komponententests** (Vitest + React Testing Library): Chat-Interaktion (Eingabe, Senden,
-  Ladezustand, Anzeige), Login-Dialog (alle vier Wege), Zitat-Verlinkung — gegen gemockte
-  Route-Handler-Antworten, schnell und isoliert.
-- **End-to-End-Test** (Playwright), konsistent mit der in den Backend-Teilprojekten etablierten
-  Testphilosophie (echte Dienste statt Mocks, wo praktikabel): vollständiger Zyklus — Frage
-  stellen, Antwort inkl. Quellenlink sehen, optional einloggen, Sitzung verlassen und über
-  `/chats` fortsetzen — gegen echte, real laufende `chat/`- und `accounts/`-Prozesse (analog zu
-  `chat/`s eigenem `test_structural_end_to_end.py`-Muster: kein Ollama nötig für den
-  Login-/Historie-Teil des Tests, ein separater, Ollama-gated Test deckt den echten
-  Synthese-Antwortpfad ab, wo verfügbar).
-- **WCAG-Konformität** (`REQ-UI-004`): automatisierte Prüfung via `axe-core` im
-  Playwright-Lauf, plus eine manuelle Tastatur-/Screenreader-Stichprobe vor Abschluss des
-  Teilprojekts.
-- **PWA-Installierbarkeit**: manueller Test — Manifest und Service Worker führen zu einem
-  gültigen Lighthouse-PWA-Score bzw. tatsächlicher Installierbarkeit in einem Chromium-Browser.
-- **Wörterbuch-Vollständigkeit** (DE/EN): ein Komponententest pro Wörterbuch prüft, dass
-  `de.json` und `en.json` exakt dieselbe Schlüsselmenge enthalten — verhindert einen
-  Sprachwechsel, der einzelne Strings unübersetzt lässt.
+- **Component tests** (Vitest + React Testing Library): chat interaction (input, sending,
+  loading state, display), login dialog (all four paths), citation linking — against mocked
+  route handler responses, fast and isolated.
+- **End-to-end test** (Playwright), consistent with the test philosophy established in the backend sub-projects
+  (real services instead of mocks where practicable): full cycle — ask a
+  question, see the answer incl. source link, optionally sign in, leave the session and continue it via
+  `/chats` — against real, actually running `chat/` and `accounts/` processes (analogous to
+  `chat/`'s own `test_structural_end_to_end.py` pattern: no Ollama needed for the
+  login/history part of the test, a separate, Ollama-gated test covers the real
+  synthesis answer path where available).
+- **WCAG conformance** (`REQ-UI-004`): automated check via `axe-core` in the
+  Playwright run, plus a manual keyboard/screen reader spot check before completion of the
+  sub-project.
+- **PWA installability**: manual test — manifest and service worker lead to a
+  valid Lighthouse PWA score or actual installability in a Chromium browser.
+- **Dictionary completeness** (DE/EN): one component test per dictionary checks that
+  `de.json` and `en.json` contain exactly the same set of keys — prevents a
+  language switch that leaves individual strings untranslated.
 
-## Bezug zu Requirements und ADRs
+## Relation to requirements and ADRs
 
-| Requirement/ADR | Abdeckung in diesem Design |
+| Requirement/ADR | Coverage in this design |
 |---|---|
-| `REQ-UI-001` | Eigenständige Chat-Oberfläche, Theming/Logo über Laufzeit-Konfiguration, ohne externe Abhängigkeiten lauffähig |
-| `REQ-UI-002` | Texteingabe mit Enter/Button, Ladeindikator, vollständiger Frage-Antwort-Zyklus |
-| `REQ-UI-003` | Zitat-Chips je Antwort, Verlinkung zu Originalfundstelle bzw. Bezugsquelle |
-| `REQ-UI-004` | Tailwind + shadcn/ui (Radix-Basis) als strukturelle Grundlage, `axe-core`-Prüfung im E2E-Test |
-| `REQ-UI-005` | `/chats`-Historie, Sortierung nach Datum, Fortsetzbarkeit, performant auch bei vielen Sitzungen (Pagination bei Bedarf — siehe Offene Punkte) |
-| `REQ-ACC-001` | Chat vollständig ohne Konto nutzbar; Login ist ein optionaler Zusatz, keine Voraussetzung |
-| `REQ-ACC-004` | „gespeicherte Verläufe" steht explizit auf der abschließenden Liste kontopflichtiger Funktionen — `/chats` auf angemeldete Konten zu beschränken ist damit spec-konform, keine bloße Auslegung |
-| `REQ-MOB-001` | Web-App-Manifest + Service Worker für App-Shell-Caching, Installierbarkeit |
-| `REQ-MOB-003` | Offline-/Caching-Zugriff ausschließlich über den Service Worker als Abstraktionsschicht, keine verstreuten direkten Storage-Zugriffe in der Anwendungslogik |
-| ADR-010 (Auslieferung) | `output: "standalone"`, ein Image für beliebig viele Instanzen, Theming zur Laufzeit statt im Build |
-| CLAUDE.md „Mehrsprachigkeit vorgesehen" | DE/EN-UI-Beschriftung von Anfang an, siehe „Internationalisierung (DE/EN)" — vorgezogen statt als Folgearbeit behandelt |
+| `REQ-UI-001` | Standalone chat interface, theming/logo via runtime configuration, runs without external dependencies |
+| `REQ-UI-002` | Text input with Enter/button, loading indicator, complete question-answer cycle |
+| `REQ-UI-003` | Citation chips per answer, linking to the original source location or point of purchase |
+| `REQ-UI-004` | Tailwind + shadcn/ui (Radix basis) as the structural foundation, `axe-core` check in the E2E test |
+| `REQ-UI-005` | `/chats` history, sorting by date, continuability, performant even with many sessions (pagination if needed — see Open items) |
+| `REQ-ACC-001` | Chat fully usable without an account; login is an optional addition, not a prerequisite |
+| `REQ-ACC-004` | "saved histories" is explicitly on the exhaustive list of functions requiring an account — restricting `/chats` to signed-in accounts is thus spec-compliant, not mere interpretation |
+| `REQ-MOB-001` | Web app manifest + service worker for app shell caching, installability |
+| `REQ-MOB-003` | Offline/caching access exclusively via the service worker as the abstraction layer, no scattered direct storage accesses in the application logic |
+| ADR-010 (shipping) | `output: "standalone"`, one image for any number of instances, theming at runtime instead of in the build |
+| CLAUDE.md "multilingualism planned" | DE/EN UI labeling from the start, see "Internationalization (DE/EN)" — brought forward instead of being treated as follow-up work |
 
-## Offene Punkte / Folgearbeiten
+## Open items / follow-up work
 
-- **Push-Benachrichtigungen** — siehe „Entschieden mit dem Auftraggeber" Punkt 5. Der
-  Zielkonflikt mit „keine US-Dienste" bleibt ungelöst und müsste bei Bedarf bewusst mit dem
-  Auftraggeber abgewogen werden (z. B. als explizit dokumentierte Ausnahme), nicht stillschweigend
-  umgangen werden.
-- **Referenzgraph-Suche/-Browsing** (Teilprojekt 2) und **Profilverwaltung** (Teilprojekt 3,
-  braucht voraussichtlich neue `accounts/`-Endpunkte) — beide eigene, folgende Teilprojekte.
-- **Rate-Limiting/Kontingent für anonyme Nutzung** (`REQ-ACC-003`) — noch nicht gebaut, weder
-  hier noch im Backend; die Chat-Oberfläche zeigt aktuell keine Kontingent-Anzeige, weil es
-  keine Kontingentzählung gibt.
-- **Pagination der Chat-Historie** — `REQ-UI-005` verlangt performante Nutzbarkeit auch bei
-  vielen Sitzungen; die konkrete Paginierungs-/Ladestrategie ist hier nicht im Detail
-  festgelegt und wird im Implementierungsplan konkretisiert.
-- **Sprachen über DE/EN hinaus** — das Wörterbuch-Muster ist auf weitere Sprachen erweiterbar,
-  aber nicht Teil dieses Teilprojekts.
+- **Push notifications** — see "Decided with the owner" item 5. The
+  conflict of goals with "No US services" remains unresolved and would, if needed, have to be weighed deliberately with the
+  owner (e.g. as an explicitly documented exception), not silently
+  worked around.
+- **Reference graph search/browsing** (sub-project 2) and **profile management** (sub-project 3,
+  presumably needs new `accounts/` endpoints) — both separate, subsequent sub-projects.
+- **Rate limiting/quota for anonymous use** (`REQ-ACC-003`) — not yet built, neither
+  here nor in the backend; the chat interface currently shows no quota display because there is
+  no quota counting.
+- **Pagination of the chat history** — `REQ-UI-005` requires performant usability even with
+  many sessions; the concrete pagination/loading strategy is not specified in detail
+  here and will be made concrete in the implementation plan.
+- **Languages beyond DE/EN** — the dictionary pattern is extensible to further languages,
+  but not part of this sub-project.
