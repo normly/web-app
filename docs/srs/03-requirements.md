@@ -858,7 +858,7 @@ This chapter defines requirements for the supply of licensed norm content by pub
 
 **Acceptance criteria:** Supply, status tracking and withdrawal can be carried out via the portal without technical support from normly; every delivery is assigned to a contract; rights metadata are mandatory fields.
 
-**Acceptance test:** A publisher delivers a collection, retrieves its processing status and withdraws a document; from that point on, the withdrawn document is no longer used for answering.
+**Acceptance test:** A publisher delivers a collection, retrieves its processing status and withdraws a document; from that point on, the retired document is no longer used for answering.
 
 ### REQ-PART-002 — Source attribution per answer
 
@@ -936,11 +936,11 @@ This chapter defines requirements for the commercial layer, which builds on the 
 
 ### REQ-COM-005 — Exclusion of personalized advertising
 
-**Statement:** Personalized advertising based on search queries, chat histories or user profiles is ruled out. Permitted are context-free directory entries and references to sources of supply for the original documents.
+**Statement:** Personalized advertising based on search queries, chat histories or user profiles is ruled out. Context-free directory entries and references to sources of supply for the original documents are permitted.
 
 **Rationale:** Personalized advertising is incompatible with the neutrality of the Trägerorganisation and the data-protection promise of the free core.
 
-**Acceptance criteria:** No profiling for advertising purposes; directory entries are marked as paid.
+**Acceptance criteria:** No profiling for advertising purposes; directory entries are labeled as paid.
 
 **Acceptance test:** A data-protection review confirms that no advertising-related user profiles arise.
 
@@ -996,7 +996,7 @@ This chapter describes the path by which content of different provenance — fre
 
 **Acceptance criteria:** Lineage reference on all derived artifacts; withdrawal runs as a traceable process with a log.
 
-**Acceptance test:** After withdrawal of a document, its segments, embeddings, graph edges and export shares are demonstrably removed.
+**Acceptance test:** After withdrawal of a document, its segments, embeddings, graph edges and parts of exports are demonstrably removed.
 
 ### REQ-PIPE-006 — Repeatability and content addressing
 
@@ -1014,9 +1014,9 @@ This chapter describes the path by which content of different provenance — fre
 
 **Rationale:** A norm catalog is a protected database; § 87b UrhG prohibits not only the extraction of substantial parts but also the repeated and systematic extraction of insubstantial parts, insofar as it conflicts with normal exploitation. Systematic harvesting with periodic reconciliation fulfills this criterion. The strategic side weighs more heavily: normly negotiates with the same organizations about voluntary provision in return for a revenue share. Access without a contract directly contradicts this position and endangers the negotiations.
 
-**Acceptance criteria:** Category D adapters technically cannot be configured for sources that are marked as a commercially exploited catalog collection; the marking is kept in the source register.
+**Acceptance criteria:** Category D adapters technically cannot be configured for sources that are flagged as a commercially exploited catalog collection; the flag is kept in the source register.
 
-**Acceptance test:** The attempt to connect a source marked as commercially exploited via category D is rejected and logged.
+**Acceptance test:** The attempt to connect a source flagged as commercially exploited via category D is rejected and logged.
 
 ### REQ-PIPE-009 — Initial collection from freely accessible sources
 
