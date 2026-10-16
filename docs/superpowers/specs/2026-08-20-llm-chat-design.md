@@ -241,8 +241,8 @@ SYNTHESIS QUESTION:
            (15+ consecutive words overlapping? -> discard the answer, fallback
            instead, incident logged)
         -> otherwise: faithfulness check (second, targeted Ollama call: "sind die
-           Aussagen dieser Antwort durch den folgenden Kontext gedeckt? ja/nein +
-           Begründung", i.e. is the answer backed by the context, yes/no + reasoning; context = the same cited segments)
+           Aussagen dieser Antwort durch den folgenden Kontext gedeckt? ja/nein + Begründung",
+           i.e. are the statements of this answer backed by the following context? yes/no + reasoning; context = the same cited segments)
            "nein"? -> discard the answer, fallback instead, incident logged
         -> otherwise: answer + citations (the segments/documents used)
 

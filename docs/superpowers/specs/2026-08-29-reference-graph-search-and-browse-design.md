@@ -131,12 +131,12 @@ three `ValidityResponse` statuses (valid/replaced/withdrawn).
 
 **Search cycle:**
 ```
-Eingabe /search → GET /api/documents/search?q=...&jurisdiction=<Cookie>
-  → api/'s neuer Endpunkt (Ratenbegrenzung-Dependency zuerst)
-  → Trefferliste (DocumentResponse[] + total)
-Klick auf Treffer → /documents/[id]
-  → drei parallele BFF-Aufrufe: Detail, Edges, Validity
-  → Detailseite mit anklickbaren Verweisen zu weiteren Detailseiten
+Input /search → GET /api/documents/search?q=...&jurisdiction=<cookie>
+  → api/'s new endpoint (rate-limiting dependency first)
+  → hit list (DocumentResponse[] + total)
+Click on a hit → /documents/[id]
+  → three parallel BFF calls: detail, edges, validity
+  → detail page with clickable references to further detail pages
 ```
 
 **Jurisdiction change:** `JurisdictionSwitcher` sets the cookie client-side

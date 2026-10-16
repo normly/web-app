@@ -202,7 +202,7 @@ above). Two causes were found and assessed individually:
   separate commit (`fix(srs): strip diacritics from requirement anchor
   links`), 32 targeted replacements, titles/text untouched.
 - **3 unresolvable false alarms in `docs/superpowers/specs/*.md`** — these
-  files use `[[repo/pfad.md]]` wikilink notation for loose cross-references
+  files use `[[repo/path.md]]` wikilink notation for loose cross-references
   between planning documents (the same convention as in the memory system),
   never intended as a real hyperlink. The target files exist; Zensical
   nevertheless tries to resolve `[[...]]` as a link and fails at the
