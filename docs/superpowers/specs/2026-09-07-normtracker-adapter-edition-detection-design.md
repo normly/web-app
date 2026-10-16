@@ -1,177 +1,183 @@
-# Design: Editionswechsel-Erkennung in Ingestion-Adaptern
+# Design: Edition change detection in ingestion adapters
 
-## Kontext
+## Context
 
-Sub-project 1 hat die `Work`-Entität gebracht: mehrere `Document`-Zeilen
-teilen sich ein `Work`, sobald eine `REPLACES`-, `WITHDRAWN_BY`- oder
-`ADOPTED_FROM`-Kante zwischen ihnen entsteht — der Mechanismus dafür ist
-fertig, getestet, gemergt (`core/src/normly_core/pipeline/references.py`,
-`create_edge`, das automatische Work-Merge). Sub-project 3 baut die
-Editionshistorie/nationale-Fassungen-Anzeige genau darauf auf.
+Sub-project 1 brought the `Work` entity: several `Document` rows
+share one `Work` as soon as a `REPLACES`, `WITHDRAWN_BY` or
+`ADOPTED_FROM` edge is created between them — the mechanism for this is
+finished, tested, merged (`core/src/normly_core/pipeline/references.py`,
+`create_edge`, the automatic work merge). Sub-project 3 builds the
+edition history/national versions display exactly on top of it.
 
-Bislang emittiert aber **kein** Ingestion-Adapter jemals eine dieser drei
-Kantentypen auf echten Daten. Der einzige Adapter, der überhaupt
-`raw_references` setzt, ist `eur_lex.py`, und der immer nur mit
-`EdgeType.BASED_ON_LAW` (Norm → zugrundeliegender Rechtsakt) — eine Kante,
-die per Definition nie Work-Zugehörigkeit auslöst. Auf echten Daten bekommt
-heute also jedes ingestierte Dokument sein eigenes 1:1-`Work`. Für den als
-Sub-project 4 geplanten Watchlist/Notification-Baustein ("Nachricht bei
-neuer Edition") ist das der Haupt-Auslöser — ohne ihn hätte dieses Feature
-auf echten Daten praktisch keine Auslöser. Dieses Teilprojekt schließt genau
-diese Lücke, als Voraussetzung für Sub-project 4.
+So far, however, **no** ingestion adapter ever emits any of these three
+edge types on real data. The only adapter that sets
+`raw_references` at all is `eur_lex.py`, and it only ever does so with
+`EdgeType.BASED_ON_LAW` (norm → underlying legal act) — an edge
+that by definition never triggers work membership. On real data,
+every ingested document therefore gets its own 1:1 `Work` today. For the
+watchlist/notification building block planned as
+sub-project 4 ("message on a
+new edition"), this is the main trigger — without it, this feature would
+have practically no triggers on real data. This sub-project closes exactly
+this gap, as a precondition for sub-project 4.
 
-## Recherche-Ergebnis: welche Adapter sind geeignete Kandidaten?
+## Research result: which adapters are suitable candidates?
 
-Drei Adapter existieren: `eur_lex.py`, `baua.py`, `dguv.py` (alle in
-`core/src/normly_core/pipeline/adapters/`). Für jeden wurde geprüft, ob
-seine **tatsächlich eingelesene Quelle** (nicht eine separate, nicht
-angebundene Publikation) ein strukturell erkennbares Signal für
-Editionswechsel enthält:
+Three adapters exist: `eur_lex.py`, `baua.py`, `dguv.py` (all in
+`core/src/normly_core/pipeline/adapters/`). For each, we checked whether
+its **actually ingested source** (not a separate, unconnected
+publication) contains a structurally recognizable signal for
+edition changes:
 
-- **EUR-Lex — ja, bestätigt.** Die von der Kommission veröffentlichte
-  "Summary of references of harmonised standards"-Tabelle (Docling-Tabelle,
-  aktuell werden nur Spalten 1–3 gelesen) enthält in Spalte 10/11 ein
-  Widerrufsdatum plus die OJ-Referenz des Widerrufs, und in Spalte 6 die
-  OJ-Referenz der eigenen Veröffentlichung. Am echten Fixture-PDF
-  verifiziert: `EN ISO 12100-1:2003`/`-2:2003` tragen in Spalte 11 exakt die
-  OJ-Referenz, die `EN ISO 12100:2010` (eine andere Zeile derselben Tabelle)
-  in Spalte 6 als eigene Veröffentlichungsreferenz trägt — ein direkter,
-  strukturell verlässlicher Join.
-- **DGUV — ja, bestätigt (mit Einschränkung, siehe unten).** Jede reale
-  DGUV-Vorschrift endet mit einem eigenen §-Abschnitt "Inkrafttreten/
-  Außerkrafttreten", der den Vorgänger explizit benennt. Verifiziert am
-  echten PDF der DGUV Vorschrift 38 ("Bauarbeiten", Nov. 2019):
+- **EUR-Lex — yes, confirmed.** The "Summary of references of harmonised
+  standards" table published by the Commission (Docling table,
+  currently only columns 1–3 are read) contains, in column 10/11, a
+  withdrawal date plus the OJ reference of the withdrawal, and in column 6 the
+  OJ reference of the entry's own publication. Verified on the real fixture PDF:
+  `EN ISO 12100-1:2003`/`-2:2003` carry in column 11 exactly the
+  OJ reference that `EN ISO 12100:2010` (another row of the same table)
+  carries in column 6 as its own publication reference — a direct,
+  structurally reliable join.
+- **DGUV — yes, confirmed (with a limitation, see below).** Every real
+  DGUV Vorschrift ends with its own § section "Inkrafttreten/
+  Außerkrafttreten" (entry into force/expiry) that explicitly names the predecessor. Verified on the
+  real PDF of DGUV Vorschrift 38 ("Bauarbeiten" (construction work), Nov. 2019):
   > "Diese Unfallverhütungsvorschrift tritt am ersten Tag des auf die
   > Veröffentlichung folgenden Monats in Kraft. Gleichzeitig tritt die
   > Unfallverhütungsvorschrift „Bauarbeiten" vom September 1976 in der
   > Fassung vom Januar 1997 außer Kraft."
 
-  `dguv.py` spaltet den Fließtext bereits heute in §-nummerierte Abschnitte
-  auf — dieser Abschnitt liegt beim Parsen also schon isoliert vor.
-- **BAuA/TRGS — nein, verworfen.** Die offizielle Bekanntmachung einer
-  neuen TRGS-Fassung enthält zwar die Formulierung "ersetzt die TRGS 905
-  Ausgabe März 2014" — aber nur in der separaten GMBl-Veröffentlichung.
-  Verifiziert an einer echten TRGS-905-PDF (der Quelle, die `baua.py`
-  tatsächlich einliest): sie enthält **keinen** Ersetzungshinweis, nur
-  "Ausgabe: &lt;Datum&gt;". Eine neue Quelle (GMBl) anzubinden wäre ein
-  eigenständiges Projekt, kein Adapter-Fix — bleibt hier außen vor.
+  (In English: "This accident prevention regulation enters into force on the
+  first day of the month following its publication. At the same time, the
+  accident prevention regulation "Bauarbeiten" of September 1976, in the
+  version of January 1997, ceases to have effect.")
 
-## Ziel dieses Teilprojekts
+  `dguv.py` already splits the running text into §-numbered sections
+  today — this section is therefore already isolated during parsing.
+- **BAuA/TRGS — no, rejected.** The official announcement of a
+  new TRGS version does contain the wording "ersetzt die TRGS 905
+  Ausgabe März 2014" (replaces TRGS 905, edition March 2014) — but only in the separate GMBl publication.
+  Verified on a real TRGS 905 PDF (the source that `baua.py`
+  actually ingests): it contains **no** replacement notice, only
+  "Ausgabe: &lt;Datum&gt;" (edition: &lt;date&gt;). Connecting a new source (GMBl) would be a
+  project of its own, not an adapter fix — it stays out of scope here.
 
-`eur_lex.py` und `dguv.py` erweitern, sodass sie beim Erkennen eines
-Editionswechsel-Signals in ihrer jeweiligen Quelle eine zusätzliche
-`RawReference` mit `EdgeType.REPLACES` emittieren — zeigt vom neuen
-(nachfolgenden) Dokument auf das alte (abgelöste), analog zur bestehenden
-Richtungskonvention. `references.py`, `create_edge` und die
-Work-Merge-Logik sind bereits generisch genug (dispatchen nur auf
-`RawReference.edge_type`) und brauchen keine Änderung.
+## Goal of this sub-project
 
-## Nicht-Ziele
+Extend `eur_lex.py` and `dguv.py` so that, on detecting an
+edition change signal in their respective source, they emit an additional
+`RawReference` with `EdgeType.REPLACES` — pointing from the new
+(succeeding) document to the old (superseded) one, analogous to the existing
+direction convention. `references.py`, `create_edge` and the
+work merge logic are already generic enough (they only dispatch on
+`RawReference.edge_type`) and need no change.
 
-- **Kein BAuA/TRGS-Fix.** Signal existiert nachweislich nicht im
-  eingelesenen Dokument (siehe oben).
-- **Keine neue Quelle.** Weder das GMBl noch sonst eine bislang nicht
-  angebundene Publikation wird in diesem Teilprojekt angeschlossen.
-- **Kein Backfill-Mechanismus.** Erneutes Ausführen der Ingestion ist laut
-  CLAUDE.md idempotent — ein erneuter `ingest`-Lauf über bereits vorhandene
-  PDFs erzeugt die neuen Kanten retroaktiv über den bestehenden
-  `create_edge`/Work-Merge-Mechanismus. Kein eigenes Skript nötig.
-- **Kein Watchlist/Notification-Code.** Bleibt das eigentliche nächste
-  Sub-project — dieses hier ist nur dessen Voraussetzung.
-- **Keine Änderung an `references.py`, `create_edge`, Work-Merge.** Bereits
-  generisch, unverändert wiederverwendet.
+## Non-goals
 
-## Architektur: EUR-Lex
+- **No BAuA/TRGS fix.** The signal demonstrably does not exist in the
+  ingested document (see above).
+- **No new source.** Neither the GMBl nor any other publication not connected
+  so far is connected in this sub-project.
+- **No backfill mechanism.** According to
+  CLAUDE.md, re-running the ingestion is idempotent — a new `ingest` run over already existing
+  PDFs creates the new edges retroactively via the existing
+  `create_edge`/work merge mechanism. No separate script needed.
+- **No watchlist/notification code.** That remains the actual next
+  sub-project — this one is only its precondition.
+- **No change to `references.py`, `create_edge`, work merge.** Already
+  generic, reused unchanged.
 
-`_fetch_file` liest heute Spalten 1 (ESO), 2 (Nummer), 3 (Titel) und baut
-pro Zeile eine `BASED_ON_LAW`-Referenz. Erweiterung:
+## Architecture: EUR-Lex
 
-1. Zwei neue Spalten-Konstanten: Spalte 6 ("OJ reference for publication in
-   OJ") und Spalte 11 ("OJ reference for withdrawal from OJ") — Indizes
-   gegen das echte Fixture-PDF verifizieren, analog zur bestehenden
-   Verifikation von Spalte 1–3.
-2. **Zwei Durchläufe** über `document.tables` statt einem: der erste baut
-   eine Map `OJ-Referenz (Spalte 6) → (designation, eso)` über **alle**
-   Tabellen/Zeilen hinweg (ein Nachfolger kann auf einer anderen Seite/
-   Tabelle stehen als sein Vorgänger). Der zweite (der bestehende
-   Yield-Loop) prüft je Zeile: steht ihre eigene Spalte-6-Referenz als
-   Schlüssel in dieser Map? Wenn ja, ist diese Zeile der Nachfolger des
-   Eintrags, der exakt diese OJ-Referenz in Spalte 11 als seine
-   Widerrufs-Referenz trägt — die Zeile bekommt zusätzlich zur
-   bestehenden `BASED_ON_LAW`-Referenz eine
-   `RawReference(target_issuer=<alter eso>, target_designation=<alte
+`_fetch_file` today reads columns 1 (ESO), 2 (number), 3 (title) and builds
+a `BASED_ON_LAW` reference per row. Extension:
+
+1. Two new column constants: column 6 ("OJ reference for publication in
+   OJ") and column 11 ("OJ reference for withdrawal from OJ") — verify the indexes
+   against the real fixture PDF, analogous to the existing
+   verification of columns 1–3.
+2. **Two passes** over `document.tables` instead of one: the first builds
+   a map `OJ reference (column 6) → (designation, eso)` across **all**
+   tables/rows (a successor can be on a different page/
+   table than its predecessor). The second (the existing
+   yield loop) checks per row: is its own column 6 reference present as a
+   key in this map? If so, this row is the successor of the
+   entry that carries exactly this OJ reference in column 11 as its
+   withdrawal reference — in addition to the
+   existing `BASED_ON_LAW` reference, the row gets a
+   `RawReference(target_issuer=<old eso>, target_designation=<old
    designation>, edge_type=EdgeType.REPLACES)`.
-3. Kein Match innerhalb der aktuell geladenen Tabelle(n) → keine Referenz
-   erzeugen. Kein Rätselraten; bleibt offen, bis ein späterer Ingestion-Lauf
-   den Nachfolger mit-erfasst.
-4. Leere/`"-"`-Zellen in Spalte 6/11 gelten als "kein Wert", nicht als
-   Match-Kandidat.
+3. No match within the currently loaded table(s) → create no
+   reference. No guessing; it stays open until a later ingestion run
+   also acquires the successor.
+4. Empty/`"-"` cells in column 6/11 count as "no value", not as a
+   match candidate.
 
-## Architektur: DGUV
+## Architecture: DGUV
 
-`_fetch_file` baut `lines`/`full_text` über die bestehende
-`_logical_lines`/`_HEADING_PATTERN`-Maschinerie, bevor der (unveränderliche)
-`RawRecord` konstruiert wird. `extract_structure` — die die §-Aufteilung in
-`RawSection`s vornimmt — wird vom Runner erst danach, separat, aufgerufen;
-`raw_references` muss aber schon beim Konstruieren des `RawRecord` gesetzt
-sein. Erweiterung:
+`_fetch_file` builds `lines`/`full_text` via the existing
+`_logical_lines`/`_HEADING_PATTERN` machinery before the (immutable)
+`RawRecord` is constructed. `extract_structure` — which performs the § split into
+`RawSection`s — is only called by the runner afterwards, separately;
+`raw_references`, however, must already be set when the `RawRecord` is
+constructed. Extension:
 
-1. Nach dem Aufbau von `lines`, vor dem Konstruieren des `RawRecord`: finde
-   die Zeile, deren Heading `§ N Inkrafttreten/Außerkrafttreten` entspricht
-   (gleiche `_HEADING_PATTERN`-Erkennung, hier vorgezogen), und nimm ihren
-   Fließtext bis zur nächsten Heading-Zeile.
-2. Zwei Regex-Varianten auf diesem Abschnittstext, je nach Form des
-   genannten Vorgängers:
-   - **Moderne Referenz** (selten, aber real — z. B. eine neue "DGUV
-     Vorschrift 2" löst eine ältere, ebenfalls schon modern nummerierte
-     "DGUV Vorschrift 2" ab): Text nach "außer Kraft" enthält ein
-     `_DESIGNATION_PATTERN`-konformes Muster → `target_designation` =
-     genau dieses Muster.
-   - **Freitext-Alttitel** (häufiger — Vorgänger stammt aus der Zeit vor
-     der DGUV-Nummernreform, z. B. „Bauarbeiten" vom September 1976):
-     Muster `„<Titel>" vom <Datum>[ in der Fassung vom <Datum>]` →
-     `target_designation` = der Titel-String, `target_issuer` = `"DGUV"`.
-3. In beiden Fällen: `RawReference(target_issuer=..., target_designation=...,
-   edge_type=EdgeType.REPLACES)`, angehängt an den `RawRecord` des
-   Dokuments, das den Abschnitt selbst enthält (das neue, ablösende
-   Dokument) — die Kantenrichtung stimmt damit automatisch (zeigt vom
-   Nachfolger zum Vorgänger).
-4. Kein erkennbares Muster im Abschnitt (z. B. Erstausgabe ohne Vorgänger,
-   oder unbekannte Formulierung) → keine Referenz, kein Fehler.
+1. After building `lines`, before constructing the `RawRecord`: find
+   the line whose heading matches `§ N Inkrafttreten/Außerkrafttreten`
+   (the same `_HEADING_PATTERN` detection, brought forward here), and take its
+   running text up to the next heading line.
+2. Two regex variants on this section text, depending on the form of the
+   named predecessor:
+   - **Modern reference** (rare, but real — e.g. a new "DGUV
+     Vorschrift 2" supersedes an older "DGUV Vorschrift 2" that is also already
+     numbered in the modern way): the text after "außer Kraft" contains a
+     pattern conforming to `_DESIGNATION_PATTERN` → `target_designation` =
+     exactly this pattern.
+   - **Free-text old title** (more frequent — the predecessor dates from before
+     the DGUV numbering reform, e.g. „Bauarbeiten" vom September 1976):
+     pattern `„<title>" vom <date>[ in der Fassung vom <date>]` →
+     `target_designation` = the title string, `target_issuer` = `"DGUV"`.
+3. In both cases: `RawReference(target_issuer=..., target_designation=...,
+   edge_type=EdgeType.REPLACES)`, attached to the `RawRecord` of the
+   document that contains the section itself (the new, superseding
+   document) — the edge direction is thus automatically correct (points from the
+   successor to the predecessor).
+4. No recognizable pattern in the section (e.g. a first edition without a predecessor,
+   or unknown wording) → no reference, no error.
 
-**Bewusst in Kauf genommene Eigenschaft, kein Defekt:** die
-Freitext-Alttitel-Variante wird auf echten Daten überwiegend NICHT über
-`find_by_designation` auflösen, weil das ursprünglich referenzierte
-Alt-Dokument nie unter diesem Titel (statt unter seiner damaligen
-BGV-/GUV-V-Kennung) in dieses System eingelesen wurde. Das ist kein
-Rückschlag: `references.py`s bestehender `reference_target_not_found`-Pfad
-fängt das bereits ab (Kurator-Fall statt Fehler oder Rätselraten) — der
-Signalwert entsteht daraus, dass ein Editionswechsel-Ereignis überhaupt
-sichtbar wird, auch wenn seine Zielauflösung (noch) nicht automatisch
-gelingt. Moderne DGUV-Vorschrift-zu-DGUV-Vorschrift-Nachfolgen (der
-Normalfall, sobald dieses System über Jahre neu erscheinende Editionen
-bereits bekannter Vorschriften nachträgt) lösen dagegen normal auf.
+**A deliberately accepted property, not a defect:** on real data, the
+free-text old title variant will mostly NOT resolve via
+`find_by_designation`, because the originally referenced
+old document was never ingested into this system under this title (rather than under its then
+BGV/GUV-V ID). This is not a
+setback: `references.py`'s existing `reference_target_not_found` path
+already catches it (a curator case instead of an error or guessing) — the
+signal value comes from the fact that an edition change event becomes
+visible at all, even if its target resolution does not (yet) succeed
+automatically. Modern DGUV Vorschrift to DGUV Vorschrift successions (the
+normal case once this system, over the years, adds newly appearing editions
+of already known regulations) resolve normally, by contrast.
 
 ## Tests
 
-- **EUR-Lex:** die bestehende Fixture (oder eine neue) um ein
-  Withdrawal/Successor-Zeilenpaar erweitern, wie im echten PDF gefunden
-  (`EN ISO 12100-1/-2:2003` → `EN ISO 12100:2010`). Test prüft: genau die
-  Nachfolger-Zeile trägt zusätzlich zur `BASED_ON_LAW`-Referenz eine
-  `REPLACES`-`RawReference` mit der korrekten `target_designation`; die
-  beiden withdrawn-Zeilen selbst bekommen keine zusätzliche Referenz.
-  End-to-End-Test (wie die bestehenden `test_eur_lex_adapter.py`-Tests)
-  bestätigt: bei vorhandenem Zieldokument entsteht eine echte
-  `REPLACES`-Kante über `create_edge`, und beide Dokumente landen im
-  selben `Work`.
-- **DGUV:** neue synthetische reportlab-Fixture (konsistent mit den
-  bestehenden BAuA-Fixtures, kein Copyright-Risiko) mit einem "§ N
-  Inkrafttreten/Außerkrafttreten"-Abschnitt in beiden Varianten — echter
-  Wortlaut wie im realen DGUV-Vorschrift-38-PDF gefunden, einmal mit
-  modernem, einmal mit Freitext-Alttitel-Vorgänger. End-to-End-Test
-  bestätigt: die moderne Referenz erzeugt bei vorhandenem Zieldokument eine
-  echte `REPLACES`-Kante und Work-Zusammenführung; die Freitext-Referenz
-  landet als Kurator-Fall (kein Fehler, keine falsche Kante).
-- Kein Regressionsrisiko für `references.py`/`create_edge`/Work-Merge — die
-  bleiben unverändert, ihre bestehenden Tests laufen unangetastet mit.
-- Kein Regressionsrisiko für `baua.py` — unverändert.
+- **EUR-Lex:** extend the existing fixture (or a new one) with a
+  withdrawal/successor row pair, as found in the real PDF
+  (`EN ISO 12100-1/-2:2003` → `EN ISO 12100:2010`). The test checks: exactly the
+  successor row carries, in addition to the `BASED_ON_LAW` reference, a
+  `REPLACES` `RawReference` with the correct `target_designation`; the
+  two withdrawn rows themselves get no additional reference.
+  An end-to-end test (like the existing `test_eur_lex_adapter.py` tests)
+  confirms: with an existing target document, a real
+  `REPLACES` edge is created via `create_edge`, and both documents end up in the
+  same `Work`.
+- **DGUV:** a new synthetic reportlab fixture (consistent with the
+  existing BAuA fixtures, no copyright risk) with a "§ N
+  Inkrafttreten/Außerkrafttreten" section in both variants — real
+  wording as found in the real DGUV Vorschrift 38 PDF, once with a
+  modern predecessor, once with a free-text old title predecessor. An end-to-end test
+  confirms: with an existing target document, the modern reference creates a
+  real `REPLACES` edge and a work merge; the free-text reference
+  ends up as a curator case (no error, no wrong edge).
+- No regression risk for `references.py`/`create_edge`/work merge — they
+  remain unchanged, their existing tests run along untouched.
+- No regression risk for `baua.py` — unchanged.

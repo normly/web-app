@@ -1,65 +1,65 @@
-# Design: Dokument-Detail-Seite (Normtracker-Grundgerüst, Teil 3/5)
+# Design: Document detail page (Normtracker foundation, part 3/5)
 
-## Kontext
+## Context
 
 Sub-project 1 ([[docs/superpowers/specs/2026-09-06-normtracker-work-entity-design.md]])
-und Sub-project 2 ([[docs/superpowers/specs/2026-09-07-normtracker-semantic-search-design.md]]),
-beide gemergt, haben die `Work`-Entität und eine Work-gruppierte Suche gebracht.
-Dieses Teilprojekt macht die dritte, in der ursprünglichen Work-Entität-Spec
-skizzierte Erweiterung: die Dokument-Detail-Seite zeigt Editionshistorie,
-nationale Fassungen, Referenzen und Rechteklassifikation je Rechtsraum für
-ein Work.
+and sub-project 2 ([[docs/superpowers/specs/2026-09-07-normtracker-semantic-search-design.md]]),
+both merged, brought the `Work` entity and a work-grouped search.
+This sub-project makes the third extension sketched in the original work entity spec:
+the document detail page shows the edition history,
+national versions, references and rights classification per jurisdiction for
+a work.
 
-Eine Dokument-Detail-Seite existiert bereits
-(`frontend/src/app/documents/[id]/document-detail-content.tsx`), gebaut
-gegen die vorhandenen Endpunkte `GET /v1/documents/{id}`, `GET
-/v1/documents/{id}/edges` und `GET /v1/documents/{id}/validity`. Sie ist
-funktional, aber vollständig ohne Work-Bezug (rein dokumentzentriert), zeigt
-alle Kantentypen ungruppiert in einer Liste und zeigt keine
-Rechteklassifikation. Rechteklassifikation ist aktuell überhaupt nicht über
-HTTP erreichbar — nur `RightsRepository.get_classification` existiert auf
-Repository-Ebene.
+A document detail page already exists
+(`frontend/src/app/documents/[id]/document-detail-content.tsx`), built
+against the existing endpoints `GET /v1/documents/{id}`, `GET
+/v1/documents/{id}/edges` and `GET /v1/documents/{id}/validity`. It is
+functional, but entirely without a work reference (purely document-centric), shows
+all edge types ungrouped in one list and shows no
+rights classification. Rights classification is currently not reachable over
+HTTP at all — only `RightsRepository.get_classification` exists at the
+repository level.
 
-## Ziel dieses Teilprojekts
+## Goal of this sub-project
 
-1. Editionshistorie (vollständige REPLACES/WITHDRAWN_BY-Kette, nicht nur
-   der direkte Vorgänger/Nachfolger) und nationale Fassungen (vollständige
-   ADOPTED_FROM-Kette) für das Work eines Dokuments über einen neuen
-   Endpunkt bereitstellen.
-2. Rechteklassifikation je (aktuell gewähltem) Rechtsraum über einen neuen
-   Endpunkt bereitstellen.
-3. Die bestehende Dokument-Detail-Seite so erweitern, dass sie diese neuen
-   Informationen korrekt anzeigt.
+1. Provide the edition history (the complete REPLACES/WITHDRAWN_BY chain, not just
+   the direct predecessor/successor) and national versions (the complete
+   ADOPTED_FROM chain) for the work of a document via a new
+   endpoint.
+2. Provide the rights classification per (currently selected) jurisdiction via a new
+   endpoint.
+3. Extend the existing document detail page so that it correctly displays this new
+   information.
 
-## Nicht-Ziele
+## Non-goals
 
-- **Kein visuelles Redesign.** Kein Tab-Layout, keine neue Komponentenwahl
-  über das bereits verwendete Set hinaus. Das bestehende, schlichte Styling
-  bleibt — die Tab-Ansicht mit durchdachtem Design ist explizit
-  Teilprojekt 5 vorbehalten.
-- **Keine KI-generierte Änderungs-Zusammenfassung** zwischen Editionen.
-  Braucht Volltextzugriff beider Editionen plus LLM-Anbindung (ähnlich der
-  Chat-Infrastruktur) — ein eigenständiges, späteres Teilprojekt.
-- **Keine Mehrfach-Rechtsraum-Ansicht.** Rechteklassifikation wird nur für
-  den aktuell gewählten Rechtsraum gezeigt, konsistent mit jedem anderen
-  Endpunkt dieser App (Suche, Edges, Validity nehmen alle genau einen
-  `jurisdiction`-Parameter). Eine "zeige alle Rechtsräume"-Ansicht wäre ein
-  neues UI-Konzept, das sonst nirgends vorkommt.
-- **Kein neuer/geänderter `/edges`-Endpunkt.** Bleibt unverändert — nach der
-  Lektion aus Teilprojekt 2 (eine geänderte Response-Form brach eine
-  bestehende Seite, deren eigener Test es nicht bemerkte) wird hier bewusst
-  kein bestehender, produktiv genutzter Endpunkt verändert, wenn eine
-  rein clientseitige Neugruppierung ausreicht.
+- **No visual redesign.** No tab layout, no new choice of components
+  beyond the set already in use. The existing, plain styling
+  remains — the tab view with a well-thought-out design is explicitly
+  reserved for sub-project 5.
+- **No AI-generated change summary** between editions.
+  It needs full-text access to both editions plus an LLM connection (similar to the
+  chat infrastructure) — a separate, later sub-project.
+- **No multi-jurisdiction view.** Rights classification is only shown for
+  the currently selected jurisdiction, consistent with every other
+  endpoint of this app (search, edges, validity all take exactly one
+  `jurisdiction` parameter). A "show all jurisdictions" view would be a
+  new UI concept that occurs nowhere else.
+- **No new/changed `/edges` endpoint.** It remains unchanged — after the
+  lesson from sub-project 2 (a changed response shape broke an
+  existing page whose own test did not notice it), no existing endpoint in
+  productive use is deliberately changed here when a
+  purely client-side regrouping suffices.
 
-## Architektur
+## Architecture
 
-### Zwei neue Endpunkte
+### Two new endpoints
 
-Beide angehängt an die bestehende Dokument-Detail-Route (`/v1/documents/{id}/...`),
-wie `/edges` und `/validity` es bereits tun.
+Both attached to the existing document detail route (`/v1/documents/{id}/...`),
+as `/edges` and `/validity` already are.
 
-**`GET /v1/documents/{id}/work?jurisdiction=X`** — liefert die Work-Struktur
-des Dokuments:
+**`GET /v1/documents/{id}/work?jurisdiction=X`** — returns the work structure
+of the document:
 
 ```
 WorkStructureEntry
@@ -76,97 +76,97 @@ WorkStructureResponse
   national_adoptions: list[WorkStructureEntry]
 ```
 
-Innerhalb der (begrenzten) Menge aller Documents desselben `work_id` werden
-zwei Teilgraphen gebildet, je nach Kantentyp:
+Within the (bounded) set of all documents with the same `work_id`,
+two subgraphs are formed, depending on the edge type:
 
-- **`editions`**: alle Documents, die mit dem betrachteten Dokument über
-  eine Kette aus **nur** REPLACES/WITHDRAWN_BY-Kanten verbunden sind
-  (typischerweise derselbe Herausgeber über die Zeit). Jede Edition bekommt
-  einen Status, berechnet genauso wie im bestehenden `/validity`-Endpunkt
-  (eingehende Kanten prüfen: zeigt eine neuere Edition per REPLACES/
-  WITHDRAWN_BY auf diese, ist sie `replaced`/`withdrawn`), nur für jedes
-  Element der Kette statt nur für ein Dokument.
-- **`national_adoptions`**: alles andere im selben Work — jedes Document,
-  das nicht Teil der Editionskette ist, mit eigenem Herausgeber/Bezeichnung/
-  Status. Zusammen decken beide Listen immer die komplette
-  Work-Dokumentmenge ab, keine Überschneidung, kein Dokument, das in keiner
-  Liste auftaucht.
+- **`editions`**: all documents connected to the document under consideration via
+  a chain of **only** REPLACES/WITHDRAWN_BY edges
+  (typically the same publisher over time). Each edition gets
+  a status, computed exactly as in the existing `/validity` endpoint
+  (check incoming edges: if a newer edition points to this one via REPLACES/
+  WITHDRAWN_BY, it is `replaced`/`withdrawn`), only for every
+  element of the chain instead of just for one document.
+- **`national_adoptions`**: everything else in the same work — every document
+  that is not part of the edition chain, with its own publisher/designation/
+  status. Together, both lists always cover the complete
+  work document set, no overlap, no document that appears in neither
+  list.
 
-Beide Listen enthalten das gerade betrachtete Dokument selbst mit (an
-seiner korrekten Position in der Kette, mit seinem eigenen Status) — nicht
-nur seine Geschwister. Das vermeidet eine Sonderbehandlung im Frontend
-("ist das die Edition, die ich gerade ansehe?") und liefert eine
-vollständige, in sich geschlossene Liste.
+Both lists include the document currently under consideration itself (at
+its correct position in the chain, with its own status) — not
+just its siblings. This avoids special handling in the frontend
+("is this the edition I am currently looking at?") and provides a
+complete, self-contained list.
 
-Bewusst **keine unbegrenzte Graph-Traversierung**: die zugrundeliegende
-DB-Abfrage ist eine einfache, begrenzte Mengenabfrage (alle Documents mit
-diesem `work_id`, alle Kanten *zwischen genau diesen* Documents) — die
-mehrstufige Ketten-Bildung passiert danach in Python über eine kleine,
-bereits geladene Menge. Das bleibt im Sinne von ADR-006 "flach", weil es
-die Work-Gruppierung aus Teilprojekt 1 nutzt, um die Menge von vornherein
-zu begrenzen, statt rekursiv über den ganzen Graphen zu laufen.
+Deliberately **no unbounded graph traversal**: the underlying
+DB query is a simple, bounded set query (all documents with
+this `work_id`, all edges *between exactly these* documents) — the
+multi-step chain building then happens in Python over a small,
+already loaded set. In the sense of ADR-006 this stays "shallow", because it
+uses the work grouping from sub-project 1 to bound the set from the outset,
+instead of running recursively over the whole graph.
 
-Rechtegating wie überall: nur Documents/Kanten, die in `jurisdiction`
-sichtbar sind (`may_process=true`, freie Schicht), fließen ein.
+Rights gating as everywhere: only documents/edges that are visible in `jurisdiction`
+(`may_process=true`, free layer) are included.
 
-**`GET /v1/documents/{id}/rights?jurisdiction=X`** — dünner Wrapper um das
-bereits vorhandene `RightsRepository.get_classification`, liefert
+**`GET /v1/documents/{id}/rights?jurisdiction=X`** — a thin wrapper around the
+already existing `RightsRepository.get_classification`, returns
 `may_process`, `may_index_fulltext`, `may_cite_passages`, `may_export_free`
-und `legal_basis_reference`.
+and `legal_basis_reference`.
 
 ### Frontend
 
-`document-detail-content.tsx` bekommt zwei neue `fetch`-Aufrufe (Work-Struktur,
-Rechte) parallel zu den bestehenden. Referenzen werden weiterhin aus den
-bestehenden `/edges`-Daten gebaut, aber jetzt clientseitig gefiltert: nur
-REFERENCES/BASED_ON_LAW erscheinen in der "Referenzen"-Liste, REPLACES/
-WITHDRAWN_BY/ADOPTED_FROM werden dort ausgeblendet (sie erscheinen
-stattdessen strukturiert in den neuen Editions-/Fassungen-Listen). Kein
-neues Layout — Editionshistorie und nationale Fassungen erscheinen als
-einfache, mit den bestehenden Komponenten (`Badge`, `Link`) gebaute Listen,
-im gleichen schlichten Stil wie die vorhandenen Abschnitte.
+`document-detail-content.tsx` gets two new `fetch` calls (work structure,
+rights) in parallel to the existing ones. References continue to be built from the
+existing `/edges` data, but are now filtered client-side: only
+REFERENCES/BASED_ON_LAW appear in the "References" list; REPLACES/
+WITHDRAWN_BY/ADOPTED_FROM are hidden there (they appear
+instead in structured form in the new editions/versions lists). No
+new layout — the edition history and national versions appear as
+simple lists built with the existing components (`Badge`, `Link`),
+in the same plain style as the existing sections.
 
-## Fehlerbehandlung
+## Error handling
 
-- `/work`: ein Dokument ohne Work-Geschwister liefert beide Listen leer
-  (kein Fehler) — die Seite blendet die entsprechenden Abschnitte dann
-  einfach aus.
-- `/rights`: keine Klassifikation für den angefragten Rechtsraum → 404,
-  gleiches Muster wie `/validity` ("kein Dokument" und "nicht klassifiziert"
-  bleiben nach außen ununterscheidbar).
-- Beide Endpunkte gaten wie überall: nur Documents/Kanten mit
-  `may_process=true` im angefragten Rechtsraum werden einbezogen.
+- `/work`: a document without work siblings returns both lists empty
+  (no error) — the page then simply hides the corresponding
+  sections.
+- `/rights`: no classification for the requested jurisdiction → 404,
+  the same pattern as `/validity` ("no document" and "not classified"
+  remain indistinguishable from the outside).
+- Both endpoints gate as everywhere: only documents/edges with
+  `may_process=true` in the requested jurisdiction are included.
 
-## Testkonzept
+## Test concept
 
-- Repository/Integration: Editionskette über 3+ Generationen (2010→2015→2018)
-  korrekt sortiert mit korrektem Status je Glied; nationale Fassungen
-  korrekt von der Editionskette abgegrenzt; ein Work ohne Geschwister
-  liefert leere Listen; Rechtegating schließt nicht-sichtbare
-  Work-Mitglieder aus den Ergebnissen aus.
-- API: `/rights` liefert 404 bei fehlender Klassifikation, sonst die
-  korrekten Felder; `/work` liefert das korrekte JSON-Schema inkl. leerer
-  Listen für ein Solo-Dokument.
-- Frontend: bestehender Test (`document-detail-content.test.tsx` o. ä.,
-  falls vorhanden — sonst neu anzulegen) wird um die neuen Abschnitte
-  erweitert (Editionsliste, nationale Fassungen, Rechte-Badge); die
-  Referenzen-Filterung (Work-interne Kantentypen werden aus der
-  Referenzen-Liste ausgeblendet) bekommt einen eigenen Test.
+- Repository/integration: an edition chain over 3+ generations (2010→2015→2018)
+  sorted correctly with the correct status per link; national versions
+  correctly separated from the edition chain; a work without siblings
+  returns empty lists; rights gating excludes non-visible
+  work members from the results.
+- API: `/rights` returns 404 if the classification is missing, otherwise the
+  correct fields; `/work` returns the correct JSON schema incl. empty
+  lists for a solo document.
+- Frontend: the existing test (`document-detail-content.test.tsx` or similar,
+  if present — otherwise to be created) is extended with the new sections
+  (edition list, national versions, rights badge); the
+  references filtering (work-internal edge types are hidden from the
+  references list) gets its own test.
 
-## Bezug zu Requirements und ADRs
+## Relation to requirements and ADRs
 
-| Requirement/ADR | Bezug |
+| Requirement/ADR | Relation |
 |---|---|
-| REQ-GRAPH-005 | Die Editions-/Fassungen-Ansicht ist die zweite nutzerseitig sichtbare Konsequenz der Work-Identität (nach der Suchgruppierung aus Teilprojekt 2) — macht "ein Regelwerk, mehrere Fassungen" für Nutzer direkt sichtbar. |
-| REQ-GRAPH-002 | `/work` und `/rights` respektieren dieselbe Schichtung frei/kommerziell wie `/edges` — nur `may_process`-sichtbare, freie Schicht fließt ein. |
-| ADR-006 | Die begrenzte Work-Mengenabfrage plus In-Memory-Kettenbildung bleibt konsistent mit "Graph zuerst, flache Abfragen" — keine unbegrenzte rekursive Traversierung. |
+| REQ-GRAPH-005 | The editions/versions view is the second user-visible consequence of the work identity (after the search grouping from sub-project 2) — makes "one standard, several versions" directly visible to users. |
+| REQ-GRAPH-002 | `/work` and `/rights` respect the same free/commercial layering as `/edges` — only the `may_process`-visible free layer is included. |
+| ADR-006 | The bounded work set query plus in-memory chain building remains consistent with "graph first, shallow queries" — no unbounded recursive traversal. |
 
-## Offene Punkte / Folgearbeiten
+## Open items / follow-up work
 
-- **KI-Änderungs-Zusammenfassung** (eigenes, späteres Teilprojekt): braucht
-  Volltextzugriff beider Editionen plus LLM-Anbindung.
-- **Tab-Layout und visuelles Redesign**: Teilprojekt 5.
-- **Mehrfach-Rechtsraum-Ansicht**: falls später gewünscht, braucht eine
-  neue `list_classifications_for_document`-artige Repository-Methode (heute
-  nur `get_classification` für genau einen Rechtsraum) und ein neues
-  UI-Konzept.
+- **AI change summary** (a separate, later sub-project): needs
+  full-text access to both editions plus an LLM connection.
+- **Tab layout and visual redesign**: sub-project 5.
+- **Multi-jurisdiction view**: if wanted later, needs a
+  new `list_classifications_for_document`-style repository method (today
+  only `get_classification` for exactly one jurisdiction) and a new
+  UI concept.
