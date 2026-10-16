@@ -1,195 +1,195 @@
-# Design: Semantische Suche (Normtracker-Grundgerüst, Teil 2/5)
+# Design: Semantic search (Normtracker foundation, part 2/5)
 
-## Kontext
+## Context
 
 Sub-project 1 ([[docs/superpowers/specs/2026-09-06-normtracker-work-entity-design.md]],
-gemerged) hat die `Work`-Entität eingeführt — eine logische Identität für ein
-Regelwerk über mehrere Ausgaben und nationale Übernahmen hinweg. Dieses
-Teilprojekt baut direkt darauf auf: die heutige Suche
+merged) introduced the `Work` entity — a logical identity for a
+standard across several editions and national adoptions. This
+sub-project builds directly on it: today's search
 (`api/src/normly_api/routers/search.py`,
-`PostgresDocumentRepository.search_documents_for_jurisdiction`) ist reines
-ILIKE-Textmatching auf `DocumentDesignation`/`DocumentTitle`, liefert eine
-flache, pro-`Document`-Trefferliste und nutzt kein Embedding — obwohl
-pgvector und ein lokales Embedding-Modell (`intfloat/multilingual-e5-large`,
-1024-dim, `core/src/normly_core/pipeline/embeddings.py`) bereits für
-Chat-Segmente im Einsatz sind.
+`PostgresDocumentRepository.search_documents_for_jurisdiction`) is pure
+ILIKE text matching on `DocumentDesignation`/`DocumentTitle`, returns a
+flat, per-`Document` hit list and uses no embedding — although
+pgvector and a local embedding model (`intfloat/multilingual-e5-large`,
+1024-dim, `core/src/normly_core/pipeline/embeddings.py`) are already in use for
+chat segments.
 
-Zwei Entscheidungen aus der Sub-project-1-Brainstorming-Session sind hier
-umzusetzen: die Suche wird auf semantische (Embedding-basierte) Ähnlichkeit
-umgestellt, und Treffer werden pro `Work` gruppiert statt pro `Document`.
+Two decisions from the sub-project 1 brainstorming session are to be
+implemented here: the search is switched to semantic (embedding-based) similarity,
+and hits are grouped per `Work` instead of per `Document`.
 
-## Ziel dieses Teilprojekts
+## Goal of this sub-project
 
-1. Eine hybride Suche: exakte Textübereinstimmungen (wie heute, ILIKE) zuerst,
-   ergänzt um semantisch ähnliche Treffer, die ILIKE nicht findet (Synonyme,
-   Umschreibungen, thematische Nähe).
-2. Treffer werden nach `Work` gruppiert — ein Suchergebnis pro Regelwerk,
-   nicht pro Ausgabe/nationaler Fassung.
-3. Ein neues, pro `Document` gepflegtes Embedding, erzeugt/aktualisiert
-   während der Ingestion sowie nachträglich per Backfill für bereits
-   vorhandene Documents.
+1. A hybrid search: exact text matches (as today, ILIKE) first,
+   supplemented by semantically similar hits that ILIKE does not find (synonyms,
+   paraphrases, thematic proximity).
+2. Hits are grouped by `Work` — one search result per standard,
+   not per edition/national version.
+3. A new embedding maintained per `Document`, created/updated
+   during ingestion as well as retroactively via backfill for already
+   existing documents.
 
-## Nicht-Ziele
+## Non-goals
 
-- Keine vollständige Editions-/Übernahmeliste im Suchergebnis — das ist
-  Teilprojekt 3 (Dokument-Detail-Seite). Dieses Teilprojekt liefert nur
-  einen Zähler ("+2 weitere Ausgaben").
-- Keine Embeddings auf Volltext-/Segment-Ebene für die Dokumentensuche —
-  das bestehende `Embedding`/`EmbeddingRepository` (segment-gebunden, für
-  Chat) bleibt unverändert und unberührt.
-- Kein neuer Such-Service, keine externe Suchmaschine — bleibt vollständig
-  in `core`/`api`, gleiches pgvector-Setup wie beim Chat.
-- Keine Änderung an der Rechteklassifikations-Gate-Logik — Suche filtert
-  wie heute ausschließlich rechtsraum-sichtbare, `may_process=True`-Documents.
+- No complete edition/adoption list in the search result — that is
+  sub-project 3 (document detail page). This sub-project only provides
+  a counter ("+2 more editions").
+- No embeddings at the full-text/segment level for the document search —
+  the existing `Embedding`/`EmbeddingRepository` (segment-bound, for
+  chat) remains unchanged and untouched.
+- No new search service, no external search engine — stays entirely
+  in `core`/`api`, the same pgvector setup as for chat.
+- No change to the rights classification gate logic — as today, search filters
+  exclusively jurisdiction-visible, `may_process=True` documents.
 
-## Architektur
+## Architecture
 
-### Zwei-Stufen-Suche
+### Two-tier search
 
-**Tier 1 (exakt):** ILIKE auf `DocumentDesignation.designation` und
-`DocumentTitle.title`, wie heute implementiert. Treffer bekommen Rang 0.
+**Tier 1 (exact):** ILIKE on `DocumentDesignation.designation` and
+`DocumentTitle.title`, as implemented today. Hits get rank 0.
 
-**Tier 2 (semantisch):** die Suchanfrage wird mit `EmbeddingModel.embed_query()`
-(Query-Prefix, nicht `embed()`/Passage-Prefix — das e5-Modell unterscheidet
-beide Rollen im selben Vektorraum) in einen Vektor übersetzt und per
-pgvector-Kosinus-Distanz (`DocumentEmbedding.vector.cosine_distance(...)`)
-gegen alle rechteklassifizierten Documents sortiert. Treffer bekommen Rang 1
-mit aufsteigender Distanz als Sekundärsortierung.
+**Tier 2 (semantic):** the search query is translated into a vector with `EmbeddingModel.embed_query()`
+(query prefix, not `embed()`/passage prefix — the e5 model distinguishes
+both roles in the same vector space) and sorted by
+pgvector cosine distance (`DocumentEmbedding.vector.cosine_distance(...)`)
+against all rights-classified documents. Hits get rank 1
+with ascending distance as the secondary sort.
 
-Beide Tiers laufen gegen dieselbe rechteklassifizierte Dokumentenmenge
-(identisches Gating wie die heutige `search_documents_for_jurisdiction`).
-Die vereinigte, nach `(rang, distanz)` sortierte Trefferliste wird
-anschließend per `DISTINCT ON (work_id)` auf einen Treffer pro `Work`
-reduziert — das erstplatzierte Document je Work gewinnt.
+Both tiers run against the same rights-classified document set
+(identical gating to today's `search_documents_for_jurisdiction`).
+The combined hit list, sorted by `(rank, distance)`, is
+then reduced via `DISTINCT ON (work_id)` to one hit per `Work`
+— the top-ranked document per work wins.
 
-Eine leere Suchanfrage (`q=None`) überspringt Tier 2 vollständig (kein Text
-zum Embedden) und verhält sich wie das heutige ungefilterte, paginierte
-Listing.
+An empty search query (`q=None`) skips tier 2 entirely (no text
+to embed) and behaves like today's unfiltered, paginated
+listing.
 
-### Datenmodell
+### Data model
 
 ```
-DocumentEmbedding (neu)
+DocumentEmbedding (new)
   document_id: UUID (FK → document.id)
   model_name: str
   vector: Vector(1024)
-  delivery_id: UUID (FK → delivery.id)   # Abstammung — welche Lieferung
-                                          # den zugrundeliegenden Text erzeugt hat
+  delivery_id: UUID (FK → delivery.id)   # lineage — which delivery
+                                          # produced the underlying text
   created_at: datetime
   UNIQUE(document_id, model_name)
 ```
 
-Bewusst eine eigene Tabelle, nicht eine Erweiterung der bestehenden
-`Embedding`-Tabelle (die an `segment_id` gebunden ist) — ein Document-
-Identitäts-Embedding und ein Chat-Segment-Embedding sind fachlich
-unterschiedliche Konzepte; eine gemeinsame Tabelle mit sich gegenseitig
-ausschließenden Fremdschlüsseln wäre unsauberer als zwei kleine, fokussierte
-Tabellen.
+Deliberately a separate table, not an extension of the existing
+`Embedding` table (which is bound to `segment_id`) — a document
+identity embedding and a chat segment embedding are
+different concepts in domain terms; a shared table with mutually
+exclusive foreign keys would be less clean than two small, focused
+tables.
 
-**Embedding-Inhalt:** ein Embedding pro `Document`, gebildet aus der
-primären `DocumentDesignation` plus dem primären `DocumentTitle`
-(`"<Designation> — <Titel>"`, z.B. `"EN ISO 9001:2018 — Qualitätsmanagement-
-systeme"`). Nicht ein Embedding je Titel/Sprache — hält die Pflege auf ein
-Embedding pro Document begrenzt.
+**Embedding content:** one embedding per `Document`, formed from the
+primary `DocumentDesignation` plus the primary `DocumentTitle`
+(`"<Designation> — <Title>"`, e.g. `"EN ISO 9001:2018 — Qualitätsmanagement-
+systeme"`). Not one embedding per title/language — keeps maintenance limited to one
+embedding per document.
 
-Weder Designation noch Titel sind zum Ingestion-Zeitpunkt garantiert
-vorhanden (`add_title` wird nur bei vorhandenem `raw_title` aufgerufen,
-`add_designation` nur bei vorhandenem `raw_issuer`): fehlt der Titel, wird
-nur die Designation embedded (`"<Designation>"` ohne Anhang); fehlt auch
-die primäre Designation (kein `raw_issuer` in diesem Durchlauf), entfällt
-die Embedding-Erzeugung für diesen Durchlauf vollständig — das Document
-bleibt bis zu einem späteren Durchlauf mit Designation nur über Tier 1
-(sofern dann Text vorhanden ist) bzw. gar nicht auffindbar, was konsistent
-mit dem bestehenden Verhalten ist (ohne Designation ist ein Document auch
-heute schon nicht über `find_by_designation` auffindbar).
+Neither designation nor title is guaranteed to be present at ingestion time
+(`add_title` is only called when `raw_title` is present,
+`add_designation` only when `raw_issuer` is present): if the title is missing,
+only the designation is embedded (`"<Designation>"` without a suffix); if the
+primary designation is missing as well (no `raw_issuer` in this run),
+embedding creation is skipped entirely for this run — until a later run
+with a designation, the document remains findable only via tier 1
+(if there is text then) or not at all, which is consistent
+with the existing behavior (without a designation, a document is already
+not findable via `find_by_designation` today).
 
-### Ingestion & Backfill
+### Ingestion & backfill
 
-In `core/src/normly_core/pipeline/runner.py`s `process()` wird nach dem
-bestehenden Designation-/Titel-Schritt (für neue wie wiedergefundene
-Documents gleichermaßen) der aktuelle primäre Designation- und Titeltext
-gelesen, embedded und per Upsert (`ON CONFLICT (document_id, model_name) DO
-UPDATE`) in `DocumentEmbedding` geschrieben — bei jedem Durchlauf, nicht nur
-beim ersten. Das ist von Natur aus idempotent (gleicher Text ergibt
-denselben Vektor) und hält das Embedding automatisch aktuell, falls ein
-späterer Durchlauf den primären Titel ändert, ohne eigene
-Änderungserkennung.
+In `core/src/normly_core/pipeline/runner.py`'s `process()`, after the
+existing designation/title step (for new and re-found
+documents alike), the current primary designation and title text is
+read, embedded and written to `DocumentEmbedding` via upsert (`ON CONFLICT (document_id, model_name) DO
+UPDATE`) — on every run, not just
+the first. This is idempotent by nature (the same text yields
+the same vector) and keeps the embedding up to date automatically if a
+later run changes the primary title, without its own
+change detection.
 
-Für bereits vorhandene Documents ohne Embedding: ein neuer CLI-Subcommand
-(`python -m normly_core.pipeline backfill-document-embeddings`, analog zum
-bestehenden `ingest`-Subcommand in `core/src/normly_core/pipeline/cli.py`)
-erzeugt Embeddings für alle Documents ohne `DocumentEmbedding` zum
-aktuellen Modell. Bewusst **keine** Alembic-Migration (anders als der
-Union-Find-Backfill in Teilprojekt 1) — das Laden und Aufrufen eines
-ML-Modells gehört nicht in eine Migration (langsam, dateisystem-/
-modellabhängig), sondern in Pipeline-Code wie jeder andere Ingestion-
-Schritt auch.
+For already existing documents without an embedding: a new CLI subcommand
+(`python -m normly_core.pipeline backfill-document-embeddings`, analogous to the
+existing `ingest` subcommand in `core/src/normly_core/pipeline/cli.py`)
+creates embeddings for all documents without a `DocumentEmbedding` for the
+current model. Deliberately **no** Alembic migration (unlike the
+union-find backfill in sub-project 1) — loading and calling an
+ML model does not belong in a migration (slow, file system/
+model dependent), but in pipeline code like any other ingestion
+step.
 
-### API-Response
+### API response
 
 ```
 WorkSearchResultResponse
   work_id: UUID
-  best_match: DocumentResponse   # bestplatziertes Document dieses Works
-  other_editions_count: int       # Anzahl weiterer Documents im selben Work
+  best_match: DocumentResponse   # best-ranked Document of this Work
+  other_editions_count: int       # number of further Documents in the same Work
 WorkSearchResponse
   results: list[WorkSearchResultResponse]
-  total: int   # Anzahl DISTINCT Works, nicht Rohtreffer
+  total: int   # number of DISTINCT Works, not raw hits
 ```
 
-Löst die heutige `DocumentSearchResponse { results: list[DocumentResponse],
-total }` ab. `GET /v1/documents/search` bleibt der Endpunkt-Pfad (kein
-Wechsel auf `/v1/works/search` in diesem Teilprojekt — das Umbenennen auf
-eine Work-zentrierte URL-Struktur ist eine Frontend-/API-Namensfrage, die
-besser mit Teilprojekt 5 (Frontend) zusammen entschieden wird, nicht isoliert
-hier).
+Replaces today's `DocumentSearchResponse { results: list[DocumentResponse],
+total }`. `GET /v1/documents/search` remains the endpoint path (no
+switch to `/v1/works/search` in this sub-project — renaming to
+a work-centric URL structure is a frontend/API naming question that is
+better decided together with sub-project 5 (frontend), not in isolation
+here).
 
-## Fehlerbehandlung
+## Error handling
 
-- Leere Suchanfrage: kein ILIKE-Filter, kein Embedding berechnet, Tier 2
-  entfällt, reines jurisdiction-/issuer-gefiltertes Listing (wie heute).
-- Ein Document ohne (noch) vorhandenes `DocumentEmbedding` (z.B. Backfill
-  noch nicht gelaufen) taucht in Tier 2 nicht auf, bleibt aber über Tier 1
-  (ILIKE) auffindbar — bewusstes, unschädliches Degradieren.
-- Fehler beim Laden/Aufrufen des Embedding-Modells: kein neuer
-  Fallback-Pfad — verhält sich wie der bestehende Code für Chat-Embeddings
-  (`EmbeddingModel`), keine Sonderbehandlung für die Suche.
+- Empty search query: no ILIKE filter, no embedding computed, tier 2
+  is skipped, pure jurisdiction/issuer-filtered listing (as today).
+- A document without an existing `DocumentEmbedding` (yet) (e.g. backfill
+  not run yet) does not appear in tier 2, but remains findable via tier 1
+  (ILIKE) — a deliberate, harmless degradation.
+- Errors loading/calling the embedding model: no new
+  fallback path — behaves like the existing code for chat embeddings
+  (`EmbeddingModel`), no special handling for the search.
 
-## Testkonzept
+## Test concept
 
-- Unit: Hybrid-Merge-Logik (Tier 1 vor Tier 2, keine Duplikate zwischen den
-  Tiers), `DISTINCT ON work_id`-Gruppierung liefert genau einen Treffer je
-  Work.
-- Integration: Pipeline erzeugt Documents + Embeddings, Repository-Suche
-  liefert korrekt nach Work gruppierte, korrekt sortierte Treffer gegen
-  eine echte Postgres/pgvector-Instanz.
-- Backfill-CLI: Documents ohne Embedding bekommen eins; ein zweiter Lauf
-  erzeugt nichts Neues (idempotent).
-- Eigener Test, der nachweist, dass die Abfrage `embed_query()` (Query-
-  Prefix) nutzt, nicht `embed()` (Passage-Prefix) — sonst liefert das
-  Modell falsch orientierte Vektoren und die Ähnlichkeitssuche wird
-  bedeutungslos, ohne dass ein anderer Test das sichtbar macht.
+- Unit: hybrid merge logic (tier 1 before tier 2, no duplicates between the
+  tiers); the `DISTINCT ON work_id` grouping returns exactly one hit per
+  work.
+- Integration: the pipeline creates documents + embeddings; the repository search
+  returns hits correctly grouped by work and correctly sorted against
+  a real Postgres/pgvector instance.
+- Backfill CLI: documents without an embedding get one; a second run
+  creates nothing new (idempotent).
+- A dedicated test proving that the query uses `embed_query()` (query
+  prefix), not `embed()` (passage prefix) — otherwise the
+  model returns wrongly oriented vectors and the similarity search becomes
+  meaningless, without any other test making this visible.
 
-## Bezug zu Requirements und ADRs
+## Relation to requirements and ADRs
 
-| Requirement/ADR | Bezug |
+| Requirement/ADR | Relation |
 |---|---|
-| REQ-GRAPH-005 | `Work`-Gruppierung der Suchergebnisse ist die erste nutzerseitig sichtbare Konsequenz der in Teilprojekt 1 eingeführten Work-Identität. |
-| ADR-006 | pgvector bleibt die einzige Vektor-Infrastruktur (kein Neo4j, keine externe Suchmaschine) — dieses Teilprojekt fügt eine zweite pgvector-Nutzung (Document-Embeddings) neben der bestehenden (Segment-Embeddings) hinzu, ohne neue Technologie. |
-| — | Es existiert aktuell kein REQ-SEARCH-*-Eintrag im SRS (`docs/srs/03-anforderungen.md`) für die Suche selbst — dieses Design füllt eine bislang unformalisierte Anforderung. Empfehlung als Folgearbeit: einen REQ-SEARCH-001 ergänzen, der die hybride Suche und die Work-Gruppierung als Abnahmekriterium festhält. |
+| REQ-GRAPH-005 | `Work` grouping of the search results is the first user-visible consequence of the work identity introduced in sub-project 1. |
+| ADR-006 | pgvector remains the only vector infrastructure (no Neo4j, no external search engine) — this sub-project adds a second pgvector use (document embeddings) alongside the existing one (segment embeddings), without new technology. |
+| — | There is currently no REQ-SEARCH-* entry in the SRS (`docs/srs/03-requirements.md`) for the search itself — this design fills a requirement not formalized so far. Recommendation as follow-up work: add a REQ-SEARCH-001 that records the hybrid search and the work grouping as an acceptance test. |
 
-## Offene Punkte / Folgearbeiten
+## Open items / follow-up work
 
-- **REQ-SEARCH-001 ergänzen** (siehe oben) — Dokumentationsnachtrag, kein
-  Codeimpakt.
-- **Dokument-Detail-Seite** (Teilprojekt 3): liefert die volle
-  Editions-/Übernahmeliste, die dieses Teilprojekt bewusst nur als Zähler
-  ausweist.
-- **URL-Struktur `/v1/works/...`**: ob der Suchendpunkt (und andere) auf
-  eine Work-zentrierte Pfadbenennung wechseln, wird mit Teilprojekt 5
-  (Frontend) entschieden, nicht hier.
-- **Embedding-Modell-Versionierung**: `model_name` ist bereits Teil des
-  Unique-Keys (wie bei `Embedding`), sodass ein Modellwechsel später ohne
-  Datenverlust möglich ist — ein Migrationspfad für einen tatsächlichen
-  Modellwechsel (Neuberechnung aller Vektoren) ist nicht Teil dieses
-  Teilprojekts.
+- **Add REQ-SEARCH-001** (see above) — a documentation addendum, no
+  code impact.
+- **Document detail page** (sub-project 3): provides the full
+  edition/adoption list that this sub-project deliberately only shows as a
+  counter.
+- **URL structure `/v1/works/...`**: whether the search endpoint (and others) switch to
+  work-centric path naming is decided with sub-project 5
+  (frontend), not here.
+- **Embedding model versioning**: `model_name` is already part of the
+  unique key (as with `Embedding`), so that a model change later is possible without
+  data loss — a migration path for an actual
+  model change (recomputing all vectors) is not part of this
+  sub-project.

@@ -130,7 +130,7 @@ def test_eur_lex_does_not_create_a_replaces_edge_for_an_unresolvable_successor(d
     exist, and no reference_target_not_found case should be enqueued either
     (Task 1 attaches no reference at all when the successor cannot be
     resolved within the currently-parsed table data, per the spec's
-    "no rätselraten" rule -- this differs from the DGUV free-text case in
+    "no guessing" rule -- this differs from the DGUV free-text case in
     Task 2, which DOES attempt resolution and falls through to a curator
     case when it fails)."""
     from normly_core.graph.domain import EdgeType

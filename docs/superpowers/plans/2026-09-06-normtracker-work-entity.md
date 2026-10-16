@@ -1,8 +1,8 @@
-# Normtracker Work-Entität Implementation Plan
+# Normtracker Work Entity Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Introduce a `Work` entity in `core/` that gives every Regelwerk one logical identity across its editions and national adoptions, fulfilling REQ-GRAPH-005's acceptance criterion, per `docs/superpowers/specs/2026-09-06-normtracker-work-entity-design.md`.
+**Goal:** Introduce a `Work` entity in `core/` that gives every standard one logical identity across its editions and national adoptions, fulfilling REQ-GRAPH-005's acceptance criterion, per `docs/superpowers/specs/2026-09-06-normtracker-work-entity-design.md`.
 
 **Architecture:** A new `work` table holds only identity/lifecycle state (`id`, `status`, `merged_into_work_id`, `created_via`, `created_at`) — no titles or content. `document.work_id` becomes a required foreign key. The ingestion pipeline assigns `work_id` automatically from explicit `REPLACES`/`WITHDRAWN_BY`/`ADOPTED_FROM` signals already present in `RawRecord.raw_references`; anything else gets its own new Work. `IdentityResolutionCase` gains a `work_merge` case type for a curator to later merge two Works a matching signal missed.
 
@@ -22,7 +22,7 @@
 - Every migration must be safe to run twice with no different outcome (idempotent), and every migration's `downgrade()` must actually work — `core/tests/graph/test_migration_determinism.py` round-trips the entire chain from `head` to `base` and back on the shared test database.
 - `case_type=work_merge` on `IdentityResolutionCase` is orthogonal to `case_type=new_document`; no task changes the meaning or call sites of the existing `enqueue_case`/`resolve_case`/`reject_case` behavior for `new_document` cases beyond adding the new `case_type` column (default `new_document`).
 - Only `REPLACES`, `WITHDRAWN_BY`, `ADOPTED_FROM` edges ever imply shared Work membership. `REFERENCES` and `BASED_ON_LAW` never do, in any task.
-- No task touches `api/`, `accounts/`, or `chat/`. Exposing `work_id` over the HTTP API is deliberately out of scope here (no consumer needs it yet — Teilprojekt 2, semantic search, is where grouping-by-Work first has an API-facing use). Nothing in this plan blocks that later work.
+- No task touches `api/`, `accounts/`, or `chat/`. Exposing `work_id` over the HTTP API is deliberately out of scope here (no consumer needs it yet — sub-project 2, semantic search, is where grouping-by-Work first has an API-facing use). Nothing in this plan blocks that later work.
 
 ---
 
@@ -1481,7 +1481,7 @@ def determine_work_assignment(
     """
     Only REPLACES/WITHDRAWN_BY/ADOPTED_FROM references count as a Work-linking
     signal -- REFERENCES and BASED_ON_LAW connect documents that are never the
-    same Regelwerk. A reference whose target cannot be resolved yet is treated
+    same standard. A reference whose target cannot be resolved yet is treated
     as no signal at all (not ambiguous): that document either does not exist
     yet, or the separate `reference_target_not_found` identity-resolution case
     that `references.extract_references` raises for it is the right place to
@@ -1706,6 +1706,6 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 ## Self-Review Notes
 
-- **Spec coverage:** Work table + lifecycle (Task 1), `document.work_id` default + backfill + `NOT NULL` (Tasks 2-3), `IdentityResolutionCase` work-merge extension with the exact rejection rule from the spec's Fehlerbehandlung section (Task 4), ingestion-time signal-based assignment restricted to `REPLACES`/`WITHDRAWN_BY`/`ADOPTED_FROM` (Task 5). REQ-GRAPH-005's acceptance criterion (three national adoptions as one node) is exercised end-to-end by Task 5's `test_a_national_adoption_signal_reuses_the_original_documents_work`, extendable to three real adoptions the same way. Updating ADR-011/REQ-GRAPH-005's text to reference `Work` (mentioned in the spec's "Bezug zu Requirements und ADRs") is a documentation follow-up, not a code task — do it as a small doc-only commit once this branch is reviewed, not blocking any task above.
+- **Spec coverage:** Work table + lifecycle (Task 1), `document.work_id` default + backfill + `NOT NULL` (Tasks 2-3), `IdentityResolutionCase` work-merge extension with the exact rejection rule from the spec's Error handling section (Task 4), ingestion-time signal-based assignment restricted to `REPLACES`/`WITHDRAWN_BY`/`ADOPTED_FROM` (Task 5). REQ-GRAPH-005's acceptance criterion (three national adoptions as one node) is exercised end-to-end by Task 5's `test_a_national_adoption_signal_reuses_the_original_documents_work`, extendable to three real adoptions the same way. Updating ADR-011/REQ-GRAPH-005's text to reference `Work` (mentioned in the spec's "Relation to requirements and ADRs") is a documentation follow-up, not a code task — do it as a small doc-only commit once this branch is reviewed, not blocking any task above.
 - **Placeholder scan:** none — every step carries complete code and exact run commands.
 - **Type consistency:** `work_id` is spelled identically everywhere (`Work.id`, `Document.work_id`, `WorkAssignmentResult.work_id`, `IdentityResolutionCase.source_work_id`/`target_work_id`); `WorkCreatedVia`/`WorkStatus`/`IdentityResolutionCaseType` values match between the domain enums, the ORM `sa.Enum(..., values_callable=_enum_values)` declarations, and the migrations' literal string lists.

@@ -1,384 +1,384 @@
-# Design: Deployment-Automatisierung (STACKIT-Deployment, Teilprojekt 4/4)
+# Design: Deployment automation (STACKIT deployment, sub-project 4/4)
 
-Stand: 2026-10-09 · Status: umgesetzt bis auf die Live-Abnahme (Task 9). Roadmap und
-Grundsatzentscheidungen E1–E8:
+As of: 2026-10-09 · Status: implemented except for the live acceptance (Task 9). Roadmap and
+fundamental decisions E1–E8:
 `docs/superpowers/specs/2026-09-23-stackit-deployment-roadmap-design.md`.
-Vorgänger: `docs/superpowers/specs/2026-10-08-tp2-image-pipeline-design.md`
-(umgesetzt, Release `v0.1.0`).
+Predecessor: `docs/superpowers/specs/2026-10-08-tp2-image-pipeline-design.md`
+(implemented, release `v0.1.0`).
 
-## Ziel
+## Goal
 
-Neue Versionen gelangen ohne Bau auf der VM und ohne STACKIT-Zugangsdaten
-auf GitHub in Produktion, lassen sich zurücknehmen, und der freie
-Wissensbestand wird getrennt vom Code versioniert ausgeliefert. Erfüllt
-REQ-INST-002 (automatisiertes Deployment), REQ-INST-004 (Rollback),
-REQ-DIST-004 und ADR-010 (Daten getrennt vom Image).
+New versions reach production without a build on the VM and without STACKIT credentials
+on GitHub, can be rolled back, and the free
+knowledge base is shipped versioned separately from the code. Fulfills
+REQ-INST-002 (automated deployment), REQ-INST-004 (rollback),
+REQ-DIST-004 and ADR-010 (data separate from the image).
 
-Heute baut die VM aus `/opt/normly/src` (Sync per `scripts/sync-to-vm.sh`),
-es gibt keinen Rollback-Punkt, und der Wissensbestand entsteht per Ingestion
-auf der VM. Das blockiert außerdem die Verkleinerung auf `g1a.2d` (TP1a).
+Today the VM builds from `/opt/normly/src` (sync via `scripts/sync-to-vm.sh`),
+there is no rollback point, and the knowledge base is created by ingestion
+on the VM. This also blocks the downsizing to `g1a.2d` (TP1a).
 
-## Zerlegung
+## Decomposition
 
-Der Nutzer hat bewusst **eine** Spec für alle drei Teile gewählt (Option C
-der Zerlegungsfrage; Empfehlung war, Rollout zuerst abzutrennen). Die Teile
-sind deshalb getrennt abnehmbar gehalten und können im Plan in eigene
-Abschnitte oder Pläne geschnitten werden:
+The owner deliberately chose **one** spec for all three parts (option C
+of the decomposition question; the recommendation was to split off rollout first). The parts
+are therefore kept separately acceptable and can be cut into separate sections
+or separate plans when planning:
 
-1. Rollout und Rollback (`normly-deploy`)
-2. Datenbanksicherung (`normly-backup`)
-3. Wissensbestand-Dump (`normly-kb export` / `import`)
+1. Rollout and rollback (`normly-deploy`)
+2. Database backup (`normly-backup`)
+3. Knowledge base dump (`normly-kb export` / `import`)
 
-## Entscheidungen
+## Decisions
 
-| # | Frage | Entscheidung | Verworfen |
+| # | Question | Decision | Rejected |
 |---|---|---|---|
-| D1 | Auslöser des Rollouts | Manueller Aufruf per SSH, Skript timerfähig gehalten | Timer mit Auto-Rollout (Migrationen liefen unbeaufsichtigt, braucht „höchster Tag“-Logik und Stabilitätsfenster) |
-| D2 | Rollback und Migrationen | Rollback setzt Images **und** Daten auf den Stand vor dem Rollout zurück, mit Warnung und Bestätigung | Nur Images zurück (verlangt eine Expand/Contract-Disziplin für Migrationen, die es nicht gibt) |
-| D3 | Sicherungsziel | `age`-verschlüsselt auf der VM, privater Bucket in STACKIT Object Storage, privater Schlüssel nie auf der VM | Nur serverseitige Verschlüsselung (Schlüssel beim Anbieter, neben den Daten); nur Pre-Rollout-Dumps |
-| D4 | Dump-Format | Parquet je Tabelle plus signiertes Manifest, Import über die Repository-Schicht | `pg_dump` des Wissensbestands (siehe unten) |
-| D5 | Verteilung | Öffentlich lesbarer Object-Storage-Bucket, Kalenderversion, signiertes Manifest | STACKIT-Git-Repository (große Binärdateien, anonymer Zugriff unhandlich); Git zusätzlich als Manifest-Verlauf (zweites System) |
-| D6 | Sicherung nach Datenart | Nutzerdaten täglich gesichert, Wissensbestand nicht (ist über Dump rekonstruierbar), Flex-Sicherung als Betriebsnetz | Täglicher Gesamtdump (bei zweistelligen GB verschwendet) |
+| D1 | Rollout trigger | Manual invocation via SSH, script kept timer-capable | Timer with auto-rollout (migrations would run unattended, needs "highest tag" logic and a stability window) |
+| D2 | Rollback and migrations | Rollback restores images **and** data to the state before the rollout, with a warning and confirmation | Images only (requires an expand/contract discipline for migrations that does not exist) |
+| D3 | Backup target | `age`-encrypted on the VM, private bucket in STACKIT Object Storage, private key never on the VM | Server-side encryption only (key with the provider, next to the data); pre-rollout dumps only |
+| D4 | Dump format | Parquet per table plus signed manifest, import through the repository layer | `pg_dump` of the knowledge base (see below) |
+| D5 | Distribution | Publicly readable Object Storage bucket, calendar version, signed manifest | STACKIT Git repository (large binary files, anonymous access unwieldy); Git additionally as manifest history (second system) |
+| D6 | Backup by data type | User data backed up daily, knowledge base not (can be reconstructed from the dump), Flex backup as operational safety net | Daily full dump (wasteful at double-digit GB) |
 
-### Begründung D4: Parquet statt `pg_dump`
+### Rationale D4: Parquet instead of `pg_dump`
 
-Der Nutzer hat B gegen die ursprüngliche Empfehlung (A, `pg_dump`) gewählt;
-die Gründe, die ihn tragen:
+The owner chose B against the original recommendation (A, `pg_dump`);
+the reasons that support it:
 
-- **ADR-006 / CLAUDE.md:** Datenbankzugriff läuft nur über die
-  Repository-Schicht, damit die Speichertechnologie austauschbar bleibt.
-  `pg_dump` ist ein Postgres-Artefakt und umgeht sie.
-- **Der Dump ist ein öffentliches Produkt** (REQ-DIST-004), das Dritte
-  einspielen. Ein Format ohne Bindung an unsere Alembic-Revision überlebt
-  Schemaänderungen; bei `pg_dump` müsste jeder Selbsthoster die passende
-  Anwendungsversion finden.
-- **Abstammung:** Ein tabellenweiser Export mit Quelllieferung je Zeile
-  hält die Rücknahme einer Lieferung auch im Dump nachvollziehbar.
-- **Preis:** mehr Code (Export, Import, Austauschschema), langsamerer
-  Import, Idempotenz selbst herzustellen. Parquet statt NDJSON, weil
-  Einbettungen (1024 Floats, ~4 KB je Abschnitt) sonst unhandlich werden.
+- **ADR-006 / CLAUDE.md:** Database access runs only through the
+  repository layer, so that the storage technology stays interchangeable.
+  `pg_dump` is a Postgres artifact and bypasses it.
+- **The dump is a public product** (REQ-DIST-004) that third parties
+  import. A format not bound to our Alembic revision survives
+  schema changes; with `pg_dump`, every self-hoster would have to find the matching
+  application version.
+- **Lineage:** A table-by-table export with the source delivery per row
+  keeps the withdrawal of a delivery traceable in the dump as well.
+- **Price:** more code (export, import, exchange schema), slower
+  import, idempotency to be established ourselves. Parquet instead of NDJSON, because
+  embeddings (1024 floats, ~4 KB per section) would otherwise become unwieldy.
 
-## Teil 1: Rollout und Rollback (`normly-deploy`)
+## Part 1: Rollout and rollback (`normly-deploy`)
 
-Shell-Skript `scripts/normly-deploy`, läuft auf der VM ohne
-Quellcode-Checkout mit einem schmalen Verzeichnis (`compose.yaml`, `.env`).
-Es nutzt, was `compose.yaml` schon hat: den `migrate`-Dienst vor `api`,
-`accounts` und `chat` und die Parametrisierung `NORMLY_IMAGE_TAG`.
+Shell script `scripts/normly-deploy`, runs on the VM without a
+source code checkout, with a narrow directory (`compose.yaml`, `.env`).
+It uses what `compose.yaml` already has: the `migrate` service before `api`,
+`accounts` and `chat`, and the parametrization `NORMLY_IMAGE_TAG`.
 
 **`normly-deploy deploy vX.Y.Z`**
 
-0. Ein Tag, der dem aktuellen entspricht, wird abgelehnt. Ist ein
-   fehlgeschlagener Rollout vermerkt (`state/failed_rollout`), startet kein
-   neuer `deploy`, bis der Rollback gelaufen ist; der Operator kann das
-   bewusst übergehen, indem er die Datei entfernt.
-1. `cosign verify` für alle fünf Images gegen die GitHub-OIDC-Identität des
-   Release-Workflows. Schlägt eine Prüfung fehl: Abbruch, nichts verändert.
-   **Digest-Pinning:** Der geprüfte Digest (`docker-manifest-digest` aus der
-   cosign-Ausgabe) wird festgehalten (`releases/<tag>/verified-digests`).
-   Die Assets kommen aus `pipeline@<digest>`; nach `pull` muss der Digest
-   jedes Images dem geprüften entsprechen, sonst Abbruch vor `up`. Ein
-   zwischenzeitlich umgesetztes Tag umgeht die Prüfung so nicht.
-2. Pre-Rollout-Sicherung nach Teil 2 (Nutzerdaten) samt aktuellem Tag und
-   Dump-Version des Wissensbestands. Ohne bestätigten Upload kein Rollout.
-   Lässt sich die Dump-Version des laufenden Releases nicht lesen, bricht
-   der Rollout ab; `none` wird nur festgehalten, wenn `info` es meldet.
-3. `docker compose pull` mit `NORMLY_IMAGE_TAG=vX.Y.Z`.
-4. `migrate`, dann `up -d`.
-5. Warten auf die `/health`-Endpunkte aller Dienste mit Timeout (von TP1 für
-   TP4 vorgemerkt).
-6. Bei Erfolg: Tag als `current`, vorheriger als `previous` festhalten. Bei
-   Fehlschlag: klare Meldung, **kein** automatischer Rückweg; `previous` wird
-   auf das bis dahin laufende Release gesetzt (Rollback-Ziel) und der
-   fehlgeschlagene Tag in `failed_rollout` vermerkt.
+0. A tag equal to the current one is rejected. If a
+   failed rollout is recorded (`state/failed_rollout`), no
+   new `deploy` starts until the rollback has run; the operator can
+   deliberately override this by removing the file.
+1. `cosign verify` for all five images against the GitHub OIDC identity of the
+   release workflow. If a verification fails: abort, nothing changed.
+   **Digest pinning:** The verified digest (`docker-manifest-digest` from the
+   cosign output) is recorded (`releases/<tag>/verified-digests`).
+   The assets come from `pipeline@<digest>`; after `pull`, the digest of
+   every image must match the verified one, otherwise abort before `up`. A
+   tag moved in the meantime thus does not bypass the verification.
+2. Pre-rollout backup according to Part 2 (user data) together with the current tag and
+   the dump version of the knowledge base. Without a confirmed upload, no rollout.
+   If the dump version of the running release cannot be read,
+   the rollout aborts; `none` is recorded only if `info` reports it.
+3. `docker compose pull` with `NORMLY_IMAGE_TAG=vX.Y.Z`.
+4. `migrate`, then `up -d`.
+5. Wait for the `/health` endpoints of all services with a timeout (earmarked by TP1 for
+   TP4).
+6. On success: record the tag as `current`, the previous one as `previous`. On
+   failure: clear message, **no** automatic way back; `previous` is
+   set to the release running until then (rollback target) and the
+   failed tag is recorded in `failed_rollout`.
 
-**`normly-deploy rollback`:** prüft zuerst, bevor etwas verändert wird, ob
-die Alembic-Revision aus `<backup>.meta.json` dem Alembic-Head des
-**vorherigen** Images entspricht; bei Abweichung Abbruch (Dump und Schema
-passen sonst nicht zusammen). Danach zeigt es, welche Daten verworfen werden (vom
-Pre-Rollout-Dump bis jetzt), verlangt ausdrückliche Bestätigung und stellt
-dann den Stand vor dem Rollout wieder her. Weil Alembic-Migrationen nur
-vorwärts laufen, bleibt das neue Schema nach einem reinen Datenrestore
-bestehen; der Rollback baut das Schema deshalb **neu auf**:
+**`normly-deploy rollback`:** first checks, before anything is changed, whether
+the Alembic revision from `<backup>.meta.json` matches the Alembic head of the
+**previous** image; on a mismatch, abort (dump and schema
+would otherwise not fit together). Then it shows which data will be discarded (from the
+pre-rollout dump until now), requires explicit confirmation and
+then restores the state before the rollout. Because Alembic migrations only run
+forward, the new schema would remain after a pure data restore;
+the rollback therefore **rebuilds** the schema:
 
-1. Dienste stoppen.
-2. Alle Tabellen verwerfen (`DROP TABLE … CASCADE`; die Liste kommt aus der
-   Datenbank selbst, nicht aus dem vorherigen Image, damit auch Tabellen des
-   neueren Releases verschwinden; das Schema bleibt, damit pgvector erhalten
-   bleibt) und mit dem `migrate`-Dienst des **vorherigen** Images auf dessen
-   Alembic-Stand neu anlegen.
-3. Wissensbestand in der damaligen Dump-Version importieren (stabile IDs,
-   siehe Teil 3). Das muss **vor** den Nutzerdaten geschehen, denn diese
-   verweisen per Fremdschlüssel auf Wissensbestand-Zeilen (`watchlist` →
+1. Stop the services.
+2. Drop all tables (`DROP TABLE … CASCADE`; the list comes from the
+   database itself, not from the previous image, so that tables of the
+   newer release disappear as well; the schema remains so that pgvector is
+   preserved) and recreate them with the `migrate` service of the **previous** image at its
+   Alembic revision.
+3. Import the knowledge base in the dump version of that time (stable IDs,
+   see Part 3). This must happen **before** the user data, because the user data
+   references knowledge base rows by foreign key (`watchlist` →
    `work`, `notification` → `edge`/`document`, `chat_message_citation` →
    `document`/`segment`).
-4. Zurückgezogene Kennungen aus der Tombstone-Datei der Sicherung einspielen
-   (`exchange import-tombstones`; Nutzerzeilen können auf Tombstones zeigen,
-   die in keinem Dump stehen; siehe ADR-026). Ältere Sicherungen ohne Datei:
-   Warnung, der Rollback läuft weiter.
-5. Nutzerdaten aus dem Pre-Rollout-Dump einspielen (`--data-only`; Schema und
-   Dump stammen vom selben Alembic-Stand).
-6. `previous` starten, Gesundheit prüfen.
+4. Restore the retired IDs from the backup's tombstone file
+   (`exchange import-tombstones`; user rows can point to tombstones
+   that are in no dump; see ADR-026). Older backups without the file:
+   warning, the rollback continues.
+5. Restore the user data from the pre-rollout dump (`--data-only`; schema and
+   dump come from the same Alembic revision).
+6. Start `previous`, check health.
 
-Die Dauer von Schritt 3 steigt mit dem Bestand; das Skript nennt sie vorab.
-Scheitert der Rollback nach dem Verwerfen, meldet das Skript, dass die
-Datenbank unvollständig ist, `current_tag` unverändert bleibt und der
-identische Aufruf gefahrlos wiederholt werden kann. Erfolgreich beendet,
-löscht er `failed_rollout`.
+The duration of step 3 grows with the collection; the script states it in advance.
+If the rollback fails after the drop, the script reports that the
+database is incomplete, that `current_tag` remains unchanged and that the
+identical invocation can be repeated safely. Once it completes successfully,
+it deletes `failed_rollout`.
 
-**Fehlerfälle:** Läuft `migrate` halb durch, ist der Pre-Rollout-Dump der
-Rettungsweg (das Skript sagt es). Eine Sperrdatei verhindert parallele Läufe.
-Notweg bei Migrationen an Wissensbestand-Tabellen und großen Beständen: die
-Flex-Wiederherstellung.
+**Failure cases:** If `migrate` gets only halfway through, the pre-rollout dump is the
+way out (the script says so). A lock file prevents parallel runs.
+Emergency route for migrations on knowledge base tables and large collections: the
+Flex restore.
 
-**Nicht enthalten:** Secrets per AppRole (TP3); das Skript liest
-`/opt/normly/.env` wie heute. Kein Timer; die Schnittstelle erlaubt ihn
-später ohne Umbau.
+**Not included:** Secrets via AppRole (TP3); the script reads
+`/opt/normly/.env` as today. No timer; the interface allows one
+later without rework.
 
-## Teil 2: Datenbanksicherung (`normly-backup`)
+## Part 2: Database backup (`normly-backup`)
 
-Aufgerufen vom Rollout und von einem täglichen systemd-Timer.
+Called by the rollout and by a daily systemd timer.
 
-**Aufteilung nach Datenart (D6):**
+**Split by data type (D6):**
 
-| Daten | Eigenschaft | Sicherung |
+| Data | Property | Backup |
 |---|---|---|
-| Nutzerdaten (Konten, Chats, Watchlists, Benachrichtigungen, Ratenbegrenzung) | klein, unersetzlich | täglich `pg_dump -Fc` nur dieser Tabellen, `age`-verschlüsselt, Object Storage |
-| Wissensbestand | groß, reproduzierbar | kein eigener Dump; Stand = zuletzt importierte Dump-Version |
-| Gesamtdatenbank | Betrieb | Flex-Sicherung (siehe Befund) |
+| User data (accounts, chats, watchlists, notifications, rate limiting) | small, irreplaceable | daily `pg_dump -Fc` of these tables only, `age`-encrypted, Object Storage |
+| Knowledge base | large, reproducible | no dump of its own; state = most recently imported dump version |
+| Entire database | operations | Flex backup (see finding) |
 
-Die Zuordnung ist als Allowlist im Code festgehalten
-(`normly_core/exchange/tables.py`), mit einem Test, der jede ORM-Tabelle
-genau einer Gruppe zuweist (neue Tabelle ohne Zuordnung lässt den Test
-fehlschlagen). Es gibt drei Gruppen: **Wissensbestand** (`source`,
+The assignment is recorded as an allowlist in the code
+(`normly_core/exchange/tables.py`), with a test that assigns every ORM table to
+exactly one group (a new table without an assignment makes the test
+fail). There are three groups: **knowledge base** (`source`,
 `delivery`, `work`, `document`, `document_designation`, `document_title`,
 `rights_classification`, `edge`, `segment`, `embedding`,
-`document_embedding`), **Nutzerdaten** (`account*`, `oauth_state`,
+`document_embedding`), **user data** (`account*`, `oauth_state`,
 `watchlist`, `notification`, `rights_notification_baseline`,
-`notified_edge`, `notified_retirement`, `chat_*`, `rate_limit_bucket`) und **Pipeline-Zustand**
-(`identity_resolution_case`: Prüfwarteschlange der lokalen Ingestion, in
-Produktion leer, weder exportiert noch gesichert). Nutzerdaten verweisen per
-Fremdschlüssel auf Wissensbestand-Zeilen; der Dump muss deshalb die
-**IDs unverändert** erhalten (Voraussetzung für Rollback und Restore).
+`notified_edge`, `notified_retirement`, `chat_*`, `rate_limit_bucket`) and **pipeline state**
+(`identity_resolution_case`: review queue of the local ingestion, empty in
+production, neither exported nor backed up). User data references
+knowledge base rows by foreign key; the dump must therefore keep the
+**IDs unchanged** (prerequisite for rollback and restore).
 
-**Voraussetzung:** Der Wissensbestand in Produktion ändert sich **nur** durch
-Dump-Import, nie durch Ingestion auf der VM. Das ist zugleich die
-Voraussetzung für TP1a.
+**Prerequisite:** The knowledge base in production changes **only** through
+dump import, never through ingestion on the VM. This is at the same time the
+prerequisite for TP1a.
 
-**Werkzeug für den Upload:** `rclone` (quelloffen, ein Binary, S3-kompatibel
-gegen STACKIT Object Storage); kein US-Dienst, nur ein Client.
+**Upload tool:** `rclone` (open source, one binary, S3-compatible
+against STACKIT Object Storage); no US service, only a client.
 
-**Ablauf:** Dump → auf der VM mit dem öffentlichen `age`-Schlüssel
-verschlüsseln (temporäre Datei in einem 0700-Verzeichnis, kein Klartext
-danach) → Upload nach `backups/<UTC-Zeitstempel>-<art>.dump.age`
-(`daily` oder `pre-<tag>`) → zweite verschlüsselte Datei
-`<base>.tombstones.age` mit den zurückgezogenen Kennungen (siehe ADR-026) →
-Prüfsumme daneben, sie deckt beide Dateien ab. Eine Sicherung gilt erst
-nach bestätigtem Upload; Bereinigung läuft erst danach.
+**Procedure:** dump → encrypt on the VM with the public `age` key
+(temporary file in a 0700 directory, no plaintext
+afterwards) → upload to `backups/<UTC-timestamp>-<kind>.dump.age`
+(`daily` or `pre-<tag>`) → second encrypted file
+`<base>.tombstones.age` with the retired IDs (see ADR-026) →
+checksum next to it, covering both files. A backup counts only
+after a confirmed upload; cleanup runs only after that.
 
-**Schlüssel:** Der private `age`-Schlüssel liegt im Secrets Manager und als
-Offline-Kopie beim Betreiber, **nicht** auf der VM. Die VM kann schreiben,
-nicht lesen. Restore und Rollback brauchen den Schlüssel kurzzeitig
-(vom Betreiber bereitgestellt). Zugangsdaten für Object Storage kommen aus
+**Key:** The private `age` key lives in the Secrets Manager and as an
+offline copy with the operator, **not** on the VM. The VM can write,
+not read. Restore and rollback need the key briefly
+(provided by the operator). Credentials for Object Storage come from
 `/opt/normly/.env`.
 
-**Aufbewahrung (Stand, kann sich durch den Flex-Befund ändern):** 7 tägliche,
-2 monatliche, 3 Pre-Rollout-Stände. Begründung: Nutzerdaten sind klein
-(Megabytes), die Kosten sind nachrangig; 7 Tage decken das typische
-Entdeckungsfenster einer Einzelinstanz, Monatsstände dienen als Anker für
-spät erkannte Schäden. Wöchentliche Stände entfallen (Nutzen über 7 Tage
-hinaus klein). Eine Objektsperre wird vorerst nicht
-eingesetzt (Entscheidung 2026-10-10, Begründung siehe „Offene Punkte“ und
+**Retention (as of now, may change because of the Flex finding):** 7 daily,
+2 monthly, 3 pre-rollout backups. Rationale: user data is small
+(megabytes), the costs are secondary; 7 days cover the typical
+discovery window of a single instance, monthly backups serve as an anchor for
+damage detected late. Weekly backups are dropped (benefit beyond 7 days
+small). An object lock is not
+used for now (decision 2026-10-10, rationale see "Open items" and
 ADR-024).
 
-**Restore-Test:** Manuell und dokumentiert, einmal nach dem Bau, danach
-monatliche Erinnerung. Ein automatischer Test bräuchte den privaten
-Schlüssel auf einer Maschine und widerspräche dem Schlüsselkonzept.
+**Restore test:** Manual and documented, once after the build, then a
+monthly reminder. An automatic test would need the private
+key on a machine and would contradict the key concept.
 
-### Befund Flex-Sicherung (2026-10-09, Screenshot des Portals)
+### Finding: Flex backup (2026-10-09, screenshot of the portal)
 
-- Tägliche Sicherung um 11:45 (UTC), Ablauf nach 30 Tagen (Start 08.10.,
-  Ablauf 07.11.).
-- Größe aktuell 3,66 MB; der Wissensbestand fehlt noch.
-- **Nicht geprüft:** Punkt-in-Zeit-Wiederherstellung (PITR), Verschlüsselung
-  der Flex-Sicherungen. Beides ist vor dem Bau in der STACKIT-Dokumentation zu
-  klären; von PITR hängt ab, ob die täglichen Dumps noch kürzer ausfallen
-  können (Richtwert 3).
+- Daily backup at 11:45 (UTC), expiry after 30 days (start 08.10.,
+  expiry 07.11.).
+- Size currently 3.66 MB; the knowledge base is still missing.
+- **Not checked:** point-in-time recovery (PITR), encryption
+  of the Flex backups. Both are to be clarified in the STACKIT documentation before the build;
+  PITR determines whether the daily dumps can be kept even
+  shorter (guideline value 3).
 
-## Teil 3: Wissensbestand-Dump
+## Part 3: Knowledge base dump
 
-**Inhalt:** Nur freie Bestände (Kategorien A, B, D). Allowlist je Tabelle,
-zusätzlich muss jede Zeile durch die Rechteklassifikation freigegeben sein
-(einziges Tor); fehlende Klassifikation heißt nicht exportieren. Nutzerdaten
-und lizenzierte Bestände sind nie enthalten.
+**Content:** Only free collections (categories A, B, D). Allowlist per table,
+in addition every row must be cleared by the rights classification
+(the single gate); missing classification means do not export. User data
+and licensed collections are never included.
 
-**Format:** Parquet je Tabelle (große Tabellen in Teilen) und
-`manifest.json` mit: Austauschschema-Version (unabhängig von Alembic),
-Dump-Version (Kalender, z. B. `2026.10.1`) und Zeitpunkt, Einbettungsmodell
-mit gepinnter Revision und Dimension, enthaltene Quelllieferungen mit
-Herausgeber und Kategorie (die Rechtsgrundlage je Dokument steht in den
-Zeilen von `rights_classification`), Prüfsumme und Zeilenzahl je Datei. Jede Zeile
-führt ihre Quelllieferung (Abstammung).
+**Format:** Parquet per table (large tables in parts) and
+`manifest.json` with: exchange schema version (independent of Alembic),
+dump version (calendar, e.g. `2026.10.1`) and timestamp, embedding model
+with pinned revision and dimension, included source deliveries with
+publisher and category (the legal basis per document is in the
+rows of `rights_classification`), checksum and row count per file. Every row
+carries its source delivery (lineage).
 
-**Personennamen:** Der Export ersetzt `source.responsible_person` und
-`rights_classification.classified_by` in jeder Zeile durch die Rolle
-`normly maintainers` (Konstante `PUBLISHED_ROLE`, im Export-Statement der
-Repository-Schicht, also am Gate). Der Dump trägt nie Namen; im Code steht
-nur ein Platzhalter, eingetragene Namen liegen nur in der Datenbank des
-Betreibers. Manifest und Schema ändern sich nicht. Ein Import
-überschreibt die Spalten mit dem Label, ein erneuter Export bleibt
-zeilengleich. Ein Test prüft, dass ein eindeutiger Name in keiner Zeile, keiner
-Parquet-Datei und nicht im Manifest vorkommt.
+**Personal names:** The export replaces `source.responsible_person` and
+`rights_classification.classified_by` in every row with the role
+`normly maintainers` (constant `PUBLISHED_ROLE`, in the export statement of the
+repository layer, that is, at the gate). The dump never carries names; the code contains
+only a placeholder, entered names live only in the operator's
+database. Manifest and schema do not change. An import
+overwrites the columns with the label, a renewed export stays
+row-identical. A test checks that a unique name occurs in no row, no
+Parquet file and not in the manifest.
 
-**Export (`normly-kb export`):** lokal bei der Ingestion, über die
-Repository-Schicht. Ergebnis ist ein hochladbares Verzeichnis; eine Version
-ist unveränderlich und wird nie überschrieben.
+**Export (`normly-kb export`):** locally at ingestion, through the
+repository layer. The result is an uploadable directory; a version
+is immutable and is never overwritten.
 
-**Verteilung (D5):** Öffentlich lesbarer STACKIT-Object-Storage-Bucket,
-`kb/<version>/`, dazu `kb/latest`. Das Manifest ist mit einem
-Maintainer-Schlüssel signiert (kein Keyless-Zertifikat möglich, weil der Dump
-lokal entsteht, nicht in der CI); der öffentliche Schlüssel liegt im
-Repository. **Werkzeug: Ed25519 in Python (`cryptography`), im Import
-selbst geprüft.** Begründung: Der Import läuft im `pipeline`-Image und beim
-Selbsthoster; ein zusätzliches Binary (cosign, minisign) würde das Image
-vergrößern und eine zweite Installationshürde schaffen. Signaturformat und
-Prüfung sind klein genug, um sie testbar im Kern zu halten. Die Prüfung der
-Images mit cosign (Teil 1) bleibt davon unberührt.
+**Distribution (D5):** Publicly readable STACKIT Object Storage bucket,
+`kb/<version>/`, plus `kb/latest`. The manifest is signed with a
+maintainer key (no keyless certificate possible, because the dump
+is created locally, not in CI); the public key lives in the
+repository. **Tool: Ed25519 in Python (`cryptography`), verified in the import
+itself.** Rationale: The import runs in the `pipeline` image and at the
+self-hoster's; an additional binary (cosign, minisign) would enlarge the image
+and create a second installation hurdle. Signature format and
+verification are small enough to keep them testable in the core. The verification of the
+images with cosign (Part 1) remains unaffected by this.
 
 **Import (`normly-kb import <version>`):**
 
-1. Manifest laden, Signatur prüfen; sonst Abbruch.
-2. Austauschschema-Version und Einbettungsmodell prüfen; bei Abweichung
-   Abbruch mit klarer Meldung (keine stillen falschen Einbettungen).
-3. Prüfsummen prüfen, über die Repository-Schicht einspielen.
-4. **Idempotent:** Wiederholung derselben Version erzeugt keinen
-   abweichenden Stand; Zeilen sind über stabile Schlüssel identifiziert,
-   in der neuen Version fehlende Zeilen werden nach ADR-026 behandelt:
-   Zitate in Chats verlieren ihren Abschnittsverweis, Inhalt und Ableitungen
-   (Bezeichnungen, Titel, Rechteklassifikation, Abschnitte, Einbettungen)
-   werden gelöscht, `work`/`document`/`edge` bleiben als Tombstone mit
-   `retired_at` (Kanten zusätzlich widerrufen), fehlende Lieferungen erhalten
-   `withdrawn_at`; danach wird eingefügt oder aktualisiert (verschiebt
-   Fremdschlüssel, z. B. `document.work_id` nach einem Work-Merge oder
-   `rights_classification.delivery_id` auf eine neue Lieferung; kehrt eine Zeile
-   zurück, wird `retired_at` wieder `NULL`). Ein Work-Merge exportiert die
-   zusammengeführte Work samt Ziel, damit die Weiterleitung beim Import
-   erhalten bleibt. Der Austausch ist atomar, die Anwendung sieht nie einen
-   halben Bestand. Nutzerdaten blockieren den Import nicht; ein Dump ohne
-   Dokumente wird abgelehnt, solange die Datenbank Dokumente hält (Flag
-   `--allow-empty`). Siehe ADR-026.
-5. Die importierte Version wird in einer kleinen Tabelle festgehalten;
-   Rollout und Rollback lesen sie dort.
+1. Load the manifest, verify the signature; otherwise abort.
+2. Check the exchange schema version and embedding model; on a mismatch,
+   abort with a clear message (no silently wrong embeddings).
+3. Verify the checksums, import through the repository layer.
+4. **Idempotent:** Repeating the same version produces no
+   different state; rows are identified by stable keys,
+   rows missing in the new version are handled according to ADR-026:
+   citations in chats lose their section reference, content and derivations
+   (designations, titles, rights classification, sections, embeddings)
+   are deleted, `work`/`document`/`edge` remain as tombstones with
+   `retired_at` (edges additionally revoked), missing deliveries receive
+   `withdrawn_at`; then rows are inserted or updated (moves
+   foreign keys, e.g. `document.work_id` after a work merge or
+   `rights_classification.delivery_id` to a new delivery; if a row
+   returns, `retired_at` becomes `NULL` again). A work merge exports the
+   merged work together with its target, so that the redirect is
+   preserved on import. The exchange is atomic, the application never sees a
+   half collection. User data does not block the import; a dump without
+   documents is rejected as long as the database holds documents (flag
+   `--allow-empty`). See ADR-026.
+5. The imported version is recorded in a small table;
+   rollout and rollback read it there.
 
-**Erster Start von Selbsthostern:** Ein Werkzeugprofil in `compose.yaml`
-führt `normly-kb import latest` aus (REQ-DIST-004: „beim ersten Start
-bezogen“).
+**First start of self-hosters:** A tool profile in `compose.yaml`
+runs `normly-kb import latest` (REQ-DIST-004: "obtained on first
+start").
 
-**Nicht enthalten:** Delta-Dumps. Das Format lässt sie offen, ohne sie zu
-bauen.
+**Not included:** Delta dumps. The format leaves them open without
+building them.
 
-## Dokumentation, die mitläuft
+## Documentation that goes along
 
-- **ADR-024** „Rollout, Rollback und Sicherung auf der Einzel-VM“: D1, D2,
-  D3, D6 mit Begründung und Verworfenem.
-- **ADR-025** „Wissensbestand-Dump als Austauschformat“: D4, D5.
-- **ADR-021, Nachtrag:** Die Aussage, STACKIT Git sei für das künftige
-  Hosting der Normen-Wissensbasis vorgesehen, entfällt; die Wissensbasis
-  wird als Dump im Object Storage verteilt (ADR-025). Als datierter
-  Nachtrag, nicht als stilles Überschreiben (Muster: ADR-020). Mitzuziehen:
-  der Satz in `CLAUDE.md`, REQ-GIT-005 in `docs/srs/03-anforderungen.md` und
-  das ADR-Register. Was mit dem STACKIT-Git-Repository `normly-webapp`
-  geschieht (archivieren oder löschen), ist eine getrennte Entscheidung des
-  Nutzers und nicht Teil dieser Spec.
-- **SRS:** Verweise bei REQ-INST-002, REQ-INST-004, REQ-DIST-004.
-- **`docs/guide/`** (Englisch, ADR-020): Betriebsabschnitt für Rollout,
-  Rollback, Sicherung und Restore; `self-hosting.md` um Dump-Import ergänzen
-  (der Satz „No versioned knowledge-base dump yet“ entfällt).
+- **ADR-024** "Rollout, rollback and backup on the single VM": D1, D2,
+  D3, D6 with rationale and what was rejected.
+- **ADR-025** "Knowledge base dump as exchange format": D4, D5.
+- **ADR-021, addendum:** The statement that STACKIT Git is intended for the future
+  hosting of the norms knowledge base is dropped; the knowledge base
+  is distributed as a dump in Object Storage (ADR-025). As a dated
+  addendum, not as a silent overwrite (pattern: ADR-020). To be updated along with it:
+  the sentence in `CLAUDE.md`, REQ-GIT-005 in `docs/srs/03-requirements.md` and
+  the ADR register. What happens to the STACKIT Git repository `normly-webapp`
+  (archive or delete) is a separate decision of the
+  owner and not part of this spec.
+- **SRS:** references at REQ-INST-002, REQ-INST-004, REQ-DIST-004.
+- **`docs/guide/`** (English, ADR-020): operations section for rollout,
+  rollback, backup and restore; extend `self-hosting.md` with the dump import
+  (the sentence "No versioned knowledge-base dump yet" is dropped).
 
-## Offene Punkte
+## Open items
 
-- PITR und Verschlüsselung der Flex-Sicherungen klären (siehe Befund); kann
-  die Aufbewahrung ändern.
-- Objektsperre im Backup-Bucket: **entschieden am 2026-10-10, vorerst keine.**
-  Nach Angabe des Betreibers (gegen die STACKIT-Doku zu prüfen) braucht
-  Object Lock einen projektweiten Compliance Lock und lässt sich nur beim
-  Anlegen des Buckets wählen, danach nie abschalten. Gründe dagegen:
-  Unumkehrbarkeit vor der ersten Live-Abnahme; Wirkung aufs ganze Projekt;
-  `normly-backup` löscht alte Stände selbst und würde bis zum Fristende
-  scheitern; eine Sperre über 90 Tage hielte gelöschte Nutzerdaten länger vor
-  als der Rollback sie nachspielt (Löschprotokoll 90 Tage). Akzeptiertes
-  Restrisiko: Mit gestohlenen VM-Zugangsdaten ließen sich Sicherungen löschen
-  (lesen nicht: `age`). Zu prüfen: Zugangsdaten der VM ohne Löschrecht, Aufräumen
-  der Aufbewahrung von anderer Stelle. Neubewertung nach der Live-Abnahme;
-  später ggf. ein zweiter Bucket mit Sperre ≤ 90 Tage.
-- Kryptographisches Löschen bei Vertragsende (ADR-014): Der tägliche Dump
-  enthält Nutzerdaten, aber keine lizenzierten Bestände. Sobald lizenzierte
-  Bestände in Postgres liegen, müssen sie von Sicherungen ausgenommen oder
-  je Herausgeber verschlüsselt werden (Aufgabe der kommerziellen Schicht).
-- Größe und Dauer von Export und Import erst mit realem Bestand messbar;
-  Rollback-Dauer (Neu-Import) wird dann in `normly-deploy` angezeigt.
-- Zuordnung jeder Tabelle zu Wissensbestand oder Nutzerdaten (im Plan, mit
-  Test gegen vergessene Tabellen).
+- Clarify PITR and encryption of the Flex backups (see finding); can
+  change the retention.
+- Object lock in the backup bucket: **decided on 2026-10-10, none for now.**
+  According to the operator (to be checked against the STACKIT documentation),
+  Object Lock needs a project-wide Compliance Lock and can only be chosen when
+  the bucket is created, and can never be switched off afterwards. Reasons against:
+  irreversibility before the first live acceptance; effect on the whole project;
+  `normly-backup` deletes old backups itself and would fail until the end of the period;
+  a lock over 90 days would retain deleted user data longer
+  than the rollback replays the deletions (deletion log 90 days). Accepted
+  residual risk: with stolen VM credentials, backups could be deleted
+  (not read: `age`). To be examined: VM credentials without delete permission, cleanup
+  of the retention from elsewhere. Reassessment after the live acceptance;
+  later possibly a second bucket with a lock of ≤ 90 days.
+- Cryptographic erasure at contract end (ADR-014): The daily dump
+  contains user data, but no licensed collections. As soon as licensed
+  collections live in Postgres, they must be excluded from backups or
+  encrypted per publisher (task of the commercial layer).
+- Size and duration of export and import can only be measured with a real collection;
+  the rollback duration (re-import) is then shown in `normly-deploy`.
+- Assignment of every table to knowledge base or user data (in the plan, with a
+  test against forgotten tables).
 
-## Verifikation 2026-10-11 (Live-Abnahme, Stand: Teil 1 und 2 grün)
+## Verification 2026-10-11 (live acceptance, as of: Parts 1 and 2 green)
 
-Durchgeführt auf der Produktions-VM (`normly-prod`), Release `v0.2.0`.
+Carried out on the production VM (`normly-prod`), release `v0.2.0`.
 
-**Bestätigt:**
+**Confirmed:**
 
-- Release: Tag `v0.2.0`, der `Images`-Workflow lief grün, die CI auf `main` davor
-  ebenfalls. Die GHCR-Pakete sind öffentlich (Pull ohne Anmeldung).
-- Vorbereitung: Buckets `normly-backups` (privat) und `normly-kb` (öffentlich)
-  in der Region `eu01`, ohne Objektsperre (Entscheidung 2026-10-10, siehe
-  „Offene Punkte“). rclone läuft ohne `rclone.conf` allein über
-  `RCLONE_CONFIG_STACKIT_*` in der `.env`. `cosign` 2.5.2 aus dem
-  Release-Paket (Prüfsumme geprüft), `age` und `postgresql-client` aus dem
-  Ubuntu-Repository.
-- Skripte: Installation aus dem signierten `pipeline`-Image über den Digest wie
-  im Betriebsguide, Signaturprüfung bestanden.
-- Erste Bereitstellung `normly-deploy deploy v0.2.0` über den alten Stack aus
-  `/opt/normly/src`: Der Release-Stack nutzt denselben Compose-Projektnamen
-  (`normly`) und ersetzt die Container an Ort und Stelle, die Volumes bleiben.
-  Ergebnis: `migrate` beendet, fünf Dienste `Healthy`, `app.normly.ai` antwortet
-  mit HTTP 200, `normly-deploy status` zeigt `current: 0.2.0`; `previous` und
-  die Pre-Rollout-Sicherung sind leer (beabsichtigt bei der ersten
-  Bereitstellung). Die Migrationen 0035 bis 0037 liefen ohne Fehler.
-- Erste Sicherung `normly-backup run --kind daily`: vier Objekte im Bucket
+- Release: tag `v0.2.0`, the `Images` workflow ran green, the CI on `main` before it
+  as well. The GHCR packages are public (pull without sign-in).
+- Preparation: buckets `normly-backups` (private) and `normly-kb` (public)
+  in the region `eu01`, without object lock (decision 2026-10-10, see
+  "Open items"). rclone runs without `rclone.conf`, solely via
+  `RCLONE_CONFIG_STACKIT_*` in the `.env`. `cosign` 2.5.2 from the
+  release package (checksum verified), `age` and `postgresql-client` from the
+  Ubuntu repository.
+- Scripts: installation from the signed `pipeline` image via the digest as
+  in the operations guide, signature verification passed.
+- First deployment `normly-deploy deploy v0.2.0` over the old stack from
+  `/opt/normly/src`: The release stack uses the same Compose project name
+  (`normly`) and replaces the containers in place, the volumes remain.
+  Result: `migrate` finished, five services `Healthy`, `app.normly.ai` answers
+  with HTTP 200, `normly-deploy status` shows `current: 0.2.0`; `previous` and
+  the pre-rollout backup are empty (intended for the first
+  deployment). The migrations 0035 to 0037 ran without errors.
+- First backup `normly-backup run --kind daily`: four objects in the bucket
   (`.dump.age`, `.meta.json`, `.sha256`, `.tombstones.age`). Timer
-  `normly-backup.timer` aktiviert, nächster Lauf 03:30 UTC.
+  `normly-backup.timer` enabled, next run 03:30 UTC.
 
-**Befunde:**
+**Findings:**
 
-- In der `.env` der VM fehlte der SMTP-Block: Die App hat bis dahin keine
-  E-Mails verschickt (Bestätigung, Magic-Link, Passwort-Reset,
-  Benachrichtigungen). Ein Postfach bei einem europäischen Anbieter wurde
-  eingerichtet und `NORMLY_SMTP_*` eingetragen; der erste echte Versand ist
-  noch nicht geprüft.
-- `NORMLY_KB_BASE_URL` muss auf `.../kb` enden: Der Import holt
-  `<Basis>/latest` und `<Basis>/<Version>/manifest.json`.
-- Der Backup-Zugang der VM braucht Löschrecht (`normly-backup prune`); eine
-  Minderung mit Zugangsdaten ohne Löschrecht bleibt offen.
-- `cleanup-user-data` hat keinen Probemodus. Der Timer `normly-cleanup.timer`
-  ist bewusst noch nicht aktiviert: Mit SMTP würde der erste Lauf Warn-Mails an
-  verlassene Registrierungen schicken.
+- The SMTP block was missing in the VM's `.env`: until then the app had sent no
+  e-mails (verification, magic link, password reset,
+  notifications). A mailbox with a European provider was
+  set up and `NORMLY_SMTP_*` entered; the first real sending has
+  not been checked yet.
+- `NORMLY_KB_BASE_URL` must end in `.../kb`: the import fetches
+  `<base-url>/latest` and `<base-url>/<version>/manifest.json`.
+- The VM's backup access needs delete permission (`normly-backup prune`); a
+  mitigation with credentials without delete permission remains open.
+- `cleanup-user-data` has no dry-run mode. The timer `normly-cleanup.timer`
+  is deliberately not enabled yet: with SMTP, the first run would send warning e-mails to
+  abandoned registrations.
 
-**Noch offen (braucht Daten in der Datenbank):**
+**Still open (needs data in the database):**
 
-- Wissensbestand-Dump Ende zu Ende (Export mit dem privaten Signaturschlüssel,
-  Upload nach `kb/<version>/` und `kb/latest`, `kb-import`, Negativproben).
-  Danach die echte `NORMLY_KB_BASE_URL` in `docs/guide/self-hosting.md`
-  eintragen (heute steht dort ein Platzhalter, weil unter der URL noch kein
-  Dump liegt).
-- Restore-Test auf einem anderen Rechner mit dem privaten `age`-Schlüssel (der
-  Abschnitt „Restore test“ im Betriebsguide ist bisher nur aus dem Code
-  abgeleitet) und danach monatlich.
-- Rollback-Probe auf einen zweiten Test-Tag, einschließlich des Nachspielens
-  zwischenzeitlich gelöschter Nutzerdaten.
-- `normly-cleanup.timer` aktivieren, sobald es Nutzerdaten gibt.
+- Knowledge base dump end to end (export with the private signing key,
+  upload to `kb/<version>/` and `kb/latest`, `kb-import`, negative tests).
+  Then enter the real `NORMLY_KB_BASE_URL` in `docs/guide/self-hosting.md`
+  (today a placeholder stands there, because no
+  dump lives under the URL yet).
+- Restore test on another machine with the private `age` key (the
+  section "Restore test" in the operations guide has so far only been derived from the code)
+  and monthly thereafter.
+- Rollback drill to a second test tag, including the replay of
+  user data deleted in the meantime.
+- Enable `normly-cleanup.timer` as soon as there is user data.
 
-## Nicht-Ziele
+## Non-goals
 
-- Timer-gesteuerter Auto-Rollout, Blue/Green, Canary.
-- Secrets per AppRole (TP3).
-- Delta-Dumps, inkrementelle Sicherungen.
-- Automatisierter Restore-Test.
-- Entscheidung über das STACKIT-Git-Repository.
+- Timer-driven auto-rollout, blue/green, canary.
+- Secrets via AppRole (TP3).
+- Delta dumps, incremental backups.
+- Automated restore test.
+- Decision about the STACKIT Git repository.

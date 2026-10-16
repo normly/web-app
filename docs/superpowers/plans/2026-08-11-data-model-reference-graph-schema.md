@@ -1,4 +1,4 @@
-# Datenmodell & Referenzgraph-Schema Implementation Plan
+# Data Model & Reference Graph Schema Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.11+, SQLAlchemy 2.0, Alembic, psycopg 3, pytest, testcontainers-python (PostgreSQL 16 container for tests).
 
-**Spec:** `docs/superpowers/specs/2026-08-11-datenmodell-referenzgraph-schema-design.md`
+**Spec:** `docs/superpowers/specs/2026-08-11-data-model-reference-graph-schema-design.md`
 
 ## Global Constraints
 
@@ -2769,30 +2769,30 @@ git commit -s -m "test: verify jurisdiction-differential export and migration de
 
 **Spec coverage:**
 
-| Spec-Abschnitt | Task |
+| Spec section | Task |
 |---|---|
-| Repository-Muster (Ansatz 3) | Task 2 (Protocols) + jede Postgres-Task |
+| Repository pattern (approach 3) | Task 2 (Protocols) + every Postgres task |
 | `source` | Task 4 |
 | `delivery` | Task 5 |
 | `document` | Task 6 |
 | `document_designation` / `document_title` | Task 7 |
 | `edge` | Task 9 |
 | `rights_classification` | Task 8 |
-| Schreibpfad (Pflicht-`delivery_id`) | Tasks 4–9 (jede `create_*`-Signatur) |
-| Lesepfad (Rechte-Gate) | Task 8 (`get_document_for_jurisdiction`, `list_documents_for_jurisdiction`), Task 9 (`list_edges_for_jurisdiction`) |
-| Rücknahmepfad (kaskadierend) | Task 10 |
-| Fehlerbehandlung (Tabelle im Spec) | Task 4 (CHECK-Constraints), Task 8/Task 5 (leeres Ergebnis statt Fehler), Task 5 (idempotente Rücknahme) |
-| Testkonzept (alle sechs Punkte) | Task 4 (CHECK), Task 7 (REQ-GRAPH-005), Task 11 (REQ-GRAPH-006), Task 10 (REQ-PIPE-005), Task 8 (REQ-PIPE-004), Task 11 (REQ-PIPE-006 Migrationsdeterminismus) |
+| Write path (mandatory `delivery_id`) | Tasks 4–9 (every `create_*` signature) |
+| Read path (rights gate) | Task 8 (`get_document_for_jurisdiction`, `list_documents_for_jurisdiction`), Task 9 (`list_edges_for_jurisdiction`) |
+| Withdrawal path (cascading) | Task 10 |
+| Error handling (table in the spec) | Task 4 (CHECK constraints), Task 8/Task 5 (empty result instead of an error), Task 5 (idempotent withdrawal) |
+| Test concept (all six points) | Task 4 (CHECK), Task 7 (REQ-GRAPH-005), Task 11 (REQ-GRAPH-006), Task 10 (REQ-PIPE-005), Task 8 (REQ-PIPE-004), Task 11 (REQ-PIPE-006 migration determinism) |
 
-Keine Lücke gefunden.
+No gap found.
 
-**Placeholder-Scan:** keine „TBD"/„TODO"/„similar to Task N" gefunden — jeder Schritt trägt vollständigen Code.
+**Placeholder scan:** no "TBD"/"TODO"/"similar to Task N" found — every step carries complete code.
 
-**Typkonsistenz:** Repository-Methodennamen aus den Protocols (Task 2) stimmen mit den Implementierungen überein (`create_source`/`get_source`, `record_delivery`/`get_delivery`/`revoke_delivery`, `create_document`/`get_document_unchecked`/`add_designation`/`add_title`/`list_designations`/`list_titles`/`get_document_for_jurisdiction`/`list_documents_for_jurisdiction`, `classify`/`get_classification`, `create_edge`/`list_edges_for_jurisdiction`) — geprüft gegen jede Task-Implementierung, keine Abweichung gefunden. (`get_document` wurde während Task 8 in `get_document_unchecked` umbenannt.)
+**Type consistency:** repository method names from the Protocols (Task 2) match the implementations (`create_source`/`get_source`, `record_delivery`/`get_delivery`/`revoke_delivery`, `create_document`/`get_document_unchecked`/`add_designation`/`add_title`/`list_designations`/`list_titles`/`get_document_for_jurisdiction`/`list_documents_for_jurisdiction`, `classify`/`get_classification`, `create_edge`/`list_edges_for_jurisdiction`) — checked against every task implementation, no deviation found. (`get_document` was renamed to `get_document_unchecked` during Task 8.)
 
 ---
 
-**Plan complete and saved to `docs/superpowers/plans/2026-08-11-datenmodell-referenzgraph-schema.md`. Two execution options:**
+**Plan complete and saved to `docs/superpowers/plans/2026-08-11-data-model-reference-graph-schema.md`. Two execution options:**
 
 **1. Subagent-Driven (recommended)** — I dispatch a fresh subagent per task, review between tasks, fast iteration
 

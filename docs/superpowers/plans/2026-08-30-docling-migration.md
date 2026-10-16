@@ -50,8 +50,8 @@ existing `pytest` + real fixture PDFs.
   `TextItem`) without first verifying that classification against a real
   fixture of that source — verified empirically during design that
   `SectionHeaderItem` is not reliable for DGUV's plainly-formatted §-headings
-  (they come back as `ListItem`). See the design doc's "Entscheidungsverfahren
-  für künftige Adapter" for the procedure every future adapter should follow.
+  (they come back as `ListItem`). See the design doc's "Decision procedure
+  for future adapters" for the procedure every future adapter should follow.
 
 ---
 
@@ -252,7 +252,7 @@ string with the same one-segment-per-line shape Docling's items give,
 joined with `"\n"`. The existing regex-based boundary logic keeps working
 unmodified against that string — this is a deliberate design choice (see
 `docs/superpowers/specs/2026-08-30-docling-migration-design.md`,
-"Empirischer Befund"), not an oversight.
+"Empirical finding"), not an oversight.
 
 - [ ] **Step 1: Write the failing test for the classification finding**
 
@@ -270,7 +270,7 @@ def test_docling_classifies_paragraph_headings_as_list_items_not_section_headers
     a numbered list. This is exactly why extract_structure() stays
     pattern-based instead of trusting Docling's element classification --
     see docs/superpowers/specs/2026-08-30-docling-migration-design.md,
-    "Empirischer Befund" and "Entscheidungsverfahren für künftige Adapter".
+    "Empirical finding" and "Decision procedure for future adapters".
 
     If this test starts failing after a future Docling version upgrade,
     that is a deliberate signal that the classification behavior changed --
@@ -425,8 +425,8 @@ class DguvAdapter:
 
     def classify_rights(self, record: RawRecord) -> RightsRule:
         # Narrower than the Protocol's `RightsRule | None` on purpose: every
-        # DGUV-Vorschrift is an amtliches Werk, so this source is always
-        # classifiable and never hands the runner a "cannot classify".
+        # DGUV-Vorschrift is an amtliches Werk (official work), so this source is
+        # always classifiable and never hands the runner a "cannot classify".
         return RightsRule(
             jurisdiction="DE", may_process=True, may_index_fulltext=True,
             may_cite_passages=True, may_export_free=True,

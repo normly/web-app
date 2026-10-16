@@ -1,200 +1,197 @@
-# Design: Work-Entität (Normtracker-Grundgerüst, Teil 1/5)
+# Design: Work entity (Normtracker foundation, part 1/5)
 
-## Kontext
+## Context
 
-Der Nutzer plant, mit "Suche & Dokument-Detail" (bisher Plan 6 des
-shadcn-Frontend-Redesigns, siehe
-`docs/superpowers/specs/2026-09-05-frontend-shadcn-redesign-design.md`)
-tatsächlich das erste Grundgerüst des Normtrackers zu bauen — nicht nur ein
-Re-Theming. Bevor das Frontend angefasst wird, soll das Backend-Datenmodell
-stehen. Dieser Spec ist der erste von fünf geplanten Teilprojekten:
+With "Search & document detail" (so far Plan 6 of the
+shadcn frontend redesign, see
+`docs/superpowers/specs/2026-09-05-frontend-shadcn-redesign-design.md`),
+the owner plans to actually build the first foundation of the Normtracker — not just a
+re-theming. Before the frontend is touched, the backend data model
+should be in place. This spec is the first of five planned sub-projects:
 
-1. **Work-Entität** (dieser Spec) — Grundlage für alle folgenden.
-2. Semantische Suche (Embedding-basiert, ersetzt heutiges ILIKE).
-3. Dokument-Detail-Seite (Editionshistorie, nationale Fassungen,
-   Referenzen, Rechteklassifikation je Rechtsraum).
-4. Watchlist/Notification (Favoriten, Änderungs-Trigger, E-Mail-Versand).
-5. Frontend (führt 1–4 zusammen, letzter Zyklus).
+1. **Work entity** (this spec) — the foundation for all of the following.
+2. Semantic search (embedding-based, replaces today's ILIKE).
+3. Document detail page (edition history, national versions,
+   references, rights classification per jurisdiction).
+4. Watchlist/notification (favorites, change triggers, email sending).
+5. Frontend (brings 1–4 together, last cycle).
 
-**Ausgangslage:** ADR-011 und `CLAUDE.md` fordern "Ein Regelwerk = ein
-Knoten, sprachunabhängig" — DIN EN ISO 9001 und BS EN ISO 9001 seien
-dasselbe Dokument. Der tatsächlich implementierte `Document`-Typ
-(`core/src/normly_core/graph/domain.py`) ist jedoch über
-`(origin_issuer, origin_number, edition, part)` geschlüsselt: jede
-Ausgabe/nationale Fassung ist eine eigene Zeile mit eigener UUID, nur über
-`Edge` (`REPLACES`, `WITHDRAWN_BY`, `ADOPTED_FROM`) verknüpft. REQ-GRAPH-005
-verlangt zusätzlich explizit ein Abnahmekriterium, das damit heute nicht
-erfüllt ist: "Ein Regelwerk mit Übernahmen durch mindestens drei nationale
-Gremien wird als ein Knoten mit zugeordneten Übernahmen dargestellt."
+**Starting point:** ADR-011 and `CLAUDE.md` require "One standard = one
+node, language-independent" — DIN EN ISO 9001 and BS EN ISO 9001 are
+the same document. The actually implemented `Document` type
+(`core/src/normly_core/graph/domain.py`), however, is keyed by
+`(origin_issuer, origin_number, edition, part)`: every
+edition/national version is its own row with its own UUID, only linked via
+`Edge` (`REPLACES`, `WITHDRAWN_BY`, `ADOPTED_FROM`). REQ-GRAPH-005
+additionally explicitly requires an acceptance test that is not
+fulfilled today as a result: "A standard with adoptions by at least three national
+bodies is represented as one node with assigned adoptions."
 
-Ein während dieser Session zur Prüfung vorgelegter alternativer
-Modellentwurf (`Norm`/`NormVersion`/`NormWatchlist`/`Notification`/
-`ImportBatch`) wurde geprüft und verworfen, weil er das bestehende Modell
-nicht erweitert, sondern ersetzen würde und dabei mehrere bereits
-beschlossene Anforderungen zurückstufen würde: globale statt
-rechtsraumabhängige Lizenzklassifikation (widerspricht REQ-GRAPH-006), ein
-einzelnes `successor_norm_id`-Feld statt des typisierten Referenzgraphen
-(widerspricht REQ-GRAPH-001, ADR-007), keine Abstammungskette zu einzelnen
-Feldern (widerspricht der nicht verhandelbaren `CLAUDE.md`-Regel
-"Abstammung mitführen"), und keine Mehrsprachigkeit je Knoten (widerspricht
-REQ-GRAPH-005). Zwei Ideen aus diesem Entwurf sind aber eigenständig gut und
-fließen in spätere Teilprojekte ein: eine Änderungs-Zusammenfassung je
-Edition (Teilprojekt 3) und Watchlist/Notification (Teilprojekt 4).
+An alternative model draft submitted for review during this session
+(`Norm`/`NormVersion`/`NormWatchlist`/`Notification`/
+`ImportBatch`) was reviewed and rejected because it would not extend the existing model
+but replace it, and in doing so would downgrade several already
+accepted requirements: global instead of
+jurisdiction-dependent license classification (contradicts REQ-GRAPH-006), a
+single `successor_norm_id` field instead of the typed reference graph
+(contradicts REQ-GRAPH-001, ADR-007), no lineage chain down to individual
+fields (contradicts the non-negotiable `CLAUDE.md` rule
+"Carry lineage along"), and no multilingualism per node (contradicts
+REQ-GRAPH-005). Two ideas from this draft are good on their own, however, and
+flow into later sub-projects: a change summary per
+edition (sub-project 3) and watchlist/notification (sub-project 4).
 
-## Ziel dieses Teilprojekts
+## Goal of this sub-project
 
-Eine neue `Work`-Entität einführen, die die logische Identität eines
-Regelwerks über alle Ausgaben und nationalen Übernahmen hinweg abbildet,
-sodass REQ-GRAPH-005 erfüllt ist und spätere Teilprojekte (Suche,
-Dokument-Detail, Watchlist) auf "ein Regelwerk" statt "eine Dokumentzeile"
-referenzieren können.
+Introduce a new `Work` entity that represents the logical identity of a
+standard across all editions and national adoptions,
+so that REQ-GRAPH-005 is fulfilled and later sub-projects (search,
+document detail, watchlist) can refer to "one standard" instead of "one document row".
 
-## Nicht-Ziele
+## Non-goals
 
-- Keine Änderung an `RightsClassification` (bleibt je Document/Rechtsraum).
-- Keine Umstellung der Suche auf Work-Gruppierung (Teilprojekt 2).
-- Kein UI/API-Workflow für den Normalfall der Ingestion über das hinaus,
-  was zur Work-Zuordnung nötig ist.
-- Kein automatisiertes Nummern-Ähnlichkeits-Matching (siehe Abschnitt
-  "Zuordnungslogik").
+- No change to `RightsClassification` (stays per document/jurisdiction).
+- No switch of the search to work grouping (sub-project 2).
+- No UI/API workflow for the normal case of ingestion beyond
+  what is needed for work assignment.
+- No automated number similarity matching (see section
+  "Assignment logic").
 
-## Architektur
+## Architecture
 
-### Datenmodell
+### Data model
 
 ```
-Work (neu)
-  id: UUID (PK, surrogate — kein natürlicher Schlüssel, da ein Work
-      bewusst mehrere Herausgeber/Nummern überspannen kann)
+Work (new)
+  id: UUID (PK, surrogate — no natural key, since a Work
+      can deliberately span several publishers/numbers)
   status: enum(active, merged)
-  merged_into_work_id: UUID | None (FK → Work, self-ref; nur bei
-      status=merged gesetzt)
+  merged_into_work_id: UUID | None (FK → Work, self-ref; set only when
+      status=merged)
   created_at: datetime
   created_via: enum(auto_matched, manual)
 
-Document (bestehend, erweitert)
+Document (existing, extended)
   + work_id: UUID (FK → Work, NOT NULL)
 ```
 
-`Work` trägt bewusst **keine** Titel-, Designations- oder sonstigen
-Metadatenfelder. Anzeigedaten (Titel, aktueller Status) werden zur Laufzeit
-aus der primären Designation/Titel des aktuellsten, nicht zurückgezogenen
-`Document` des Works abgeleitet — keine Datenduplizierung, kein
-Sync-Problem zwischen Work und den zugrundeliegenden Documents.
-`RightsClassification` bleibt unverändert auf `Document`-Ebene, weil sich
-Lizenzbedingungen zwischen Herausgebern/Ausgaben desselben Works
-unterscheiden können.
+`Work` deliberately carries **no** title, designation or other
+metadata fields. Display data (title, current status) are derived at runtime
+from the primary designation/title of the most recent, non-withdrawn
+`Document` of the work — no data duplication, no
+sync problem between the work and the underlying documents.
+`RightsClassification` remains unchanged at the `Document` level, because
+license terms can differ between publishers/editions of the same work.
 
-### Zuordnungslogik bei der Ingestion
+### Assignment logic during ingestion
 
-Bei jedem neu eingelesenen `Document` prüft die Ingestion, ob die Lieferung
-selbst eine explizite Ableitungsangabe zu einem bereits bekannten Document
-enthält (z.B. "diese Ausgabe ersetzt X", "diese nationale Fassung übernimmt
+For every newly ingested `Document`, the ingestion checks whether the delivery
+itself contains an explicit derivation statement pointing to an already known document
+(e.g. "this edition replaces X", "this national version adopts
 X"):
 
-- **Signal vorhanden und eindeutig auflösbar:** das neue Document erhält
-  `work_id` des Ziel-Documents; zusätzlich wird wie bisher die konkrete
-  `Edge` (`REPLACES`, `WITHDRAWN_BY` oder `ADOPTED_FROM`) zwischen beiden
-  Documents angelegt.
-- **Kein Signal, oder Signal verweist auf kein bekanntes Document:** das
-  neue Document bekommt ein **neues** Work (1:1). Kein Rateversuch über
-  Nummern-Ähnlichkeit — textbasiertes Matching (Teilnummern,
-  Bindestrich-Varianten) ist fehleranfällig; eine falsche automatische
-  Verknüpfung im offenen, share-alike-lizenzierten Graph wiegt schwerer als
-  ein zusätzlicher Fall in der Warteschlange.
-- **Signal vorhanden, aber uneindeutig** (z.B. mehrdeutige Zielangabe):
-  `IdentityResolutionCase` wie heute (siehe unten), das Document bekommt
-  vorübergehend ein eigenes neues Work, bis die Queue-Entscheidung fällt.
+- **Signal present and unambiguously resolvable:** the new document receives the
+  `work_id` of the target document; in addition, as before, the concrete
+  `Edge` (`REPLACES`, `WITHDRAWN_BY` or `ADOPTED_FROM`) between the two
+  documents is created.
+- **No signal, or the signal points to no known document:** the
+  new document gets a **new** work (1:1). No guessing via
+  number similarity — text-based matching (part numbers,
+  hyphen variants) is error-prone; a wrong automatic
+  link in the open, share-alike-licensed graph weighs more heavily than
+  an additional case in the queue.
+- **Signal present, but ambiguous** (e.g. an ambiguous target statement):
+  `IdentityResolutionCase` as today (see below); the document temporarily
+  gets its own new work until the queue decision is made.
 
-**Nur `REPLACES`, `WITHDRAWN_BY` und `ADOPTED_FROM` lösen eine gemeinsame
-Work-Zuordnung aus.** `REFERENCES` und `BASED_ON_LAW` verbinden erkennbar
-unterschiedliche Regelwerke (eine Norm, die eine andere zitiert; ein
-Gesetz, das auf eine Norm verweist) und dürfen niemals dasselbe Work
-ergeben.
+**Only `REPLACES`, `WITHDRAWN_BY` and `ADOPTED_FROM` trigger a shared
+work assignment.** `REFERENCES` and `BASED_ON_LAW` connect recognizably
+different standards (a norm that cites another; a
+law that refers to a norm) and must never result in the same work.
 
-### Erweiterung von IdentityResolutionCase
+### Extension of IdentityResolutionCase
 
-`IdentityResolutionCase` (bestehend) bekommt einen zweiten Fall-Typ:
+`IdentityResolutionCase` (existing) gets a second case type:
 
 ```
-IdentityResolutionCase (erweitert)
+IdentityResolutionCase (extended)
   ...
   case_type: enum(new_document, work_merge)
-  # bei case_type=work_merge:
+  # for case_type=work_merge:
   source_work_id: UUID | None
   target_work_id: UUID | None
 ```
 
-- `new_document`: wie heute — ein neu geliefertes Document wartet auf
-  Zuordnung zu einem bestehenden `resolved_document_id` (und damit dessen
-  Work).
-- `work_merge`: ein Kurator stellt fest, dass zwei bereits **bestehende,
-  unabhängig entstandene** Works dasselbe Regelwerk sind (z.B. wurden
-  DIN- und BS-Fassung anfangs mangels Signal getrennt angelegt, eine
-  spätere Lieferung belegt den Zusammenhang doch). Bei Auflösung: alle
-  `Document.work_id` des `source_work_id` werden auf `target_work_id`
-  umgeschrieben, `source_work_id` wird auf `status=merged` gesetzt mit
-  `merged_into_work_id=target_work_id` — nie gelöscht, wegen
-  Nachvollziehbarkeit/Abstammung.
+- `new_document`: as today — a newly delivered document waits for
+  assignment to an existing `resolved_document_id` (and thus its
+  work).
+- `work_merge`: a curator determines that two already **existing,
+  independently created** works are the same standard (e.g. the
+  DIN and BS versions were initially created separately for lack of a signal, and a
+  later delivery does prove the connection). On resolution: all
+  `Document.work_id` of the `source_work_id` are
+  rewritten to `target_work_id`, `source_work_id` is set to `status=merged` with
+  `merged_into_work_id=target_work_id` — never deleted, for the sake of
+  traceability/lineage.
 
-## Migration & Backfill
+## Migration & backfill
 
-Für bestehende Daten wird `work_id` per Alembic-Migration befüllt: über die
-transitive Hülle bestehender `REPLACES`/`WITHDRAWN_BY`/`ADOPTED_FROM`-Kanten
-(Union-Find) — jede zusammenhängende Gruppe bestehender Documents bekommt
-ein gemeinsames neues Work, jedes unverbundene Document bekommt sein
-eigenes neues Work. Das ist deterministisch und nutzt exakt die Kanten, die
-heute schon die Zusammengehörigkeit ausdrücken — keine manuelle Nacharbeit
-nötig.
+For existing data, `work_id` is filled via an Alembic migration: via the
+transitive closure of existing `REPLACES`/`WITHDRAWN_BY`/`ADOPTED_FROM` edges
+(union-find) — every connected group of existing documents gets
+a shared new work, every unconnected document gets its
+own new work. This is deterministic and uses exactly the edges that
+already express the belonging-together today — no manual rework
+needed.
 
-## Fehlerbehandlung
+## Error handling
 
-- `work_id` ist `NOT NULL` — ein Document ohne auflösbares Work darf nie
-  committet werden. Die Ingestion muss vor dem Commit ein Work zugeordnet
-  haben (neu erzeugt oder bestehend), analog zur bestehenden Regel
-  "fehlende Klassifikation heißt nicht verarbeiten, nicht vorläufig
-  erlaubt".
-- Zugriff auf ein Document, dessen Work `status=merged` ist, wird
-  transparent auf `merged_into_work_id` umgeleitet (nie ein toter Link).
-- Ein `work_merge`-Case mit widersprüchlichen/zyklischen Zielen (A merge→B,
-  B merge→A) wird beim Auflösen abgelehnt, nicht committet.
+- `work_id` is `NOT NULL` — a document without a resolvable work must never
+  be committed. The ingestion must have assigned a work before the commit
+  (newly created or existing), analogous to the existing rule:
+  missing classification means "do not process", not
+  "provisionally allowed".
+- Access to a document whose work has `status=merged` is
+  transparently redirected to `merged_into_work_id` (never a dead link).
+- A `work_merge` case with contradictory/cyclic targets (A merge→B,
+  B merge→A) is rejected on resolution, not committed.
 
-## Testkonzept
+## Test concept
 
-- Unit: Union-Find-Backfill-Logik gegen ein Fixture-Set bekannter Ketten
-  (Edition A→B→C via `REPLACES`, nationale Fassung D via `ADOPTED_FROM` von
-  B) — erwartet ein gemeinsames Work für alle vier.
-- Unit: Ingestion mit eindeutigem Signal → korrekte `work_id`-Übernahme;
-  ohne Signal → neues Work; mehrdeutig → `IdentityResolutionCase`.
-- Integration: `work_merge`-Case-Resolution verschiebt alle Documents
-  korrekt und markiert die Quelle als `merged`.
-- Repository-Test: Zugriff auf ein Document eines `merged`-Works liefert
-  transparent das Ziel-Work.
-- Repository-Test: `REFERENCES`/`BASED_ON_LAW`-Kanten lösen nachweislich
-  **keine** gemeinsame Work-Zuordnung aus.
+- Unit: union-find backfill logic against a fixture set of known chains
+  (edition A→B→C via `REPLACES`, national version D via `ADOPTED_FROM` from
+  B) — expects one shared work for all four.
+- Unit: ingestion with an unambiguous signal → correct `work_id` adoption;
+  without a signal → new work; ambiguous → `IdentityResolutionCase`.
+- Integration: `work_merge` case resolution moves all documents
+  correctly and marks the source as `merged`.
+- Repository test: access to a document of a `merged` work
+  transparently returns the target work.
+- Repository test: `REFERENCES`/`BASED_ON_LAW` edges demonstrably trigger
+  **no** shared work assignment.
 
-## Bezug zu Requirements und ADRs
+## Relation to requirements and ADRs
 
-| Requirement/ADR | Bezug |
+| Requirement/ADR | Relation |
 |---|---|
-| REQ-GRAPH-005 | Abnahmekriterium ("ein Knoten mit zugeordneten Übernahmen") wird durch `Work` erstmals erfüllt — bisher unerfüllt, da `Document` diese Aggregation nicht abbildete. SRS wird um einen Verweis auf `Work` ergänzt. |
-| ADR-011 | "Ein Regelwerk = ein Knoten" wird um einen Nachtrag ergänzt, der die konkrete Umsetzung dokumentiert (Work-Entität als logische Identität über mehrere Document-Zeilen, nicht ein einzelner DB-Row im wörtlichen Sinn). |
-| REQ-GRAPH-001/002/006 | Unverändert — Referenzgraph-Kantentypen, Schichtung frei/kommerziell und Rechtsraum-Klassifikation bleiben wie bisher auf `Document`/`Edge`-Ebene. |
-| CLAUDE.md "Abstammung mitführen" | `Work` selbst hat keine eigene Abstammung (trägt keine Inhalte); jedes `Document` behält seine bestehende `created_via_delivery_id`. `merged`-Works bleiben aus Nachvollziehbarkeitsgründen erhalten statt gelöscht. |
+| REQ-GRAPH-005 | The acceptance test ("one node with assigned adoptions") is fulfilled for the first time by `Work` — previously unfulfilled, since `Document` did not represent this aggregation. The SRS is extended with a reference to `Work`. |
+| ADR-011 | "One standard = one node" is extended with an addendum that documents the concrete implementation (work entity as a logical identity across several document rows, not a single DB row in the literal sense). |
+| REQ-GRAPH-001/002/006 | Unchanged — reference graph edge types, free/commercial layering and jurisdiction classification remain at the `Document`/`Edge` level as before. |
+| CLAUDE.md "Carry lineage along" | `Work` itself has no lineage of its own (carries no content); every `Document` keeps its existing `created_via_delivery_id`. `merged` works are kept instead of deleted for traceability reasons. |
 
-## Offene Punkte / Folgearbeiten
+## Open items / follow-up work
 
-- **Semantische Suche** (Teilprojekt 2): Suchtreffer sollen künftig pro
-  Work gruppiert werden (ein Treffer = ein Regelwerk, Editionen/nationale
-  Fassungen aufklappbar) — hängt direkt an diesem Spec, ist aber nicht Teil
-  davon.
-- **Dokument-Detail-Seite** (Teilprojekt 3): zeigt Editionshistorie,
-  nationale Fassungen, Referenzen und Rechteklassifikation je Rechtsraum
-  für ein Work.
-- **Watchlist/Notification** (Teilprojekt 4): Nutzer verfolgen ein Work
-  (nicht eine einzelne Document-Edition); Änderungs-Trigger hängt an neu
-  entstehenden `REPLACES`/`WITHDRAWN_BY`-Kanten innerhalb eines Works.
-- **Frontend** (Teilprojekt 5, letzter Zyklus): führt 1–4 zusammen.
-- **Work-Merge-Admin-Oberfläche.** Dieser Spec legt nur das
-  Datenmodell/die Case-Resolution-Logik für `work_merge` fest; eine
-  eigene Kuratierungs-UI dafür ist nicht Teil dieses Zyklus.
+- **Semantic search** (sub-project 2): search hits are to be grouped per
+  work in future (one hit = one standard, editions/national
+  versions expandable) — depends directly on this spec, but is not part
+  of it.
+- **Document detail page** (sub-project 3): shows the edition history,
+  national versions, references and rights classification per jurisdiction
+  for a work.
+- **Watchlist/notification** (sub-project 4): users follow a work
+  (not a single document edition); the change trigger depends on newly
+  created `REPLACES`/`WITHDRAWN_BY` edges within a work.
+- **Frontend** (sub-project 5, last cycle): brings 1–4 together.
+- **Work merge admin interface.** This spec only defines the
+  data model/the case resolution logic for `work_merge`; a
+  dedicated curation UI for it is not part of this cycle.

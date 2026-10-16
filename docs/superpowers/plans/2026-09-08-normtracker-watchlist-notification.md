@@ -279,7 +279,7 @@ class NotificationORM(Base):
     )
 ```
 
-`trigger_edge_id` is always non-NULL for `NEW_EDITION`/`NATIONAL_ADOPTION` rows, so this plain unique constraint gives real DB-level dedup for those two trigger types (Postgres's default "every NULL is distinct" behavior is irrelevant there). `RIGHTS_CHANGE` rows always have `trigger_edge_id IS NULL`, so this same constraint never blocks them — by design: `RIGHTS_CHANGE` dedup is a value comparison against the latest prior row (Task 6), not an existence check, exactly per the spec's "nutzt eine separate Eindeutigkeits-Prüfung."
+`trigger_edge_id` is always non-NULL for `NEW_EDITION`/`NATIONAL_ADOPTION` rows, so this plain unique constraint gives real DB-level dedup for those two trigger types (Postgres's default "every NULL is distinct" behavior is irrelevant there). `RIGHTS_CHANGE` rows always have `trigger_edge_id IS NULL`, so this same constraint never blocks them — by design: `RIGHTS_CHANGE` dedup is a value comparison against the latest prior row (Task 6), not an existence check, exactly per the spec's "uses a separate uniqueness check."
 
 - [ ] **Step 5: Write the migration**
 

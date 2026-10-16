@@ -1,4 +1,4 @@
-# Editionswechsel-Erkennung in Ingestion-Adaptern Implementation Plan
+# Edition Change Detection in Ingestion Adapters Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -297,7 +297,7 @@ def test_eur_lex_does_not_create_a_replaces_edge_for_an_unresolvable_successor(d
     exist, and no reference_target_not_found case should be enqueued either
     (Task 1 attaches no reference at all when the successor cannot be
     resolved within the currently-parsed table data, per the spec's
-    "no rätselraten" rule -- this differs from the DGUV free-text case in
+    "no guessing" rule -- this differs from the DGUV free-text case in
     Task 2, which DOES attempt resolution and falls through to a curator
     case when it fails)."""
     from normly_core.graph.domain import EdgeType
@@ -748,7 +748,7 @@ Both tasks give complete reference code (exact regexes, exact column indices, ex
 
 ## Self-Review
 
-**Spec coverage:** the spec's two Architecture sections (EUR-Lex, DGUV) are each covered by one task; the spec's Non-Ziele (no BAuA change, no `references.py`/`create_edge`/Work-merge change, no backfill mechanism, no Watchlist code) are all satisfied by construction — no task touches any of those. The spec's Tests section is covered: EUR-Lex's match/no-match/never-withdrawn cases (Task 1, Steps 1 and 5), DGUV's modern/free-text/no-section/no-predecessor cases (Task 2, Steps 1 and 5).
+**Spec coverage:** the spec's two Architecture sections (EUR-Lex, DGUV) are each covered by one task; the spec's Non-goals (no BAuA change, no `references.py`/`create_edge`/Work-merge change, no backfill mechanism, no Watchlist code) are all satisfied by construction — no task touches any of those. The spec's Tests section is covered: EUR-Lex's match/no-match/never-withdrawn cases (Task 1, Steps 1 and 5), DGUV's modern/free-text/no-section/no-predecessor cases (Task 2, Steps 1 and 5).
 
 **Placeholder scan:** none found. The two repository-method-name gaps found during the first self-review pass (`PostgresIdentityResolutionRepository`'s read-side method and `IdentityResolutionCase`'s fields) were resolved by reading the actual code (`core/src/normly_core/graph/domain.py:659-695`, `core/src/normly_core/graph/postgres/repositories.py:1476-1531`) before finalizing this plan — both tests now use the real name (`list_pending_cases`) and real fields directly, no "verify yourself" notes remain. A separate gap found the same way (`find_by_designation`'s `.scalar_one_or_none()` would raise once two documents share an identical designation, which Task 2's modern-designation end-to-end test's original draft would have triggered) was also fixed inline, by locating the new document via `list_documents_for_jurisdiction` and elimination instead.
 

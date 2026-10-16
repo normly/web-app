@@ -18,9 +18,9 @@ from normly_core.pipeline.docling_extraction import (
 from normly_core.pipeline.domain import RawRecord, RawSection, RightsRule
 
 # BAuA's three technical-rule series share one designation shape: a series
-# prefix, a running number, and an optional "Teil N" suffix for a
-# multi-part rule (e.g. "TRGS 500 Teil 1"). See design spec, "Designation-
-# Erkennung".
+# prefix, a running number, and an optional "Teil N" ("part N") suffix for a
+# multi-part rule (e.g. "TRGS 500 Teil 1"). See design spec, "Designation
+# detection".
 _DESIGNATION_PATTERN = re.compile(
     r"^(TRGS|TRBS|TRBA)\s+(\d+(?:\s+Teil\s+\d+)?)\s*(.*)$"
 )
@@ -28,7 +28,7 @@ _DESIGNATION_PATTERN = re.compile(
 # A title's own first line is short. Phase 1 deliberately runs no
 # sentence-boundary heuristic (see design spec) -- but a continuously-set
 # publication (see docs/superpowers/specs/2026-08-30-docling-migration-design.md,
-# "Empirischer Befund") merges the *entire* page into one Docling text item,
+# "Empirical finding") merges the *entire* page into one Docling text item,
 # and without any bound the pattern's `(.*)$` tail would then capture the
 # whole document as its "title". A bare length cap is not a sentence
 # heuristic: it only ever costs a missed title (falls back to `None`, same
@@ -109,7 +109,7 @@ class BauaAdapter:
         )
 
     def extract_structure(self, record: RawRecord) -> list[RawSection]:
-        # Phase 1 (design spec, "Entscheidung: Struktur-Tiefe Phase 1"): one
+        # Phase 1 (design spec, "Decision: structure depth phase 1"): one
         # segment holding the whole document, no numbered-section splitting
         # yet -- deliberately deferred, not forgotten.
         if record.full_text is None:
@@ -118,9 +118,9 @@ class BauaAdapter:
 
     def classify_rights(self, record: RawRecord) -> RightsRule:
         # Narrower than the Protocol's `RightsRule | None` on purpose: every
-        # TRGS/TRBS/TRBA is an amtliche Bekanntmachung, so this source is
-        # always classifiable and never hands the runner a "cannot
-        # classify". See design spec, "Rechtegrundlage: Kategorie A".
+        # TRGS/TRBS/TRBA is an amtliche Bekanntmachung (official announcement), so
+        # this source is always classifiable and never hands the runner a "cannot
+        # classify". See design spec, "Legal basis: category A".
         return RightsRule(
             jurisdiction="DE", may_process=True, may_index_fulltext=True,
             may_cite_passages=True, may_export_free=True,

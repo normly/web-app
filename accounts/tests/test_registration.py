@@ -85,7 +85,7 @@ def test_register_still_returns_a_session_when_email_delivery_fails(
 
     # A failed send must not fail registration -- the account is already
     # persisted by the time send() is called, and the spec is explicit that
-    # the request itself "schlägt NICHT fehl" when SMTP is down.
+    # the request itself "does NOT fail" when SMTP is down.
     assert response.status_code == 200
     body = response.json()
     assert body["account"]["email"] == "outage@example.de"

@@ -169,11 +169,6 @@ Terminology is binding and defined in `docs/glossary.md`: *Norm* is
 "norm", *Regelwerk* is "standards" (the broader term, which includes
 norms); "norms and standards" names both together.
 
-Migration in progress (2026-10-15): `docs/superpowers/` is still being
-translated, see
-`docs/superpowers/specs/2026-10-15-english-docs-migration-design.md`.
-Until then it remains German; new text in it is written in English.
-
 ## Other repository files
 
 `CONTRIBUTING.md` (DCO process), `SECURITY.md` (reporting channel),

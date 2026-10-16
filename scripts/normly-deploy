@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 normly contributors
 #
-# Pull-based rollout and rollback on the VM (TP4 spec, Teil 1; ADR-024).
+# Pull-based rollout and rollback on the VM (TP4 spec, Part 1; ADR-024).
 #
 #   normly-deploy deploy <vX.Y.Z>
 #   normly-deploy rollback --age-identity FILE [--yes]

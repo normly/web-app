@@ -1,92 +1,92 @@
-# Design: Ingestion-Pipeline (EUR-Lex, DGUV)
+# Design: Ingestion Pipeline (EUR-Lex, DGUV)
 
-**Datum:** 2026-08-14
-**Status:** zur Durchsicht
-**Teilprojekt:** zweites von mehreren zur Umsetzung des normly-MVP (freier Kern)
+**Date:** 2026-08-14
+**Status:** for review
+**Sub-project:** second of several for implementing the normly MVP (free core)
 
-## Kontext
+## Context
 
-Das erste Teilprojekt (Datenmodell & Referenzgraph-Schema, siehe
-`docs/superpowers/specs/2026-08-11-datenmodell-referenzgraph-schema-design.md`) hat das
-PostgreSQL-Schema und die Repository-Schicht gebaut, aber bewusst ohne Ingestion-Logik und
-ohne Segment-/Embedding-Tabellen. Der Graph ist leer.
+The first sub-project (data model & reference graph schema, see
+`docs/superpowers/specs/2026-08-11-data-model-reference-graph-schema-design.md`) built the
+PostgreSQL schema and the repository layer, but deliberately without ingestion logic and
+without segment/embedding tables. The graph is empty.
 
-REQ-PIPE-001 beschreibt eine achtstufige Verarbeitungskette: Quellenregister, Ingest-Adapter,
-Identitätsauflösung, Rechteklassifikation, Strukturextraktion, Verweisextraktion,
-Segmentierung und Einbettung, Ausspielung. Das ist zu groß für ein Teilprojekt.
+REQ-PIPE-001 describes an eight-stage processing chain: source register, ingest adapters,
+identity resolution, rights classification, structure extraction, reference extraction,
+segmentation and embedding, output. That is too large for one sub-project.
 
-**Entschieden mit dem Auftraggeber:**
+**Decided with the owner:**
 
-1. Umfang: die volle Kette bis einschließlich Segmentierung/Einbettung, aber nur für zwei
-   konkrete Quellen — **EUR-Lex** (Listen harmonisierter Normen, nur Metadaten/Verweise, kein
-   Volltext) und **DGUV** (Vorschriften, echter Volltext). „Ausspielung" ist explizit nicht
-   Teil dieses Teilprojekts. Für EUR-Lex konkret: die von der Kommission veröffentlichten
-   „Summary list of harmonised standards"-PDFs je Richtlinie/Verordnung (z. B. für die
-   Maschinenrichtlinie 2006/42/EC unter
-   `single-market-economy.ec.europa.eu/.../harmonised-standards/machinery-md_en`) — recherchiert
-   und verifiziert (echte, real abgerufene Beispieldatei), nicht das CELLAR/SPARQL-System, für
-   das kein vergleichbar sauberes, dokumentiertes Schema für harmonisierte Normen gefunden
-   wurde.
-2. Nur DGUV durchläuft Strukturextraktion, Segmentierung und Einbettung — EUR-Lex hat keinen
-   Volltext, speist nur Katalogeinträge und Graphkanten.
-3. Rechteklassifikation für beide Quellen läuft automatisch nach quellenspezifischer Regel,
-   kein manueller Freigabeschritt.
-4. Die Prüfoberfläche aus REQ-PIPE-007 bleibt in diesem Teilprojekt Datenmodell + Repository
-   (Warteschlange), keine Bedienoberfläche — die kommt mit dem Backend-API-Teilprojekt.
-5. Embedding-Modell: `intfloat/multilingual-e5-large`, lokal über `sentence-transformers`,
-   keine externe API. Tests nutzen konsequent das echte Modell, kein Stub.
-6. Rohdateien werden inhaltsadressiert lokal auf der Festplatte abgelegt. STACKIT Object
-   Storage ist eine spätere Deployment-Entscheidung.
-7. Aufruf als CLI (`python -m normly_core.pipeline ingest <quelle>`), kein Scheduler.
-8. `adapter.fetch()` liest für den Start aus einem konfigurierten lokalen Verzeichnis
-   (dorthin werden EUR-Lex-/DGUV-Dateien vorerst manuell heruntergeladen), statt selbst
-   über HTTP abzurufen. Grund: automatisiertes, wiederkehrendes Abrufen (Login-Session,
-   Pagination, Ratenbegrenzung) ist ein eigenes, nicht-triviales Stück Arbeit, das von der
-   eigentlich wertvollen Extraktions-/Parsing-Logik unabhängig ist — die Parsing-Logik selbst
-   ist jetzt gegen echte, verifizierte Formate spezifiziert (siehe Punkt 1 und
-   Architektur-Abschnitt), nur das automatisierte Abrufen bleibt Folgearbeit. Ein echter
-   HTTP-Fetcher ersetzt später nur diese eine Stelle, ohne die Parsing-Logik anzufassen.
+1. Scope: the full chain up to and including segmentation/embedding, but only for two
+   concrete sources — **EUR-Lex** (lists of harmonized norms, metadata/references only, no
+   full text) and **DGUV** (regulations, i.e. Vorschriften; real full text). "Output" is explicitly not
+   part of this sub-project. For EUR-Lex specifically: the "Summary list of harmonised
+   standards" PDFs published by the Commission per directive/regulation (e.g. for the
+   Machinery Directive 2006/42/EC under
+   `single-market-economy.ec.europa.eu/.../harmonised-standards/machinery-md_en`) — researched
+   and verified (a real sample file, actually retrieved), not the CELLAR/SPARQL system, for
+   which no comparably clean, documented schema for harmonized norms was
+   found.
+2. Only DGUV passes through structure extraction, segmentation and embedding — EUR-Lex has no
+   full text and only feeds catalog entries and graph edges.
+3. Rights classification for both sources runs automatically according to a source-specific rule,
+   with no manual approval step.
+4. The review interface from REQ-PIPE-007 remains data model + repository
+   (queue) in this sub-project, no user interface — that comes with the backend API sub-project.
+5. Embedding model: `intfloat/multilingual-e5-large`, locally via `sentence-transformers`,
+   no external API. Tests consistently use the real model, no stub.
+6. Raw files are stored content-addressed locally on disk. STACKIT Object
+   Storage is a later deployment decision.
+7. Invocation as a CLI (`python -m normly_core.pipeline ingest <source>`), no scheduler.
+8. For the start, `adapter.fetch()` reads from a configured local directory
+   (EUR-Lex/DGUV files are downloaded there manually for now) instead of retrieving
+   over HTTP itself. Reason: automated, recurring retrieval (login session,
+   pagination, rate limiting) is a separate, non-trivial piece of work that is independent of the
+   actually valuable extraction/parsing logic — the parsing logic itself
+   is now specified against real, verified formats (see item 1 and the
+   Architecture section), only automated retrieval remains follow-up work. A real
+   HTTP fetcher later replaces only this one spot, without touching the parsing logic.
 
-## Ziel dieses Teilprojekts
+## Goal of this sub-project
 
-Ein befragbarer Referenzgraph mit echten Daten aus EUR-Lex und DGUV: Normknoten,
-Rechtsakt-Knoten, Ersetzungs-/Verweiskanten, Rechteklassifikation je Knoten und Rechtsraum,
-sowie für DGUV zusätzlich Volltext-Segmente mit Embeddings für die spätere RAG-Anbindung.
-Die Adapter-Abstraktion muss REQ-PIPE-001s Abnahmekriterium erfüllen: eine neue Quelle wird
-angebunden, ohne dass Schritte hinter dem Adapter angepasst werden müssen.
+A queryable reference graph with real data from EUR-Lex and DGUV: norm nodes,
+legal act nodes, replacement/reference edges, rights classification per node and jurisdiction,
+and for DGUV additionally full-text segments with embeddings for the later RAG integration.
+The adapter abstraction must fulfill REQ-PIPE-001's acceptance test: a new source is
+connected without steps behind the adapter having to be adapted.
 
-## Nicht-Ziele
+## Non-goals
 
-- **Ausspielung / öffentliche API / Chat.** Konsumiert die hier entstehenden Daten über die
-  Repository-Schicht, ist aber ein eigenes Teilprojekt.
-- **Bedienoberfläche für die Prüf-Warteschlange.** Nur Datenmodell + Repository-Methoden in
-  diesem Teilprojekt; eine echte UI kommt mit dem Backend-API-/Frontend-Teilprojekt.
-- **Weitere Quellen** (BAuA, CEN/CENELEC-Arbeitsprogramme, ISO/IEC-Katalogdaten). Die
-  Adapter-Abstraktion muss sie ohne Änderung an nachgelagerten Schritten aufnehmen können,
-  aber ihre konkrete Anbindung ist Folgearbeit.
-- **Perinorm-/Kategorie-C-Adapter.** Weiterhin an einen konkreten Vertrag gebunden
-  (siehe Nicht-Ziele des vorigen Teilprojekts).
-- **STACKIT Object Storage, Scheduler/Orchestrierung für den Produktivbetrieb.**
-  Deployment-Entscheidungen, nicht Teil dieses Teilprojekts.
-- **Echte HTTP-Anbindung an EUR-Lex/DGUV.** `adapter.fetch()` liest für den Start aus einem
-  lokalen Verzeichnis (siehe Kontext, Punkt 8) — ein späterer HTTP-Fetcher ist Folgearbeit.
-- **Allgemeine, konfigurierbare Struktur-/Verweisextraktion.** Für den Start
-  quellenspezifisch, regelbasiert — kein generisches Dokumentenverständnis.
+- **Output / public API / chat.** Consumes the data created here via the
+  repository layer, but is a separate sub-project.
+- **User interface for the review queue.** Only data model + repository methods in
+  this sub-project; a real UI comes with the backend API/frontend sub-project.
+- **Further sources** (BAuA, CEN/CENELEC work programmes, ISO/IEC catalog data). The
+  adapter abstraction must be able to take them in without changes to downstream steps,
+  but connecting them concretely is follow-up work.
+- **Perinorm/category C adapter.** Still tied to a concrete contract
+  (see Non-goals of the previous sub-project).
+- **STACKIT Object Storage, scheduler/orchestration for production operation.**
+  Deployment decisions, not part of this sub-project.
+- **Real HTTP connection to EUR-Lex/DGUV.** For the start, `adapter.fetch()` reads from a
+  local directory (see Context, item 8) — a later HTTP fetcher is follow-up work.
+- **General, configurable structure/reference extraction.** For the start
+  source-specific and rule-based — no generic document understanding.
 
-## Architektur
+## Architecture
 
-### Adapter-Abstraktion
+### Adapter abstraction
 
-Drei Ansätze wurden abgewogen:
+Three approaches were weighed:
 
-1. **Protocol-basierter `SourceAdapter`**, Adapter liefern ein quellenneutrales `RawRecord`.
-2. Adapter schreiben direkt in die Datenbank — verworfen, verletzt REQ-PIPE-001s Vorgabe,
-   dass die Verarbeitung ab der Identitätsauflösung herkunftsunabhängig ist.
-3. Ein generischer, konfigurierbarer Adapter (URL+Mapping ohne Code) — verworfen für zwei
-   strukturell sehr unterschiedliche Quellen (EUR-Lex-Tabellen-PDF vs. DGUV-Fließtext-PDF); verfrühte
-   Abstraktion.
+1. **Protocol-based `SourceAdapter`**, adapters deliver a source-neutral `RawRecord`.
+2. Adapters write directly to the database — rejected, violates REQ-PIPE-001's requirement
+   that processing from identity resolution onward is independent of the provenance type.
+3. A generic, configurable adapter (URL+mapping without code) — rejected for two
+   structurally very different sources (EUR-Lex table PDF vs. DGUV running-text PDF); premature
+   abstraction.
 
-**Entschieden: Ansatz 1.**
+**Decided: approach 1.**
 
 ```python
 @dataclass(frozen=True)
@@ -96,8 +96,8 @@ class RawRecord:
     raw_designation: str
     raw_issuer: str | None
     raw_title: str | None
-    full_text: str | None          # None bei EUR-Lex
-    language: str | None           # "en" (EUR-Lex) / "de" (DGUV); Fallback "de" im Runner
+    full_text: str | None          # None for EUR-Lex
+    language: str | None           # "en" (EUR-Lex) / "de" (DGUV); fallback "de" in the runner
     raw_references: list[RawReference]
     fetched_at: datetime
 
@@ -107,52 +107,52 @@ class SourceAdapter(Protocol):
     def classify_rights(self, record: RawRecord) -> RightsRule | None: ...
 ```
 
-`classify_rights` gibt `None` zurück, wenn die Quelle den Fall nicht zuordnen kann — der
-Runner legt dann keine Klassifikationszeile und keine abgeleiteten Artefakte an, sondern
-reiht den Datensatz in `identity_resolution_case` ein (`reason="cannot_classify_rights"`).
-Das ist der in der Fehlerbehandlung geforderte sichere Default; ursprünglich zwang die
-Protocol-Signatur jeden Adapter zu einer Antwort, das wurde in der Abschluss-Review
-korrigiert. Ebenso prüft der Runner `regel.may_process` vor jedem Schreibzugriff
-(`reason="processing_not_permitted"` bei `False`) — beide Adapter liefern heute immer eine
-erlaubende, vollständige Regel, die Fähigkeit ist aber jetzt im Typsystem vorhanden.
-`SourceAdapter` lebt tatsächlich in `pipeline/domain.py` (nicht in einer eigenen
-`adapters/base.py`, siehe korrigiertes Modullayout unten).
+`classify_rights` returns `None` if the source cannot assign the case — the
+runner then creates no classification row and no derived artifacts, but instead
+queues the record in `identity_resolution_case` (`reason="cannot_classify_rights"`).
+That is the safe default required in the error handling; originally the
+Protocol signature forced every adapter to give an answer, which was corrected in the final
+review. Likewise, the runner checks `regel.may_process` before every write access
+(`reason="processing_not_permitted"` if `False`) — both adapters currently always deliver a
+permissive, complete rule, but the capability now exists in the type system.
+`SourceAdapter` actually lives in `pipeline/domain.py` (not in a separate
+`adapters/base.py`, see the corrected module layout below).
 
-`fetch()` nimmt kein `since` entgegen: Ein Verzeichnis-Adapter listet bei jedem Lauf alle
-konfigurierten Dateien auf (der Ordnerpfad kommt über den Adapter-Konstruktor, nicht über
-`fetch()`); welche Lieferungen tatsächlich neu sind, entscheidet `find_delivery` anhand des
-Inhalts-Hashes (REQ-PIPE-006) — nicht ein Zeitstempel-Filter beim Abruf.
+`fetch()` takes no `since`: a directory adapter lists all
+configured files on every run (the folder path comes via the adapter constructor, not via
+`fetch()`); which deliveries are actually new is decided by `find_delivery` based on the
+content hash (REQ-PIPE-006) — not by a timestamp filter at retrieval.
 
-### EUR-Lex-Quellformat: „Summary list of harmonised standards"
+### EUR-Lex source format: "Summary list of harmonised standards"
 
-Recherchiert und mit einer echten, real abgerufenen Beispieldatei verifiziert (Kommissions-PDF
-für die Maschinenrichtlinie 2006/42/EC, generiert 15.10.2021, abrufbar über
-`single-market-economy.ec.europa.eu`). Konsistente Tabellenstruktur, eine Zeile je Norm:
+Researched and verified with a real sample file, actually retrieved (Commission PDF
+for the Machinery Directive 2006/42/EC, generated 15.10.2021, retrievable via
+`single-market-economy.ec.europa.eu`). Consistent table structure, one row per norm:
 
-| Spalte im PDF | Beispiel | Verwendung |
+| Column in the PDF | Example | Use |
 |---|---|---|
-| Legislation reference | `2006/42/EC` | Adapter-Konfiguration (eine PDF-Datei je Rechtsakt), nicht pro Zeile — wird zur `based_on_law`-Kante |
+| Legislation reference | `2006/42/EC` | Adapter configuration (one PDF file per legal act), not per row — becomes the `based_on_law` edge |
 | ESO | `CEN` | `raw_issuer` |
 | Reference number of the standard | `EN ISO 12100:2010` | `raw_designation` |
-| Title of the standard | „Safety of machinery - General principles for design..." | `raw_title` |
-| Type | `A` / `B` | vorerst nicht modelliert (YAGNI) |
-| Date of start of presumption of conformity | `08/04/2011` | vorerst nicht modelliert |
-| OJ reference for publication in OJ | `OJ C 110 - 08/04/2011` | Beleg für die `based_on_law`-Kante (nicht als eigenes Feld gespeichert) |
-| Restriction, Datum/OJ-Referenz für Restriction | meist `-` | vorerst nicht modelliert |
-| Date of withdrawal from OJ | z. B. `03/09/2022` | vorerst nicht modelliert — die Tabelle nennt kein Nachfolgestandard, nur ein Rückzugsdatum; eine `withdrawn_by`-Kante bräuchte ein Zieldokument, das hieraus allein nicht sauber ableitbar ist. Bewusste Vereinfachung für den Start, siehe Offene Punkte. |
+| Title of the standard | "Safety of machinery - General principles for design..." | `raw_title` |
+| Type | `A` / `B` | not modeled for now (YAGNI) |
+| Date of start of presumption of conformity | `08/04/2011` | not modeled for now |
+| OJ reference for publication in OJ | `OJ C 110 - 08/04/2011` | Evidence for the `based_on_law` edge (not stored as a separate field) |
+| Restriction, date/OJ reference for restriction | mostly `-` | not modeled for now |
+| Date of withdrawal from OJ | e.g. `03/09/2022` | not modeled for now — the table names no successor norm, only a withdrawal date; a `withdrawn_by` edge would need a target document that cannot be cleanly derived from this alone. A deliberate simplification for the start, see Open items. |
 
-Pro Zeile entsteht: `document_designation` mit `(issuer="CEN", designation="EN ISO 12100:2010")`,
-`document_title` mit dem Titel, und eine `RawReference(target_designation="2006/42/EC",
-edge_type=EdgeType.BASED_ON_LAW)`. Der Rechtsakt selbst (`2006/42/EC`) wird beim ersten
-Adapter-Lauf als eigener `document`-Knoten angelegt (Herausgeber „EU", Nummer „2006/42/EC").
+Per row, the following is created: `document_designation` with `(issuer="CEN", designation="EN ISO 12100:2010")`,
+`document_title` with the title, and a `RawReference(target_designation="2006/42/EC",
+edge_type=EdgeType.BASED_ON_LAW)`. The legal act itself (`2006/42/EC`) is created as its own
+`document` node on the first adapter run (publisher "EU", number "2006/42/EC").
 
-Begleitende Hilfstypen (ebenfalls in `pipeline.domain`, keine SQLAlchemy-Abhängigkeit):
+Accompanying helper types (also in `pipeline.domain`, no SQLAlchemy dependency):
 
 ```python
 @dataclass(frozen=True)
 class RawReference:
-    target_designation: str        # Bezeichnung des Zieldokuments, roh
-    edge_type: EdgeType            # aus graph.domain, z. B. REFERENCES, REPLACES
+    target_designation: str        # designation of the target document, raw
+    edge_type: EdgeType            # from graph.domain, e.g. REFERENCES, REPLACES
 
 @dataclass(frozen=True)
 class RawSection:
@@ -171,305 +171,305 @@ class RightsRule:
 
 @dataclass(frozen=True)
 class IdentityResolution:
-    document_id: uuid.UUID | None  # None, wenn neu anzulegen
+    document_id: uuid.UUID | None  # None if it is to be newly created
     is_new: bool
     is_ambiguous: bool
-    reason: str | None             # gesetzt, wenn is_ambiguous
+    reason: str | None             # set if is_ambiguous
 ```
 
-`extract_structure` liefert für EUR-Lex immer eine leere Liste (kein Volltext).
-`classify_rights` kapselt die quellenspezifische Rechteregel (siehe Datenfluss) — jeder
-Adapter kennt seine eigene Rechtslage, die Pipeline selbst enthält keine quellenspezifische
-Fallunterscheidung.
+`extract_structure` always returns an empty list for EUR-Lex (no full text).
+`classify_rights` encapsulates the source-specific rights rule (see Data flow) — every
+adapter knows its own legal situation; the pipeline itself contains no source-specific
+case distinction.
 
-### Modullayout
+### Module layout
 
-Teil desselben `core`-Pakets, keine neue Top-Level-Komponente:
+Part of the same `core` package, no new top-level component:
 
 ```
 core/src/normly_core/pipeline/
   domain.py          # RawRecord, RawSection, RawReference, RightsRule,
                        # IdentityResolution, SourceAdapter Protocol
-  sources.py           # Quellregister (Publisher -> Kategorie/Rechtsraum/Meta),
-                       # resolve_source() legt fehlende Registereinträge idempotent an
+  sources.py           # source register (publisher -> category/jurisdiction/meta),
+                       # resolve_source() creates missing register entries idempotently
   adapters/
     __init__.py
     eur_lex.py
     dguv.py
-  identity.py         # Bezeichnung parsen + gegen document_designation abgleichen
-  references.py       # RawReference -> edge (Layer aus RightsRule.may_export_free)
-  embeddings.py        # EmbeddingModel-Wrapper um sentence-transformers,
-                       # optionaler lokaler model_path (siehe unten)
-  runner.py           # Orchestrierung (siehe Datenfluss)
+  identity.py         # parse designation + match it against document_designation
+  references.py       # RawReference -> edge (layer from RightsRule.may_export_free)
+  embeddings.py        # EmbeddingModel wrapper around sentence-transformers,
+                       # optional local model_path (see below)
+  runner.py           # orchestration (see Data flow)
   cli.py              # build_adapter(), main()
-  __main__.py          # `python -m normly_core.pipeline ingest <quelle>`
+  __main__.py          # `python -m normly_core.pipeline ingest <source>`
 ```
 
-Abweichung vom ursprünglichen Entwurf: `SourceAdapter` liegt in `domain.py` statt in einer
-eigenen `adapters/base.py` (konsistent mit `graph.domain`, das ebenfalls seine Protocols
-neben den Dataclasses führt). `cli.py` allein reicht für `python -m` nicht aus — `-m`
-benötigt ein `__main__.py`, das war im ursprünglichen Modullayout nicht vorgesehen und wurde
-bei der Umsetzung ergänzt.
+Deviation from the original draft: `SourceAdapter` lives in `domain.py` instead of in a
+separate `adapters/base.py` (consistent with `graph.domain`, which likewise keeps its Protocols
+next to the dataclasses). `cli.py` alone is not enough for `python -m` — `-m`
+needs a `__main__.py`; that was not provided for in the original module layout and was
+added during implementation.
 
-**Quellregister (`sources.py`).** CLAUDE.md verlangt für jede Quelle einen Registereintrag
-mit Kategorie. `resolve_source(publisher, session)` sucht per `SourceRepository.find_by_publisher`
-nach einer bestehenden `source`-Zeile und legt sie sonst mit fest hinterlegten Metadaten an
-(EUR-Lex: Kategorie A, Rechtsraum EU; DGUV: Kategorie A, Rechtsraum DE). Die Suche geht über
-den bloßen `publisher`-Namen, nicht über den vollständigen Registereintrag (Kategorie/
-Rechtsraum/Bezugspfad) — für die zwei aktuellen, fest verdrahteten Quellen unproblematisch,
-aber eine spätere Härtung (eindeutiger Index über die volle Kombination) ist offen, siehe
-Offene Punkte.
+**Source register (`sources.py`).** CLAUDE.md requires a register entry with a category
+for every source. `resolve_source(publisher, session)` looks up an existing `source` row via
+`SourceRepository.find_by_publisher` and otherwise creates it with hard-coded metadata
+(EUR-Lex: category A, jurisdiction EU; DGUV: category A, jurisdiction DE). The lookup goes via
+the bare `publisher` name, not via the complete register entry (category/
+jurisdiction/retrieval path) — unproblematic for the two current, hard-wired sources,
+but a later hardening (unique index over the full combination) is open, see
+Open items.
 
-`pipeline.domain` bleibt frei von SQLAlchemy, wie `graph.domain` — dieselbe Grenze.
-Adapter-spezifische Abhängigkeiten (HTTP-Client, `lxml`, PDF-Extraktion) sind auf die
-jeweilige Adapter-Datei beschränkt.
+`pipeline.domain` stays free of SQLAlchemy, like `graph.domain` — the same boundary.
+Adapter-specific dependencies (HTTP client, `lxml`, PDF extraction) are confined to the
+respective adapter file.
 
-### Testphilosophie
+### Testing philosophy
 
-Wie im vorigen Teilprojekt: kein Mocking der Datenbank (echtes PostgreSQL mit `pgvector`
-über Testcontainers) und kein Mocking des Embedding-Modells (echtes
-`multilingual-e5-large`). Adapter-Tests laufen gegen einmalig aufgezeichnete, echte
-Beispieldateien (die echte EUR-Lex-"Summary list"-PDF, ein DGUV-PDF), keine Live-Netzwerkaufrufe.
+As in the previous sub-project: no mocking of the database (real PostgreSQL with `pgvector`
+via Testcontainers) and no mocking of the embedding model (real
+`multilingual-e5-large`). Adapter tests run against real sample files recorded
+once (the real EUR-Lex "Summary list" PDF, a DGUV PDF), no live network calls.
 
-## Datenmodell-Erweiterung
+## Data model extension
 
-### `segment` — Volltextabschnitt (nur DGUV)
+### `segment` — full-text section (DGUV only)
 
-| Spalte | Typ | Hinweis |
+| Column | Type | Note |
 |---|---|---|
 | `id` | UUID, PK | |
 | `document_id` | UUID, FK → `document` | |
-| `delivery_id` | UUID, FK → `delivery` | Abstammung |
-| `sequence_number` | int | Reihenfolge im Dokument |
-| `heading` | text, nullable | z. B. „§ 3 Grundpflichten" |
+| `delivery_id` | UUID, FK → `delivery` | Lineage |
+| `sequence_number` | int | Order in the document |
+| `heading` | text, nullable | e.g. "§ 3 Grundpflichten" |
 | `text` | text | |
 | `language` | text | ISO 639-1 |
 | `created_at` | timestamptz | |
 
-Segmentgrenzen folgen den natürlichen Gliederungseinheiten der Quelle (§-Absätze bei
-DGUV-Vorschriften) — keine separate Chunking-Stufe für den Start (YAGNI, siehe
-Pipeline-Stufen).
+Segment boundaries follow the natural structural units of the source (§ paragraphs in
+DGUV regulations) — no separate chunking stage for the start (YAGNI, see
+Pipeline stages).
 
-Eindeutigkeit über `(document_id, delivery_id, sequence_number)`, nicht nur
-`(document_id, sequence_number)` — Letzteres hätte bei einer erneuten Lieferung desselben
-Dokuments (z. B. einer geänderten DGUV-PDF) die neuen Abschnittstexte stillschweigend
-verworfen und die Zeile der ersten Lieferung zurückgegeben, mit denselben Folgen für die
-kaskadierende Rücknahme wie bei `document_designation`/`document_title` im vorigen
-Teilprojekt. In der Abschluss-Review korrigiert (Migration `0012`). Lesezugriffe filtern
-noch nicht nach der jeweils aktiven Lieferung — bei einer zweiten, noch nicht
-zurückgezogenen Lieferung desselben Dokuments würden beide Zeilenmengen zusammen
-zurückgegeben. Offener Punkt, siehe unten.
+Uniqueness over `(document_id, delivery_id, sequence_number)`, not just
+`(document_id, sequence_number)` — the latter would, on a re-delivery of the same
+document (e.g. a changed DGUV PDF), have silently discarded the new section texts
+and returned the row of the first delivery, with the same consequences for the
+cascading withdrawal as for `document_designation`/`document_title` in the previous
+sub-project. Corrected in the final review (migration `0012`). Read accesses do
+not yet filter by the currently active delivery — with a second, not yet
+withdrawn delivery of the same document, both sets of rows would be returned
+together. Open item, see below.
 
-### `embedding` — Vektorrepräsentation eines Segments
+### `embedding` — vector representation of a segment
 
-| Spalte | Typ | Hinweis |
+| Column | Type | Note |
 |---|---|---|
 | `id` | UUID, PK | |
 | `segment_id` | UUID, FK → `segment` | |
-| `delivery_id` | UUID, FK → `delivery` | Abstammung |
-| `model_name` | text | z. B. „intfloat/multilingual-e5-large" |
+| `delivery_id` | UUID, FK → `delivery` | Lineage |
+| `model_name` | text | e.g. "intfloat/multilingual-e5-large" |
 | `vector` | `vector(1024)` (pgvector) | |
 | `created_at` | timestamptz | |
 
-`UNIQUE(segment_id, model_name)` — ein Segment kann mehrere Embeddings verschiedener
-Modellversionen haben, ohne dass der Text erneut extrahiert werden muss.
+`UNIQUE(segment_id, model_name)` — a segment can have several embeddings from different
+model versions without the text having to be extracted again.
 
-Beide Tabellen erhalten dieselbe Idempotenz- (`_require_active_delivery`,
-Select-vor-Insert-mit-`IntegrityError`-Wiederherstellung) und Rücknahme-Behandlung
-(kaskadierende Sperrung/Löschung bei `revoke_delivery`) wie die bestehenden Tabellen. Der
-Drift-Schutztest aus dem vorigen Teilprojekt muss um diese beiden Tabellen erweitert werden
-— er schlägt bewusst fehl, bis das geschieht.
+Both tables get the same idempotency handling (`_require_active_delivery`,
+select-before-insert with `IntegrityError` recovery) and withdrawal handling
+(cascading blocking/deletion on `revoke_delivery`) as the existing tables. The
+drift guard test from the previous sub-project must be extended to cover these two tables
+— it deliberately fails until that happens.
 
-**Neue Repository-Schnittstellen:** `SegmentRepository` (`add_segment`,
-`list_segments_for_jurisdiction` — rechte-gegatet nach demselben Muster wie
-`list_documents_for_jurisdiction`) und `EmbeddingRepository` (`add_embedding`,
+**New repository interfaces:** `SegmentRepository` (`add_segment`,
+`list_segments_for_jurisdiction` — rights-gated following the same pattern as
+`list_documents_for_jurisdiction`) and `EmbeddingRepository` (`add_embedding`,
 `get_embedding`).
 
-**Kleine, nicht-brechende Erweiterung an `DeliveryRepository`:** eine neue Methode
-`find_delivery(source_id, content_hash) -> Delivery | None`, die die Pipeline vor
-`record_delivery` aufruft, um unveränderte Lieferungen ohne teure Weiterverarbeitung zu
-überspringen (REQ-PIPE-006). `record_delivery` selbst bleibt unverändert — kein Eingriff in
-bereits abgenommenen, gemergten Code.
+**Small, non-breaking extension to `DeliveryRepository`:** a new method
+`find_delivery(source_id, content_hash) -> Delivery | None`, which the pipeline calls before
+`record_delivery` in order to skip unchanged deliveries without expensive further processing
+(REQ-PIPE-006). `record_delivery` itself stays unchanged — no intervention in
+already accepted, merged code.
 
-### `identity_resolution_case` — Prüf-Warteschlange (REQ-PIPE-007)
+### `identity_resolution_case` — review queue (REQ-PIPE-007)
 
-| Spalte | Typ | Hinweis |
+| Column | Type | Note |
 |---|---|---|
 | `id` | UUID, PK | |
 | `delivery_id` | UUID, FK → `delivery` | |
 | `raw_designation` | text | |
 | `raw_issuer` | text, nullable | |
-| `reason` | text | z. B. „unparseable_designation" |
+| `reason` | text | e.g. "unparseable_designation" |
 | `status` | enum(pending, resolved, rejected) | |
 | `resolved_document_id` | UUID, FK → `document`, nullable | |
 | `resolved_at` | timestamptz, nullable | |
 | `resolved_by` | text, nullable | |
 | `created_at` | timestamptz | |
 
-Kein Rechte-Gate nötig — interner Verwaltungsvorgang, keine Inhaltsauslieferung. Neue
-Repository-Schnittstelle `IdentityResolutionRepository` (`enqueue_case`,
+No rights gate needed — an internal administrative process, no content is served. New
+repository interface `IdentityResolutionRepository` (`enqueue_case`,
 `list_pending_cases`, `resolve_case`, `reject_case`).
 
-## Pipeline-Stufen
+## Pipeline stages
 
-**Identitätsauflösung.** Eingehende Bezeichnung wird in Herausgeber/Nummer/Ausgabestand
-geparst und gegen `document_designation` exakt abgeglichen (`(issuer, designation)`).
-Treffer → vorhandener Knoten. Kein Treffer → neuer Knoten. Nicht parsbar → Fall in
-`identity_resolution_case`, restlicher Bestand läuft unbeeinflusst weiter.
+**Identity resolution.** The incoming designation is parsed into publisher/number/edition
+and matched exactly against `document_designation` (`(issuer, designation)`).
+Match → existing node. No match → new node. Not parseable → case in
+`identity_resolution_case`; the rest of the collection continues unaffected.
 
-**Rechteklassifikation.** Automatisch, aber quellenspezifisch, nicht pauschal nach
-Kategorie: EUR-Lex-Normknoten (kein Volltext bekannt) erhalten `may_process=true`,
-`may_export_free=true`, aber `may_index_fulltext=false`, `may_cite_passages=false`.
-DGUV-Dokumente (echter, freier Volltext, § 5 UrhG) erhalten alle vier Flags `true`.
+**Rights classification.** Automatic, but source-specific, not a blanket rule by
+category: EUR-Lex norm nodes (no full text known) get `may_process=true`,
+`may_export_free=true`, but `may_index_fulltext=false`, `may_cite_passages=false`.
+DGUV documents (real, free full text, § 5 UrhG (German Copyright Act)) get all four flags `true`.
 
-**Strukturextraktion (nur DGUV).** PDF-Text wird extrahiert und anhand der üblichen
-DGUV-Gliederung (§-Absätze, nummerierte Abschnitte) in Segmente zerlegt — regelbasiert,
-kein generisches Layout-Verständnis.
+**Structure extraction (DGUV only).** PDF text is extracted and split into segments based on the usual
+DGUV structure (§ paragraphs, numbered sections) — rule-based,
+no generic layout understanding.
 
-**Verweisextraktion.** EUR-Lex: Rechtsakt-Knoten (ebenfalls ein `document`, Kategorie A)
-erhält `based_on_law`-Kanten zu gelisteten Normknoten. DGUV: zitierte Normen/Gesetze ergeben
-`references`-Kanten, Versionshistorie ergibt `replaces`/`withdrawn_by`.
+**Reference extraction.** EUR-Lex: the legal act node (also a `document`, category A)
+gets `based_on_law` edges to listed norm nodes. DGUV: cited norms/laws yield
+`references` edges, the version history yields `replaces`/`withdrawn_by`.
 
-**Segmentierung und Einbettung (nur DGUV).** Jedes extrahierte Segment wird über
-`multilingual-e5-large` eingebettet und als `embedding`-Zeile gespeichert.
+**Segmentation and embedding (DGUV only).** Every extracted segment is embedded via
+`multilingual-e5-large` and stored as an `embedding` row.
 
-## Datenfluss
+## Data flow
 
 ```
-für jeden RawRecord aus adapter.fetch():
-    wenn delivery_repo.find_delivery(source_id, content_hash) vorhanden: weiter  # REQ-PIPE-006
-    versuche (in einem Savepoint, siehe Fehlerbehandlung):
+for each RawRecord from adapter.fetch():
+    if delivery_repo.find_delivery(source_id, content_hash) exists: continue  # REQ-PIPE-006
+    try (in a savepoint, see Error handling):
         delivery = delivery_repo.record_delivery(source_id, content_hash, ingested_at)
 
-        regel = adapter.classify_rights(raw_record)
-        wenn regel ist None ODER regel.may_process ist False:
+        rule = adapter.classify_rights(raw_record)
+        if rule is None OR rule.may_process is False:
             identity_resolution_repo.enqueue_case(delivery_id, raw_designation, raw_issuer, reason)
-            Savepoint erfolgreich beenden, nächster Datensatz  # keine Artefakte angelegt
+            end the savepoint successfully, next record  # no artifacts created
 
-        ergebnis = identity.resolve(raw_record)
-        wenn ergebnis uneindeutig:
+        result = identity.resolve(raw_record)
+        if result is ambiguous:
             identity_resolution_repo.enqueue_case(delivery_id, raw_designation, raw_issuer, reason)
-            Savepoint erfolgreich beenden, nächster Datensatz
+            end the savepoint successfully, next record
 
-        document = ergebnis.document ODER document_repo.create_document(..., delivery_id)
-        document_repo.add_designation(document.id, ..., sprache=raw_record.language, delivery_id)
+        document = result.document OR document_repo.create_document(..., delivery_id)
+        document_repo.add_designation(document.id, ..., language=raw_record.language, delivery_id)
 
-        rights_repo.classify(document.id, regel.jurisdiction, regel.may_process, ..., delivery_id)
+        rights_repo.classify(document.id, rule.jurisdiction, rule.may_process, ..., delivery_id)
 
-        für jede RawReference in raw_record.raw_references:
-            references.extract(raw_record, document, regel, delivery_id)  # Layer aus regel.may_export_free
+        for each RawReference in raw_record.raw_references:
+            references.extract(raw_record, document, rule, delivery_id)  # layer from rule.may_export_free
 
-        wenn raw_record.full_text ist nicht None:
-            für jeden RawSection in adapter.extract_structure(raw_record):
-                segment = segment_repo.add_segment(document.id, delivery_id, ..., abschnitt)
-                vektor = embeddings.embed(segment.text)
-                embedding_repo.add_embedding(segment.id, delivery_id, modell_name, vektor)
-    außer Exception:
-        Savepoint zurückrollen (inkl. der `delivery`-Zeile — sonst gilt der Datensatz beim
-        nächsten Lauf fälschlich als bereits verarbeitet), records_failed zählen, weiter
+        if raw_record.full_text is not None:
+            for each RawSection in adapter.extract_structure(raw_record):
+                segment = segment_repo.add_segment(document.id, delivery_id, ..., section)
+                vector = embeddings.embed(segment.text)
+                embedding_repo.add_embedding(segment.id, delivery_id, model_name, vector)
+    except Exception:
+        roll back the savepoint (incl. the `delivery` row — otherwise the record is wrongly
+        treated as already processed on the next run), count records_failed, continue
 ```
 
-Jeder Schreibaufruf mit `delivery_id` läuft durch den bereits bestehenden
-`_require_active_delivery`-Schutz — keine Änderung an dessen Semantik nötig, die neuen
-Repository-Methoden reihen sich nur ein.
+Every write call with `delivery_id` passes through the already existing
+`_require_active_delivery` guard — no change to its semantics needed; the new
+repository methods simply fall into line.
 
-Der ursprüngliche Entwurf sah keine Fehlerisolation je Datensatz vor (`record_delivery` lag
-außerhalb jeder Transaktionsgrenze). In der Abschluss-Review korrigiert: die gesamte
-Verarbeitung eines Datensatzes — inklusive `record_delivery` selbst — läuft in einem
-`session.begin_nested()`-Savepoint, damit ein Fehler nirgendwo im Datensatz eine
-halb-angelegte `delivery`-Zeile hinterlässt, die den Datensatz beim nächsten Lauf
-fälschlich als „bereits verarbeitet" erscheinen ließe.
+The original draft provided no error isolation per record (`record_delivery` sat
+outside any transaction boundary). Corrected in the final review: the entire
+processing of a record — including `record_delivery` itself — runs in a
+`session.begin_nested()` savepoint, so that an error anywhere in the record does not leave behind a
+half-created `delivery` row that would make the record wrongly appear
+"already processed" on the next run.
 
-## Fehlerbehandlung
+## Error handling
 
-| Fall | Verhalten |
+| Case | Behavior |
 |---|---|
-| `adapter.fetch()` schlägt fehl (Netzwerk/API) | Lauf bricht für diese Quelle ab, keine Teil-Ergebnisse; nächster Lauf versucht erneut |
-| Ein einzelner Datensatz löst eine Ausnahme aus (beliebige Ursache) | Savepoint für diesen Datensatz rollt vollständig zurück (inkl. `delivery`), `records_failed` gezählt, Lauf setzt mit dem nächsten Datensatz fort — echte Wiederholbarkeit beim nächsten Lauf |
-| Bezeichnung nicht parsbar / Identität uneindeutig | `identity_resolution_case`, blockiert nur dieses Dokument |
-| Struktur-/Verweisextraktion schlägt für einen Datensatz fehl | Gleiche Warteschlange, gleiche Isolation |
-| Automatische Rechteklassifikation kann Fall nicht zuordnen (`classify_rights` liefert `None`) | Keine Klassifikationszeile, keine abgeleiteten Artefakte — `identity_resolution_case` mit `reason="cannot_classify_rights"`, Dokument bleibt gesperrt (sicherer Default) |
-| `regel.may_process` ist `False` | Gleiche Warteschlange, `reason="processing_not_permitted"` |
-| Embedding schlägt für ein Segment fehl | Segment ohne Embedding, Fehler geloggt, nächster Lauf holt es nach (`add_embedding` idempotent über `(segment_id, model_name)`) |
-| Schreiboperation auf zurückgezogene Lieferung | `WithdrawnDeliveryError` (bestehender Mechanismus) |
+| `adapter.fetch()` fails (network/API) | Run aborts for this source, no partial results; next run tries again |
+| A single record raises an exception (any cause) | The savepoint for this record rolls back completely (incl. `delivery`), `records_failed` counted, run continues with the next record — real repeatability on the next run |
+| Designation not parseable / identity ambiguous | `identity_resolution_case`, blocks only this document |
+| Structure/reference extraction fails for a record | Same queue, same isolation |
+| Automatic rights classification cannot assign the case (`classify_rights` returns `None`) | No classification row, no derived artifacts — `identity_resolution_case` with `reason="cannot_classify_rights"`, document stays blocked (safe default) |
+| `regel.may_process` is `False` | Same queue, `reason="processing_not_permitted"` |
+| Embedding fails for a segment | Segment without embedding, error logged, next run catches up (`add_embedding` idempotent via `(segment_id, model_name)`) |
+| Write operation on a withdrawn delivery | `WithdrawnDeliveryError` (existing mechanism) |
 
-## Testkonzept
+## Test concept
 
-- Testcontainer wechselt auf ein pgvector-fähiges PostgreSQL-Image; neue Migration
-  aktiviert die `vector`-Extension und legt `segment`, `embedding`,
-  `identity_resolution_case` an.
-- Adapter-Tests gegen echte, eingecheckte Beispieldateien (echte EUR-Lex-"Summary list"-PDF,
-  DGUV-PDF) — beides amtliche Kategorie-A-Werke, unproblematisch einzuchecken.
-- Identitätsauflösung isoliert getestet: sauberer Treffer, neuer Knoten, nicht parsbar.
-- End-to-End-Test: volle Pipeline gegen beide Beispieldateien, prüft die
-  Rechte-Gate-Asymmetrie direkt (EUR-Lex-Knoten nicht volltext-indexiert, DGUV-Knoten mit
-  echten Embedding-Vektoren) sowie `find_delivery`s Skip-Verhalten bei wiederholtem Lauf.
-- Kaskadierende Rücknahme erweitert auf Segmente/Embeddings getestet, gleiches Muster wie
-  der bestehende `revoke_delivery`-Test.
-- Embedding-Tests nutzen durchgängig das echte Modell, kein Stub (Entscheidung mit dem
-  Auftraggeber, siehe Kontext) — Testlaufzeit ist entsprechend höher als im vorigen
-  Teilprojekt.
+- The test container switches to a pgvector-capable PostgreSQL image; a new migration
+  activates the `vector` extension and creates `segment`, `embedding`,
+  `identity_resolution_case`.
+- Adapter tests against real, checked-in sample files (real EUR-Lex "Summary list" PDF,
+  DGUV PDF) — both official category A works, unproblematic to check in.
+- Identity resolution tested in isolation: clean match, new node, not parseable.
+- End-to-end test: full pipeline against both sample files, checks the
+  rights gate asymmetry directly (EUR-Lex nodes not full-text-indexed, DGUV nodes with
+  real embedding vectors) as well as `find_delivery`'s skip behavior on a repeated run.
+- Cascading withdrawal extended to segments/embeddings and tested, same pattern as
+  the existing `revoke_delivery` test.
+- Embedding tests use the real model throughout, no stub (decision with the
+  owner, see Context) — test run time is correspondingly higher than in the previous
+  sub-project.
 
-## Bezug zu Requirements und ADRs
+## Relation to requirements and ADRs
 
-| Requirement/ADR | Abdeckung in diesem Design |
+| Requirement/ADR | Coverage in this design |
 |---|---|
-| REQ-PIPE-001 | Adapter-Abstraktion, herkunftsunabhängige Verarbeitung ab Identitätsauflösung |
-| REQ-PIPE-002 | `source`-Einträge für EUR-Lex/DGUV (bereits im Schema, hier befüllt) |
-| REQ-PIPE-003 | TDM-Vorbehaltsprüfung bei Quellregistrierung dokumentiert (Feld bereits vorhanden) |
-| REQ-PIPE-004 | Automatische, quellenspezifische Rechteklassifikation je Dokument/Rechtsraum |
-| REQ-PIPE-005 | `delivery_id` an `segment`/`embedding`, kaskadierende Rücknahme erweitert |
-| REQ-PIPE-006 | `find_delivery`-Skip, idempotente `add_segment`/`add_embedding` |
-| REQ-PIPE-007 | `identity_resolution_case`-Warteschlange, isolierte Blockade je Dokument |
-| REQ-PIPE-009 | EUR-Lex und DGUV sind beide Kategorie A/B, kein Kategorie-C/D-Zugriff |
-| REQ-GRAPH-001 | Rechtsakte als eigene `document`-Knoten, `based_on_law`-Kanten |
-| ADR-006 | pgvector in derselben Datenbank wie der Graph |
-| ADR-008 | Struktur-/Verweisdaten fließen in den Graph, kein LLM-Aufruf für Ersetzungs-/Verweisfragen |
-| ADR-012 | Weder EUR-Lex noch DGUV sind kommerziell verwertete Kataloge — unproblematisch |
+| REQ-PIPE-001 | Adapter abstraction, provenance-type-independent processing from identity resolution onward |
+| REQ-PIPE-002 | `source` entries for EUR-Lex/DGUV (already in the schema, populated here) |
+| REQ-PIPE-003 | TDM rights-reservation check documented at source registration (field already present) |
+| REQ-PIPE-004 | Automatic, source-specific rights classification per document/jurisdiction |
+| REQ-PIPE-005 | `delivery_id` on `segment`/`embedding`, cascading withdrawal extended |
+| REQ-PIPE-006 | `find_delivery` skip, idempotent `add_segment`/`add_embedding` |
+| REQ-PIPE-007 | `identity_resolution_case` queue, isolated blocking per document |
+| REQ-PIPE-009 | EUR-Lex and DGUV are both category A/B, no category C/D access |
+| REQ-GRAPH-001 | Legal acts as separate `document` nodes, `based_on_law` edges |
+| ADR-006 | pgvector in the same database as the graph |
+| ADR-008 | Structure/reference data flows into the graph, no LLM call for replacement/reference questions |
+| ADR-012 | Neither EUR-Lex nor DGUV are commercially exploited catalogs — unproblematic |
 
-## Offene Punkte / Folgearbeiten
+## Open items / follow-up work
 
-- **Weitere Adapter** (BAuA, CEN/CENELEC, ISO/IEC-Katalogdaten) — Abstraktion ist darauf
-  ausgelegt, aber nicht Teil dieses Teilprojekts.
-- **Chunking über Gliederungsgrenzen hinaus**, falls einzelne DGUV-Abschnitte für sinnvolle
-  Embeddings zu lang sind — mit den zwei gewählten Quellen noch nicht beobachtbar, daher
-  hier nicht spezifiziert.
-- **Bedienoberfläche für `identity_resolution_case`** — Backend-API-/Frontend-Teilprojekt.
-- **Scheduler/Automatisierung des CLI-Laufs** — Deployment-Entscheidung, nicht Teil dieses
-  Teilprojekts.
-- **STACKIT Object Storage für Rohdateien** statt lokaler Festplattenablage — ebenfalls eine
-  spätere Deployment-Entscheidung, analog zur Datenbank-Frage aus dem vorigen Teilprojekt.
-- **EUR-Lex-Rückzugsdatum ohne Nachfolgestandard.** Die „Summary list"-Tabelle nennt für
-  zurückgezogene Normen nur ein Datum und eine OJ-Referenz, keinen Nachfolgestandard — eine
-  `withdrawn_by`-Kante bräuchte aber ein Zieldokument. Für den Start wird das Rückzugsdatum
-  nicht modelliert; eine spätere Verfeinerung könnte die referenzierte Entscheidung
-  (OJ-Referenz) selbst als Knoten führen.
-- **Echter HTTP-Fetch für EUR-Lex/DGUV** — die Parsing-Formate sind jetzt verifiziert (siehe
-  Architektur), das automatisierte Abrufen selbst (Login/Pagination/Ratenbegrenzung) bleibt
-  Folgearbeit.
-- **Embedding-Modell-Beschaffung berührt eine US-Dienst-Frage.** `EmbeddingModel` lädt das
-  Modell standardmäßig von `huggingface.co` (Inferenz selbst läuft lokal, wie von
-  CLAUDE.md gefordert — nur die einmalige Gewichte-Beschaffung nicht). In der
-  Abschluss-Review um einen optionalen `model_path`/`NORMLY_EMBEDDING_MODEL_PATH` ergänzt:
-  ein STACKIT-Betrieb muss die Gewichte vorab bereitstellen (z. B. im Container-Image oder
-  über STACKIT Object Storage) und niemals zur Laufzeit von Hugging Face laden. Die
-  eigentliche Bereitstellungs-Pipeline dafür ist nicht Teil dieses Teilprojekts.
-- **`resolve_source` matcht nur auf `publisher`**, nicht auf den vollständigen
-  Registereintrag (Kategorie/Rechtsraum/Bezugspfad). Für die zwei aktuellen, im Code fest
-  hinterlegten Quellen unproblematisch; sobald ein Herausgeber mehrere, unterschiedlich
-  klassifizierte Registereinträge haben kann, braucht es einen eindeutigen Index über die
-  volle Kombination statt der bloßen Publisher-Zeichenkette.
-- **`list_segments_for_jurisdiction` filtert nicht nach der jeweils aktiven Lieferung.**
-  Seit Migration `0012` kann ein Dokument bei zwei aktiven, nicht zurückgezogenen
-  Lieferungen (z. B. einer korrigierten Neulieferung) Segmente aus beiden Lieferungen
-  gleichzeitig zurückgeben. Vor einer produktiven API auf dieser Lesemethode braucht es
-  entweder einen „letzte aktive Lieferung"-Filter oder einen expliziten
-  Rücknahme-Schritt für die vorige Lieferung bei einer Neulieferung desselben Dokuments.
-- **Der Architektur-Drifttest für den Rechtsraum-Zwang** (`test_architecture.py`) prüft nur
-  `get_*`/`list_*`-Methoden auf den Repository-Protocols, nicht `find_*` — sowohl das
-  bestehende `DocumentRepository.find_by_designation` als auch das neue
-  `SourceRepository.find_by_publisher` sind ungated und entgehen dem Test dadurch. Sollte
-  bei nächster Gelegenheit im Testcode selbst nachgezogen werden.
-- **`RunSummary.records_processed` zählt auch später fehlgeschlagene Datensätze** (der
-  Zähler wird vor dem eigentlichen Verarbeitungsversuch erhöht) — `processed` und `failed`
-  aus der CLI-Ausgabe addieren sich dadurch nicht sauber zur Gesamtzahl auf.
+- **Further adapters** (BAuA, CEN/CENELEC, ISO/IEC catalog data) — the abstraction is designed
+  for them, but they are not part of this sub-project.
+- **Chunking beyond structural boundaries**, in case individual DGUV sections are too long for meaningful
+  embeddings — not yet observable with the two chosen sources, therefore
+  not specified here.
+- **User interface for `identity_resolution_case`** — backend API/frontend sub-project.
+- **Scheduler/automation of the CLI run** — a deployment decision, not part of this
+  sub-project.
+- **STACKIT Object Storage for raw files** instead of local disk storage — likewise a
+  later deployment decision, analogous to the database question from the previous sub-project.
+- **EUR-Lex withdrawal date without a successor norm.** For withdrawn norms, the "Summary list" table
+  names only a date and an OJ reference, no successor norm — but a
+  `withdrawn_by` edge would need a target document. For the start, the withdrawal date
+  is not modeled; a later refinement could keep the referenced decision
+  (OJ reference) itself as a node.
+- **Real HTTP fetch for EUR-Lex/DGUV** — the parsing formats are now verified (see
+  Architecture); automated retrieval itself (login/pagination/rate limiting) remains
+  follow-up work.
+- **Obtaining the embedding model touches a US-service question.** `EmbeddingModel` loads the
+  model from `huggingface.co` by default (inference itself runs locally, as required by
+  CLAUDE.md — only the one-time weight download does not). In the
+  final review, an optional `model_path`/`NORMLY_EMBEDDING_MODEL_PATH` was added:
+  a STACKIT deployment must provide the weights in advance (e.g. in the container image or
+  via STACKIT Object Storage) and never load them from Hugging Face at runtime. The
+  actual provisioning pipeline for this is not part of this sub-project.
+- **`resolve_source` matches only on `publisher`**, not on the complete
+  register entry (category/jurisdiction/retrieval path). Unproblematic for the two current sources
+  hard-coded in the code; as soon as a publisher can have several, differently
+  classified register entries, a unique index over the
+  full combination is needed instead of the bare publisher string.
+- **`list_segments_for_jurisdiction` does not filter by the currently active delivery.**
+  Since migration `0012`, a document with two active, non-withdrawn
+  deliveries (e.g. a corrected re-delivery) can return segments from both deliveries
+  at the same time. Before a production API on this read method, either a
+  "latest active delivery" filter or an explicit
+  withdrawal step for the previous delivery on a re-delivery of the same document is needed.
+- **The architecture drift test for the jurisdiction requirement** (`test_architecture.py`) checks only
+  `get_*`/`list_*` methods on the repository Protocols, not `find_*` — both the
+  existing `DocumentRepository.find_by_designation` and the new
+  `SourceRepository.find_by_publisher` are ungated and thereby escape the test. Should
+  be fixed in the test code itself at the next opportunity.
+- **`RunSummary.records_processed` also counts records that later fail** (the
+  counter is incremented before the actual processing attempt) — `processed` and `failed`
+  from the CLI output therefore do not add up cleanly to the total.

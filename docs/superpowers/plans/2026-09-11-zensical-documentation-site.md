@@ -21,17 +21,19 @@ Zensical plugin), Python 3.12 (matches other services' CI containers).
 
 ## Global Constraints
 
-- No US services for build, operation, data, secrets, or deployment (CLAUDE.md,
-  non-negotiable). Concretely for this project: the built site must not load
+- No US services for build, operation, data, secrets, or deployment (CLAUDE.md
+  wording at the time, non-negotiable). Concretely for this project: the built site must not load
   fonts from `fonts.googleapis.com` / `fonts.gstatic.com`.
 - No GitHub as a contribution facade (ADR-019) — no new links to
   `github.com/sn4kez/normly-app` anywhere in the site content.
 - Code, identifiers, and commits in English; documentation and UI in German
-  (CLAUDE.md, "Sprache"). All new `docs/*.md` content in this plan is German,
-  matching the existing `docs/adr/`, `docs/srs/`, and old-branch content.
+  (CLAUDE.md wording at the time, section "Language"). All new `docs/*.md` content in this plan was German at the time,
+  matching the existing `docs/adr/`, `docs/srs/`, and old-branch content
+  (the pages are shown in English below since the 2026-10 English migration;
+  the `grep` checks still search for the original German strings).
 - Commits need `Signed-off-by` (DCO) — use `git commit -s`.
 - No direct push to `main` — this work should land via merge request once
-  complete, per CLAUDE.md ("Kein direkter Push auf `main`"). Ask the user
+  complete, per CLAUDE.md ("No direct push to `main`"). Ask the user
   before pushing/opening a merge request, per the standing "confirm before
   CI runs" rule — pushing triggers the STACKIT pipeline.
 - New source files get the AGPL-3.0 license header where applicable; the
@@ -88,42 +90,42 @@ nav = [
 ```markdown
 # normly
 
-**KI-unterstützte Normen und Standards, offen für jeden.**
+**AI-assisted standards and regulations, open to everyone.**
 
-normly macht Wissen über Normen und Regelwerke so weit frei zugänglich, wie
-es rechtlich zulässig ist — und baut darauf einen offenen, maschinenlesbaren
-Referenzgraph: welche Regelwerke aufeinander verweisen, was durch was
-ersetzt wurde, und welche Rechtsvorschrift auf welche Norm verweist.
+normly makes knowledge about standards and regulations as freely accessible
+as legally possible — and builds on that an open, machine-readable
+reference graph: which regulations reference each other, what replaced
+what, and which legal requirement points to which standard.
 
-!!! warning "Frühe Entwicklungsphase"
-    Dieses Projekt befindet sich im Aufbau. Es gibt noch keine lauffähige
-    Version und keine stabile API — diese Doku-Seite wächst mit dem Code.
-    Erster lauffähiger Prototyp: Dezember 2026.
+!!! warning "Early development stage"
+    This project is under construction. There is no runnable version yet
+    and no stable API — this documentation site grows with the code.
+    First runnable prototype: December 2026.
 
-## Wo du weiterliest
+## Where to go next
 
-- **[Guide](guide/getting-started.md)** — Einstieg für Nutzer und Betreiber
-- **[Concepts](concepts/normen-graph.md)** — die fachlichen Prinzipien
-  dahinter (Graph zuerst, Lizenzmodell)
-- **[Architekturentscheidungen](adr/README.md)** — warum es so gebaut ist,
-  wie es gebaut ist
-- **[Requirements](srs/README.md)** — die 78 Anforderungen (SRS/SDD)
-- **[Code-Referenz](reference/core.md)** — automatisch aus den
-  Docstrings generiert, für Mitwirkende
+- **[Guide](guide/getting-started.md)** — getting started for users and operators
+- **[Concepts](concepts/norm-graph.md)** — the underlying principles
+  (graph first, license model)
+- **[Architecture decisions](adr/README.md)** — why it's built the way
+  it's built
+- **[Requirements](srs/README.md)** — the 78 requirements (SRS/SDD)
+- **[Code reference](reference/core.md)** — generated automatically from
+  docstrings, for contributors
 
-## Lizenzen
+## Licenses
 
-| Bestandteil | Lizenz |
+| Component | License |
 |---|---|
-| Kern (Server, Anwendung) | AGPL-3.0 |
-| Client-SDKs, API-Spezifikation | Apache-2.0 |
-| Daten und Referenzgraph | ODbL |
+| Core (server, application) | AGPL-3.0 |
+| Client SDKs, API specification | Apache-2.0 |
+| Data and reference graph | ODbL |
 
-Details und Begründung stehen in `README.md` und `GOVERNANCE.md` im
-Repository-Wurzelverzeichnis.
+Details and rationale are in `README.md` and `GOVERNANCE.md` at the
+repository root.
 ```
 
-Note: this links to `guide/getting-started.md`, `concepts/normen-graph.md`,
+Note: this links to `guide/getting-started.md`, `concepts/norm-graph.md`,
 `reference/core.md` which don't exist yet — that's expected, they land in
 Tasks 2, 3, 5. Don't build with `--strict` yet (it would fail on these); a
 plain build is enough for this task.
@@ -205,13 +207,13 @@ EOF
 ```markdown
 # Getting Started
 
-!!! warning "Noch keine lauffähige Version"
-    normly befindet sich in früher Entwicklung — es gibt noch kein
-    installierbares Release. Erster lauffähiger Prototyp: Dezember 2026.
-    Diese Seite füllt sich, sobald es so weit ist.
+!!! warning "No runnable version yet"
+    normly is in early development — there is no installable
+    release yet. First runnable prototype: December 2026.
+    This page will fill up once that point is reached.
 
-Wenn du am Code mitarbeiten willst, ist `CONTRIBUTING.md` im
-Repository-Wurzelverzeichnis der richtige Einstieg, nicht diese Seite.
+If you want to contribute to the code, `CONTRIBUTING.md` at the
+repository root is the right starting point, not this page.
 ```
 
 (The old branch linked `CONTRIBUTING.md` to
@@ -225,14 +227,14 @@ to it wouldn't resolve on the built site, only when browsing the raw repo.)
 ```markdown
 # Self-Hosting
 
-!!! warning "Noch keine lauffähige Version"
-    Auslieferung ist laut [ADR-010](
-    ../adr/README.md#adr-010-shipping-as-a-container-data-separate-from-the-image)
-    als signierte
-    Container-Images plus Compose-Setup geplant, mit dem Wissensbestand als
-    eigenständig versioniertem Dump. Diese Seite beschreibt den geplanten
-    Weg erst, sobald es ein erstes Release gibt, das das auch tatsächlich
-    tut — Spekulation hilft niemandem, der wirklich selbst hosten will.
+!!! warning "No runnable version yet"
+    According to [ADR-010](
+    ../adr/README.md#adr-010-shipping-as-a-container-data-separate-from-the-image),
+    shipping is planned as signed
+    container images plus a Compose setup, with the knowledge base as a
+    separately versioned dump. This page describes the planned
+    path only once there is a first release that actually
+    does that — speculation helps no one who really wants to self-host.
 ```
 
 - [ ] **Step 3: Extend `nav` in `zensical.toml`**
@@ -260,7 +262,8 @@ grep -o 'Noch keine lauffähige Version' site/guide/self-hosting/index.html
 Expected: one match in each. (Path may be `site/guide/getting-started.html`
 instead of the `.../index.html` directory form depending on
 `use_directory_urls` — check `ls site/guide/` if the above path doesn't
-exist and adjust.)
+exist and adjust.) The greps search for the original German strings of
+the pages as written at the time (the pages above are shown in English).
 
 - [ ] **Step 5: Verify the ADR-010 anchor link resolves**
 
@@ -289,102 +292,102 @@ git commit -s -m "docs: add Guide section (getting-started, self-hosting)"
 ### Task 3: Concepts section
 
 **Files:**
-- Create: `docs/concepts/normen-graph.md`
-- Create: `docs/concepts/lizenzmodell.md`
+- Create: `docs/concepts/norm-graph.md`
+- Create: `docs/concepts/license-model.md`
 - Modify: `zensical.toml` (extend `nav`)
 
 **Interfaces:**
 - Consumes: `nav` array from Task 2.
 - Produces: `nav` now has a `"Concepts"` section after `"Guide"`.
 
-- [ ] **Step 1: Write `docs/concepts/normen-graph.md`**
+- [ ] **Step 1: Write `docs/concepts/norm-graph.md`**
 
 ```markdown
-# Graph zuerst, Modell nur bei Bedarf
+# Graph first, model only when needed
 
-Anfragen werden zuerst gegen den Referenzgraph aufgelöst. Ein Sprachmodell
-wird nur aufgerufen, wenn Synthese über Fließtext nötig ist — nicht für
-Strukturfragen.
+Queries are resolved against the reference graph first. A language model
+is only invoked when synthesizing free text is actually needed — not for
+structural questions.
 
-**Warum:** Fragen wie „was ersetzt Norm X" oder „welche Vorschrift verweist
-auf Norm Y" sind aus dem Graph exakt beantwortbar — deterministisch, in
-Millisekunden, ohne Tokenkosten. Ein Modellaufruf wäre hier teurer,
-langsamer und fehleranfälliger. Gerade bei Gültigkeits- und
-Ersetzungsfragen sind Halluzinationen besonders folgenschwer.
+**Why:** Questions like "what replaces standard X" or "which regulation
+references standard Y" can be answered exactly from the graph —
+deterministically, in milliseconds, at no token cost. A model call here
+would be more expensive, slower, and more error-prone. Hallucinations are
+especially costly for validity and replacement questions.
 
-Details und Abwägung: [ADR-008](../adr/README.md#adr-008-graph-first-query-processing).
+Details and trade-offs: [ADR-008](../adr/README.md#adr-008-graph-first-query-processing).
 
-## Datenhaltung
+## Data storage
 
-Der Graph liegt in PostgreSQL mit pgvector — Graph und Embeddings in
-derselben Datenbank, derselben Transaktion, demselben Backup, statt zweier
-Systeme, die synchron gehalten werden müssten. Der Datenbankzugriff läuft
-ausschließlich über die Repository-Schicht; welche Speichertechnologie
-dahintersteckt, bleibt austauschbar.
+The graph lives in PostgreSQL with pgvector — graph and embeddings in the
+same database, the same transaction, the same backup, instead of two
+systems that would need to be kept in sync. Database access goes
+exclusively through the repository layer; the underlying storage
+technology stays swappable.
 
 Details: [ADR-006](../adr/README.md#adr-006-postgresql-instead-of-neo4j-for-the-reference-graph).
 
-## Offen und geschichtet zugleich
+## Open and layered at once
 
-Der Referenzgraph selbst ist offen (ODbL) — geschichtet in einen freien und
-einen kommerziellen Teil, nicht zurückgehalten. Was frei ist, steht in
-[Lizenzmodell](lizenzmodell.md).
+The reference graph itself is open (ODbL) — layered into a free and a
+commercial part, not withheld. What's free is described in
+[License Model](license-model.md).
 ```
 
 (Unchanged from the old branch — content still matches current ADR-006/-008.)
 
-- [ ] **Step 2: Write `docs/concepts/lizenzmodell.md`**
+- [ ] **Step 2: Write `docs/concepts/license-model.md`**
 
 ```markdown
-# Lizenzmodell
+# License Model
 
-normly folgt einem Open-Core-Modell — die Trennlinie verläuft am **Inhalt**,
-nicht am Zugangsweg.
+normly follows an open-core model — the dividing line runs along
+**content**, not the access path.
 
-| Bestandteil | Lizenz |
+| Component | License |
 |---|---|
-| Kern (Server, Anwendung) | AGPL-3.0 |
-| Client-SDKs, API-Spezifikation | Apache-2.0 |
-| Daten und Referenzgraph | ODbL |
+| Core (server, application) | AGPL-3.0 |
+| Client SDKs, API specification | Apache-2.0 |
+| Data and reference graph | ODbL |
 
-Die AGPL greift, wenn jemand den Server selbst verändert und betreibt. Ein
-Drittsystem, das über die HTTP-API mit einer normly-Instanz spricht, ist
-ein getrenntes Programm und nicht betroffen — Integrationen sind
-ausdrücklich erwünscht.
+The AGPL applies when someone modifies and operates the server itself. A
+third-party system that talks to a normly instance over the HTTP API is a
+separate program and unaffected — integrations are explicitly
+welcome.
 
-Begründung der Lizenzwahl: [ADR-002](../adr/README.md#adr-002-license-model-agpl-30-apache-20-odbl).
-Warum der Graph trotz Lizenzierung offen bleibt:
+Rationale for the license choice: [ADR-002](../adr/README.md#adr-002-license-model-agpl-30-apache-20-odbl).
+Why the graph stays open despite licensing:
 [ADR-007](../adr/README.md#adr-007-reference-graph-stays-open).
 
-## Rechteklassifikation nach Kategorie
+## Rights classification by category
 
-Jede Datenquelle bekommt eine Kategorie, bevor sie überhaupt verarbeitet
-wird:
+Every data source gets a category before it's processed
+at all:
 
-| | Kategorie | Grundlage |
+| | Category | Basis |
 |---|---|---|
-| A | Amtliche Werke, Rechtstexte | § 5 UrhG o. Ä. |
-| B | Frei lizenzierte Regelwerke | Lizenz des Herausgebers |
-| C | Vertraglich bezogen | Vertragsreferenz |
-| D | Sonstige öffentlich zugänglich | Einzelfallprüfung + § 44b Abs. 3 |
+| A | Official works, legal texts | § 5 UrhG or similar |
+| B | Freely licensed regulations | Publisher's license |
+| C | Contractually acquired | Contract reference |
+| D | Other publicly accessible | Case-by-case review + § 44b Abs. 3 |
 
-Keine Kategorie zuordenbar heißt: nicht erfassen. Kategorie D wird nie für
-kommerziell verwertete Kataloge (DIN Media/Nautos u. Ä.) verwendet — dazu
+No assignable category means: not ingested. Category D is never used for
+commercially exploited catalogs (DIN Media/Nautos and similar) — see
 [ADR-012](../adr/README.md#adr-012-no-scraping-of-commercially-exploited-catalog-collections).
 
-Die Klassifikation gilt **je Rechtsraum**, nicht global — § 5 UrhG gilt nur
-in Deutschland. Details: [ADR-011](../adr/README.md#adr-011-internationalization-from-the-start).
+Classification applies **per jurisdiction**, not globally — § 5 UrhG only
+applies in Germany. Details: [ADR-011](../adr/README.md#adr-011-internationalization-from-the-start).
 
-## Getrennte Datenhaltung je Herausgeber
+## Separate data storage per publisher
 
-Lizenzierte Bestände (Kategorie C) werden je Herausgeber mit einem eigenen
-Datenschlüssel getrennt gespeichert. Das ermöglicht kryptographisches
-Löschen bei Vertragsende — auch in Backups, wo selektives Löschen sonst
-praktisch nicht durchführbar ist. Details:
+Licensed holdings (Category C) are stored separately per publisher, each
+with its own data encryption key. This enables cryptographic deletion at
+contract end — even in backups, where selective deletion is otherwise
+practically infeasible. Details:
 [ADR-014](../adr/README.md#adr-014-encryption-cryptographic-erasure-per-publisher).
 ```
 
-(New paragraph "Getrennte Datenhaltung je Herausgeber" added — the old
+(New paragraph "Separate data storage per publisher" added — the old
 branch didn't cover ADR-014, but it's directly relevant to the license
 model and was missing.)
 
@@ -398,8 +401,8 @@ nav = [
     "guide/self-hosting.md",
   ] },
   { "Concepts" = [
-    "concepts/normen-graph.md",
-    "concepts/lizenzmodell.md",
+    "concepts/norm-graph.md",
+    "concepts/license-model.md",
   ] },
 ]
 ```
@@ -426,7 +429,7 @@ Expected: no `MISSING:` lines. `adr-014-...` is the one anchor in this list
 that wasn't already validated on the old branch (it's a new reference added
 in Step 2) — if it's reported missing, open the built ADR page and grep for
 `id="adr-014` to find the actual id Zensical generated, then fix the link
-in `lizenzmodell.md`.
+in `license-model.md`.
 
 - [ ] **Step 5: Commit**
 
@@ -463,8 +466,8 @@ nav = [
     "guide/self-hosting.md",
   ] },
   { "Concepts" = [
-    "concepts/normen-graph.md",
-    "concepts/lizenzmodell.md",
+    "concepts/norm-graph.md",
+    "concepts/license-model.md",
   ] },
   { "Architecture decisions" = "adr/README.md" },
   { "Requirements (SRS)" = "srs/README.md" },
@@ -586,8 +589,8 @@ nav = [
     "guide/self-hosting.md",
   ] },
   { "Concepts" = [
-    "concepts/normen-graph.md",
-    "concepts/lizenzmodell.md",
+    "concepts/norm-graph.md",
+    "concepts/license-model.md",
   ] },
   { "Architecture decisions" = "adr/README.md" },
   { "Requirements (SRS)" = "srs/README.md" },
@@ -637,45 +640,45 @@ git commit -s -m "docs: add mkdocstrings-generated code reference"
 - [ ] **Step 1: Write `docs/glossary.md`**
 
 ```markdown
-# Glossar
+# Glossary
 
-Fachbegriffe aus dem Normenwesen behalten ihren deutschen Begriff, wo es
-keine etablierte Entsprechung gibt.
+Terms from the standards domain keep their German form where there's no
+established English equivalent.
 
 **Normenausschuss**
-: Gremium, das eine Norm inhaltlich verantwortet und pflegt.
+: The body responsible for the content of a standard and its upkeep.
 
-**Referenzgraph**
-: Der maschinenlesbare Graph aus Regelwerken, Rechtstexten und ihren
-  Verweisen zueinander (Ersetzung, Verweis, Übernahme) — der zentrale
-  Datenbestand von normly.
+**Reference graph**
+: The machine-readable graph of standards, legal texts, and the
+  relationships between them (replacement, reference, adoption) —
+  normly's central data asset.
 
 **Work**
-: Ein Regelwerk als sprachunabhängiger Knoten im Referenzgraph. DIN EN ISO
-  9001 und BS EN ISO 9001 sind dasselbe Work; nationale Übernahmen und
-  Übersetzungen sind Beziehungen bzw. Attribute, keine eigenen Works. Siehe
-  Abschnitt "Identifikatoren" in `CLAUDE.md`.
+: A standard as a language-independent node in the reference graph. DIN
+  EN ISO 9001 and BS EN ISO 9001 are the same Work; national adoptions and
+  translations are relationships and attributes, respectively, not
+  separate Works. See the "Identifiers" section in `CLAUDE.md`.
 
 **Trägerorganisation**
-: Hält Marke, offene Daten und Quellcode; verantwortet den freien Kern und
-  die Beziehungen zu Herausgebern und Community. Getrennt von einer
-  künftigen kommerziellen Gesellschaft — siehe
+: Holds the brand, open data, and source code; responsible for the free
+  core and relationships with publishers and the community. Separate from
+  a future commercial entity — see
   [ADR-001](adr/README.md#adr-001-open-core-model-instead-of-a-white-label-product).
 
-**Normenausschuss vs. Herausgeber**
-: Der Herausgeber (z. B. DIN, VDI, DGUV) veröffentlicht eine Norm; der
-  Normenausschuss erarbeitet ihren Inhalt. Für die Rechteklassifikation
-  zählt der Herausgeber.
+**Normenausschuss vs. publisher**
+: The publisher (e.g. DIN, VDI, DGUV) releases a standard; the
+  Normenausschuss develops its content. For rights classification, the
+  publisher is what counts.
 
-**Kategorie A–D**
-: Rechteklassifikation je Quelle, siehe
-  [Lizenzmodell](concepts/lizenzmodell.md#rechteklassifikation-nach-kategorie).
+**Category A–D**
+: Rights classification per source, see
+  [License Model](concepts/license-model.md#rights-classification-by-category).
 ```
 
 (Adds a **Work** entry — new domain term introduced by the Normtracker work
 since the old branch was written on 2026-08-27; matches
 `core/src/normly_core/graph/domain.py`'s `Work` dataclass and CLAUDE.md's
-"Ein Regelwerk = ein Knoten, sprachunabhängig" identifier rule.)
+"One standard = one node, language-independent" identifier rule.)
 
 - [ ] **Step 2: Extend `nav`**
 
@@ -687,8 +690,8 @@ nav = [
     "guide/self-hosting.md",
   ] },
   { "Concepts" = [
-    "concepts/normen-graph.md",
-    "concepts/lizenzmodell.md",
+    "concepts/norm-graph.md",
+    "concepts/license-model.md",
   ] },
   { "Architecture decisions" = "adr/README.md" },
   { "Requirements (SRS)" = "srs/README.md" },

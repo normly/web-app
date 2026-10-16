@@ -1,4 +1,4 @@
-# Frontend (Normtracker Teil 5/5) Implementation Plan
+# Frontend (Normtracker Part 5/5) Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -268,7 +268,7 @@ import { Separator } from "@/components/ui/separator";
 ```
 
 Note two things this rewrite deliberately does:
-1. **The "Quelle öffnen" action now uses `documentDetail.source.publisher` as its visible label** (matching the old link's own text) wrapped in a `Button` — the link target (`documentDetail.source.retrieval_path`) is unchanged. This is not a new field, just a new visual treatment of the exact same two existing fields.
+1. **The "Open source" action now uses `documentDetail.source.publisher` as its visible label** (matching the old link's own text) wrapped in a `Button` — the link target (`documentDetail.source.retrieval_path`) is unchanged. This is not a new field, just a new visual treatment of the exact same two existing fields.
 2. **The rights checklist card and the source-button are only rendered when `rights` is truthy** (same condition the current code already uses) — when `rights` is `null` (not yet loaded, or the document has no classification), the sidebar column renders empty, which is fine — no placeholder needed for a case the current code already treats as "nothing to show."
 
 - [ ] **Step 6: Run the tests to verify they pass**

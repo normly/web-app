@@ -1,13 +1,13 @@
-# Frontend App-Shell + Header-Muster Implementation Plan
+# Frontend App Shell + Header Pattern Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the frontend's single top-nav header (`AppHeader`) with a
-collapsible sidebar app-shell (two nav items: Chat, Suche) plus a shared
+collapsible sidebar app-shell (two nav items: Chat, Search) plus a shared
 `PageHeader` pattern (title/subtitle, locale/jurisdiction/theme controls, a
-placeholder notification bell), wrapping the Chat, Suche and
-Dokument-Detail pages — so the next three plans in this redesign (Chat's
-nested sidebar, the Profil-Overlay, the Auth full pages) all build inside
+placeholder notification bell), wrapping the Chat, Search and
+document detail pages — so the next three plans in this redesign (Chat's
+nested sidebar, the profile overlay, the Auth full pages) all build inside
 this shell instead of each reinventing page chrome.
 
 **Architecture:** Install only the underlying shadcn/ui primitives the
@@ -32,25 +32,25 @@ primitives), existing `next-themes`, `class-variance-authority`,
 ## Global Constraints
 
 - Design spec: `docs/superpowers/specs/2026-09-05-frontend-shadcn-redesign-design.md`
-  — this plan implements only the "### App-Shell" (lines 78-91) and
-  "### Header-Muster" (lines 111-118) sections. It does NOT touch the
-  Chat page's nested history sidebar, the Profil-Overlay, the Auth pages,
-  or Suche/Dokument-Detail's own content — those are later plans in this
+  — this plan implements only the "### App shell" (lines 78-91) and
+  "### Header pattern" (lines 111-118) sections. It does NOT touch the
+  Chat page's nested history sidebar, the profile overlay, the Auth pages,
+  or search/document detail's own content — those are later plans in this
   redesign.
 - **No demo nav items.** Per the spec's non-goals, none of
   `application-shell2`'s demo content (Overview/Projects/Team/Workspace
   groups, workspace switcher, "Support" footer group, submenus) survives
-  into `AppShell` — exactly two flat nav items, **Chat** and **Suche**.
+  into `AppShell` — exactly two flat nav items, **Chat** and **Search**.
   This is why Task 1 installs only the block's underlying primitives, not
   the block itself.
 - **Two interim decisions, both explicitly temporary — do not treat as
   design gaps to "fix" in this plan:**
   - The `NavUser` dropdown's "Account" item links to the existing
-    `/account` page (unchanged). Plan 4 (Profil-Overlay) replaces this
+    `/account` page (unchanged). Plan 4 (profile overlay) replaces this
     with an overlay trigger — not this plan's job.
   - When logged out, the sidebar footer renders the existing
     `AuthDialog` component (unchanged modal) instead of a `/login` link.
-    Plan 5 (Auth-Seiten) introduces real `/login` etc. pages and updates
+    Plan 5 (auth pages) introduces real `/login` etc. pages and updates
     this link then — not this plan's job.
 - **`collapsible` and `scroll-area` end up installed but unused by
   `AppShell`'s own code.** The design spec lists them as registry
@@ -61,8 +61,8 @@ primitives), existing `next-themes`, `class-variance-authority`,
   requirement — don't force artificial usage into `AppShell` just to
   "use" them.
 - **Two known Tailwind-v3-incompatibility traps in canonical shadcn/
-  shadcnblocks code, from a hard lesson in the previous plan (Theme-
-  Fundament, merged as PR #6) — both apply here, watch for both:**
+  shadcnblocks code, from a hard lesson in the previous plan (Theme
+  foundation, merged as PR #6) — both apply here, watch for both:**
   1. Tailwind's `/NN` opacity-modifier syntax (`bg-primary/90`) silently
      compiles to nothing when the color token is a bare `var(--x)`
      string. This project's `tailwind.config.ts` already fixed every
@@ -124,7 +124,7 @@ primitives), existing `next-themes`, `class-variance-authority`,
   updating as a result of it — manual visual verification is called out
   explicitly where it matters.
 - Branch: create `frontend/app-shell-header` off latest `main` (this
-  plan's prerequisite, PR #6 / Theme-Fundament, is already merged).
+  plan's prerequisite, PR #6 / Theme foundation, is already merged).
 
 ---
 
@@ -808,7 +808,7 @@ git commit -s -m "feat(frontend): add AppShell sidebar with Chat/Suche nav and u
   `JurisdictionSwitcher`, `Button` (all unchanged).
 - Produces: `PageHeader` (named export from `@/components/page-header`),
   props `{ titleKey: TranslationKey; subtitleKey?: TranslationKey }` —
-  Task 5's three pages use this; later plans (Chat, Profil-Overlay pages)
+  Task 5's three pages use this; later plans (Chat, profile overlay pages)
   reuse the same component and prop shape.
 
 - [ ] **Step 1: Add the notification-bell i18n keys**
@@ -986,7 +986,7 @@ git commit -s -m "feat(frontend): add PageHeader with theme/locale controls and 
 
 ---
 
-### Task 5: Wire `AppShell` + `PageHeader` into Chat, Suche, Dokument-Detail
+### Task 5: Wire `AppShell` + `PageHeader` into Chat, Search, Document Detail
 
 **Files:**
 - Modify: `frontend/src/app/page.tsx`
@@ -1174,6 +1174,6 @@ Constraints). Once confirmed: push `frontend/app-shell-header`, open a PR
 against `main` on the `stackit` remote, wait for the CI pipeline's
 `test-frontend` job to go green, then ask the user to merge (same
 confirm-first rule applies to the merge trigger). The next plan in this
-redesign (Chat-Seite's nested history sidebar, per
+redesign (Chat page's nested history sidebar, per
 `docs/superpowers/specs/2026-09-05-frontend-shadcn-redesign-design.md`)
 depends on this one being merged first.

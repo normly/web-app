@@ -1,4 +1,4 @@
-# CI/CD-Pipeline Implementation Plan
+# CI/CD Pipeline Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -185,7 +185,7 @@ More directly, diagnose from the failure category:
 
 - A `container:` or implicit-checkout syntax error (job fails immediately,
   before your `run:` step's own output ever appears) — this is the
-  spec's flagged unverified assumption ("Illustrativ" in the design doc).
+  spec's flagged unverified assumption ("Illustrative" in the design doc).
   Adjust the YAML to whatever the runner's Forgejo version actually
   expects (check the Forgejo version via
   `curl -s https://normly.git.onstackit.cloud/api/v1/version`, then compare
@@ -258,7 +258,7 @@ Only the branch-protection step remains:
    only the four green checks (`test-accounts`, `test-api`, `test-chat`,
    `test-frontend`) as required. **Do NOT mark `test-core` as required** —
    it is deliberately, permanently red until the Docling cold-start
-   title-extraction gap (see the design spec's "Offene Punkte") is fixed as
+   title-extraction gap (see the design spec's "Open items / follow-up work") is fixed as
    its own follow-up task. Neither is a code change, so this
    isn't a plan task — an agentic worker cannot complete it (requires a
    logged-in browser session on `normly.git.onstackit.cloud`, and per this

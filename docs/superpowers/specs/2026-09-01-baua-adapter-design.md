@@ -1,129 +1,132 @@
-# Design: BAuA-Adapter (TRGS/TRBS/TRBA)
+# Design: BAuA adapter (TRGS/TRBS/TRBA)
 
-## Kontext
+## Context
 
-REQ-PIPE-009 (Erstbestand aus frei zugänglichen Quellen) nennt neben den
-Listen harmonisierter Normen (EUR-Lex, bereits als `EurLexAdapter` gebaut)
-und den Regelwerksverzeichnissen von DGUV (bereits als `DguvAdapter` gebaut)
-ausdrücklich auch die **Regelwerksverzeichnisse von BAuA**. Beide bestehenden
-Adapter laufen seit der Docling-Migration
-(`2026-08-30-docling-migration-design.md`) über die gemeinsame Schicht
-`core/src/normly_core/pipeline/docling_extraction.py` und folgen demselben
-Ingestion-Modell: kein Live-Scraping, ein Operator legt Quelldateien in ein
-lokales Verzeichnis, die CLI (`python -m normly_core.pipeline ingest ...`)
-liest von dort.
+REQ-PIPE-009 (initial collection from freely accessible sources) names, besides the
+lists of harmonized norms (EUR-Lex, already built as `EurLexAdapter`)
+and the standards registers of DGUV (already built as `DguvAdapter`),
+explicitly also the **standards registers of BAuA**. Both existing
+adapters have run since the Docling migration
+(`2026-08-30-docling-migration-design.md`) via the shared layer
+`core/src/normly_core/pipeline/docling_extraction.py` and follow the same
+ingestion model: no live scraping, an operator places source files in a
+local directory, the CLI (`python -m normly_core.pipeline ingest ...`)
+reads from there.
 
-Diese Aufgabe wurde in Rücksprache mit dem Auftraggeber gegenüber zwei
-Alternativen ausgewählt (Prüfoberfläche für unklare Identitätsauflösung nach
-REQ-PIPE-007; Aufbau einer CI/CD-Pipeline nach REQ-BUILD-002/003) — als
-direkte inhaltliche Fortsetzung der gerade abgeschlossenen Docling-Migration,
-mit demselben Adapter-Muster und derselben Extraktionsschicht.
+This task was selected in consultation with the owner over two
+alternatives (a review interface for unclear identity resolution under
+REQ-PIPE-007; building a CI/CD pipeline under REQ-BUILD-002/003) — as the
+direct content continuation of the just completed Docling migration,
+with the same adapter pattern and the same extraction layer.
 
-**BAuA veröffentlicht drei hier relevante Regelwerksreihen**, alle vom
-selben Herausgeber, alle mit vergleichbarem Nummernschema und
-Bekanntmachungsweg:
+**BAuA publishes three standards series relevant here**, all from the
+same publisher, all with a comparable numbering scheme and
+publication path:
 
-- **TRGS** — Technische Regeln für Gefahrstoffe, erarbeitet vom Ausschuss
-  für Gefahrstoffe (AGS).
-- **TRBS** — Technische Regeln für Betriebssicherheit, erarbeitet vom
-  Ausschuss für Betriebssicherheit (ABS).
-- **TRBA** — Technische Regeln für Biologische Arbeitsstoffe, erarbeitet vom
-  Ausschuss für Biologische Arbeitsstoffe (ABAS).
+- **TRGS** — Technische Regeln für Gefahrstoffe (Technical Rules for Hazardous
+  Substances), drawn up by the Ausschuss für Gefahrstoffe (AGS, Committee on
+  Hazardous Substances).
+- **TRBS** — Technische Regeln für Betriebssicherheit (Technical Rules for
+  Operational Safety), drawn up by the Ausschuss für Betriebssicherheit (ABS,
+  Committee on Operational Safety).
+- **TRBA** — Technische Regeln für Biologische Arbeitsstoffe (Technical Rules for
+  Biological Agents), drawn up by the Ausschuss für Biologische Arbeitsstoffe (ABAS,
+  Committee on Biological Agents).
 
-Alle drei werden von der BAuA im Gemeinsamen Ministerialblatt (GMBl) bekannt
-gemacht.
+All three are published by BAuA in the Gemeinsames Ministerialblatt (GMBl,
+Joint Ministerial Gazette).
 
-## Ziel dieses Teilprojekts
+## Goal of this sub-project
 
-- Ein neuer `BauaAdapter`, der alle drei Reihen unter einem gemeinsamen
-  Registereintrag (Herausgeber `"BAuA"`) einliest — analog zu `DguvAdapter`,
-  der ebenfalls mehrere Publikationsreihen desselben Herausgebers
-  (Vorschrift/Regel/Information/Grundsatz) unter einem Eintrag bündelt.
-- Ein neuer Registereintrag in `sources.py`, Schlüssel `"baua"`,
-  Rechtegrundlage Kategorie A.
-- CLI-Verdrahtung (`build_adapter()` in `cli.py`) analog zu den bestehenden
-  Quellen.
-- Ein erster, bewusst einfacher Wurf der Volltext-Struktur (siehe
-  "Entscheidung: Struktur-Tiefe Phase 1" unten) — keine Wiederholung der
-  aufwändigen Überschriften-Regex-Iteration, die der DGUV-Adapter
-  durchlaufen musste.
+- A new `BauaAdapter` that reads in all three series under one shared
+  register entry (publisher `"BAuA"`) — analogous to `DguvAdapter`,
+  which likewise bundles several publication series of the same publisher
+  (Vorschrift/Regel/Information/Grundsatz) under one entry.
+- A new register entry in `sources.py`, key `"baua"`,
+  legal basis category A.
+- CLI wiring (`build_adapter()` in `cli.py`) analogous to the existing
+  sources.
+- A first, deliberately simple iteration of the full-text structure (see
+  "Decision: structure depth phase 1" below) — no repetition of the
+  laborious heading regex iteration that the DGUV adapter
+  had to go through.
 
-## Nicht-Ziele
+## Non-goals
 
-- **Keine automatisierte Beschaffung von baua.de.** Die Seite liegt hinter
-  einem JavaScript-basierten Bot-Schutz (Bunny Shield) — sowohl `WebFetch`
-  als auch `curl` (mit realistischem Browser-User-Agent) lieferten für jede
-  während des Designs getestete URL, einschließlich des direkten
-  `TRBS-Bekanntmachungen.pdf`-Index-Links, HTTP 403. Ein Umgehungsversuch
-  wurde bewusst nicht unternommen. Beschaffung bleibt in diesem Teilprojekt
-  manuell — deckungsgleich mit dem bestehenden Modell für DGUV und EUR-Lex,
-  wo der Operator Dateien selbst in das Ingest-Verzeichnis legt. **Nicht als
-  Dauerzustand gedacht:** manuelle Beschaffung skaliert nicht auf drei
-  laufend erweiterte Regelwerksreihen mit unregelmäßigen Neuveröffentlichungen
-  — automatisierte Beschaffung ist als eigene Folgeaufgabe vorgesehen, siehe
-  "Offene Punkte".
-- **Keine feingranulare Abschnittserkennung** (nummerierte Überschriften wie
-  "1 Zielsetzung", "2.1 Begriffsbestimmungen") in diesem Durchgang — siehe
-  Architektur. Bewusst als eigene Folgeaufgabe vertagt.
-- **Keine erneute Prüfung nach REQ-PIPE-003** (Nutzungsvorbehalt). Dessen
-  Wortlaut bindet die Prüfung an "automatisierte Erfassung frei zugänglicher
-  Quellen" — hier liegt weder eine automatisierte Erfassung noch ein
-  urheberrechtlich geschütztes Werk vor, an dem ein Nutzungsvorbehalt nach
-  § 44b Abs. 3 UrhG überhaupt ansetzen könnte (siehe Rechtegrundlage unten).
-- **Keine neue Abstraktion** zwischen `DoclingDocument` und den
-  Domain-Objekten. Der Adapter bleibt, wie von der Docling-Migration
-  festgelegt, selbst für seine kleine Mapping-Logik zuständig.
+- **No automated retrieval from baua.de.** The site sits behind
+  a JavaScript-based bot protection (Bunny Shield) — both `WebFetch`
+  and `curl` (with a realistic browser user agent) returned HTTP 403 for every
+  URL tested during the design, including the direct
+  `TRBS-Bekanntmachungen.pdf` index link. An attempt to circumvent it
+  was deliberately not made. Retrieval stays manual in this sub-project
+  — congruent with the existing model for DGUV and EUR-Lex,
+  where the operator places files in the ingest directory themselves. **Not intended
+  as a permanent state:** manual retrieval does not scale to three
+  continuously extended standards series with irregular new publications
+  — automated retrieval is planned as a separate follow-up task, see
+  "Open items".
+- **No fine-grained section detection** (numbered headings such as
+  "1 Zielsetzung", "2.1 Begriffsbestimmungen") in this pass — see
+  Architecture. Deliberately deferred as a separate follow-up task.
+- **No renewed check under REQ-PIPE-003** (rights reservation). Its
+  wording ties the check to the "automated acquisition of freely accessible
+  sources" — here there is neither an automated acquisition nor a
+  copyright-protected work to which a rights reservation under
+  § 44b Abs. 3 UrhG (German Copyright Act) could apply at all (see Legal basis below).
+- **No new abstraction** between `DoclingDocument` and the
+  domain objects. As laid down by the Docling migration, the adapter itself remains
+  responsible for its small mapping logic.
 
-## Architektur
+## Architecture
 
-Neue Datei `core/src/normly_core/pipeline/adapters/baua.py`, Klasse
-`BauaAdapter(directory, source_id)` — gleiche Form wie `DguvAdapter` und
-`EurLexAdapter`. Nutzt dieselbe gemeinsame `docling_extraction.extract_document()`.
+New file `core/src/normly_core/pipeline/adapters/baua.py`, class
+`BauaAdapter(directory, source_id)` — same form as `DguvAdapter` and
+`EurLexAdapter`. Uses the same shared `docling_extraction.extract_document()`.
 
-### Dateikonvention
+### File convention
 
-Drei Datei-Präfixe für die drei Reihen, ein Adapter liest alle drei:
+Three file prefixes for the three series, one adapter reads all three:
 
 ```python
 _FILE_PATTERNS = ("baua_trgs_*.pdf", "baua_trbs_*.pdf", "baua_trba_*.pdf")
 ```
 
-`fetch()` sammelt alle drei Globs sortiert zusammen und verarbeitet — wie
-bei DGUV, anders als bei EUR-Lex — eine PDF als ein Dokument, nicht als
-Zusammenfassungstabelle mit vielen Zeilen.
+`fetch()` collects all three globs together, sorted, and processes — as
+with DGUV, unlike EUR-Lex — one PDF as one document, not as a
+summary table with many rows.
 
-### Designation-Erkennung
+### Designation detection
 
-Ein gemeinsames Muster für alle drei Reihen, da identisches Nummernschema
-(Präfix + Zahl, optional "Teil N", z. B. "TRGS 500 Teil 1"):
+One shared pattern for all three series, since the numbering scheme is identical
+(prefix + number, optionally "Teil N", e.g. "TRGS 500 Teil 1"):
 
 ```python
 _DESIGNATION_PATTERN = re.compile(r"^(TRGS|TRBS|TRBA)\s+(\d+(?:\s+Teil\s+\d+)?)\s*(.*)$")
 ```
 
-Wie bei DGUV/EUR-Lex empirisch bestätigt: Docling fasst visuell benachbarte
-Zeilen (Designation- und Titelzeile) zu einem Textelement zusammen. Titel
-wird daher aus dem Rest desselben ersten Elements nach dem
-Designation-Treffer gebildet — anders als bei DGUV bewusst **ohne** dessen
-Satzgrenzen-Heuristik (`_SENTENCE_OPENERS`, Wortlisten-Prüfung usw.). Das
-ist ein akzeptiertes Risiko, keine Unachtsamkeit: bei einem stark
-verschmolzenen Docling-Textblock kann der Titel Fließtext-Reste enthalten.
-Kategorie desselben, bereits im DGUV-Adapter akzeptierten Restrisikos — dort
-dokumentiert in dessen "Offene Punkte". `full_text` bleibt davon unberührt
-und enthält in jedem Fall den vollständigen Text.
+As empirically confirmed for DGUV/EUR-Lex: Docling merges visually adjacent
+lines (designation and title line) into one text element. The title
+is therefore formed from the rest of the same first element after the
+designation match — unlike DGUV, deliberately **without** its
+sentence-boundary heuristic (`_SENTENCE_OPENERS`, word-list check etc.). This
+is an accepted risk, not carelessness: with a heavily
+merged Docling text block, the title can contain remnants of running text.
+Same category as the residual risk already accepted in the DGUV adapter — documented
+there in its "Open items". `full_text` is unaffected by this
+and contains the complete text in every case.
 
-### Rechtegrundlage: Kategorie A
+### Legal basis: category A
 
-TRGS/TRBS/TRBA werden von BAuA-Fachausschüssen (AGS/ABS/ABAS) erarbeitet und
-von der BAuA im GMBl bekannt gemacht. Anders als DGUV-Vorschriften sind sie
-keine Rechtsnormen — Arbeitgeber, die die "vermutete" (nicht zwingende)
-Konformität nicht über eine TRGS/TRBS/TRBA herstellen, müssen gleichwertigen
-Schutz auf anderem Weg nachweisen ("Vermutungswirkung"). Das ändert nichts an
-der Einordnung nach § 5 Abs. 1 UrhG: dessen "Bekanntmachungen"-Tatbestand
-setzt keinen Rechtsnormcharakter des Inhalts voraus, sondern erfasst die
-amtliche Bekanntmachung als solche — hier durch eine Bundesoberbehörde im
-GMBl. Damit dieselbe Kategorie wie die bestehenden DGUV- und
-EUR-Lex-Registereinträge:
+TRGS/TRBS/TRBA are drawn up by BAuA expert committees (AGS/ABS/ABAS) and
+published by BAuA in the GMBl. Unlike DGUV-Vorschriften, they are
+not legal norms — employers who do not establish the "presumed" (not mandatory)
+conformity via a TRGS/TRBS/TRBA must demonstrate equivalent
+protection by other means ("Vermutungswirkung", presumption of conformity). This changes nothing about
+the classification under § 5 Abs. 1 UrhG: its "Bekanntmachungen" (official notices) element
+does not presuppose that the content has the character of a legal norm, but covers the
+official notice as such — here by a federal higher authority in the
+GMBl. This means the same category as the existing DGUV and
+EUR-Lex register entries:
 
 ```python
 def classify_rights(self, record: RawRecord) -> RightsRule:
@@ -134,25 +137,25 @@ def classify_rights(self, record: RawRecord) -> RightsRule:
     )
 ```
 
-Wie bei DGUV/EUR-Lex enger als das Protokoll (`RightsRule | None`): jeder
-Record dieser Quelle ist klassifizierbar, es gibt keinen "kann nicht
-klassifizieren"-Fall.
+As with DGUV/EUR-Lex, narrower than the protocol (`RightsRule | None`): every
+record of this source is classifiable, there is no "cannot
+classify" case.
 
-### Entscheidung: Struktur-Tiefe Phase 1
+### Decision: structure depth phase 1
 
-TRGS/TRBS/TRBA gliedern sich intern in nummerierte Abschnitte
-("1 Zielsetzung", "2.1 Begriffsbestimmungen", ...), nicht in
-§-Paragraphen wie DGUV. Eine robuste Grenzerkennung für dieses Schema
-gegen reale Dokumentvarianz zu bauen ist vom selben Aufwand wie die
-DGUV-Überschriftenerkennung, die fünf Iterationsrunden plus adversarielle
-Re-Review brauchte und dabei ein akzeptiertes Restrisiko zurückließ (siehe
-dortige "Offene Punkte"). Diese Iteration in diesem Durchgang zu wiederholen
-— ohne die reale Dokumentvarianz zunächst wenigstens gegen ein einziges
-echtes Exemplar geprüft zu haben, was `baua.de`s Bot-Schutz hier verhindert
-— wurde mit dem Auftraggeber bewusst verworfen.
+TRGS/TRBS/TRBA are structured internally into numbered sections
+("1 Zielsetzung", "2.1 Begriffsbestimmungen", ...), not into
+§ paragraphs like DGUV. Building robust boundary detection for this scheme
+against real document variance takes the same effort as the
+DGUV heading detection, which needed five iteration rounds plus adversarial
+re-review and left an accepted residual risk behind in the process (see
+the "Open items" there). Repeating this iteration in this pass
+— without having first checked the real document variance against at least a single
+real copy, which `baua.de`'s bot protection prevents here
+— was deliberately rejected together with the owner.
 
-Stattdessen liefert `extract_structure()` in diesem ersten Wurf genau ein
-Segment mit dem vollständigen Dokumenttext:
+Instead, in this first iteration `extract_structure()` returns exactly one
+segment with the complete document text:
 
 ```python
 def extract_structure(self, record: RawRecord) -> list[RawSection]:
@@ -161,121 +164,121 @@ def extract_structure(self, record: RawRecord) -> list[RawSection]:
     return [RawSection(sequence_number=1, heading=None, text=record.full_text)]
 ```
 
-Volltext ist damit ab Tag eins durchsuchbar und zitierfähig (`may_index_fulltext`
-ist `True`, siehe Rechtegrundlage) — nur ohne granulare Abschnittsgrenzen.
-Feinere Segmentierung ist eine bewusst vertagte Folgeaufgabe (siehe "Offene
-Punkte"), keine vergessene.
+The full text is thus searchable and citable from day one (`may_index_fulltext`
+is `True`, see Legal basis) — just without granular section boundaries.
+Finer segmentation is a deliberately deferred follow-up task (see "Open
+items"), not a forgotten one.
 
-## Komponenten
+## Components
 
-| Datei | Änderung |
+| File | Change |
 |---|---|
-| `core/src/normly_core/pipeline/adapters/baua.py` | **Neu.** `BauaAdapter` — `fetch()`, `extract_structure()` (Phase 1: ein Volltext-Segment), `classify_rights()` (Kategorie A, immer klassifizierbar). |
-| `core/src/normly_core/pipeline/sources.py` | Neuer Eintrag `"baua"` in `SOURCE_REGISTRY`: Herausgeber `"BAuA"`, Kategorie A, Rechtsraum `"DE"`. |
-| `core/src/normly_core/pipeline/cli.py` | `build_adapter()` um den `"baua"`-Zweig erweitert, `argparse`-Choices um `"baua"` ergänzt. |
-| `core/tests/pipeline/test_baua_adapter.py` | **Neu.** Siehe Testkonzept. |
-| `core/tests/fixtures/baua_trgs_sample.pdf`, `baua_trbs_sample.pdf`, `baua_trba_sample.pdf` | **Neu.** Synthetische, per `reportlab` zur Testzeit erzeugte Fixtures (wie bei DGUV) — nicht von der echten Seite kopiert. |
+| `core/src/normly_core/pipeline/adapters/baua.py` | **New.** `BauaAdapter` — `fetch()`, `extract_structure()` (phase 1: one full-text segment), `classify_rights()` (category A, always classifiable). |
+| `core/src/normly_core/pipeline/sources.py` | New entry `"baua"` in `SOURCE_REGISTRY`: publisher `"BAuA"`, category A, jurisdiction `"DE"`. |
+| `core/src/normly_core/pipeline/cli.py` | `build_adapter()` extended by the `"baua"` branch, `argparse` choices supplemented by `"baua"`. |
+| `core/tests/pipeline/test_baua_adapter.py` | **New.** See Test concept. |
+| `core/tests/fixtures/baua_trgs_sample.pdf`, `baua_trbs_sample.pdf`, `baua_trba_sample.pdf` | **New.** Synthetic fixtures generated via `reportlab` at test time (as with DGUV) — not copied from the real site. |
 
-## Datenfluss
+## Data flow
 
-Datei → `docling_extraction.extract_document()` → `DoclingDocument` →
-Adapter nimmt den Text des ersten Elements, trennt Designation und Titel per
-`_DESIGNATION_PATTERN`, sammelt den gesamten übrigen Text unverändert als
-`full_text` (kein Zeilenstruktur-Rebuild wie bei DGUV nötig — Phase 1 braucht
-keine Zeilengrenzen, nur den vollständigen Text). `extract_structure()` baut
-daraus das eine Segment; `classify_rights()` liefert immer dieselbe Kategorie-
-A-Regel.
+File → `docling_extraction.extract_document()` → `DoclingDocument` →
+the adapter takes the text of the first element, separates designation and title via
+`_DESIGNATION_PATTERN`, collects all the remaining text unchanged as
+`full_text` (no line-structure rebuild needed as with DGUV — phase 1 needs
+no line boundaries, only the complete text). `extract_structure()` builds
+the one segment from it; `classify_rights()` always returns the same category
+A rule.
 
-Der Rest des Datenflusses (Delivery-Deduplizierung über Content-Hash,
-Identitätsauflösung, Segment-/Embedding-Erzeugung) läuft unverändert über
-`runner.run_adapter()` — der Adapter selbst kennt keine dieser Stufen.
+The rest of the data flow (delivery deduplication via content hash,
+identity resolution, segment/embedding generation) runs unchanged via
+`runner.run_adapter()` — the adapter itself knows none of these stages.
 
-## Fehlerbehandlung
+## Error handling
 
-Identisch zu `DguvAdapter`/`EurLexAdapter`:
+Identical to `DguvAdapter`/`EurLexAdapter`:
 
-- Eine unlesbare/defekte PDF kostet nur diese Datei — `DocumentExtractionError`
-  wird pro Datei gefangen, über `report_skipped_source()` protokolliert,
-  `fetch()` liest die restlichen Dateien weiter.
-- Eine `PipelineInitializationError` (fehlkonfigurierte Docling-Modelle) wird
-  **nicht** gefangen — sie beträfe jede Datei gleichermaßen und soll den Lauf
-  sichtbar abbrechen statt einen leeren "Erfolg" vorzutäuschen.
+- An unreadable/broken PDF costs only that file — `DocumentExtractionError`
+  is caught per file, logged via `report_skipped_source()`,
+  `fetch()` continues reading the remaining files.
+- A `PipelineInitializationError` (misconfigured Docling models) is
+  **not** caught — it would affect every file equally and should abort the run
+  visibly instead of faking an empty "success".
 
-## Testkonzept
+## Test concept
 
-`core/tests/pipeline/test_baua_adapter.py`, mit drei per `reportlab`
-generierten Fixtures (eine je Reihe), analog zum Vorgehen bei
-`dguv_sample_vorschrift.pdf`. Fälle:
+`core/tests/pipeline/test_baua_adapter.py`, with three fixtures generated via `reportlab`
+(one per series), analogous to the approach for
+`dguv_sample_vorschrift.pdf`. Cases:
 
-- `fetch()` liefert einen Record je Datei, über alle drei Datei-Präfixe
-  hinweg gemeinsam.
-- Designation/Titel werden korrekt getrennt, für alle drei Präfixe
-  (TRGS/TRBS/TRBA) sowie für den "Teil N"-Suffix-Fall.
-- `classify_rights()` liefert immer dieselbe Kategorie-A-Regel, nie `None`.
-- `extract_structure()` liefert für einen Record mit `full_text` genau ein
-  Segment mit dem vollständigen Text; für `full_text=None` eine leere Liste.
-- Eine unlesbare Datei wird übersprungen, die übrigen werden trotzdem
-  verarbeitet (wie beim bestehenden DGUV-Test).
-- Eine `PipelineInitializationError` bricht den Lauf weiterhin ab, statt
-  stillschweigend übersprungen zu werden (wie beim bestehenden DGUV-Test).
+- `fetch()` returns one record per file, across all three file prefixes
+  together.
+- Designation/title are separated correctly, for all three prefixes
+  (TRGS/TRBS/TRBA) as well as for the "Teil N" suffix case.
+- `classify_rights()` always returns the same category A rule, never `None`.
+- `extract_structure()` returns, for a record with `full_text`, exactly one
+  segment with the complete text; for `full_text=None` an empty list.
+- An unreadable file is skipped, the others are processed nonetheless
+  (as in the existing DGUV test).
+- A `PipelineInitializationError` still aborts the run instead of
+  being silently skipped (as in the existing DGUV test).
 
-## Bezug zu Requirements und ADRs
+## Relation to requirements and ADRs
 
-| Requirement/ADR | Bezug |
+| Requirement/ADR | Relation |
 |---|---|
-| REQ-PIPE-009 | Direkt erfüllt — BAuA ist dort namentlich als Kategorie-A/B-Erstbestandsquelle genannt. |
-| REQ-PIPE-002 | Neuer Registereintrag mit vollständigen Pflichtfeldern (Herausgeber, Abrufweg, Kategorie, Rechtsraum, Prüfdatum, verantwortliche Person). |
-| REQ-PIPE-003 | Nicht einschlägig — siehe Nicht-Ziele. |
-| REQ-PIPE-005 | Unberührt — Abstammung läuft über dieselbe `Delivery`-Mechanik wie bei den bestehenden Adaptern, adapterunabhängig. |
-| ADR-018 (Docling-Migration) | Der neue Adapter baut von Beginn an auf der dort eingeführten `docling_extraction`-Schicht auf, dupliziert keine Docling-Konfiguration. |
+| REQ-PIPE-009 | Directly fulfilled — BAuA is specifically named there as a category A/B initial collection source. |
+| REQ-PIPE-002 | New register entry with complete mandatory fields (publisher, retrieval path, category, jurisdiction, check date, responsible person). |
+| REQ-PIPE-003 | Not applicable — see Non-goals. |
+| REQ-PIPE-005 | Untouched — lineage runs via the same `Delivery` mechanism as with the existing adapters, adapter-independent. |
+| ADR-018 (Docling migration) | The new adapter builds from the start on the `docling_extraction` layer introduced there, duplicates no Docling configuration. |
 
-## Offene Punkte / Folgearbeiten
+## Open items / follow-up work
 
-- **Automatisierte Beschaffung als eigene Folgeaufgabe.** Der manuelle
-  Beschaffungsweg dieses Teilprojekts (Operator lädt PDFs herunter, legt sie
-  ins Ingest-Verzeichnis) skaliert nicht dauerhaft: BAuA veröffentlicht neue
-  und überarbeitete TRGS/TRBS/TRBA-Fassungen laufend und unregelmäßig über
-  drei Reihen hinweg — anders als bei einer einmalig gepflegten
-  Erstbestandsquelle braucht das einen wiederholbaren Beschaffungsprozess.
-  Realistischerweise geht das nur automatisiert. `baua.de`s Bot-Schutz
-  (Bunny Shield, siehe Nicht-Ziele) verhindert einen naiven Scraper — zu
-  klären, sobald diese Aufgabe angegangen wird: ob BAuA einen offiziellen
-  Zugang ohne Bot-Schutz anbietet (z. B. eine Datenaustausch-Schnittstelle
-  oder einen RSS-/Newsletter-Feed für Neuveröffentlichungen), oder ob eine
-  browserbasierte Beschaffung mit dokumentierter, rechtlich geprüfter
-  Begründung nötig wird. Sobald automatisierte Erfassung ansteht, wird auch
-  REQ-PIPE-003 (Prüfung auf einen maschinenlesbaren Nutzungsvorbehalt) für
-  diese Quelle real relevant — hier als Nicht-Ziel nur deshalb ausgeklammert,
-  weil die Erfassung in diesem Teilprojekt manuell bleibt (siehe dort).
-  Eigenes Design/Spec, nicht Teil dieses Adapters.
-- **Ungeprüft gegen ein echtes Dokument.** Weder Designation-Muster noch
-  Titel-Extraktion noch die Annahme über Doclings Element-Zusammenfassung
-  wurden gegen eine echte TRGS/TRBS/TRBA-PDF verifiziert — `baua.de`s
-  Bot-Schutz verhinderte das während des Designs. Trifft das erste
-  Docling-Textelement eines echten Dokuments nicht auf
-  `_DESIGNATION_PATTERN` (z. B. Deckblatt- statt Designation-Text), entsteht
-  daraus stillschweigend ein regulär eingelesenes Dokument mit Datenmüll als
-  `raw_designation` — kein automatischer Prüffall. Weil `runner.py` die
-  Delivery (Content-Hash) in derselben Transaktion wie das Dokument
-  schreibt, lässt sich ein so fehlerhafter Erstlauf nach einer
-  Adapter-Korrektur nicht einfach günstig erneut einspielen; der Operator
-  muss die betroffenen Delivery-/Dokument-Zeilen zunächst von Hand löschen.
-  Genau deshalb ist die Stichprobenprüfung des ersten realen Laufs keine
-  Kür, sondern Voraussetzung *vor* jedem größeren Ingest: sobald der
-  Operator die ersten echten Dateien beschafft, muss dieser erste Lauf
-  stichprobenartig geprüft werden, bevor größere Mengen eingelesen werden.
-- **Feingranulare Abschnittserkennung** (nummerierte Überschriften) ist
-  bewusst vertagt (siehe "Entscheidung: Struktur-Tiefe Phase 1"). Eigene
-  Folgeaufgabe, sobald reale Dokumente zur Musterbildung vorliegen.
-- **Kein strukturiertes "Teil N" / Teilnummer-Feld.** `TRGS 500 Teil 1` und
-  `TRGS 500 Teil 2` werden dadurch zwei unverbundene Dokumentknoten:
-  `RawRecord` kennt kein `part`-Feld, `runner.py` schreibt `part` immer als
-  `None`. Der Adapter selbst erfasst "Teil N" korrekt als Teil der
-  Designation-Zeichenkette — die Lücke liegt unterhalb des Adapters, in der
-  gemeinsamen `RawRecord`/`runner.py`-Schicht, und wird erst durch BAuA als
-  erste Quelle mit teilnummerierten Designationen sichtbar. Eigene
-  Folgeaufgabe auf Pipeline-Ebene, nicht spezifisch für diesen Adapter.
-- **Datei-Namenskonvention** (`baua_trgs_*.pdf` usw.) ist eine Annahme dieses
-  Designs, keine von BAuA vorgegebene Konvention — der Operator muss beim
-  Ablegen der Dateien entsprechend benennen. Bei Bedarf leicht erweiterbar
-  (z. B. weitere Präfixe für zukünftige Reihen), ohne Bruch der bestehenden.
+- **Automated retrieval as a separate follow-up task.** The manual
+  retrieval path of this sub-project (the operator downloads PDFs, places them
+  in the ingest directory) does not scale permanently: BAuA publishes new
+  and revised TRGS/TRBS/TRBA versions continuously and irregularly across
+  three series — unlike a once-maintained
+  initial collection source, this needs a repeatable retrieval process.
+  Realistically, that is only feasible with automation. `baua.de`'s bot protection
+  (Bunny Shield, see Non-goals) prevents a naive scraper — to be
+  clarified as soon as this task is tackled: whether BAuA offers an official
+  access path without bot protection (e.g. a data exchange interface
+  or an RSS/newsletter feed for new publications), or whether a
+  browser-based retrieval with a documented, legally reviewed
+  justification becomes necessary. As soon as automated acquisition is due,
+  REQ-PIPE-003 (check for a machine-readable rights reservation) also becomes
+  really relevant for this source — excluded here as a non-goal only
+  because acquisition stays manual in this sub-project (see there).
+  Separate design/spec, not part of this adapter.
+- **Unchecked against a real document.** Neither the designation pattern nor
+  the title extraction nor the assumption about Docling's element merging
+  were verified against a real TRGS/TRBS/TRBA PDF — `baua.de`'s
+  bot protection prevented that during the design. If the first
+  Docling text element of a real document does not match
+  `_DESIGNATION_PATTERN` (e.g. cover page instead of designation text), the
+  result is silently a regularly ingested document with garbage data as
+  `raw_designation` — not an automatic review case. Because `runner.py` writes the
+  delivery (content hash) in the same transaction as the document,
+  such a faulty first run cannot simply and cheaply be re-imported after an
+  adapter correction; the operator
+  first has to delete the affected delivery/document rows by hand.
+  Precisely for this reason, spot-checking the first real run is not
+  an optional extra, but a prerequisite *before* any larger ingest: as soon as the
+  operator obtains the first real files, this first run must be
+  spot-checked before larger quantities are read in.
+- **Fine-grained section detection** (numbered headings) is
+  deliberately deferred (see "Decision: structure depth phase 1"). A separate
+  follow-up task as soon as real documents are available for deriving patterns.
+- **No structured "Teil N" / part-number field.** `TRGS 500 Teil 1` and
+  `TRGS 500 Teil 2` thereby become two unconnected document nodes:
+  `RawRecord` has no `part` field, `runner.py` always writes `part` as
+  `None`. The adapter itself correctly records "Teil N" as part of the
+  designation string — the gap lies below the adapter, in the
+  shared `RawRecord`/`runner.py` layer, and only becomes visible through BAuA as
+  the first source with part-numbered designations. A separate
+  follow-up task at pipeline level, not specific to this adapter.
+- **File naming convention** (`baua_trgs_*.pdf` etc.) is an assumption of this
+  design, not a convention prescribed by BAuA — the operator has to name
+  the files accordingly when placing them. Easily extensible if needed
+  (e.g. further prefixes for future series), without breaking the existing ones.

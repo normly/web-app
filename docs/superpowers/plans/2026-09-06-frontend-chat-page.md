@@ -1,4 +1,4 @@
-# Frontend Chat-Seite (verschachtelte Sidebar) Implementation Plan
+# Frontend Chat Page (Nested Sidebar) Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -10,7 +10,7 @@ Chat" button), and retire the standalone `/chats` history page — its one
 job (browsing past sessions) moves entirely into the new nested sidebar.
 
 **Architecture:** Two independent `SidebarProvider` trees, nested: the
-outer one is `AppShell` (Plan 2, unchanged — Chat/Suche nav). Inside its
+outer one is `AppShell` (Plan 2, unchanged — Chat/Search nav). Inside its
 `SidebarInset`, this plan adds a second, page-local `ChatShell` with its
 *own* `SidebarProvider`/`Sidebar`/`SidebarInset` for the history panel —
 each `SidebarProvider` scopes its own React context and its own
@@ -28,9 +28,9 @@ Global Constraints for why this is accepted, not fixed, in this plan.
 ## Global Constraints
 
 - Design spec: `docs/superpowers/specs/2026-09-05-frontend-shadcn-redesign-design.md`
-  — this plan implements only the "### Chat-Seite (verschachtelte
-  Sidebar)" section (lines 93-109). It does NOT touch `AppShell`,
-  `PageHeader`, the Profil-Overlay, Auth pages, or Suche/Dokument-Detail —
+  — this plan implements only the "### Chat page (nested
+  sidebar)" section (lines 93-109). It does NOT touch `AppShell`,
+  `PageHeader`, the profile overlay, Auth pages, or search/document detail —
   those are other plans in this redesign.
 - **No fake session titles or previews, no click-to-resume.** The
   existing `/api/chat/sessions` BFF route (unchanged by this plan)
@@ -40,8 +40,8 @@ Global Constraints for why this is accepted, not fixed, in this plan.
   `chats-page-content.tsx`'s own comment: building it is real feature
   work that hasn't happened). shadcnuikit's `ai-chat-v2` reference shows
   real conversation titles ("Best travel experience" etc.) — that is
-  *layout* inspiration only, per the spec ("keine Fremd-Registry-
-  Abhängigkeit — wird als eigene Komponente gebaut"), not a content
+  *layout* inspiration only, per the spec ("no third-party registry
+  dependency — built as our own component"), not a content
   requirement. Every history item in this plan shows its **creation
   date/time only** (the same data `chats-page-content.tsx` already shows
   today), grouped into date buckets — nothing more. Do not invent a
@@ -52,7 +52,7 @@ Global Constraints for why this is accepted, not fixed, in this plan.
   this section never asks for one, and there's no backend search
   capability to wire it to. Building a non-functional search input would
   be misleading UI the spec didn't request — leave it out entirely
-  (unlike the Header-Muster plan's notification bell, which the spec
+  (unlike the header pattern plan's notification bell, which the spec
   *explicitly* asked for as an intentional placeholder — this is not that
   case).
 - **Nested-sidebar cookie collision, accepted as-is.** `sidebar.tsx`
@@ -1110,7 +1110,7 @@ Expected: both succeed.
 Using a running local sandbox (Postgres + `accounts`/`api`/`chat`
 services + `npm run dev` — rebuild if not already up, see this
 redesign's project memory for the exact commands), confirm in a browser
-on `/`: the chat page shows two sidebars (outer Chat/Suche nav, inner
+on `/`: the chat page shows two sidebars (outer Chat/Search nav, inner
 chat history with "Neuer Chat"); sending a message shows the new bubble
 styling (dark bubble for your question, plain text for the reply, a copy
 button under the reply that actually copies); clicking "Neuer Chat"
@@ -1155,8 +1155,8 @@ git commit -s -m "feat(frontend): wire the nested chat-history sidebar into the 
 Chat history now lives *only* in `ChatHistorySidebar` (Task 4), reachable
 from the Chat nav item in `AppShell` (Plan 2). The standalone `/chats`
 page duplicated that same data with no date-grouping and is being
-retired, per the design spec ("Die bisherige eigenständige
-`/chats`-Verlaufsseite entfällt"). One concrete consequence this task must
+retired, per the design spec ("The previous standalone
+`/chats` history page is dropped"). One concrete consequence this task must
 handle: `frontend/src/app/account/page.tsx` is the *only* remaining
 `AppHeader` consumer that does **not** pass `showHistoryLink={false}` —
 once `/chats` is deleted, that page's default-visible "Verlauf" link
@@ -1325,6 +1325,6 @@ Constraints). Once confirmed: push `frontend/chat-page`, open a PR against
 `main` on the `stackit` remote — mention the Playwright e2e residual
 (Task 6, Step 8) in the PR description — wait for the CI pipeline's
 `test-frontend` job to go green, then ask the user to merge (same
-confirm-first rule applies). Plans 4 (Profil-Overlay), 5 (Auth-Seiten),
-and 6 (Suche & Dokument-Detail) remain in this redesign; none of them
+confirm-first rule applies). Plans 4 (profile overlay), 5 (auth pages),
+and 6 (search & document detail) remain in this redesign; none of them
 depend on this plan specifically, only on Plan 2 (already merged/mergeable).
