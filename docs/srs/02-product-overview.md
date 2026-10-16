@@ -1,178 +1,178 @@
-# 2. Produkt Überblick
+# 2. Product overview
 
-Im Folgenden soll ein Überblick über das Produkt gegeben werden.
+The following gives an overview of the product.
 
-## 2.1 Produkt Perspektive
+## 2.1 Product perspective
 
-Wir unterscheiden den Produktstatus in verschiedenen Phasen.
+We distinguish the product status in different phases.
 
-normly folgt einem Open-Core-Modell. Der freie Kern und die kommerzielle Schicht sind organisatorisch und technisch getrennt: Der Kern enthält keine Abhängigkeit auf proprietäre Bestandteile und bleibt ohne diese vollständig lauffähig.
+normly follows an open-core model. The free core and the commercial layer are organizationally and technically separate: the core contains no dependency on proprietary components and remains fully runnable without them.
 
 <img src="media/media/image1.png" style="width:6.27014in;height:8.24375in" />
 
-Figure 1: Entwicklungsphasen
+Figure 1: Development phases
 
-**Freier Kern (Open Source)  
-**Die frei verfügbare Wissensbasis, der Referenzgraph und die Anwendung selbst sind quelloffen, selbst hostbar und ohne Lizenzkosten nutzbar. Zusätzlich können Nutzer eigene, rechtmäßig erworbene Dokumente temporär hochladen, um sitzungsbezogen darauf zu arbeiten.
+**Free core (open source)  
+**The freely available knowledge base, the reference graph and the application itself are open source, self-hostable and usable without license costs. In addition, users can temporarily upload their own lawfully acquired documents in order to work on them within a session.
 
-**Kommerzielle Schicht  
-**Auf dem freien Kern setzen kostenpflichtige Dienste auf: Managed Hosting mit SLA, Compliance-Instanzen mit Audit-Trail, Integrationen in Drittsoftware, Auswertungsberichte für Normenanbieter sowie Instanzen, in denen vertraglich lizenzierte Normenbestände eines Anbieters vorab verarbeitet sind.
+**Commercial layer  
+**Paid services build on the free core: managed hosting with SLA, compliance instances with audit trail, integrations into third-party software, analytics reports for norm vendors, and instances in which a vendor's contractually licensed norm collections are pre-processed.
 
-<u>Information:</u> Es ist vorgesehen, die kommerzielle Schicht in eine eigene Gesellschaft (GmbH) auszugründen, während der freie Kern, die Daten und die Marke von einer nicht gewinnorientierten Trägerorganisation gehalten werden. Diese Ausgründung ist derzeit favorisiert, aber noch nicht beschlossen. Die Lizenzierung zwischen Trägerorganisation und GmbH muss zu marktüblichen Konditionen erfolgen.
+<u>Information:</u> It is planned to spin off the commercial layer into a separate company (GmbH), while the free core, the data and the trademark are held by a non-profit Trägerorganisation. This spin-off is currently preferred, but not yet accepted. Licensing between the Trägerorganisation and the GmbH must take place on customary market terms.
 
-Im MVP-Status wird der freie Kern als eigenständige Webanwendung bereitgestellt.
+In MVP status, the free core is provided as a standalone web application.
 
-normly wird weder als Browser-Plugin für Endnutzer noch als in Anbieter-Websites einzubettendes Web Widget umgesetzt, sondern als eigenständige, selbst hostbare Webanwendung mit öffentlicher API. Die Integration in Drittsoftware (z. B. CAD- und Expertensysteme) erfolgt über diese API und ist Bestandteil der kommerziellen Schicht.
+normly is implemented neither as a browser plugin for end users nor as a web widget to be embedded in vendor websites, but as a standalone, self-hostable web application with a public API. Integration into third-party software (e.g. CAD and expert systems) takes place via this API and is part of the commercial layer.
 
-**Beispiel für die Einbettung des White Label LM:** Die [<u>Normenverwaltungssoftware Nautos</u>](https://nautos.de/login) des DIN hat über 20.000 Accounts. Je nach Abo-Status der Kunden, können diese die Software in ihrem Browser nutzen.
+**Example of embedding the White Label LM:** DIN's [<u>norm management software Nautos</u>](https://nautos.de/login) has over 20,000 accounts. Depending on their subscription status, customers can use the software in their browser.
 
-**Beispiel für die Einbettung des White Label GPT:** Der [<u>VDI hat für jedes seiner Mitglieder</u>](https://www.vdi.de/) einen eigenen Benutzerbereich (Mein VDI). Je nach Status, sollen die Mitglieder das Plugin in ihrem Mitgliederbereich nutzen können, um mit allen VDI Normen interagieren zu können. Dabei werden nur paraphrasierte Antworten erzeugt, da der Volltext zunächst nicht dargestellt werden darf.
+**Example of embedding the White Label GPT:** [<u>The VDI provides each of its members</u>](https://www.vdi.de/) with a personal user area (Mein VDI). Depending on their status, members should be able to use the plugin in their member area to interact with all VDI norms. Only paraphrased answers are generated, since the full text must not be displayed for the time being.
 
-Ist der MVP-Status erfolgreich validiert und im Einsatz, wird die nächste Entwicklungsstufe gezündet. Hierzu gehört die Erschließung von Einnahmequellen über die kommerzielle Schicht. Personalisierte Werbung ist ausgeschlossen: Sie ist mit der Neutralität der Trägerorganisation und mit dem Datenschutzversprechen des freien Kerns nicht vereinbar. Werbung darf nur kontextbezogen ausgeschaltet werden, d.h. zum Beispiel über den Kontext einer Norm, die für Antworten genutzt wurde, aber nicht auf Basis der persönlichen Chateingaben.
+Once MVP status has been successfully validated and is in use, the next development stage is launched. This includes opening up revenue sources via the commercial layer. Personalized advertising is ruled out: it is incompatible with the neutrality of the Trägerorganisation and with the data protection promise of the free core. Advertising may only be served contextually, i.e. for example via the context of a norm that was used for answers, but not on the basis of personal chat inputs.
 
-## 2.2 Produkt Funktionen
+## 2.2 Product functions
 
-In diesem Abschnitt werden high-level die Kernfunktionen des Produkts beschrieben. Detaillierte Anforderungen werden in Abschnitt 3 behandelt.
+This section describes the core functions of the product at a high level. Detailed requirements are covered in section 3.
 
-**WICHTIG:** <u>Für den Start (MVP Status) werden noch nicht alle Funktionen benötigt!</u> Der Vollständigkeit halber, und um ein besseres Verständnis des Zielstatus zu erhalten, werden hier trotzdem alle Funktionen aufgeführt.  
-Einen ersten Eindruck, wie die Zielversion aussehen kann, kann man bereits unter [<u>app.normly.ai</u>](http://app.normly.ai/) erhalten.  
-MVP-spezifische Funktionen werden daher speziell hervorgehoben.
+**IMPORTANT:** <u>Not all functions are needed yet for the start (MVP status)!</u> For the sake of completeness, and to give a better understanding of the target state, all functions are nevertheless listed here.  
+A first impression of what the target version can look like is already available at [<u>app.normly.ai</u>](http://app.normly.ai/).  
+MVP-specific functions are therefore specially highlighted.
 
-**Sprachmodell**
+**Language model**
 
-- Es ist für den Start ein Open Source Sprachmodell auszuwählen.
+- An open-source language model is to be selected for the start.
 
-- Durch isolierten Betrieb des Modells kann ein Abfließen von Informationen ausgeschlossen werden.
+- Operating the model in isolation can rule out any outflow of information.
 
-- Zur Vision von normly gehört es, dass später ein eigenes, auf Rechtstexte spezialisiertes Sprachmodell entwickelt wird.
+- Part of normly's vision is that a dedicated language model specialized in legal texts is developed later.
 
-**Benutzerverwaltung**
+**User management**
 
-- Wenn normgebende Vereine einen existierenden Mitgliederbereich haben (z.B. VDI, VDE oder DIN) dann wird voraussichtlich SSO zum Einsatz kommen.
+- If norm-setting associations have an existing member area (e.g. VDI, VDE or DIN), SSO will probably be used.
 
-- Für die spätere Skalierung ist anzumerken, dass Nutzer sich auch selbst registrieren können, um einen Account anzulegen.
+- For later scaling, it should be noted that users can also register themselves to create an account.
 
-- Subscription Modell: In Phase 2 wird ein Abo-Modell für die kommerzielle Schicht implementiert (Managed Hosting, SLA, Integrationen). Die Nutzung des freien Kerns bleibt davon unberührt und kostenfrei.
+- Subscription model: In Phase 2, a subscription model is implemented for the commercial layer (managed hosting, SLA, integrations). Use of the free core remains unaffected by this and free of charge.
 
 **Interfaces**
 
-- Die Haupt-Interfaces werden zu den Weboberflächen der Vereine bestehen (Mitgliederbereich).
+- The main interfaces will be to the associations' web interfaces (member area).
 
-- Die Übermittlung von Normen (Dokumenten) beim White Label LM ist zentral und im Detail zu spezifizieren, wie das geschehen kann.
+- The transfer of norms (documents) for the White Label LM is central, and how this can be done is to be specified in detail.
 
-- Bezahlfunktion Stripe: Um ab Phase 2 ein Abomodell implementieren zu können, wird dann ein Interface zu Stripe gebraucht, um automatisiert Zahlungen entgegennehmen zu können.
+- Stripe payment function: To be able to implement a subscription model from Phase 2, an interface to Stripe will then be needed to receive payments automatically.
 
-**Auswertung und Berichte (kommerzielle Schicht)**
+**Analytics and reports (commercial layer)**
 
-- Ab Phase 2 werden Auswertungs- und Berichtsfunktionen als kostenpflichtiger Dienst angeboten. Diese sind vollständig Teil der kommerziellen Schicht und nicht Bestandteil des freien Kerns.
+- From Phase 2, analytics and reporting functions are offered as a paid service. They are entirely part of the commercial layer and not part of the free core.
 
-- Ergänzend ist ein Verzeichnis konformitätsrelevanter Produkte vorgesehen, in dem Hersteller, Dienstleister kostenpflichtige Einträge buchen können. Personalisierte Werbung auf Basis von Suchanfragen oder Chatverläufen ist ausgeschlossen.
+- In addition, a directory of conformity-relevant products is planned, in which manufacturers, service providers can book paid entries. Personalized advertising based on search queries or chat histories is ruled out.
 
-**Normen Insights**
+**Norm insights**
 
-- Für Auswertungsberichte ist das Erfassen aggregierter Nutzungsdaten erforderlich. Die Erhebung erfolgt ausschließlich in der kommerziellen Schicht, ist im freien Kern deaktivierbar und darf keine personenbezogenen Profile erzeugen. Anonyme Nutzungsdaten dürfen erhoben werden, um zum Beispiel aussagen zu können, wie viele Nutzer eine spezielle Norm aufrufen, oder welcher Teil einer Norm besonders oft genutzt wird und damit sehr relevant ist.
+- Analytics reports require the capture of aggregated usage data. Collection takes place exclusively in the commercial layer, can be deactivated in the free core and must not create personal profiles. Anonymous usage data may be collected, for example to be able to state how many users open a specific norm, or which part of a norm is used particularly often and is therefore highly relevant.
 
-- Normen-Anbietern soll außerdem ein weiterer (kostenpflichtiger) Service angeboten werden. Sie können detaillierte Berichte kaufen, die ihnen sehr detailliert zeigen, wie und von welcher Nutzergruppe ihre Normen genutzt werden.
+- Norm vendors should also be offered a further (paid) service. They can buy detailed reports that show them in great detail how and by which user group their norms are used.
 
-- Ein weiterer kostenpflichtiger Service an Endnutzer basiert auf AI-unterstützen Empfehlungen, wie Normen im Betrieb angewendet werden sollten, oder welche praxisnahen Empfehlungen aufgrund von Novellierungen empfohlen wird.
+- A further paid service for end users is based on AI-supported recommendations on how norms should be applied in the workplace, or which practice-oriented recommendations are made as a result of amendments.
 
-**Normen Management**
+**Norm management**
 
-- In späteren Phasen sollen Nutzer in der Lage sein, ihre favorisierten Normen zu überwachen. Dies bedeutet auf Aktualisierungen hingewiesen zu werden usw.
+- In later phases, users should be able to monitor their favorite norms. This means being notified of updates, etc.
 
-**Third-Party Integrationen**
+**Third-party integrations**
 
-- In Phase 3 soll dann eine Third-Party Integration erfolgen. Dies bedeutet, dass Nutzer in Expertensystemen, wie z.B. Autodesk, direkt mit normlyGPT interagieren können, ohne die Software verlassen zu müssen. Die Abrechnung erfolgt nutzungsbasiert über API Calls. **Dieser Schritt stellt das größte Umsatzwachstum dar und ist der zentrale USP der kommerziellen Schicht (auszugründende GmbH). Die Integration erfolgt über die öffentliche API des freien Kerns, ohne dessen Quelloffenheit einzuschränken.** Ein eigenes Sprachmodell ist dafür nicht zwingend Voraussetzung; die Integration ist auch auf Basis des Open-Source-Modells des freien Kerns möglich.
+- In Phase 3, a third-party integration should then take place. This means that users in expert systems, such as Autodesk, can interact directly with normlyGPT without having to leave the software. Billing is usage-based via API calls. **This step represents the largest revenue growth and is the central USP of the commercial layer (GmbH to be spun off). The integration takes place via the public API of the free core, without restricting its open-source nature.** A dedicated language model is not strictly a prerequisite for this; the integration is also possible on the basis of the open-source model of the free core.
 
-## 2.3 Produkt Beschränkungen
+## 2.3 Product constraints
 
-Dieses Kapitel beschreibt verbindliche Rahmenbedingungen und Einschränkungen, die das Design, die Implementierung und den Betrieb von normly beeinflussen.
+This chapter describes binding framework conditions and constraints that influence the design, the implementation and the operation of normly.
 
-**Technologische Beschränkungen**
+**Technological constraints**
 
-- normly muss als eigenständige, selbst hostbare, webbasierte Anwendung umgesetzt werden. Ein in Anbieter-Websites einzubettendes White-Label-Web-Widget ist nicht Bestandteil des Produkts; die Integration in Drittsysteme erfolgt ausschließlich über die öffentliche API.
+- normly must be implemented as a standalone, self-hostable, web-based application. A white-label web widget to be embedded in vendor websites is not part of the product; integration into third-party systems takes place exclusively via the public API.
 
-- Die Nutzung von Browser-Plugins für Endnutzer ist nicht vorgesehen.  
-  Für den MVP-Status wird ein Open-Source-Sprachmodell eingesetzt; ein eigenes normlyLLM ist nicht Bestandteil der initialen Entwicklungsphase.
+- The use of browser plugins for end users is not planned.  
+  For MVP status, an open-source language model is used; a dedicated normlyLLM is not part of the initial development phase.
 
-**Infrastruktur- und Hosting-Beschränkungen**
+**Infrastructure and hosting constraints**
 
-- Das Hosting aller Systemkomponenten (Produktiv-, Test-, Staging- und Entwicklungsumgebungen) ist ausschließlich auf Serverinfrastruktur der StackIT (Schwarz Gruppe) mit Standort in Deutschland zulässig.
+- Hosting of all system components (production, test, staging and development environments) is permitted exclusively on server infrastructure of StackIT (Schwarz Gruppe) located in Germany.
 
-- Der Einsatz von US-amerikanischen Cloud- oder SaaS-Anbietern (z. B. AWS, Azure, Google Cloud) für Betrieb, Build, Datenhaltung, Zugangsdaten oder Deployment ist nicht erlaubt. Zulässig ist ausschließlich die Veröffentlichung des ohnehin öffentlichen Quellcodes auf einer externen Plattform (GitHub) als reine Beitragsfassade. Dort werden keine Zugangsdaten, Build-Artefakte, Runner oder Deployment-Rechte vorgehalten.
+- The use of US cloud or SaaS providers (e.g. AWS, Azure, Google Cloud) for operation, build, data storage, credentials or deployment is not permitted. The only permitted use is publishing the already public source code on an external platform (GitHub) as a pure contribution facade. No credentials, build artifacts, runners or deployment rights are kept there.
 
-**Rechtliche und vertragliche Beschränkungen**
+**Legal and contractual constraints**
 
-- Normen und Richtlinien unterliegen urheberrechtlichen Einschränkungen und dürfen nicht wortgleich wiedergegeben werden.
+- Norms and guidelines are subject to copyright restrictions and must not be reproduced verbatim.
 
-- Je nach Vertragssituation mit Normenanbietern dürfen Inhalte entweder vollständig vorab verarbeitet oder ausschließlich nutzerbasiert und temporär hochgeladen werden.
+- Depending on the contractual situation with norm vendors, content may either be fully pre-processed or only be uploaded temporarily by users.
 
-- normly stellt keine rechtsverbindliche Beratung dar.
+- normly does not constitute legally binding advice.
 
-**Funktionale Beschränkungen (MVP)**
+**Functional constraints (MVP)**
 
-- Monetarisierungsfunktionen (Abonnements, Abrechnung, Berichte) sind Bestandteil der kommerziellen Schicht und im MVP nicht vollständig umgesetzt. Personalisierte Werbung ist dauerhaft ausgeschlossen.
+- Monetization functions (subscriptions, billing, reports) are part of the commercial layer and not fully implemented in the MVP. Personalized advertising is permanently ruled out.
 
-- Drittanbieter-Integrationen (z. B. CAD- oder Expertensysteme) sind nicht Bestandteil des MVP.
+- Third-party integrations (e.g. CAD or expert systems) are not part of the MVP.
 
-## 2.4 Benutzer Charakteristika
+## 2.4 User characteristics
 
-Dieses Kapitel beschreibt die primären Benutzergruppen von normly sowie deren Eigenschaften, Bedürfnisse und Nutzungskontexte, die Einfluss auf die Anforderungen haben.
+This chapter describes the primary user groups of normly and their characteristics, needs and usage contexts that influence the requirements.
 
-**Endnutzer (Fachanwender)**
+**End users (domain users)**
 
-- Typische Nutzer sind Ingenieure, Techniker, Sicherheitsbeauftragte, Qualitätsmanager und Studierende.
+- Typical users are engineers, technicians, safety officers, quality managers and students.
 
-- Die Nutzer verfügen über fachliches Domänenwissen, jedoch nicht zwingend über tiefgehende Kenntnisse der jeweiligen Normenstruktur.
+- Users have specialist domain knowledge, but not necessarily in-depth knowledge of the respective norm structure.
 
-- Nutzung erfolgt situativ zur Klärung konkreter fachlicher Fragestellungen.
+- Use is situational, to clarify concrete technical questions.
 
-- Erwartet werden schnelle, verständliche, paraphrasierte Antworten mit klarer Quellenangabe.
+- Fast, understandable, paraphrased answers with a clear citation are expected.
 
-**Administrierende Nutzer (Normenanbieter)**
+**Administrative users (norm vendors)**
 
-- Mitarbeitende von Normenanbietern oder Verbänden, die normly in ihre Website integrieren.
+- Employees of norm vendors or associations who integrate normly into their website.
 
-- Technische Kenntnisse sind vorhanden, jedoch soll die Integration mit minimalem Implementierungsaufwand möglich sein.
+- Technical knowledge is present, but integration should be possible with minimal implementation effort.
 
-- Erwartet werden Konfigurationsmöglichkeiten (Branding, Zugriffssteuerung) sowie **perspektivisch Nutzungs- und Analyseberichte** (wie wir sie im normly-Dummy bereits gezeigt haben).
+- Configuration options (branding, access control) are expected, as well as **usage and analytics reports in the longer term** (as we have already shown in the normly dummy).
 
-**Barrierefreiheit und Internationalisierung**
+**Accessibility and internationalization**
 
-- Nutzer können unterschiedliche körperliche oder kognitive Einschränkungen aufweisen; daher sind barrierefreie UI-Konzepte erforderlich.
+- Users may have different physical or cognitive impairments; accessible UI concepts are therefore required.
 
-- normly richtet sich perspektivisch an ein internationales Publikum; Mehrsprachigkeit ist daher ein zentrales Nutzungsszenario. Das Frontend ist per default englisch – deutsch von Beginn an möglich. Nutzer werden später in ihrer Muttersprache mit normly interagieren können müssen, auch wenn die Quellinhalte nicht in der Muttersprache zur Verfügung stehen.
+- In the longer term, normly targets an international audience; multilingualism is therefore a central usage scenario. The frontend is English by default – German possible from the start. Users will later have to be able to interact with normly in their native language, even if the source content is not available in that native language.
 
-## 2.5 Annahmen und Abhängigkeiten
+## 2.5 Assumptions and dependencies
 
-Dieses Kapitel beschreibt Annahmen und externe Abhängigkeiten, auf denen die Planung, Entwicklung und der Betrieb von normly basieren.
+This chapter describes assumptions and external dependencies on which the planning, development and operation of normly are based.
 
-**Annahmen**
+**Assumptions**
 
-- Normenanbieter sind grundsätzlich bereit, normly in ihre bestehenden Metadaten zur Verfügung zu stellen, sofern rechtliche und vertragliche Rahmenbedingungen erfüllt sind.
+- Norm vendors are generally willing to make their existing metadata available to normly, provided that legal and contractual framework conditions are met.
 
-- Endnutzer besitzen die rechtliche Berechtigung, Normen hochzuladen, sofern diese nicht zentral durch den Anbieter bereitgestellt werden.
+- End users have the legal right to upload norms, provided these are not provided centrally by the vendor.
 
-- Open-Source-Sprachmodelle erreichen eine ausreichende Qualität für den MVP-Einsatz.
+- Open-source language models achieve sufficient quality for MVP use.
 
-**Technische Abhängigkeiten**
+**Technical dependencies**
 
-- Verfügbarkeit und Stabilität der StackIT-Infrastruktur.
+- Availability and stability of the StackIT infrastructure.
 
-- Verfügbarkeit geeigneter Open-Source-LLMs mit kommerzieller Nutzungslizenz.
+- Availability of suitable open-source LLMs with a license for commercial use.
 
-- Leistungsfähigkeit von Retrieval- und Vektorisierungsmechanismen für große Dokumentenmengen.
+- Performance of retrieval and vectorization mechanisms for large volumes of documents.
 
-**Organisatorische Abhängigkeiten**
+**Organizational dependencies**
 
-- Vertragsverhandlungen mit Normenanbietern beeinflussen Umfang und Art der verfügbaren Inhalte.
+- Contract negotiations with norm vendors influence the scope and type of the available content.
 
-- Rechtliche Bewertungen (Urheberrecht, Haftung, Datenschutz) können Einfluss auf Funktionsumfang und UI-Gestaltung haben.
+- Legal assessments (copyright, liability, data protection) may influence the scope of functions and the UI design.
 
-**Risiken bei falschen Annahmen**
+**Risks if assumptions are wrong**
 
-- Verzögerungen oder Einschränkungen bei Vertragsabschlüssen können den Funktionsumfang reduzieren.
+- Delays or restrictions in concluding contracts may reduce the scope of functions.
 
-- Änderungen in der Lizenzierung von Open-Source-LLMs können technische Anpassungen erforderlich machen.
+- Changes in the licensing of open-source LLMs may require technical adjustments.
 
-- Unerwartete Skalierungsanforderungen können zu Performance- oder Kostenrisiken führen.
+- Unexpected scaling requirements may lead to performance or cost risks.

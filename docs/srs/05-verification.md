@@ -1,3 +1,3 @@
-# 4. Verifikation
+# 4. Verification
 
-Jedes Requirement wird innerhalb der Entwicklungsumgebung (STACKIT Git) angelegt. Durch das verwenden von Kanban und Methoden aus dem Bereich der agilen Softwareentwicklung, kann jedes Requirement überwacht und “abgenommen” werden.
+Each requirement is created within the development environment (STACKIT Git). By using Kanban and methods from agile software development, each requirement can be monitored and “accepted”.

@@ -1,5 +1,5 @@
-# 5. Anhänge
+# 5. Appendices
 
-Im Folgenden werden die Anhänge aufgeführt.
+The appendices are listed below.
 
 - Entscheidungen_ADR.md

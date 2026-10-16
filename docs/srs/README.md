@@ -1,208 +1,208 @@
 # SRS / SDD — normly
 
-Software Requirements Specification und Software Design Description.
-Nach Kapiteln aufgeteilt, damit gezielt gelesen werden kann statt des ganzen Dokuments.
+Software Requirements Specification and Software Design Description.
+Split into chapters so that readers can read selectively instead of the whole document.
 
-## Kapitel
+## Chapters
 
-| Datei | Inhalt |
+| File | Contents |
 |---|---|
-| [01-introduction.md](01-introduction.md) | Zweck des Dokuments, Produktvision, Definitionen |
-| [02-product-overview.md](02-product-overview.md) | Produktperspektive, Funktionen, Beschränkungen, Nutzergruppen, Annahmen |
-| [03-requirements.md](03-requirements.md) | Sämtliche Anforderungen, Kapitel 3.1–3.16 |
-| [05-verification.md](05-verification.md) | Verifikation |
-| [06-appendices.md](06-appendices.md) | Anhänge |
+| [01-introduction.md](01-introduction.md) | Purpose of the document, product vision, definitions |
+| [02-product-overview.md](02-product-overview.md) | Product perspective, functions, constraints, user groups, assumptions |
+| [03-requirements.md](03-requirements.md) | All requirements, chapters 3.1–3.16 |
+| [05-verification.md](05-verification.md) | Verification |
+| [06-appendices.md](06-appendices.md) | Appendices |
 
-## Kapitelgliederung der Anforderungen
+## Chapter structure of the requirements
 
-| | Kapitel | Gruppe |
+| | Chapter | Group |
 |---|---|---|
-| 3.1 | Externe Interfaces | `REQ-UI`, `REQ-INT` |
-| 3.2 | Funktionale Anforderungen | `REQ-FUNC` |
-| 3.3 | Nicht-funktionale Anforderungen | `REQ-PERF` |
+| 3.1 | External interfaces | `REQ-UI`, `REQ-INT` |
+| 3.2 | Functional requirements | `REQ-FUNC` |
+| 3.3 | Non-functional requirements | `REQ-PERF` |
 | 3.4 | Compliance | — |
-| 3.5 | Design und Implementierung | `REQ-INST`, `REQ-BUILD`, `REQ-DIST` |
+| 3.5 | Design and implementation | `REQ-INST`, `REQ-BUILD`, `REQ-DIST` |
 | 3.6 | AI/ML | — |
-| 3.7 | Open Source und Governance | `REQ-OSS` |
-| 3.8 | Quellcodeverwaltung und Git-Workflow | `REQ-GIT` |
-| 3.9 | Referenzgraph | `REQ-GRAPH` |
-| 3.10 | Inhaltepartnerschaften und Vergütung | `REQ-PART` |
-| 3.11 | Kommerzielle Zusatzdienste | `REQ-COM` |
-| 3.12 | Datenerfassung und Verarbeitungskette | `REQ-PIPE` |
-| 3.13 | Verschlüsselung und Schutz lizenzierter Inhalte | `REQ-SEC` |
-| 3.14 | Geschützte Anzeige und Offline-Nutzung | `REQ-DRM` |
-| 3.15 | Mobile Bereitstellung | `REQ-MOB` |
-| 3.16 | Zugang und Kontopflicht | `REQ-ACC` |
+| 3.7 | Open source and governance | `REQ-OSS` |
+| 3.8 | Source code management and Git workflow | `REQ-GIT` |
+| 3.9 | Reference graph | `REQ-GRAPH` |
+| 3.10 | Content partnerships and remuneration | `REQ-PART` |
+| 3.11 | Commercial add-on services | `REQ-COM` |
+| 3.12 | Data acquisition and processing chain | `REQ-PIPE` |
+| 3.13 | Encryption and protection of licensed content | `REQ-SEC` |
+| 3.14 | Protected display and offline use | `REQ-DRM` |
+| 3.15 | Mobile provision | `REQ-MOB` |
+| 3.16 | Access and account requirement | `REQ-ACC` |
 
-## Verwandte Dokumente
+## Related documents
 
-- [../adr/](../adr/) — Architekturentscheidungen mit Begründung
-- [../normly_processing-chain.svg](../normly_processing-chain.svg) — Pipeline von der Quelle bis zur Ausspielung
-- [../normly_development-phases.svg](../normly_development-phases.svg) — Phasenplan
+- [../adr/](../adr/) — Architecture decisions with rationale
+- [../normly_processing-chain.svg](../normly_processing-chain.svg) — Pipeline from the source to the output
+- [../normly_development-phases.svg](../normly_development-phases.svg) — Phase plan
 
-## Requirement-Index
+## Requirement index
 
-78 Anforderungen in 17 Gruppen. Alle in [03-requirements.md](03-requirements.md).
+78 requirements in 17 groups. All in [03-requirements.md](03-requirements.md).
 
-### REQ-UI — Benutzeroberfläche
+### REQ-UI — User interface
 
-| ID | Titel | Kapitel |
+| ID | Title | Section |
 |---|---|---|
-| [`REQ-UI-001`](03-requirements.md#req-ui-001-chat-oberflache-der-eigenstandigen-webanwendung) | Chat-Oberfläche der eigenständigen Webanwendung | 3.1.1 |
-| [`REQ-UI-002`](03-requirements.md#req-ui-002-chat-basierte-interaktion) | Chat-basierte Interaktion | 3.1.1 |
-| [`REQ-UI-003`](03-requirements.md#req-ui-003-quellenanzeige-und-verlinkung) | Quellenanzeige und Verlinkung | 3.1.1 |
-| [`REQ-UI-004`](03-requirements.md#req-ui-004-wcag-konformitat) | WCAG-Konformität | 3.1.1 |
-| [`REQ-UI-005`](03-requirements.md#req-ui-005-anzeige-und-verwaltung-der-chat-historie) | Anzeige und Verwaltung der Chat-Historie | 3.1.1 |
+| [`REQ-UI-001`](03-requirements.md#req-ui-001-chat-interface-of-the-standalone-web-application) | Chat interface of the standalone web application | 3.1.1 |
+| [`REQ-UI-002`](03-requirements.md#req-ui-002-chat-based-interaction) | Chat-based interaction | 3.1.1 |
+| [`REQ-UI-003`](03-requirements.md#req-ui-003-citations-and-linking) | Citations and linking | 3.1.1 |
+| [`REQ-UI-004`](03-requirements.md#req-ui-004-wcag-conformance) | WCAG conformance | 3.1.1 |
+| [`REQ-UI-005`](03-requirements.md#req-ui-005-display-and-management-of-the-chat-history) | Display and management of the chat history | 3.1.1 |
 
-### REQ-INT — Integration und Schnittstellen
+### REQ-INT — Integration and interfaces
 
-| ID | Titel | Kapitel |
+| ID | Title | Section |
 |---|---|---|
-| [`REQ-INT-001`](03-requirements.md#req-int-001-offentliche-api-zur-integration-in-drittsoftware) | Öffentliche API zur Integration in Drittsoftware | 3.1.3 |
-| [`REQ-INT-002`](03-requirements.md#req-int-002-schnittstelle-zu-normen-datenbanken) | Schnittstelle zu Normen-Datenbanken | 3.1.3 |
-| [`REQ-INT-002A`](03-requirements.md#req-int-002a-nutzerbasierter-dokumenten-upload-und-temporare-modellanreicherung) | Nutzerbasierter Dokumenten-Upload und temporäre Modellanreicherung | 3.1.3 |
-| [`REQ-INT-002B`](03-requirements.md#req-int-002b-isolation-nutzerspezifischer-dokumente) | Isolation nutzerspezifischer Dokumente | 3.1.3 |
-| [`REQ-INT-002C`](03-requirements.md#req-int-002c-zeitlich-begrenzte-speicherung-hochgeladener-dokumente) | Zeitlich begrenzte Speicherung hochgeladener Dokumente | 3.1.3 |
-| [`REQ-INT-003`](03-requirements.md#req-int-003-sso-authentifizierung) | SSO-Authentifizierung | 3.1.3 |
-| [`REQ-INT-004`](03-requirements.md#req-int-004-llm-schnittstelle) | LLM-Schnittstelle | 3.1.3 |
+| [`REQ-INT-001`](03-requirements.md#req-int-001-public-api-for-integration-into-third-party-software) | Public API for integration into third-party software | 3.1.3 |
+| [`REQ-INT-002`](03-requirements.md#req-int-002-interface-to-norm-databases) | Interface to norm databases | 3.1.3 |
+| [`REQ-INT-002A`](03-requirements.md#req-int-002a-user-based-document-upload-and-temporary-model-enrichment) | User-based document upload and temporary model enrichment | 3.1.3 |
+| [`REQ-INT-002B`](03-requirements.md#req-int-002b-isolation-of-user-specific-documents) | Isolation of user-specific documents | 3.1.3 |
+| [`REQ-INT-002C`](03-requirements.md#req-int-002c-time-limited-storage-of-uploaded-documents) | Time-limited storage of uploaded documents | 3.1.3 |
+| [`REQ-INT-003`](03-requirements.md#req-int-003-sso-authentication) | SSO authentication | 3.1.3 |
+| [`REQ-INT-004`](03-requirements.md#req-int-004-llm-interface) | LLM interface | 3.1.3 |
 
-### REQ-FUNC — Funktionale Anforderungen
+### REQ-FUNC — Functional requirements
 
-| ID | Titel | Kapitel |
+| ID | Title | Section |
 |---|---|---|
-| [`REQ-FUNC-001`](03-requirements.md#req-func-001-beantwortung-normbasierter-fragen) | Beantwortung normbasierter Fragen | 3.2 |
-| [`REQ-FUNC-002`](03-requirements.md#req-func-002-paraphrasierung-statt-volltext) | Paraphrasierung statt Volltext | 3.2 |
-| [`REQ-FUNC-003`](03-requirements.md#req-func-003-fehler-und-fallback-antworten) | Fehler- und Fallback-Antworten | 3.2 |
+| [`REQ-FUNC-001`](03-requirements.md#req-func-001-answering-norm-based-questions) | Answering norm-based questions | 3.2 |
+| [`REQ-FUNC-002`](03-requirements.md#req-func-002-paraphrasing-instead-of-full-text) | Paraphrasing instead of full text | 3.2 |
+| [`REQ-FUNC-003`](03-requirements.md#req-func-003-error-and-fallback-answers) | Error and fallback answers | 3.2 |
 
 ### REQ-PERF — Performance
 
-| ID | Titel | Kapitel |
+| ID | Title | Section |
 |---|---|---|
-| [`REQ-PERF-001`](03-requirements.md#req-perf-001-antwortzeit-chat) | Antwortzeit Chat | 3.3.1 |
+| [`REQ-PERF-001`](03-requirements.md#req-perf-001-chat-response-time) | Chat response time | 3.3.1 |
 
-### REQ-INST — Installation und Deployment
+### REQ-INST — Installation and deployment
 
-| ID | Titel | Kapitel |
+| ID | Title | Section |
 |---|---|---|
-| [`REQ-INST-001`](03-requirements.md#req-inst-001-deployment-auf-deutscher-stackit-infrastruktur) | Deployment auf deutscher StackIT-Infrastruktur | 3.5.1 |
-| [`REQ-INST-002`](03-requirements.md#req-inst-002-automatisiertes-deployment) | Automatisiertes Deployment | 3.5.1 |
-| [`REQ-INST-003`](03-requirements.md#req-inst-003-konfigurationsmanagement-uber-umgebungsvariablen) | Konfigurationsmanagement über Umgebungsvariablen | 3.5.1 |
-| [`REQ-INST-004`](03-requirements.md#req-inst-004-rollback-fahigkeit) | Rollback-Fähigkeit | 3.5.1 |
+| [`REQ-INST-001`](03-requirements.md#req-inst-001-deployment-on-german-stackit-infrastructure) | Deployment on German StackIT infrastructure | 3.5.1 |
+| [`REQ-INST-002`](03-requirements.md#req-inst-002-automated-deployment) | Automated deployment | 3.5.1 |
+| [`REQ-INST-003`](03-requirements.md#req-inst-003-configuration-management-via-environment-variables) | Configuration management via environment variables | 3.5.1 |
+| [`REQ-INST-004`](03-requirements.md#req-inst-004-rollback-capability) | Rollback capability | 3.5.1 |
 
-### REQ-BUILD — Build und Auslieferung
+### REQ-BUILD — Build and shipping
 
-| ID | Titel | Kapitel |
+| ID | Title | Section |
 |---|---|---|
-| [`REQ-BUILD-001`](03-requirements.md#req-build-001-reproduzierbare-builds) | Reproduzierbare Builds | 3.5.2 |
-| [`REQ-BUILD-002`](03-requirements.md#req-build-002-cicd-infrastruktur-fur-den-freien-kern) | CI/CD-Infrastruktur für den freien Kern (ADR-021) | 3.5.2 |
-| [`REQ-BUILD-003`](03-requirements.md#req-build-003-automatisierte-qualitatssicherung-im-build) | Automatisierte Qualitätssicherung im Build | 3.5.2 |
+| [`REQ-BUILD-001`](03-requirements.md#req-build-001-reproducible-builds) | Reproducible builds | 3.5.2 |
+| [`REQ-BUILD-002`](03-requirements.md#req-build-002-cicd-infrastructure-for-the-free-core) | CI/CD infrastructure for the free core (ADR-021) | 3.5.2 |
+| [`REQ-BUILD-003`](03-requirements.md#req-build-003-automated-quality-assurance-in-the-build) | Automated quality assurance in the build | 3.5.2 |
 
 ### REQ-DIST — Distribution
 
-| ID | Titel | Kapitel |
+| ID | Title | Section |
 |---|---|---|
-| [`REQ-DIST-001`](03-requirements.md#req-dist-001-klare-trennung-von-umgebungen) | Klare Trennung von Umgebungen | 3.5.3 |
-| [`REQ-DIST-002`](03-requirements.md#req-dist-002-skalierbare-verteilung-der-systemkomponenten) | Skalierbare Verteilung der Systemkomponenten | 3.5.3 |
-| [`REQ-DIST-003`](03-requirements.md#req-dist-003-optionale-mandantenfahigkeit-fur-managed-hosting) | Optionale Mandantenfähigkeit für Managed Hosting | 3.5.3 |
-| [`REQ-DIST-004`](03-requirements.md#req-dist-004-versionierte-auslieferung-der-anwendung) | Versionierte Auslieferung der Anwendung | 3.5.3 |
+| [`REQ-DIST-001`](03-requirements.md#req-dist-001-clear-separation-of-environments) | Clear separation of environments | 3.5.3 |
+| [`REQ-DIST-002`](03-requirements.md#req-dist-002-scalable-distribution-of-the-system-components) | Scalable distribution of the system components | 3.5.3 |
+| [`REQ-DIST-003`](03-requirements.md#req-dist-003-optional-multi-tenancy-for-managed-hosting) | Optional multi-tenancy for managed hosting | 3.5.3 |
+| [`REQ-DIST-004`](03-requirements.md#req-dist-004-versioned-shipping-of-the-application) | Versioned shipping of the application | 3.5.3 |
 
-### REQ-OSS — Open Source und Governance
+### REQ-OSS — Open source and governance
 
-| ID | Titel | Kapitel |
+| ID | Title | Section |
 |---|---|---|
-| [`REQ-OSS-001`](03-requirements.md#req-oss-001-lizenzmodell-des-freien-kerns) | Lizenzmodell des freien Kerns | 3.7 |
-| [`REQ-OSS-002`](03-requirements.md#req-oss-002-trennung-von-freiem-kern-und-kommerzieller-schicht) | Trennung von freiem Kern und kommerzieller Schicht | 3.7 |
-| [`REQ-OSS-003`](03-requirements.md#req-oss-003-beitragsmodell-dco) | Beitragsmodell (DCO) | 3.7 |
-| [`REQ-OSS-004`](03-requirements.md#req-oss-004-community-governance-und-sicherheitsprozess) | Community-Governance und Sicherheitsprozess | 3.7 |
-| [`REQ-OSS-005`](03-requirements.md#req-oss-005-lizenzkonformitat-der-abhangigkeiten) | Lizenzkonformität der Abhängigkeiten | 3.7 |
-| [`REQ-OSS-006`](03-requirements.md#req-oss-006-markenrechte) | Markenrechte | 3.7 |
+| [`REQ-OSS-001`](03-requirements.md#req-oss-001-license-model-of-the-free-core) | License model of the free core | 3.7 |
+| [`REQ-OSS-002`](03-requirements.md#req-oss-002-separation-of-free-core-and-commercial-layer) | Separation of free core and commercial layer | 3.7 |
+| [`REQ-OSS-003`](03-requirements.md#req-oss-003-contribution-model-dco) | Contribution model (DCO) | 3.7 |
+| [`REQ-OSS-004`](03-requirements.md#req-oss-004-community-governance-and-security-process) | Community governance and security process | 3.7 |
+| [`REQ-OSS-005`](03-requirements.md#req-oss-005-license-compliance-of-dependencies) | License compliance of dependencies | 3.7 |
+| [`REQ-OSS-006`](03-requirements.md#req-oss-006-trademark-rights) | Trademark rights | 3.7 |
 
-### REQ-GIT — Quellcodeverwaltung und Git-Workflow
+### REQ-GIT — Source code management and Git workflow
 
-| ID | Titel | Kapitel |
+| ID | Title | Section |
 |---|---|---|
-| [`REQ-GIT-001`](03-requirements.md#req-git-001-github-als-fuhrende-plattform-fur-den-kern-quellcode) | GitHub als führende Plattform für den Kern-Quellcode (ADR-021) | 3.8 |
-| [`REQ-GIT-002`](03-requirements.md#req-git-002-beitragsweg-uber-github) | Beitragsweg über GitHub (ADR-021) | 3.8 |
-| [`REQ-GIT-003`](03-requirements.md#req-git-003-branch-und-release-strategie) | Branch- und Release-Strategie | 3.8 |
-| [`REQ-GIT-004`](03-requirements.md#req-git-004-merge-request-richtlinie) | Merge-Request-Richtlinie | 3.8 |
-| [`REQ-GIT-005`](03-requirements.md#req-git-005-integritat-der-lieferkette) | Integrität der Lieferkette | 3.8 |
+| [`REQ-GIT-001`](03-requirements.md#req-git-001-github-as-the-primary-platform-for-the-core-source-code) | GitHub as the primary platform for the core source code (ADR-021) | 3.8 |
+| [`REQ-GIT-002`](03-requirements.md#req-git-002-contribution-path-via-github) | Contribution path via GitHub (ADR-021) | 3.8 |
+| [`REQ-GIT-003`](03-requirements.md#req-git-003-branch-and-release-strategy) | Branch and release strategy | 3.8 |
+| [`REQ-GIT-004`](03-requirements.md#req-git-004-merge-request-policy) | Merge request policy | 3.8 |
+| [`REQ-GIT-005`](03-requirements.md#req-git-005-supply-chain-integrity) | Supply chain integrity | 3.8 |
 
-### REQ-GRAPH — Referenzgraph
+### REQ-GRAPH — Reference graph
 
-| ID | Titel | Kapitel |
+| ID | Title | Section |
 |---|---|---|
-| [`REQ-GRAPH-001`](03-requirements.md#req-graph-001-offener-normen-referenzgraph) | Offener Normen-Referenzgraph | 3.9 |
-| [`REQ-GRAPH-002`](03-requirements.md#req-graph-002-schichtung-von-freiem-und-kommerziellem-graphanteil) | Schichtung von freiem und kommerziellem Graphanteil | 3.9 |
-| [`REQ-GRAPH-003`](03-requirements.md#req-graph-003-graph-first-anfrageverarbeitung) | Graph-First-Anfrageverarbeitung | 3.9 |
-| [`REQ-GRAPH-004`](03-requirements.md#req-graph-004-technologieoffenheit-der-graphhaltung) | Technologieoffenheit der Graphhaltung | 3.9 |
-| [`REQ-GRAPH-005`](03-requirements.md#req-graph-005-internationalisierung-des-referenzgraphen) | Internationalisierung des Referenzgraphen | 3.9 |
-| [`REQ-GRAPH-006`](03-requirements.md#req-graph-006-rechtsraumabhangige-lizenzklassifikation) | Rechtsraumabhängige Lizenzklassifikation | 3.9 |
+| [`REQ-GRAPH-001`](03-requirements.md#req-graph-001-open-norm-reference-graph) | Open norm reference graph | 3.9 |
+| [`REQ-GRAPH-002`](03-requirements.md#req-graph-002-layering-of-free-and-commercial-graph-share) | Layering of free and commercial graph share | 3.9 |
+| [`REQ-GRAPH-003`](03-requirements.md#req-graph-003-graph-first-query-processing) | Graph-first query processing | 3.9 |
+| [`REQ-GRAPH-004`](03-requirements.md#req-graph-004-technology-independence-of-graph-storage) | Technology independence of graph storage | 3.9 |
+| [`REQ-GRAPH-005`](03-requirements.md#req-graph-005-internationalization-of-the-reference-graph) | Internationalization of the reference graph | 3.9 |
+| [`REQ-GRAPH-006`](03-requirements.md#req-graph-006-jurisdiction-specific-license-classification) | Jurisdiction-specific license classification | 3.9 |
 
-### REQ-PART — Inhaltepartnerschaften und Vergütung
+### REQ-PART — Content partnerships and remuneration
 
-| ID | Titel | Kapitel |
+| ID | Title | Section |
 |---|---|---|
-| [`REQ-PART-001`](03-requirements.md#req-part-001-partnerportal-zur-inhaltezulieferung) | Partnerportal zur Inhaltezulieferung | 3.10 |
-| [`REQ-PART-002`](03-requirements.md#req-part-002-quellenattribution-je-antwort) | Quellenattribution je Antwort | 3.10 |
-| [`REQ-PART-003`](03-requirements.md#req-part-003-umsatzbeteiligung-und-pruffahige-abrechnung) | Umsatzbeteiligung und prüffähige Abrechnung | 3.10 |
-| [`REQ-PART-004`](03-requirements.md#req-part-004-schutz-und-trennung-lizenzierter-volltextbestande) | Schutz und Trennung lizenzierter Volltextbestände | 3.10 |
+| [`REQ-PART-001`](03-requirements.md#req-part-001-partner-portal-for-content-supply) | Partner portal for content supply | 3.10 |
+| [`REQ-PART-002`](03-requirements.md#req-part-002-source-attribution-per-answer) | Source attribution per answer | 3.10 |
+| [`REQ-PART-003`](03-requirements.md#req-part-003-revenue-share-and-auditable-billing) | Revenue share and auditable billing | 3.10 |
+| [`REQ-PART-004`](03-requirements.md#req-part-004-protection-and-separation-of-licensed-full-text-collections) | Protection and separation of licensed full-text collections | 3.10 |
 
-### REQ-COM — Kommerzielle Zusatzdienste
+### REQ-COM — Commercial add-on services
 
-| ID | Titel | Kapitel |
+| ID | Title | Section |
 |---|---|---|
-| [`REQ-COM-001`](03-requirements.md#req-com-001-erweiterungsschnittstelle) | Erweiterungsschnittstelle | 3.11 |
-| [`REQ-COM-002`](03-requirements.md#req-com-002-integration-in-drittsoftware) | Integration in Drittsoftware | 3.11 |
-| [`REQ-COM-003`](03-requirements.md#req-com-003-nutzungsbasierte-abrechnung) | Nutzungsbasierte Abrechnung | 3.11 |
-| [`REQ-COM-004`](03-requirements.md#req-com-004-nachweisfahige-antworten-und-audit-trail) | Nachweisfähige Antworten und Audit-Trail | 3.11 |
-| [`REQ-COM-005`](03-requirements.md#req-com-005-ausschluss-personalisierter-werbung) | Ausschluss personalisierter Werbung | 3.11 |
+| [`REQ-COM-001`](03-requirements.md#req-com-001-extension-interface) | Extension interface | 3.11 |
+| [`REQ-COM-002`](03-requirements.md#req-com-002-integration-into-third-party-software) | Integration into third-party software | 3.11 |
+| [`REQ-COM-003`](03-requirements.md#req-com-003-usage-based-billing) | Usage-based billing | 3.11 |
+| [`REQ-COM-004`](03-requirements.md#req-com-004-verifiable-answers-and-audit-trail) | Verifiable answers and audit trail | 3.11 |
+| [`REQ-COM-005`](03-requirements.md#req-com-005-exclusion-of-personalized-advertising) | Exclusion of personalized advertising | 3.11 |
 
-### REQ-PIPE — Datenerfassung und Verarbeitungskette
+### REQ-PIPE — Data acquisition and processing chain
 
-| ID | Titel | Kapitel |
+| ID | Title | Section |
 |---|---|---|
-| [`REQ-PIPE-001`](03-requirements.md#req-pipe-001-einheitliche-verarbeitungskette) | Einheitliche Verarbeitungskette | 3.12 |
-| [`REQ-PIPE-002`](03-requirements.md#req-pipe-002-quellenregister) | Quellenregister | 3.12 |
-| [`REQ-PIPE-003`](03-requirements.md#req-pipe-003-prufung-von-nutzungsvorbehalten) | Prüfung von Nutzungsvorbehalten | 3.12 |
-| [`REQ-PIPE-004`](03-requirements.md#req-pipe-004-rechteklassifikation-als-verarbeitungstor) | Rechteklassifikation als Verarbeitungstor | 3.12 |
-| [`REQ-PIPE-005`](03-requirements.md#req-pipe-005-abstammung-und-kaskadierende-rucknahme) | Abstammung und kaskadierende Rücknahme | 3.12 |
-| [`REQ-PIPE-006`](03-requirements.md#req-pipe-006-wiederholbarkeit-und-inhaltsadressierung) | Wiederholbarkeit und Inhaltsadressierung | 3.12 |
-| [`REQ-PIPE-008`](03-requirements.md#req-pipe-008-ausschluss-kommerziell-verwerteter-katalogbestande) | Ausschluss kommerziell verwerteter Katalogbestände | 3.12 |
-| [`REQ-PIPE-009`](03-requirements.md#req-pipe-009-erstbestand-aus-frei-zuganglichen-quellen) | Erstbestand aus frei zugänglichen Quellen | 3.12 |
-| [`REQ-PIPE-007`](03-requirements.md#req-pipe-007-manuelle-prufung-der-identitatsauflosung) | Manuelle Prüfung der Identitätsauflösung | 3.12 |
+| [`REQ-PIPE-001`](03-requirements.md#req-pipe-001-uniform-processing-chain) | Uniform processing chain | 3.12 |
+| [`REQ-PIPE-002`](03-requirements.md#req-pipe-002-source-register) | Source register | 3.12 |
+| [`REQ-PIPE-003`](03-requirements.md#req-pipe-003-check-for-rights-reservations) | Check for rights reservations | 3.12 |
+| [`REQ-PIPE-004`](03-requirements.md#req-pipe-004-rights-classification-as-processing-gate) | Rights classification as processing gate | 3.12 |
+| [`REQ-PIPE-005`](03-requirements.md#req-pipe-005-lineage-and-cascading-withdrawal) | Lineage and cascading withdrawal | 3.12 |
+| [`REQ-PIPE-006`](03-requirements.md#req-pipe-006-repeatability-and-content-addressing) | Repeatability and content addressing | 3.12 |
+| [`REQ-PIPE-008`](03-requirements.md#req-pipe-008-exclusion-of-commercially-exploited-catalog-collections) | Exclusion of commercially exploited catalog collections | 3.12 |
+| [`REQ-PIPE-009`](03-requirements.md#req-pipe-009-initial-collection-from-freely-accessible-sources) | Initial collection from freely accessible sources | 3.12 |
+| [`REQ-PIPE-007`](03-requirements.md#req-pipe-007-manual-review-of-identity-resolution) | Manual review of identity resolution | 3.12 |
 
-### REQ-SEC — Verschlüsselung und Sicherheit
+### REQ-SEC — Encryption and security
 
-| ID | Titel | Kapitel |
+| ID | Title | Section |
 |---|---|---|
-| [`REQ-SEC-001`](03-requirements.md#req-sec-001-verschlusselung-ruhender-daten) | Verschlüsselung ruhender Daten | 3.13 |
-| [`REQ-SEC-002`](03-requirements.md#req-sec-002-schlusselverwaltung) | Schlüsselverwaltung | 3.13 |
-| [`REQ-SEC-003`](03-requirements.md#req-sec-003-herausgeberspezifische-datenschlussel-und-kryptographisches-loschen) | Herausgeberspezifische Datenschlüssel und kryptographisches Löschen | 3.13 |
-| [`REQ-SEC-004`](03-requirements.md#req-sec-004-schutz-vor-massenextraktion) | Schutz vor Massenextraktion | 3.13 |
+| [`REQ-SEC-001`](03-requirements.md#req-sec-001-encryption-of-data-at-rest) | Encryption of data at rest | 3.13 |
+| [`REQ-SEC-002`](03-requirements.md#req-sec-002-key-management) | Key management | 3.13 |
+| [`REQ-SEC-003`](03-requirements.md#req-sec-003-publisher-specific-data-keys-and-cryptographic-erasure) | Publisher-specific data keys and cryptographic erasure | 3.13 |
+| [`REQ-SEC-004`](03-requirements.md#req-sec-004-protection-against-bulk-extraction) | Protection against bulk extraction | 3.13 |
 
-### REQ-DRM — Geschützte Anzeige und Offline-Nutzung
+### REQ-DRM — Protected display and offline use
 
-| ID | Titel | Kapitel |
+| ID | Title | Section |
 |---|---|---|
-| [`REQ-DRM-001`](03-requirements.md#req-drm-001-anzeige-ohne-herausgebbare-datei) | Anzeige ohne herausgebbare Datei | 3.14 |
-| [`REQ-DRM-002`](03-requirements.md#req-drm-002-offline-nutzung-mit-befristeter-berechtigung) | Offline-Nutzung mit befristeter Berechtigung | 3.14 |
-| [`REQ-DRM-003`](03-requirements.md#req-drm-003-nutzerbezogene-kennzeichnung) | Nutzerbezogene Kennzeichnung | 3.14 |
-| [`REQ-DRM-004`](03-requirements.md#req-drm-004-zuordnung-der-schutzkomponenten-zur-kommerziellen-schicht) | Zuordnung der Schutzkomponenten zur kommerziellen Schicht | 3.14 |
+| [`REQ-DRM-001`](03-requirements.md#req-drm-001-display-without-a-file-that-can-be-handed-out) | Display without a file that can be handed out | 3.14 |
+| [`REQ-DRM-002`](03-requirements.md#req-drm-002-offline-use-with-time-limited-authorization) | Offline use with time-limited authorization | 3.14 |
+| [`REQ-DRM-003`](03-requirements.md#req-drm-003-user-specific-marking) | User-specific marking | 3.14 |
+| [`REQ-DRM-004`](03-requirements.md#req-drm-004-assignment-of-the-protection-components-to-the-commercial-layer) | Assignment of the protection components to the commercial layer | 3.14 |
 
-### REQ-MOB — Mobile Bereitstellung
+### REQ-MOB — Mobile provision
 
-| ID | Titel | Kapitel |
+| ID | Title | Section |
 |---|---|---|
-| [`REQ-MOB-001`](03-requirements.md#req-mob-001-progressive-web-app-als-primarer-mobiler-zugang) | Progressive Web App als primärer mobiler Zugang | 3.15 |
-| [`REQ-MOB-002`](03-requirements.md#req-mob-002-native-anwendung-fur-lizenzierte-offline-inhalte) | Native Anwendung für lizenzierte Offline-Inhalte | 3.15 |
-| [`REQ-MOB-003`](03-requirements.md#req-mob-003-abstrahierte-offline-schicht) | Abstrahierte Offline-Schicht | 3.15 |
-| [`REQ-MOB-004`](03-requirements.md#req-mob-004-vertriebswege-und-lizenzvertraglichkeit) | Vertriebswege und Lizenzverträglichkeit | 3.15 |
+| [`REQ-MOB-001`](03-requirements.md#req-mob-001-progressive-web-app-as-primary-mobile-access) | Progressive Web App as primary mobile access | 3.15 |
+| [`REQ-MOB-002`](03-requirements.md#req-mob-002-native-application-for-licensed-offline-content) | Native application for licensed offline content | 3.15 |
+| [`REQ-MOB-003`](03-requirements.md#req-mob-003-abstracted-offline-layer) | Abstracted offline layer | 3.15 |
+| [`REQ-MOB-004`](03-requirements.md#req-mob-004-distribution-channels-and-license-compatibility) | Distribution channels and license compatibility | 3.15 |
 
-### REQ-ACC — Zugang und Kontopflicht
+### REQ-ACC — Access and account requirement
 
-| ID | Titel | Kapitel |
+| ID | Title | Section |
 |---|---|---|
-| [`REQ-ACC-001`](03-requirements.md#req-acc-001-anonyme-basisnutzung) | Anonyme Basisnutzung | 3.16 |
-| [`REQ-ACC-002`](03-requirements.md#req-acc-002-inhaltliche-begrenzung-anonymer-zugange) | Inhaltliche Begrenzung anonymer Zugänge | 3.16 |
-| [`REQ-ACC-003`](03-requirements.md#req-acc-003-kontingent-fur-anonyme-nutzung) | Kontingent für anonyme Nutzung | 3.16 |
-| [`REQ-ACC-004`](03-requirements.md#req-acc-004-kontopflichtige-funktionen) | Kontopflichtige Funktionen | 3.16 |
+| [`REQ-ACC-001`](03-requirements.md#req-acc-001-anonymous-base-use) | Anonymous base use | 3.16 |
+| [`REQ-ACC-002`](03-requirements.md#req-acc-002-content-limitation-of-anonymous-access) | Content limitation of anonymous access | 3.16 |
+| [`REQ-ACC-003`](03-requirements.md#req-acc-003-quota-for-anonymous-use) | Quota for anonymous use | 3.16 |
+| [`REQ-ACC-004`](03-requirements.md#req-acc-004-functions-requiring-an-account) | Functions requiring an account | 3.16 |

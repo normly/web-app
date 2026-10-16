@@ -1,615 +1,615 @@
-# 3. Anforderungen
+# 3. Requirements
 
-Dieses Kapitel beschreibt alle Anforderungen an normly. Alle Anforderungen sind eindeutig identifizierbar, überprüfbar und so formuliert, dass sie direkt in Entwicklung, Test und Abnahme überführt werden können. Die Anforderungen berücksichtigen den MVP-Status (quelloffene, eigenständige Webanwendung mit Open-Source-LLM) sowie die spätere Skalierung und die Trennung zwischen freiem Kern und kommerzieller Schicht.
+This chapter describes all requirements for normly. All requirements are uniquely identifiable, verifiable and formulated so that they can be carried directly into development, testing and acceptance. The requirements take into account the MVP status (open-source, standalone web application with an open-source LLM) as well as later scaling and the separation between the free core and the commercial layer.
 
-## 3.1 Externe Interfaces
+## 3.1 External interfaces
 
-Dieses Kapitel beschreibt alle externen Schnittstellen von normly, über die das System mit Nutzern, Websites, Fremdsystemen und externen Diensten interagiert. Ziel ist es, alle Ein- und Ausgabepunkte so zu spezifizieren, dass Integration, Betrieb und Test eindeutig möglich sind.
+This section describes all external interfaces of normly through which the system interacts with users, websites, third-party systems and external services. The goal is to specify all input and output points so that integration, operation and testing are unambiguously possible.
 
-### 3.1.1 User Interfaces
+### 3.1.1 User interfaces
 
-Dieses Kapitel beschreibt die logischen Benutzeroberflächen von normly sowie die grundlegenden Interaktionsmuster, Bedienkonzepte und Standards, die für alle Nutzeroberflächen verbindlich einzuhalten sind, unabhängig von der konkreten visuellen Gestaltung.
+This section describes the logical user interfaces of normly as well as the basic interaction patterns, operating concepts and standards that are binding for all user interfaces, regardless of the concrete visual design.
 
-#### REQ-UI-001 — Chat-Oberfläche der eigenständigen Webanwendung
+#### REQ-UI-001 — Chat interface of the standalone web application
 
-**Statement:** Das System muss eine eigenständige Chat-Oberfläche als Bestandteil der quelloffenen Webanwendung bereitstellen. Eine Einbettung per Browser-Plugin oder Skript in Websites von Normenanbietern ist nicht vorgesehen.  
-**Rationale:** normly ist eine eigenständige Anwendung; Betreiber einer eigenen Instanz sollen Erscheinungsbild und Konfiguration anpassen können.  
-**Akzeptanzkriterium:**
+**Statement:** The system must provide a standalone chat interface as part of the open-source web application. Embedding via browser plugin or script in websites of norm vendors is not intended.  
+**Rationale:** normly is a standalone application; operators of their own instance should be able to customize appearance and configuration.  
+**Acceptance criteria:**
 
-- Erscheinungsbild (Farben, Typografie, Logo) ist per Konfiguration anpassbar
+- Appearance (colors, typography, logo) is customizable via configuration
 
-- Die Oberfläche ist ohne externe Abhängigkeiten in einer eigenen Instanz lauffähig
+- The interface runs in its own instance without external dependencies
 
-**Abnahmekriterium:** Eine selbst betriebene Instanz stellt die Chat-Oberfläche mit eigener Konfiguration bereit.
+**Acceptance test:** A self-hosted instance provides the chat interface with its own configuration.
 
-**Weitere Informationen:** Ersetzt den früheren White-Label-Ansatz, siehe ADR-001.
+**Further information:** Replaces the earlier white-label approach, see ADR-001.
 
-#### REQ-UI-002 — Chat-basierte Interaktion
+#### REQ-UI-002 — Chat-based interaction
 
-**Statement:** Das UI muss eine Chat-basierte Interaktion mit dem Sprachmodell ermöglichen, inklusive Texteingabe, Antwortanzeige und Ladezuständen.  
-**Rationale:** Chat ist das primäre Interaktionsparadigma für LLM-basierte Systeme.  
-**Akzeptanzkriterium:**
+**Statement:** The UI must enable chat-based interaction with the language model, including text input, answer display and loading states.  
+**Rationale:** Chat is the primary interaction paradigm for LLM-based systems.  
+**Acceptance criteria:**
 
-- Texteingabe mit Absenden per Button oder Enter
+- Text input with submission via button or Enter
 
-- Visueller Ladeindikator während Modellantwort
+- Visual loading indicator during the model response
 
-- Mindestens ein vollständiger Frage-Antwort-Zyklus im Browser
+- At least one complete question-answer cycle in the browser
 
-**Weitere Informationen:** Anlehnung an ChatGPT / Perplexity UX
+**Further information:** Modeled on ChatGPT / Perplexity UX
 
-#### REQ-UI-003 — Quellenanzeige und Verlinkung
+#### REQ-UI-003 — Citations and linking
 
-**Statement:** Das UI muss für jede Antwort die verwendeten Regelwerke als Quelle anzeigen. Bei frei verfügbaren Inhalten wird auf die Originalfundstelle verlinkt, bei kostenpflichtigen Regelwerken auf die Bezugsquelle des Herausgebers.  
-**Rationale:** Nachvollziehbarkeit der Antwort, rechtliche Absicherung sowie Weiterleitung an den Herausgeber als Erlösquelle (Affiliate, siehe Kapitel 3.4).  
-**Akzeptanzkriterium:**
+**Statement:** The UI must display the standards used as the source for each answer. For freely available content, the link points to the original source location; for paid standards, to the publisher's point of purchase.  
+**Rationale:** Traceability of the answer, legal protection, and referral to the publisher as a source of revenue (affiliate, see section 3.4).  
+**Acceptance criteria:**
 
-- Jede Antwort enthält mindestens eine Quellenreferenz
+- Every answer contains at least one citation
 
-- Der Verweis führt bei freien Inhalten zur Originalfundstelle, bei kostenpflichtigen zur Bezugsquelle des Herausgebers
+- For free content, the link leads to the original source location; for paid content, to the publisher's point of purchase
 
-**Abnahmekriterium:** Für beide Quellenarten führt der Verweis nachweislich zum korrekten Ziel.
+**Acceptance test:** For both kinds of source, the link demonstrably leads to the correct target.
 
-**Weitere Informationen:** Siehe Kapitel 3.4 Compliance und REQ-PART-002 (Attribution).
+**Further information:** See section 3.4 Compliance and REQ-PART-002 (attribution).
 
-#### REQ-UI-004 — WCAG-Konformität
+#### REQ-UI-004 — WCAG conformance
 
-**Statement:** Das User Interface muss mindestens WCAG 2.1 AA konform sein.  
-**Rationale:** Barrierefreiheit ist rechtlich und ethisch erforderlich.  
-**Akzeptanzkriterium:**
+**Statement:** The user interface must be at least WCAG 2.1 AA conformant.  
+**Rationale:** Accessibility is legally and ethically required.  
+**Acceptance criteria:**
 
-- Tastaturbedienbarkeit
+- Keyboard operability
 
-- Screenreader-Kompatibilität
+- Screen reader compatibility
 
-- Kontraste gemäß WCAG
+- Contrasts according to WCAG
 
-**Weitere Informationen:** Gilt für alle UI-Komponenten
+**Further information:** Applies to all UI components
 
-#### REQ-UI-005 — Anzeige und Verwaltung der Chat-Historie
+#### REQ-UI-005 — Display and management of the chat history
 
-**Statement:** Das User Interface muss es Nutzern ermöglichen, ihre bisherigen Chat-Unterhaltungen einzusehen, erneut aufzurufen und zwischen mehreren Chat-Sitzungen zu wechseln, vergleichbar mit der Chat-Historienfunktion moderner KI-Chat-Anwendungen.
+**Statement:** The user interface must enable users to view their previous chat conversations, reopen them and switch between multiple chat sessions, comparable to the chat history function of modern AI chat applications.
 
-**Rationale:** Nutzer erwarten bei der Arbeit mit komplexen normativen Inhalten die Möglichkeit, frühere Fragestellungen und Antworten erneut nachzuvollziehen, fortzuführen oder zu referenzieren.
+**Rationale:** When working with complex normative content, users expect to be able to retrace, continue or reference earlier questions and answers.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Eine übersichtliche Liste vergangener Chats ist im UI verfügbar
+- A clear list of past chats is available in the UI
 
-- Chats werden nach Erstellungsdatum sortiert
+- Chats are sorted by creation date
 
-- Ein ausgewählter Chat kann erneut geöffnet und fortgeführt werden (Ausnahme, wenn Dokumente hochgeladen wurden - siehe Anforderung REQ-INT-002C)
+- A selected chat can be reopened and continued (exception if documents were uploaded - see requirement REQ-INT-002C)
 
-- Die Anzeige ist auch bei einer größeren Anzahl an Chats performant nutzbar
+- The display remains performant even with a larger number of chats
 
-**Abnahmekriterium:** Ein Nutzer kann mindestens drei getrennte Chat-Sitzungen erstellen, diese schließen, später erneut öffnen und den Dialog fortsetzen.
+**Acceptance test:** A user can create at least three separate chat sessions, close them, reopen them later and continue the dialogue.
 
-**Weitere Informationen:**
+**Further information:**
 
-- Die Persistenz der Chat-Historie kann nutzer- oder mandantenspezifisch konfigurierbar sein
+- The persistence of the chat history can be configurable per user or per tenant
 
-- Datenschutz- und Löschkonzepte sind gemäß Sicherheits- und Compliance-Anforderungen zu berücksichtigen
+- Data protection and deletion concepts must be taken into account in accordance with the security and compliance requirements
 
-- Die Chat-Historie wird nur für angemeldete Nutzer gespeichert (REQ-ACC-004); anonyme Unterhaltungen leben nur im Browser-Tab und werden serverseitig nicht abgelegt. Gespeicherte Verläufe kann die Person einzeln oder gesamt löschen (ADR-027)
+- The chat history is stored only for signed-in users (REQ-ACC-004); anonymous conversations live only in the browser tab and are not stored on the server. The person can delete stored histories individually or all at once (ADR-027)
 
-### 3.1.2 Hardware Interfaces
+### 3.1.2 Hardware interfaces
 
-Dieses Kapitel beschreibt etwaige Anforderungen an Hardware-Schnittstellen. Für normly sind aktuell keine expliziten Hardware-Integrationen vorgesehen.
+This section describes any requirements for hardware interfaces. No explicit hardware integrations are currently planned for normly.
 
-### 3.1.3 Software Interfaces
+### 3.1.3 Software interfaces
 
-Dieses Kapitel spezifiziert alle softwareseitigen Schnittstellen zu externen Systemen, darunter Website-Integrationen, Authentifizierungsdienste, Datenquellen für Normen sowie die Anbindung an Sprachmodelle und weitere Drittsysteme.
+This section specifies all software interfaces to external systems, including website integrations, authentication services, data sources for norms, and the connection to language models and other third-party systems.
 
-Normly unterstützt zwei Integrationsmodi für Normendokumente:
+Normly supports two integration modes for norm documents:
 
-1.  Anbieterbasierte Vorab-Integration kompletter Normenbestände
+1.  Vendor-based advance integration of complete norm collections
 
-2.  Nutzerbasierte, temporäre Dokumenten-Uploads zur sitzungsbezogenen Modellanreicherung
+2.  User-based, temporary document uploads for session-related model enrichment
 
-#### REQ-INT-001 — Öffentliche API zur Integration in Drittsoftware
+#### REQ-INT-001 — Public API for integration into third-party software
 
-**Statement:** Das System muss ein **dokumentiertes, öffentliches HTTP-API** bereitstellen, über das Drittsysteme (z. B. CAD-, ERP- und Expertensysteme) Anfragen an normly stellen können. Die API ist Bestandteil des freien Kerns und unter Apache-2.0 spezifiziert; die fertigen Integrationen in konkrete Drittsysteme gehören zur kommerziellen Schicht.  
-**Rationale:** Die Integration in bestehende Fachsoftware ist der zentrale USP der kommerziellen Schicht. Eine offene, stabile API stellt sicher, dass Zusatzdienste ohne Fork des Kerns andocken können und keine Abhängigkeit von Browser-Erweiterungen entsteht.
+**Statement:** The system must provide a **documented, public HTTP API** through which third-party systems (e.g. CAD, ERP and expert systems) can send requests to normly. The API is part of the free core and specified under Apache-2.0; the finished integrations into specific third-party systems belong to the commercial layer.  
+**Rationale:** Integration into existing specialist software is the central USP of the commercial layer. An open, stable API ensures that add-on services can dock on without forking the core and that no dependency on browser extensions arises.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Die API ist vollständig als OpenAPI-Spezifikation dokumentiert und versioniert
+- The API is fully documented and versioned as an OpenAPI specification
 
-- Ein Drittsystem kann ohne Kenntnis der internen Implementierung Anfragen stellen und Antworten mit Quellenangabe verarbeiten
+- A third-party system can send requests and process answers with citations without knowledge of the internal implementation
 
-- Keine Installation von Browser-Erweiterungen oder Skripten durch Endnutzer erforderlich
+- No installation of browser extensions or scripts by end users required
 
-**Abnahmekriterium:** Ein Referenzclient spricht die API gegen zwei aufeinanderfolgende Versionen erfolgreich an.
+**Acceptance test:** A reference client successfully calls the API against two consecutive versions.
 
-**Weitere Informationen:** Spezifikation unter Apache-2.0, siehe REQ-OSS-001 und REQ-COM-001.
+**Further information:** Specification under Apache-2.0, see REQ-OSS-001 and REQ-COM-001.
 
-#### REQ-INT-002 — Schnittstelle zu Normen-Datenbanken
+#### REQ-INT-002 — Interface to norm databases
 
-**Statement:** Das System muss Normendokumente (PDF, XML) automatisiert aus den Datenbanken der Herausgeber übernehmen können, sofern hierfür eine vertragliche Grundlage nach Kategorie C des Quellenregisters besteht.  
-**Rationale:** Skalierbare Datenpflege ohne manuelle Uploads. Die Beschränkung auf vertraglich bezogene Bestände folgt aus REQ-PIPE-008.  
-**Akzeptanzkriterium:**
+**Statement:** The system must be able to import norm documents (PDF, XML) automatically from the publishers' databases, provided there is a contractual basis for this under category C of the source register.  
+**Rationale:** Scalable data maintenance without manual uploads. The restriction to contractually obtained collections follows from REQ-PIPE-008.  
+**Acceptance criteria:**
 
-- Import über API oder SFTP
+- Import via API or SFTP
 
-- Metadatenübernahme (Titel (DE und ENG), Version, Ausgabedatum, Gültigkeit)
+- Metadata import (title (DE and ENG), version, publication date, validity)
 
-**Abnahmekriterium:** Automatisierter Import eines Normenbestands über das Partnerportal.
+**Acceptance test:** Automated import of a norm collection via the partner portal.
 
-**Weitere Informationen:** Siehe Kapitel 3.6.2 Datenmanagement, 3.12 Verarbeitungskette sowie REQ-PART-001.
+**Further information:** See section 3.6.2 Data management, 3.12 Processing chain and REQ-PART-001.
 
-#### REQ-INT-002A — Nutzerbasierter Dokumenten-Upload und temporäre Modellanreicherung
+#### REQ-INT-002A — User-based document upload and temporary model enrichment
 
-**Statement:** Das System muss einen Integrationsmodus unterstützen, bei dem Normendokumente nicht vorab vollständig durch den Normenanbieter bereitgestellt werden, sondern vom Endnutzer selbst hochgeladen werden können, um das Sprachmodell **temporär und sitzungs- bzw. nutzerspezifisch** für die Beantwortung von Fragen anzureichern.
+**Statement:** The system must support an integration mode in which norm documents are not provided completely in advance by the norm vendor, but can be uploaded by the end user themselves, in order to enrich the language model **temporarily and per session or per user** for answering questions.
 
-**Rationale:** Nicht alle Normenanbieter stellen ihre vollständigen Normenbestände zur Vorabverarbeitung zur Verfügung. Um dennoch einen Mehrwert zu bieten, muss normly es Nutzern ermöglichen, ausschließlich mit den von ihnen rechtmäßig erworbenen und hochgeladenen Dokumenten zu interagieren, vergleichbar mit dem Ansatz von NotebookLM.
+**Rationale:** Not all norm vendors make their complete norm collections available for advance processing. In order to still offer added value, normly must enable users to interact exclusively with the documents they have lawfully acquired and uploaded, comparable to the approach of NotebookLM.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Nutzer können Normendokumente (z. B. PDF, XML) über die Anwendung hochladen
+- Users can upload norm documents (e.g. PDF, XML) via the application
 
-- Die hochgeladenen Dokumente werden ausschließlich für den jeweiligen Nutzer oder die jeweilige Sitzung verarbeitet
+- The uploaded documents are processed exclusively for the respective user or the respective session
 
-- Das Sprachmodell beantwortet Fragen nur auf Basis der hochgeladenen Inhalte
+- The language model answers questions only on the basis of the uploaded content
 
-- Es erfolgt kein persistentes Training des globalen Modells mit diesen Dokumenten
+- No persistent training of the global model with these documents takes place
 
-**Abnahmekriterium:** Ein Nutzer lädt eine gekaufte Norm hoch und kann unmittelbar danach in einem Chat Fragen stellen, deren Antworten ausschließlich auf dem hochgeladenen Dokument basieren.
+**Acceptance test:** A user uploads a purchased norm and can immediately afterwards ask questions in a chat whose answers are based exclusively on the uploaded document.
 
-**Weitere Informationen:**
+**Further information:**
 
-- Funktional vergleichbar mit Google NotebookLM
+- Functionally comparable to Google NotebookLM
 
-- Technische Umsetzung z. B. über temporäre Vektorisierung / Retrieval-Augmented Generation (RAG)
+- Technical implementation e.g. via temporary vectorization / retrieval-augmented generation (RAG)
 
-- Relevante Abgrenzung zu REQ-INT-002 (anbieterzentrierte Vorab-Integration)
+- Relevant distinction from REQ-INT-002 (vendor-centric advance integration)
 
-#### REQ-INT-002B — Isolation nutzerspezifischer Dokumente
+#### REQ-INT-002B — Isolation of user-specific documents
 
-**Statement:** Das System muss sicherstellen, dass von Nutzern hochgeladene Dokumente strikt von anderen Nutzern und vom globalen Datenbestand isoliert verarbeitet werden.
+**Statement:** The system must ensure that documents uploaded by users are processed in strict isolation from other users and from the global collection.
 
-**Rationale:** Vermeidung von Datenlecks und Urheberrechtsverletzungen.
+**Rationale:** Avoidance of data leaks and copyright infringements.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Kein Nutzer kann Inhalte anderer Uploads abfragen
+- No user can query the content of other uploads
 
-- Sicherheitsaudit bestätigt Isolation
+- Security audit confirms isolation
 
-#### REQ-INT-002C — Zeitlich begrenzte Speicherung hochgeladener Dokumente
+#### REQ-INT-002C — Time-limited storage of uploaded documents
 
-**Statement:** Das System muss eine konfigurierbare zeitliche Begrenzung für die Speicherung nutzerhochgeladener Dokumente unterstützen, um Serverspeicherplatz zu reduzieren.  
-**Rationale:** Reduzierung rechtlicher Risiken und Speicherbedarf.
+**Statement:** The system must support a configurable time limit for the storage of user-uploaded documents in order to reduce server storage space.  
+**Rationale:** Reduction of legal risks and storage requirements.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Automatische Löschung nach definierter Frist
+- Automatic deletion after a defined period
 
-- Dokument ist nach Ablauf nicht mehr abrufbar
+- Document is no longer retrievable after expiry
 
-**Weitere Informationen:** Default 7 Tage
+**Further information:** Default 7 days
 
-#### REQ-INT-003 — SSO-Authentifizierung
+#### REQ-INT-003 — SSO authentication
 
-**Statement:** Das System muss Single-Sign-On mit bestehenden Mitgliederbereichen von Organisationen unterstützen. SSO ist optional und darf nicht Voraussetzung für die Nutzung frei verfügbarer Inhalte sein.  
-**Rationale:** Nahtlose Nutzererfahrung ohne zusätzliche Logins für Organisationen, die eine eigene Nutzerverwaltung betreiben. Die Optionalität folgt aus REQ-ACC-001.  
-**Akzeptanzkriterium:**
+**Statement:** The system must support single sign-on with existing member areas of organizations. SSO is optional and must not be a prerequisite for using freely available content.  
+**Rationale:** Seamless user experience without additional logins for organizations that run their own user management. The optionality follows from REQ-ACC-001.  
+**Acceptance criteria:**
 
-- Unterstützung gängiger Standards (OAuth2, SAML)
+- Support for common standards (OAuth2, SAML)
 
-- Login über externes Identitätssystem erfolgreich
+- Login via external identity system successful
 
-**Weitere Informationen:** Weitere Anmeldemöglichkeiten wie EMail, mit Google müssen ebenfalls möglich sein.
+**Further information:** Further sign-in options such as email or with Google must also be possible.
 
-#### REQ-INT-004 — LLM-Schnittstelle
+#### REQ-INT-004 — LLM interface
 
-**Statement:** Das System muss über eine klar definierte Schnittstelle mit einem externen LLM (z. B. Llama 3.1) kommunizieren.  
-**Rationale:** Austauschbarkeit des Modells und spätere Migration auf eigenes LLM.  
-**Akzeptanzkriterium:**
+**Statement:** The system must communicate with an external LLM (e.g. Llama 3.1) via a clearly defined interface.  
+**Rationale:** Interchangeability of the model and later migration to normly's own LLM.  
+**Acceptance criteria:**
 
-- Abstraktionsschicht vorhanden
+- Abstraction layer present
 
-- Modellwechsel ohne UI-Anpassung
+- Model change without UI adjustment
 
-- LLM kann ausgetauscht werden, ohne Funktionseinbußen
+- LLM can be replaced without loss of functionality
 
-**Weitere Informationen:** Siehe Kapitel 3.6
+**Further information:** See section 3.6
 
-## 3.2 Funktionale Anforderungen
+## 3.2 Functional requirements
 
-Dieses Kapitel beschreibt die funktionalen Fähigkeiten von normly aus Sicht externer Beobachter. Es definiert, welche Funktionen das System bereitstellt, welche Eingaben verarbeitet werden, wie darauf reagiert wird und welche Ausgaben oder Fehlerzustände entstehen können.
+This section describes the functional capabilities of normly from the perspective of external observers. It defines which functions the system provides, which inputs are processed, how it responds to them, and which outputs or error states can arise.
 
-### REQ-FUNC-001 — Beantwortung normbasierter Fragen
+### REQ-FUNC-001 — Answering norm-based questions
 
-**Statement:** Das System muss Nutzerfragen ausschließlich auf Basis der verfügbaren Normen beantworten.  
-**Rationale:** Vermeidung von Halluzinationen und Rechtsrisiken.
+**Statement:** The system must answer user questions exclusively on the basis of the available norms.  
+**Rationale:** Avoidance of hallucinations and legal risks.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Antwort enthält nur Inhalte aus referenzierten Normen
+- Answer contains only content from referenced norms
 
-**Weitere Informationen:** AI-Safety relevant
+**Further information:** Relevant to AI safety
 
-### REQ-FUNC-002 — Paraphrasierung statt Volltext
+### REQ-FUNC-002 — Paraphrasing instead of full text
 
-**Statement:** Das System darf urheberrechtlich geschützte Normtexte nicht als Volltext wiedergeben. Zulässig sind Paraphrasen sowie kurze, als Zitat gekennzeichnete Auszüge, soweit ein Lizenzvertrag mit dem Rechteinhaber dies ausdrücklich erlaubt. Für Inhalte, die frei weitergegeben werden dürfen (z. B. amtliche Werke nach § 5 UrhG), gilt diese Beschränkung nicht.  
-**Rationale:** Urheberrechtsschutz. Ohne diese Präzisierung widerspricht die Anforderung den Output-Rechten aus den vorgesehenen Lizenzverträgen.  
-**Akzeptanzkriterium:** Antworten sind eindeutig paraphrasiert
+**Statement:** The system must not reproduce copyright-protected norm texts as full text. Paraphrases and short excerpts marked as quotations are permitted, insofar as a license agreement with the rights holder expressly allows this. For content that may be freely passed on (e.g. official works under § 5 UrhG (German Copyright Act)), this restriction does not apply.  
+**Rationale:** Copyright protection. Without this clarification, the requirement contradicts the output rights from the planned license agreements.  
+**Acceptance criteria:** Answers are clearly paraphrased
 
-**Abnahmekriterium:**
+**Acceptance test:**
 
-- Plagiatsprüfung ohne Treffer
+- Plagiarism check without matches
 
-- Zwingend für alle Antworten
+- Mandatory for all answers
 
-### REQ-FUNC-003 — Fehler- und Fallback-Antworten
+### REQ-FUNC-003 — Error and fallback answers
 
-**Statement:** Das System muss bei unklaren oder nicht beantwortbaren Fragen eine erklärende Fallback-Antwort liefern.  
-**Rationale:** Vertrauen und Transparenz.
+**Statement:** The system must deliver an explanatory fallback answer for unclear or unanswerable questions.  
+**Rationale:** Trust and transparency.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Kein erfundener Inhalt bei fehlender Datenbasis
+- No invented content when the data basis is missing
 
-- Test mit absichtlich unbeantwortbaren Fragen
+- Test with deliberately unanswerable questions
 
-**Weitere Informationen:** Human-in-the-Loop relevant, je nach Umsetzungsaufwand ist diese Funktion für den MVP in Frage zu stellen.
+**Further information:** Relevant to human-in-the-loop; depending on the implementation effort, this function is to be questioned for the MVP.
 
-## 3.3 Nicht-Funktionale Anforderungen
+## 3.3 Non-functional requirements
 
-Dieses Kapitel beschreibt die qualitativen Eigenschaften, die das System erfüllen muss, um ein zuverlässiges, sicheres und skalierbares Nutzererlebnis zu gewährleisten. Diese Anforderungen beschränken oder qualifizieren das funktionale Verhalten.
+This section describes the qualitative properties that the system must fulfill to ensure a reliable, secure and scalable user experience. These requirements constrain or qualify the functional behavior.
 
 ### 3.3.1 Performance
 
-Dieses Kapitel definiert Anforderungen an Antwortzeiten, Durchsatz und Reaktionsverhalten des Systems unter normalen und erwarteten Lastbedingungen.
+This section defines requirements for response times, throughput and responsiveness of the system under normal and expected load conditions.
 
-#### REQ-PERF-001 — Antwortzeit Chat
+#### REQ-PERF-001 — Chat response time
 
-**Statement:** Das System muss innerhalb von 2–4 Sekunden nach Datenverfügbarkeit eine erste Antwort liefern.  
-**Rationale:** Erwartung an modernes Chat-UX.  
-**Akzeptanzkriterium:** 95 % der Anfragen \<4 Sekunden
+**Statement:** The system must deliver a first answer within 2–4 seconds after data availability.  
+**Rationale:** Expectation of a modern chat UX.  
+**Acceptance criteria:** 95 % of requests \<4 seconds
 
-**Abnahmekriterium:**
+**Acceptance test:**
 
-- Lasttest mit definiertem Datensatz
+- Load test with a defined data set
 
-**Weitere Informationen:** Gilt für MVP
+**Further information:** Applies to the MVP
 
-### 3.3.2 Sicherheit
+### 3.3.2 Security
 
-Dieses Kapitel beschreibt die sicherheitsrelevanten Anforderungen an Authentifizierung, Autorisierung, Datenverarbeitung, Kommunikation und Entwicklungsprozesse, um Nutzer- und Systemdaten angemessen zu schützen.
+This section describes the security-relevant requirements for authentication, authorization, data processing, communication and development processes in order to adequately protect user and system data.
 
-Die Sicherheit wird auf verschiedenen Ebene unterschiedlich gewährleistet:
+Security is ensured differently at different levels:
 
-**Authentifizierung & Autorisierung**
+**Authentication & authorization**
 
-- Passwort-Hashing (z. B. bcrypt) und Multi-Faktor-Authentifizierung (MFA).
+- Password hashing (e.g. bcrypt) and multi-factor authentication (MFA).
 
-- Prinzip Least Privilege: Benutzer erhalten nur minimale notwendige Rechte.
+- Principle of least privilege: users receive only the minimum necessary rights.
 
-- Magic-Link-Login (OTP) denkbar
+- Magic-link login (OTP) conceivable
 
-**Eingabevalidierung & Ausgabe-Encoding**
+**Input validation & output encoding**
 
-- Parametrisierte Queries/Prepared Statements gegen SQL-Injection.
+- Parameterized queries/prepared statements against SQL injection.
 
-- Input-Sanitization und Output-Encoding (z. B. HTML-escaping) gegen XSS/CSRF.
+- Input sanitization and output encoding (e.g. HTML escaping) against XSS/CSRF.
 
-**Verschlüsselung & Datenübertragung**
+**Encryption & data transmission**
 
-- TLS 1.3 für alle Kommunikationen (HTTPS only), einschließlich der Verbindungen zwischen internen Diensten und zur Datenbank. Verschlüsselung ruhender Daten gemäß Kapitel 3.13.
+- TLS 1.3 for all communication (HTTPS only), including the connections between internal services and to the database. Encryption of data at rest according to section 3.13.
 
-- Secrets-Management: Zugangsdaten werden ausschließlich im STACKIT Secrets Manager gehalten, nicht im Quellcode, nicht in Konfigurationsdateien und nicht dauerhaft in Umgebungsvariablen. Repositories und Build-Artefakte werden automatisiert auf versehentlich enthaltene Zugangsdaten geprüft.
+- Secrets management: credentials are held exclusively in the STACKIT Secrets Manager, not in the source code, not in configuration files and not permanently in environment variables. Repositories and build artifacts are automatically checked for accidentally included credentials.
 
-**Entwicklungsprozesse**
+**Development processes**
 
-- Secure Coding Standards, automatisierte SAST/DAST-Tests in CI/CD-Pipeline.
+- Secure coding standards, automated SAST/DAST tests in the CI/CD pipeline.
 
-- Regelmäßige Pen-Tests, Threat Modeling und Dependency-Scanning (SCA).
+- Regular pen tests, threat modeling and dependency scanning (SCA).
 
-### 3.3.3 Zuverlässigkeit und Beobachtbarkeit
+### 3.3.3 Reliability and observability
 
-Dieses Kapitel definiert Anforderungen an die Stabilität des Systems sowie an Logging, Monitoring und Fehlerbehandlung, um einen sicheren Betrieb und eine effektive Fehleranalyse zu ermöglichen.
+This section defines requirements for the stability of the system and for logging, monitoring and error handling, in order to enable safe operation and effective error analysis.
 
-Um eine konsistente Überwachung der Software und des Nutzerverhaltens zu haben, sollten alle Anfragen, Ergebnisse, Ereignisse usw. systemtechnisch protokolliert werden.
+To have consistent monitoring of the software and of user behavior, all requests, results, events, etc. should be logged at system level.
 
-Sollten Fehler auftreten, die direkt mit dem Nutzer (z.B. fehlerhafte Eingaben) zu tun haben, sollen diese dem Benutzer mitgeteilt werden.
+If errors occur that relate directly to the user (e.g. incorrect input), these should be communicated to the user.
 
-### 3.3.4 Verfügbarkeit
+### 3.3.4 Availability
 
-Dieses Kapitel beschreibt Anforderungen an die zeitliche Verfügbarkeit des Systems sowie an Maßnahmen zur Sicherstellung einer definierten Mindest-Uptime.
+This section describes requirements for the temporal availability of the system and for measures to ensure a defined minimum uptime.
 
-Die Software (und somit die zugehörigen Server) soll eine **Uptime von 99%** haben.
+The software (and thus the associated servers) should have an **uptime of 99%**.
 
 ## 3.4 Compliance
 
-Die Entwicklung von normly orientiert sich maßgeblich an den zur Verfügung stehenden Normen und Richtlinien. Je nach Vertragssituation mit den normengebenden Vereinen, können diese vorab in das Sprachmodell geladen (da sie und komplett zur Verfügung stehen) oder nur situativ hochgeladen werden.
+The development of normly is substantially guided by the available norms and guidelines. Depending on the contractual situation with the norm-setting associations, these can be loaded into the language model in advance (since they are completely available to us) or only uploaded situationally.
 
-Es ist bei der Ausgabe von Chat Antworten darauf zu achten, dass nie eine originale 1:1 Wiedergabe des Quellmaterials stattfindet, um eine Urheberrechtsverletzung zu vermeiden. Die verwendeten (zitierten) Quellen sind jeweils aufzuführen und auf die Originalform zu verlinken.
+When outputting chat answers, care must be taken that an original 1:1 reproduction of the source material never takes place, in order to avoid copyright infringement. The (cited) sources used must be listed in each case and linked to the original form.
 
-**Wichtig:** Die Verlinkung auf die Original-Norm erfolgt immer auf den jeweiligen Shoplink des Anbieters. Eine Vergütung dieser Weiterleitung (Affiliate-Modell) kann an dieser Stelle in Betracht gezogen werden. Personalisierte Werbung ist ausgeschlossen.
+**Important:** The link to the original norm always points to the vendor's respective shop link. Remuneration for this referral (affiliate model) can be considered at this point. Personalized advertising is excluded.
 
-## 3.5 Design und Implementierung
+## 3.5 Design and implementation
 
-Dieses Kapitel beschreibt verbindliche Anforderungen und Rahmenbedingungen für das Design, die Implementierung, den Build-, Deployment- und Distributionsprozess von normly.
+This section describes binding requirements and constraints for the design, the implementation, and the build, deployment and distribution process of normly.
 
-Die hier definierten Anforderungen stellen sicher, dass das System sicher, wartbar, skalierbar und konform mit den Zielen der Daten- und Technologiesouveränität betrieben werden kann.
+The requirements defined here ensure that the system can be operated securely, maintainably, scalably and in conformity with the goals of data and technology sovereignty.
 
-Sie gelten für alle Umgebungen (Entwicklung, Test, Staging und Produktion) und ergänzen die funktionalen sowie nicht-funktionalen Anforderungen der vorangegangenen Kapitel um konkrete Vorgaben zur technischen Umsetzung und zum Betrieb.
+They apply to all environments (development, test, staging and production) and supplement the functional and non-functional requirements of the preceding sections with concrete specifications for technical implementation and operation.
 
 ### 3.5.1 Installation (Deployment)
 
-Dieses Kapitel definiert Anforderungen an die Bereitstellung, Konfiguration und Wiederherstellung der normly-Software in allen Zielumgebungen.
+This section defines requirements for the provisioning, configuration and recovery of the normly software in all target environments.
 
-#### REQ-INST-001 — Deployment auf deutscher StackIT-Infrastruktur
+#### REQ-INST-001 — Deployment on German StackIT infrastructure
 
-**Statement:** Das System muss in allen Umgebungen (Produktiv-, Test-, Staging- und Entwicklungsumgebung) ausschließlich auf **Serverinfrastruktur der StackIT (Schwarz Gruppe) mit Standort in Deutschland** betrieben werden.
+**Statement:** The system must be operated in all environments (production, test, staging and development environments) exclusively on **server infrastructure of StackIT (Schwarz Gruppe) located in Germany**.
 
-**Rationale:** Sicherstellung von Datenhoheit, rechtlicher Souveränität und Unabhängigkeit von nicht-europäischen Cloud-Anbietern.
+**Rationale:** Ensuring data sovereignty, legal sovereignty and independence from non-European cloud providers.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Alle Compute-, Storage- und Netzwerkressourcen stammen von StackIT
+- All compute, storage and network resources come from StackIT
 
-- Serverstandorte befinden sich in Deutschland
+- Server locations are in Germany
 
-**Abnahmekriterium:** Infrastruktur- und Vertragsprüfung bestätigt ausschließliche Nutzung von STACKIT-Services in Deutschland.
+**Acceptance test:** Infrastructure and contract review confirms exclusive use of STACKIT services in Germany.
 
-**Weitere Informationen:** Gilt für LLM-Inferenz, Vektordatenbanken, Logging und Monitoring sowie für Betrieb, Nutzerdaten und die Normen-Wissensbasis uneingeschränkt. Seit ADR-021 (2026-09-14) gilt eine Ausnahme für Quellcode, CI/CD und Container-Registry des freien Kerns: Diese liegen auf GitHub (`github.com/normly/web-app`), siehe REQ-GIT-001 und REQ-BUILD-002. Die Server-, Daten- und Betriebsinfrastruktur selbst bleibt davon unberührt und ausschließlich auf STACKIT.
+**Further information:** Applies without restriction to LLM inference, vector databases, logging and monitoring as well as to operations, user data and the norms knowledge base. Since ADR-021 (2026-09-14), an exception applies to source code, CI/CD and container registry of the free core: these reside on GitHub (`github.com/normly/web-app`), see REQ-GIT-001 and REQ-BUILD-002. The server, data and operations infrastructure itself remains unaffected by this and exclusively on STACKIT.
 
-#### REQ-INST-002 — Automatisiertes Deployment
+#### REQ-INST-002 — Automated deployment
 
-**Statement:** Das System muss vollständig automatisiert deploybar sein, ohne manuelle Eingriffe in Zielumgebungen.
+**Statement:** The system must be deployable fully automatically, without manual intervention in target environments.
 
-**Rationale:** Reduzierung von Fehlern, schnellere Releases und reproduzierbare Umgebungen.
+**Rationale:** Reduction of errors, faster releases and reproducible environments.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Deployment erfolgt per Skript oder Pipeline
+- Deployment takes place via script or pipeline
 
-- Kein manuelles Server-Setup erforderlich
+- No manual server setup required
 
-**Abnahmekriterium:** Neues System kann aus leerer Umgebung automatisiert bereitgestellt werden.
+**Acceptance test:** A new system can be provisioned automatically from an empty environment.
 
-**Weitere Informationen:** Infrastructure as Code empfohlen. Umsetzung: ADR-024 (`normly-deploy`).
+**Further information:** Infrastructure as Code recommended. Implementation: ADR-024 (`normly-deploy`).
 
-#### REQ-INST-003 — Konfigurationsmanagement über Umgebungsvariablen
+#### REQ-INST-003 — Configuration management via environment variables
 
-**Statement:** Umgebungsspezifische Konfigurationen (z. B. Endpunkte, Feature-Flags) müssen über Umgebungsvariablen oder zentrale Konfigurationsdienste erfolgen. Zugangsdaten und Schlüsselmaterial werden ausschließlich im STACKIT Secrets Manager gehalten, nicht in Umgebungsvariablen.
+**Statement:** Environment-specific configurations (e.g. endpoints, feature flags) must be provided via environment variables or central configuration services. Credentials and key material are held exclusively in the STACKIT Secrets Manager, not in environment variables.
 
-**Rationale:** Trennung von Code und Konfiguration erhöht Sicherheit und Wartbarkeit.
+**Rationale:** Separation of code and configuration increases security and maintainability.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Keine secrets im Quellcode
+- No secrets in the source code
 
-- Unterschiedliche Umgebungen ohne Codeänderung betreibbar
+- Different environments can be operated without code changes
 
-**Abnahmekriterium:** Code-Review zeigt keine hartkodierten Konfigurationswerte.
+**Acceptance test:** Code review shows no hard-coded configuration values.
 
-**Weitere Informationen:** Siehe Kapitel 3.3.2 sowie REQ-SEC-002.
+**Further information:** See section 3.3.2 as well as REQ-SEC-002.
 
-#### REQ-INST-004 — Rollback-Fähigkeit
+#### REQ-INST-004 — Rollback capability
 
-**Statement:** Das System muss die Möglichkeit bieten, ein Deployment automatisiert auf eine vorherige stabile Version zurückzusetzen.
+**Statement:** The system must provide the ability to automatically roll back a deployment to a previous stable version.
 
-**Rationale:** Minimierung von Ausfallzeiten bei fehlerhaften Releases.
+**Rationale:** Minimization of downtime in the case of faulty releases.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Mindestens eine vorherige Version ist jederzeit wiederherstellbar
+- At least one previous version can be restored at any time
 
-**Abnahmekriterium:** Rollback wird erfolgreich in Testumgebung durchgeführt.
+**Acceptance test:** A rollback is carried out successfully in a test environment.
 
-**Weitere Informationen:** Blue-Green oder vergleichbare Strategien zulässig. Umsetzung: ADR-024 (`normly-deploy`); der Rollback stellt Images und Datenstand wieder her und verwirft Nutzerdaten seit dem Rollout (mit Warnung und Bestätigung).
+**Further information:** Blue-green or comparable strategies permitted. Implementation: ADR-024 (`normly-deploy`); the rollback restores images and data state and discards user data since the rollout (with warning and confirmation).
 
-### 3.5.2 Build and Delivery
+### 3.5.2 Build and shipping
 
-Dieses Kapitel definiert Anforderungen an Build-Prozesse, Artefakterstellung, Integrität und Auslieferung der Software.
+This section defines requirements for build processes, artifact creation, integrity and shipping of the software.
 
-#### REQ-BUILD-001 — Reproduzierbare Builds
+#### REQ-BUILD-001 — Reproducible builds
 
-**Statement:** Builds des Systems müssen reproduzierbar sein, sodass derselbe Quellcode unter gleichen Bedingungen identische Artefakte erzeugt.
+**Statement:** Builds of the system must be reproducible, so that the same source code produces identical artifacts under the same conditions.
 
-**Rationale:** Nachvollziehbarkeit, Sicherheit und Debugging-Fähigkeit.
+**Rationale:** Traceability, security and debuggability.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Versionierte Abhängigkeiten
+- Versioned dependencies
 
-- Build ohne externe, nicht deterministische Einflüsse
+- Build without external, non-deterministic influences
 
-**Abnahmekriterium:** Zwei Builds aus identischem Commit erzeugen identische Artefakte.
+**Acceptance test:** Two builds from an identical commit produce identical artifacts.
 
-**Weitere Informationen:** Gilt für Backend, Frontend und ML-Komponenten. Umsetzung seit ADR-023 (2026-10-08): uv-Workspace mit `uv.lock`, Basis-Images per Digest, Modellgewichte per Commit gepinnt; derselbe Git-Tag baut aus denselben Eingaben (Lock-Datei, Image-Digests, Modell-Commits, gelockter Build-Backend). Bit-identische Images (Abnahmekriterium) sind damit noch nicht erreicht: Zeitstempel in Schichten und die apt-Pakete der Basisschicht sind nicht festgeschrieben — offener Punkt.
+**Further information:** Applies to backend, frontend and ML components. Implementation since ADR-023 (2026-10-08): uv workspace with `uv.lock`, base images pinned by digest, model weights pinned by commit; the same Git tag builds from the same inputs (lock file, image digests, model commits, locked build backend). Bit-identical images (acceptance test) are thus not yet achieved: timestamps in layers and the apt packages of the base layer are not pinned — open item.
 
-#### REQ-BUILD-002 — CI/CD-Infrastruktur für den freien Kern
+#### REQ-BUILD-002 — CI/CD infrastructure for the free core
 
-**Statement:** Build-, Test- und CI/CD-Prozesse für den freien Kern laufen auf **GitHub Actions** im Repository `normly/web-app`. Für Betrieb, Deployment, Secrets-Management und die Normen-Wissensbasis gilt unverändert die Beschränkung auf STACKIT bzw. gleichwertige, nicht-US-amerikanische Infrastruktur.
+**Statement:** Build, test and CI/CD processes for the free core run on **GitHub Actions** in the repository `normly/web-app`. For operations, deployment, secrets management and the norms knowledge base, the restriction to STACKIT or equivalent, non-US infrastructure continues to apply unchanged.
 
-**Rationale:** ADR-021 (2026-09-14) — einfachere Kollaboration überwiegt für Quellcode und CI des offenen Kerns den Souveränitätsvorteil einer alleinigen STACKIT-Plattform. Schutz von Betriebsdaten, Zugangsdaten und Prompts vor extraterritorialem Zugriff bleibt davon unberührt, da diese nicht Teil des CI-Prozesses auf GitHub sind.
+**Rationale:** ADR-021 (2026-09-14) — for the source code and CI of the open core, easier collaboration outweighs the sovereignty advantage of a single STACKIT platform. The protection of operational data, credentials and prompts against extraterritorial access remains unaffected by this, since these are not part of the CI process on GitHub.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Build und Test des freien Kerns laufen auf GitHub Actions
+- Build and test of the free core run on GitHub Actions
 
-- Secrets Manager, Produktions-Deployment und Betriebs-Runner für alles außer dem Kern-Build bleiben ausschließlich in STACKIT
+- Secrets Manager, production deployment and operations runners for everything except the core build remain exclusively in STACKIT
 
-**Abnahmekriterium:** Tooling-Review bestätigt, dass kein Betriebs- oder Deployment-Schritt außerhalb von STACKIT läuft und dass in der GitHub-CI keine STACKIT-Betriebszugangsdaten hinterlegt sind.
+**Acceptance test:** A tooling review confirms that no operations or deployment step runs outside STACKIT and that no STACKIT operations credentials are stored in the GitHub CI.
 
-**Weitere Informationen:** Bis zum Port von `.forgejo/workflows/ci.yml` nach `.github/workflows/` läuft auf GitHub noch keine CI (Stand 2026-09-14). Siehe REQ-GIT-001.
+**Further information:** Until `.forgejo/workflows/ci.yml` is ported to `.github/workflows/`, no CI runs on GitHub yet (as of 2026-09-14). See REQ-GIT-001.
 
-#### REQ-BUILD-003 — Automatisierte Qualitätssicherung im Build
+#### REQ-BUILD-003 — Automated quality assurance in the build
 
-**Statement:** Builds dürfen nur erfolgreich abgeschlossen werden, wenn definierte Qualitätskriterien (Tests, Linting, Security-Checks) erfüllt sind.
+**Statement:** Builds may only complete successfully if defined quality criteria (tests, linting, security checks) are met.
 
-**Rationale:** Vermeidung instabiler oder unsicherer Releases.
+**Rationale:** Avoidance of unstable or insecure releases.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Fehlgeschlagene Tests verhindern Auslieferung
+- Failed tests prevent shipping
 
-**Abnahmekriterium:** Pipeline bricht bei Testfehlern ab.
+**Acceptance test:** The pipeline aborts on test failures.
 
-**Weitere Informationen:** Siehe auch Kapitel 3.5.4 Wartbarkeit.
+**Further information:** See also section 3.5.4 Maintainability.
 
 ### 3.5.3 Distribution
 
-Dieses Kapitel beschreibt Anforderungen an die Verteilung, Skalierung und Trennung der Systemkomponenten über mehrere Umgebungen hinweg.
+This section describes requirements for the distribution, scaling and separation of the system components across multiple environments.
 
-#### REQ-DIST-001 — Klare Trennung von Umgebungen
+#### REQ-DIST-001 — Clear separation of environments
 
-**Statement:** Produktiv-, Staging-, Test- und Entwicklungsumgebungen müssen strikt voneinander getrennt betrieben werden.
+**Statement:** Production, staging, test and development environments must be operated strictly separately from each other.
 
-**Rationale:** Vermeidung von Datenlecks und unbeabsichtigten Änderungen im Produktivsystem.
+**Rationale:** Avoidance of data leaks and unintended changes in the production system.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Getrennte Infrastruktur und Konfigurationen
+- Separate infrastructure and configurations
 
-- Keine gemeinsamen Datenbanken
+- No shared databases
 
-**Abnahmekriterium:** Architektur-Review bestätigt Umgebungstrennung.
+**Acceptance test:** An architecture review confirms the separation of environments.
 
-**Weitere Informationen:** Gilt auch für ML-Daten und Logs. **Befristete Abweichung (ADR-022, 2026-09-23):** In Phase 1 existiert nur eine Produktionsumgebung auf STACKIT; das lokale Compose-Setup übernimmt die Rolle der Staging-Umgebung. Aufzuheben, sobald es Nutzer gibt, die ein fehlerhaftes Deployment treffen würde.
+**Further information:** Also applies to ML data and logs. **Temporary deviation (ADR-022, 2026-09-23):** In Phase 1, only one production environment exists on STACKIT; the local Compose setup takes on the role of the staging environment. To be lifted as soon as there are users whom a faulty deployment would affect.
 
-#### REQ-DIST-002 — Skalierbare Verteilung der Systemkomponenten
+#### REQ-DIST-002 — Scalable distribution of the system components
 
-**Statement:** Das System muss so verteilt sein, dass einzelne Komponenten (z. B. Chat-Backend, LLM-Inferenz, Dokumentenverarbeitung) unabhängig voneinander skaliert werden können.
+**Statement:** The system must be distributed in such a way that individual components (e.g. chat backend, LLM inference, document processing) can be scaled independently of each other.
 
-**Rationale:** Kosteneffizienz und Performance bei wachsender Nutzung.
+**Rationale:** Cost efficiency and performance with growing usage.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Horizontale Skalierung einzelner Services möglich
+- Horizontal scaling of individual services possible
 
-**Abnahmekriterium:** Lasttest zeigt erfolgreiche Skalierung einzelner Komponenten.
+**Acceptance test:** A load test shows successful scaling of individual components.
 
-**Weitere Informationen:** Microservice- oder modulare Architektur empfohlen.
+**Further information:** Microservice or modular architecture recommended.
 
-#### REQ-DIST-003 — Optionale Mandantenfähigkeit für Managed Hosting
+#### REQ-DIST-003 — Optional multi-tenancy for managed hosting
 
-**Statement:** Das System soll optional mehrere Organisationen (Mandanten) logisch getrennt innerhalb derselben Deployment-Struktur betreiben können. Mandantenfähigkeit ist Voraussetzung für das Managed-Hosting-Angebot der kommerziellen Schicht, nicht für den Betrieb einer einzelnen Instanz des freien Kerns.
+**Statement:** The system should optionally be able to operate multiple organizations (tenants) logically separated within the same deployment structure. Multi-tenancy is a prerequisite for the managed hosting offering of the commercial layer, not for operating a single instance of the free core.
 
-**Rationale:** Grundvoraussetzung für das Managed-Hosting-Angebot der kommerziellen Schicht. Für den Betrieb einer einzelnen Instanz des freien Kerns ist Mandantenfähigkeit nicht erforderlich und darf keine Voraussetzung sein.
+**Rationale:** Basic prerequisite for the managed hosting offering of the commercial layer. For operating a single instance of the free core, multi-tenancy is not required and must not be a prerequisite.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Trennung von Konfiguration, Erscheinungsbild und Daten je Mandant
+- Separation of configuration, appearance and data per tenant
 
-- Der freie Kern ist ohne aktivierte Mandantenfähigkeit vollständig lauffähig
+- The free core is fully runnable without multi-tenancy enabled
 
-**Abnahmekriterium:** Zwei Organisationen können parallel ohne Überschneidungen betrieben werden; eine Einzelinstanz läuft ohne Mandantenkonfiguration.
+**Acceptance test:** Two organizations can be operated in parallel without overlaps; a single instance runs without tenant configuration.
 
-**Weitere Informationen:** Relevanz für UI, Datenmanagement und Abrechnung. Trennung lizenzierter Bestände siehe REQ-PART-004 und REQ-SEC-003.
+**Further information:** Relevant for UI, data management and billing. For the separation of licensed collections, see REQ-PART-004 and REQ-SEC-003.
 
-#### REQ-DIST-004 — Versionierte Auslieferung der Anwendung
+#### REQ-DIST-004 — Versioned shipping of the application
 
-**Statement:** Die Anwendung muss als versionierte, signierte Container-Images ausgeliefert werden, ergänzt um ein lauffähiges Compose-Setup, das Anwendung, Datenbank und Grundkonfiguration in einem Aufruf startet. Der freie Wissensbestand ist nicht Bestandteil des Images, sondern wird als eigenständig versionierter Dump bereitgestellt und beim ersten Start bezogen. Code- und Datenstand sind getrennt versioniert und unabhängig voneinander aktualisierbar.
+**Statement:** The application must be shipped as versioned, signed container images, supplemented by a runnable Compose setup that starts the application, database and basic configuration in one invocation. The free knowledge base is not part of the image, but is provided as an independently versioned dump and obtained on first start. Code and data are versioned separately and can be updated independently of each other.
 
-**Rationale:** Ein quelloffener Kern, den außer dem Projekt selbst niemand betreiben kann, ist praktisch nicht offen. Das Container-Image ist der Nachweis der Selbst-Hostbarkeit und zugleich Grundlage der eigenen Deployments und des Managed-Hosting-Angebots. Die Trennung von Code und Daten ist erforderlich, weil sich Normenstände deutlich häufiger ändern als der Anwendungscode.
+**Rationale:** An open-source core that no one except the project itself can operate is practically not open. The container image is the proof of self-hostability and at the same time the basis of our own deployments and of the managed hosting offering. The separation of code and data is necessary because norm editions change considerably more often than the application code.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Ein Compose-Aufruf startet eine lauffähige Instanz ohne manuelle Nacharbeit; Image-Größe bleibt unabhängig vom Umfang des Wissensbestands; Datenstände sind einzeln referenzierbar und austauschbar; Images sind signiert und über einen öffentlich lesbaren Weg beziehbar.
+- One Compose invocation starts a runnable instance without manual rework; the image size remains independent of the size of the knowledge base; data versions are individually referenceable and interchangeable; images are signed and obtainable via a publicly readable route.
 
-**Abnahmekriterium:** Eine leere Umgebung wird ohne Vorkenntnisse allein anhand der Dokumentation in Betrieb genommen; ein Wechsel des Datenstands erfolgt ohne Neubau des Images.
+**Acceptance test:** An empty environment is put into operation without prior knowledge, solely on the basis of the documentation; a change of the data version takes place without rebuilding the image.
 
-**Weitere Informationen:** Führende Registry für den freien Kern ist seit ADR-021 (2026-09-14) die GitHub Container Registry (GHCR) im Repository `normly/web-app` — löst den vorherigen Stand (STACKIT Container Registry alleinig, ADR-019/ADR-010-Nachtrag) ab. Der öffentlich lesbare Bezug im Akzeptanzkriterium ist über anonymen Lesezugriff auf GHCR zu lösen. Helm-Charts für den Betrieb auf Kubernetes können ergänzend folgen. Cache-Strategien sind zu berücksichtigen. Build, Signatur (cosign keyless) und Tagging der Images regelt ADR-023. Umsetzung des Wissensbestand-Dumps: ADR-025.
+**Further information:** Since ADR-021 (2026-09-14), the primary registry for the free core is the GitHub Container Registry (GHCR) in the repository `normly/web-app` — supersedes the previous state (STACKIT Container Registry exclusively, ADR-019/ADR-010 addendum). The publicly readable retrieval in the acceptance criteria is to be solved via anonymous read access to GHCR. Helm charts for operation on Kubernetes may follow in addition. Caching strategies are to be taken into account. Build, signing (cosign keyless) and tagging of the images are governed by ADR-023. Implementation of the knowledge base dump: ADR-025.
 
-### 3.5.4 Wartbarkeit
+### 3.5.4 Maintainability
 
-Um das Onboarding von weiteren Entwicklern zu erleichtern, die Zeit für Fehlerbehebungen zu reduzieren und um die Entwicklung zu beschleunigen ist auf folgende Entwicklungsgrundsätze zu achten:
+To make onboarding further developers easier, to reduce the time for bug fixes and to speed up development, the following development principles are to be observed:
 
-**Bereich**
+**Area**
 
-**Vorgabe**
+**Specification**
 
-**Modulare Architektur**
+**Modular architecture**
 
-Code in unabhängige, austauschbare Module unterteilen für einfache Wartung und Erweiterung.
+Divide code into independent, interchangeable modules for easy maintenance and extension.
 
-**Niedrige Code-Komplexität (Cyclomatic Complexity \<10)**
+**Low code complexity (Cyclomatic Complexity \<10)**
 
-Begrenzt Verzweigungen in Funktionen, um Code lesbar und testbar zu halten.
+Limits branching in functions to keep code readable and testable.
 
-**Coding Standards (z.B. PSR-12)**
+**Coding standards (e.g. PSR-12)**
 
-Einheitliche Formatierungsregeln für konsistenten, teamfähigen Code.
+Uniform formatting rules for consistent, team-ready code.
 
-**Schnittstellen**
+**Interfaces**
 
-Klare, standardisierte APIs/Contracts zwischen Modulen definieren.
+Define clear, standardized APIs/contracts between modules.
 
-**Developer Observability (Logging, Monitoring, Tracing)**
+**Developer Observability (logging, monitoring, tracing)**
 
-Strukturierte Logs, Metriken und Spuren für schnelle Fehlerdiagnose.
+Structured logs, metrics and traces for fast error diagnosis.
 
-**Dokumentation**
+**Documentation**
 
-Vollständige Beschreibung von Komponenten, APIs und Algorithmen.
+Complete description of components, APIs and algorithms.
 
-Dokumentation erfolgt als "Docs as Code" im Git-Repository mit Markdown-Templates und automatisierter Generierung (z. B. MkDocs/Sphinx). Jede Komponente erhält READMEs mit Architektur, APIs, Algorithmen und Beispielen; API-Docs via OpenAPI/Swagger.
+Documentation is done as "Docs as Code" in the Git repository with Markdown templates and automated generation (e.g. MkDocs/Sphinx). Each component receives READMEs with architecture, APIs, algorithms and examples; API docs via OpenAPI/Swagger.
 
-Eine Swagger Instanz zur Dokumentation der API ist zwingend.
+A Swagger instance for documenting the API is mandatory.
 
-**Automatisierte Tests (\>80% Coverage)**
+**Automated tests (\>80% coverage)**
 
-Unit-/Integrationstests decken den Großteil des Codes ab.
+Unit/integration tests cover the majority of the code.
 
-**CI/CD-Pipelines**
+**CI/CD pipelines**
 
-Automatisierte Builds/Tests/Deployments für schnelle Releases.
+Automated builds/tests/deployments for fast releases.
 
 **Technical Debt Management**
 
-Regelmäßiges Refactoring und Debt-Tracking verhindern Akkumulation
+Regular refactoring and debt tracking prevent accumulation
 
 **Open Source**
 
-Der Code soll Open Source verfügbar sein - auf einem öffentlich einsehbaren Repository.
+The code should be available as open source - in a publicly viewable repository.
 
-Verwendete Open Source Frameworks sind gesondert und sauber aufzulisten und zu verlinken.
+Open source frameworks used are to be listed and linked separately and cleanly.
 
-### 3.5.5 Wiederverwendbarkeit
+### 3.5.5 Reusability
 
-Die Software soll durch modulare, lose gekoppelte Komponenten wiederverwendbar sein. Die Implementierung von DRY-Prinzipien (Don't Repeat Yourself), ein zentrales Repository für Code und Anforderungen mit Versionskontrolle in STACKIT Git sowie standardisierte APIs/Schnittstellen sind vorzusehen.
+The software should be reusable through modular, loosely coupled components. The implementation of DRY principles (Don't Repeat Yourself), a central repository for code and requirements with version control in STACKIT Git, and standardized APIs/interfaces are to be provided for.
 
-### 3.5.6 Portabilität
+### 3.5.6 Portability
 
-normly wird als Webanwendung designt, um in allen üblichen Browserversionen zu laufen. Responsive Design ist jederzeit einzuhalten. Die Anwendung ist zugleich als Progressive Web App installierbar und ermöglicht Push-Benachrichtigungen.
+normly is designed as a web application in order to run in all common browser versions. Responsive design is to be adhered to at all times. The application is at the same time installable as a Progressive Web App and enables push notifications.
 
-Rückwärtskompatibilität ist bis zu folgenden Versionen sicherzustellen:
+Backward compatibility is to be ensured down to the following versions:
 
 |                 |                                     |
 |-----------------|-------------------------------------|
-| **Browser**     | **Rückwärtskompatibel bis Version** |
+| **Browser**     | **Backward compatible down to version** |
 | Google Chrome   | 143                                 |
 | Microsoft Edge  | 142                                 |
 | Mozilla Firefox | 145                                 |
 | Apple Safari    | 26                                  |
 | Opera           | 125                                 |
 
-Die mobile Bereitstellung erfolgt zunächst als Progressive Web App (PWA) auf derselben Codebasis wie die Desktop-Anwendung. Eine native App ist erst erforderlich, sobald lizenzierte Volltexte offline bereitgestellt werden — nicht in Abhängigkeit von der Verfügbarkeit eines eigenen Sprachmodells. Näheres regelt Kapitel 3.15.
+Mobile provision initially takes place as a Progressive Web App (PWA) on the same codebase as the desktop application. A native app is only required once licensed full texts are provided offline — not depending on the availability of a dedicated language model. Section 3.15 governs the details.
 
-### 3.5.7 Kosten
+### 3.5.7 Costs
 
-Das Ziel ist es zu Beginn eine MVP-Lösung zu haben, deren freier Kern öffentlich nutzbar ist und auf deren Basis erste kommerzielle Dienste (Managed Hosting, Integrationen, Berichte) verkauft werden können, um ersten ARR vorweisen zu können.
+The goal is to have, at the beginning, an MVP solution whose free core is publicly usable and on the basis of which first commercial services (managed hosting, integrations, reports) can be sold, in order to be able to show initial ARR.
 
 ### 3.5.8 Deadline
 
-Die Entwicklung eines ersten testbaren Prototypen ist bis Mai/Juni 2026 abgeschlossen. Ein erstes, verkaufsfähiges MVP Produkt ist Ende Q2, Anfang Q3 2026 zu erreichen.
+The development of a first testable prototype is completed by May/June 2026. A first, sellable MVP product is to be reached at the end of Q2, beginning of Q3 2026.
 
-### 3.5.9 Physische Anforderungen
+### 3.5.9 Physical requirements
 
-Um als USP eine 100%ige Unabhängig von amerikanischen oder chinesischen Angeboten sicherstellen zu können, ist das komplette Deployment auf Server-Infrastruktur von [<u>Stack IT</u>](https://stackit.com/de) sicherzustellen. Dies gilt auch für Entwicklungs-, Build- und Deployment-Umgebungen. Quellcode, CI/CD und Container-Registry des freien Kerns liegen seit ADR-021 auf GitHub (REQ-GIT-001, REQ-BUILD-002). Für Sprachmodelle gilt ADR-022: ausschließlich Open-Weight-Modelle mit OSI-anerkannter Lizenz, betrieben auf STACKIT-Infrastruktur; keine Anfrage erreicht den Modellhersteller.
+In order to be able to ensure, as a USP, 100% independence from American or Chinese offerings, the entire deployment is to be ensured on server infrastructure of [<u>Stack IT</u>](https://stackit.com/de). This also applies to development, build and deployment environments. Since ADR-021, source code, CI/CD and container registry of the free core reside on GitHub (REQ-GIT-001, REQ-BUILD-002). For language models, ADR-022 applies: exclusively open-weight models with an OSI-approved license, operated on STACKIT infrastructure; no request reaches the model vendor.
 
-### 3.5.10 Design Anforderungen
+### 3.5.10 Design requirements
 
-Um die Entwicklungskosten für Design auf ein Minimum zu beschränken, werden wir uns auf frei verfügbare Quellen stützen und Anwenden. Hierzu zählen:
+In order to limit the development costs for design to a minimum, we will rely on and apply freely available sources. These include:
 
-- Frontend-Design: [<u>Shadcn</u>](https://ui.shadcn.com/), [Github-Repo von Shadcn-ui](https://github.com/shadcn-ui/ui)
+- Frontend design: [<u>Shadcn</u>](https://ui.shadcn.com/), [Github repo of Shadcn-ui](https://github.com/shadcn-ui/ui)
 
-Als Inspiration für die Darstellung an den Endnutzer dienen vor allem:
+The following serve above all as inspiration for the presentation to the end user:
 
 - Perplexity
 
@@ -619,599 +619,599 @@ Als Inspiration für die Darstellung an den Endnutzer dienen vor allem:
 
 ## 3.6 AI/ML
 
-Dieser Abschnitt definiert Anforderungen, die speziell für Systeme gelten, deren Kern aus maschinellem Lernen oder datengesteuerten Komponenten besteht. Diese Anforderungen ergänzen die in den vorangegangenen Abschnitten behandelten funktionalen, nicht-funktionalen und qualitativen Aspekte. Sie befassen sich jedoch mit ML-spezifischen Überlegungen hinsichtlich Lebenszyklus und Datenqualität.
+This section defines requirements that apply specifically to systems whose core consists of machine learning or data-driven components. These requirements complement the functional, non-functional and qualitative aspects covered in the preceding sections. However, they address ML-specific considerations regarding lifecycle and data quality.
 
-### 3.6.1 Modell Spezifikationen
+### 3.6.1 Model specifications
 
-Um eine schnelle und kostengünstige Entwicklung sicherstellen zu können, werden wir zu Beginn auf Open Source LLM setzen. Es ist sicherzustellen, dass Deutsch und Englisch vorrangig unterstützt werden. Gefolgt von Französisch, Spanisch und Italienisch.
+In order to be able to ensure fast and cost-effective development, we will initially rely on open source LLMs. It is to be ensured that German and English are supported with priority. Followed by French, Spanish and Italian.
 
-- Sprachmodell: [<u>Llama 3.1</u>](https://ai.meta.com/blog/meta-llama-3-1/) (Open Source und erlaubt die kommerzielle Nutzung für eigene Produkte). Derzeit führend, aber kann ersetzt werden.
+- Language model: [<u>Llama 3.1</u>](https://ai.meta.com/blog/meta-llama-3-1/) (open source and permits commercial use for own products). Currently leading, but can be replaced.
 
-### 3.6.2 Daten Management
+### 3.6.2 Data management
 
-Das Daten Management ist für normly von zentraler Bedeutung. Mit steigender Skalierung ist von vielen zehntausend Dokumenten auszugehen, dessen Informationen verarbeitet werden müssen. Zudem werden Dokumente (Normen) aktualisiert, erweitert oder für unfülgitg erklärt. Die Sicherstellung der Datenintegrität ist daher entscheidend!
+Data management is of central importance for normly. With increasing scale, many tens of thousands of documents are to be expected whose information must be processed. In addition, documents (norms) are updated, extended or declared invalid. Ensuring data integrity is therefore crucial!
 
-Die aktuelle ungefähre Anzahl an Normen und damit verbunden (geschätzten Textseiten) ist wie folgt:
+The current approximate number of norms and, associated with it, (estimated text pages) is as follows:
 
 |                |                          |
 |----------------|--------------------------|
-| **Land**       | **Gesamtbestand Normen** |
-| Deutschland    | 38.000+                  |
-| Italien        | 48.000+                  |
-| China          | 200.000+                 |
-| Japan          | 25.000+                  |
-| USA            | 40.000+                  |
-| Frankreich     | 30.000+                  |
-| Großbritannien | 27.000+                  |
-| Indien         | 20.000+                  |
-| Russland       | 30.000+                  |
+| **Country**    | **Total number of norms** |
+| Germany        | 38,000+                  |
+| Italy          | 48,000+                  |
+| China          | 200,000+                 |
+| Japan          | 25,000+                  |
+| USA            | 40,000+                  |
+| France         | 30,000+                  |
+| United Kingdom | 27,000+                  |
+| India          | 20,000+                  |
+| Russia         | 30,000+                  |
 
-Es ist also mit knapp einer halben Millionen Normen zu rechnen. Bei einer durchschnittlichen Anzahl von 40 Seiten pro Norm entspricht das über 20 Mio Seiten an technischen Informationen (zuzüglich Graphen, Tabellen, Zeichnungen und Formeln).
+Just under half a million norms are therefore to be expected. At an average of 40 pages per norm, this corresponds to over 20 million pages of technical information (plus graphs, tables, drawings and formulas).
 
-Diese Zahlen bilden ausschließlich den deutschsprachigen Raum ab. Zielhorizont von normly ist die weltweite Abdeckung. Weltweit ist von einer Größenordnung von mehreren Millionen Normendokumenten auszugehen, entsprechend einem mittleren dreistelligen Millionenbereich an Textseiten und mehreren Milliarden Textabschnitten für das Retrieval. Das Datenmanagement ist daher von Beginn an auf diese Zielgröße auszulegen. Insbesondere sind Graph- und Metadatenhaltung einerseits und Vektorindex andererseits so zu kapseln, dass sie unabhängig voneinander skaliert und ausgetauscht werden können.
+These figures cover exclusively the German-speaking region. The target horizon of normly is worldwide coverage. Worldwide, an order of magnitude of several million norm documents is to be expected, corresponding to a mid three-digit million range of text pages and several billion text sections for retrieval. Data management is therefore to be designed for this target size from the start. In particular, graph and metadata storage on the one hand and the vector index on the other hand are to be encapsulated in such a way that they can be scaled and replaced independently of each other.
 
 ### 3.6.3 Human-in-the-Loop
 
-Das Sprachmodell gibt nur Zusammenfassungen und antwortet auf die gestellten Fragen anhand der zur Verfügung stehenden Normen. normly stellt keine gesetzlich basierte Rechtsberatung. Der Mensch muss die Antworten immer noch verifizieren.
+The language model only provides summaries and answers the questions asked on the basis of the available norms. normly does not provide legally based legal advice. The human must still verify the answers.
 
-### 3.6.4 Model Lifecycle und Operations
+### 3.6.4 Model lifecycle and operations
 
-Die Sprachmodelle sind fortwährend den neuesten zur Verfügung stehenden Versionen anzupassen. Im Zuge der Internationalisierung sind neben deutsch und englisch (Start Sprachen) zudem weitere Sprachen erforderlich.
+The language models are to be continually adapted to the latest available versions. In the course of internationalization, further languages are required in addition to German and English (start languages).
 
-## 3.7 Open Source und Governance
+## 3.7 Open source and governance
 
-Dieses Kapitel definiert Anforderungen an Lizenzierung, Rechteordnung und Governance des quelloffenen Kerns sowie an die Abgrenzung zur kommerziellen Schicht.
+This chapter defines requirements for the licensing, rights framework and governance of the open-source core, as well as for the delimitation from the commercial layer.
 
-### REQ-OSS-001 — Lizenzmodell des freien Kerns
+### REQ-OSS-001 — License model of the free core
 
-**Statement:** Der Quellcode des Kerns steht unter der GNU Affero General Public License 3.0 (AGPL-3.0). Client-SDKs und die API-Spezifikation stehen unter Apache-2.0. Die frei verfügbaren Inhalte und der Referenzgraph stehen unter einer offenen Datenlizenz (ODbL oder CC-BY-SA).
+**Statement:** The source code of the core is under the GNU Affero General Public License 3.0 (AGPL-3.0). Client SDKs and the API specification are under Apache-2.0. The freely available content and the reference graph are under an open data license (ODbL or CC-BY-SA).
 
-**Rationale:** Die AGPL schließt die Lücke der Netzwerknutzung und verhindert, dass Dritte den Kern als geschlossenen Dienst betreiben. Die permissive Lizenz für SDKs und API-Spezifikation sichert maximale Verbreitung.
+**Rationale:** The AGPL closes the network-use gap and prevents third parties from operating the core as a closed service. The permissive license for SDKs and API specification ensures maximum reach.
 
-**Akzeptanzkriterium:** LICENSE-Datei je Repository vorhanden; Lizenzhinweis in allen Quelldateien; Datenlizenz in der Veröffentlichung ausgewiesen.
+**Acceptance criteria:** LICENSE file present per repository; license notice in all source files; data license stated in the publication.
 
-**Abnahmekriterium:** Lizenz-Review bestätigt konsistente Auszeichnung aller Bestandteile.
+**Acceptance test:** A license review confirms consistent labeling of all components.
 
-### REQ-OSS-002 — Trennung von freiem Kern und kommerzieller Schicht
+### REQ-OSS-002 — Separation of free core and commercial layer
 
-**Statement:** Der freie Kern darf keine Abhängigkeit auf proprietäre Bestandteile besitzen und muss ohne diese vollständig lauffähig sein. Kommerzielle Module docken ausschließlich über dokumentierte Erweiterungspunkte an.
+**Statement:** The free core must not have any dependency on proprietary components and must be fully runnable without them. Commercial modules attach exclusively via documented extension points.
 
-**Rationale:** Ohne diese Trennung ist das Open-Core-Modell weder lizenzrechtlich noch gegenüber der Community belastbar.
+**Rationale:** Without this separation, the open-core model is robust neither in terms of license law nor towards the community.
 
-**Akzeptanzkriterium:** Der Kern lässt sich ohne kommerzielle Module bauen, testen und betreiben; keine Importe aus proprietären Paketen im Kern.
+**Acceptance criteria:** The core can be built, tested and operated without commercial modules; no imports from proprietary packages in the core.
 
-**Abnahmekriterium:** Build des Kerns ohne kommerzielle Repositories erfolgreich; Abhängigkeitsprüfung in der Pipeline ohne Befund.
+**Acceptance test:** Build of the core without commercial repositories succeeds; dependency check in the pipeline without findings.
 
-### REQ-OSS-003 — Beitragsmodell (DCO)
+### REQ-OSS-003 — Contribution model (DCO)
 
-**Statement:** Externe Beiträge werden über das Developer Certificate of Origin (DCO) angenommen. Jeder Commit trägt eine Signed-off-by-Zeile. Eine Übertragung von Rechten (CLA) findet nicht statt.
+**Statement:** External contributions are accepted via the Developer Certificate of Origin (DCO). Every commit carries a Signed-off-by line. No transfer of rights (CLA) takes place.
 
-**Rationale:** Das DCO senkt die Hürde für Beitragende und stützt den Anspruch auf frei zugängliches Normenwissen. Die Konsequenz, dass eine spätere kommerzielle Ausnahmelizenz zur AGPL damit ausgeschlossen ist, wurde bewusst in Kauf genommen.
+**Rationale:** The DCO lowers the barrier for contributors and supports the aim of freely accessible knowledge about norms. The consequence that a later commercial exception license to the AGPL is thereby ruled out was knowingly accepted.
 
-**Akzeptanzkriterium:** DCO-Prüfung als verpflichtender Schritt in der Pipeline; CONTRIBUTING-Datei beschreibt das Verfahren.
+**Acceptance criteria:** DCO check as a mandatory step in the pipeline; CONTRIBUTING file describes the procedure.
 
-**Abnahmekriterium:** Ein Merge Request ohne Signed-off-by wird automatisiert abgelehnt.
+**Acceptance test:** A merge request without Signed-off-by is automatically rejected.
 
-### REQ-OSS-004 — Community-Governance und Sicherheitsprozess
+### REQ-OSS-004 — Community governance and security process
 
-**Statement:** Das Projekt führt einen dokumentierten Maintainer-Kreis, einen Verhaltenskodex sowie eine Sicherheitsrichtlinie mit definiertem Meldeweg und Reaktionsfrist.
+**Statement:** The project maintains a documented group of maintainers, a code of conduct and a security policy with a defined reporting channel and response deadline.
 
-**Rationale:** Nachvollziehbare Governance ist Voraussetzung für Vertrauen und für die Mitwirkung Dritter.
+**Rationale:** Transparent governance is a prerequisite for trust and for the participation of third parties.
 
-**Akzeptanzkriterium:** CODE_OF_CONDUCT, SECURITY und GOVERNANCE im Repository vorhanden; Meldeweg für Schwachstellen benannt.
+**Acceptance criteria:** CODE_OF_CONDUCT, SECURITY and GOVERNANCE present in the repository; reporting channel for vulnerabilities named.
 
-**Abnahmekriterium:** Ein Testbericht über den Meldeweg wird innerhalb der definierten Frist beantwortet.
+**Acceptance test:** A test report via the reporting channel is answered within the defined deadline.
 
-### REQ-OSS-005 — Lizenzkonformität der Abhängigkeiten
+### REQ-OSS-005 — License compliance of dependencies
 
-**Statement:** Für jeden Release wird eine Software Bill of Materials (SBOM) erzeugt und die Lizenzen aller Abhängigkeiten automatisiert geprüft. Mit der AGPL unvereinbare Lizenzen führen zum Abbruch des Builds.
+**Statement:** For every release, a Software Bill of Materials (SBOM) is generated and the licenses of all dependencies are checked automatically. Licenses incompatible with the AGPL cause the build to abort.
 
-**Rationale:** Vermeidung von Lizenzverstößen und von Rechtsunsicherheit bei Nachnutzern.
+**Rationale:** Avoidance of license violations and of legal uncertainty for downstream users.
 
-**Akzeptanzkriterium:** SBOM je Release als Artefakt; Lizenz-Scan als Pflichtschritt in der Pipeline.
+**Acceptance criteria:** SBOM per release as an artifact; license scan as a mandatory step in the pipeline.
 
-**Abnahmekriterium:** Ein eingeschleuster inkompatibler Abhängigkeitseintrag lässt den Build fehlschlagen.
+**Acceptance test:** An injected incompatible dependency entry makes the build fail.
 
-### REQ-OSS-006 — Markenrechte
+### REQ-OSS-006 — Trademark rights
 
-**Statement:** Die Marke normly ist nicht Bestandteil der Open-Source-Lizenz. Für die Nutzung der Marke durch Dritte gilt eine gesonderte Markenrichtlinie.
+**Statement:** The normly trademark is not part of the open-source license. A separate trademark policy applies to the use of the trademark by third parties.
 
-**Rationale:** Die Marke ist der Vermögenswert, über den Qualität und Herkunft gesteuert werden; sie muss unabhängig von der Codelizenz kontrollierbar bleiben.
+**Rationale:** The trademark is the asset through which quality and provenance are controlled; it must remain controllable independently of the code license.
 
-**Akzeptanzkriterium:** Markenrichtlinie im Repository veröffentlicht; Hinweis in der LICENSE-Datei.
+**Acceptance criteria:** Trademark policy published in the repository; notice in the LICENSE file.
 
-**Abnahmekriterium:** Rechtliche Prüfung bestätigt die Trennung von Code- und Markenlizenz.
+**Acceptance test:** A legal review confirms the separation of code license and trademark license.
 
-## 3.8 Quellcodeverwaltung und Git-Workflow
+## 3.8 Source code management and Git workflow
 
-Dieses Kapitel definiert Anforderungen an Plattform, Ablauf und Absicherung der Quellcodeverwaltung.
+This chapter defines requirements for the platform, process and safeguarding of source code management.
 
-### REQ-GIT-001 — GitHub als führende Plattform für den Kern-Quellcode
+### REQ-GIT-001 — GitHub as the primary platform for the core source code
 
-**Status:** Neu gefasst durch ADR-021 (2026-09-14); löst die vorherige Fassung (STACKIT Git als alleinige Plattform, ADR-019) ab.
+**Status:** Revised by ADR-021 (2026-09-14); supersedes the previous version (STACKIT Git as the sole platform, ADR-019).
 
-**Statement:** Führende Plattform für Quellcode, Beiträge, CI/CD und Container-Registry des freien Kerns ist GitHub (`github.com/normly/web-app`). Betrieb, Deployment, Secrets-Management und die Normen-Wissensbasis bleiben davon getrennt und ausschließlich auf STACKIT (siehe REQ-INST-001, REQ-BUILD-002). STACKIT Git (`jwokittel/normly-webapp`) wird nicht mehr für Quellcode genutzt und ist für die Wissensbasis nicht mehr vorgesehen (ADR-025); die Wissensbasis liegt als Dump im STACKIT Object Storage.
+**Statement:** The primary platform for source code, contributions, CI/CD and container registry of the free core is GitHub (`github.com/normly/web-app`). Operations, deployment, secrets management and the norms knowledge base remain separate from this and exclusively on STACKIT (see REQ-INST-001, REQ-BUILD-002). STACKIT Git (`jwokittel/normly-webapp`) is no longer used for source code and is no longer intended for the knowledge base (ADR-025); the knowledge base resides as a dump in STACKIT Object Storage.
 
-**Rationale:** ADR-021 — einfachere Kollaboration für den offenen Kern-Quellcode überwiegt den Souveränitätsvorteil einer alleinigen STACKIT-Plattform für Code, CI und Registry. Die Souveränitätsbeschränkung aus Kapitel 2.3 gilt unverändert für Betrieb, Daten und Secrets.
+**Rationale:** ADR-021 — easier collaboration for the open core source code outweighs the sovereignty advantage of a single STACKIT platform for code, CI and registry. The sovereignty restriction from chapter 2.3 continues to apply unchanged to operations, data and secrets.
 
-**Akzeptanzkriterium:** Quellcode, Pipelines und Container-Registry des freien Kerns liegen in GitHub; kein Betriebs- oder Deployment-Zugangsdatum ist dort hinterlegt.
+**Acceptance criteria:** Source code, pipelines and container registry of the free core reside on GitHub; no operations or deployment credential is stored there.
 
-**Abnahmekriterium:** Infrastruktur-Review bestätigt, dass Betrieb, Deployment und Secrets-Management ausschließlich auf STACKIT laufen und die GitHub-Seite frei von Betriebszugangsdaten ist.
+**Acceptance test:** An infrastructure review confirms that operations, deployment and secrets management run exclusively on STACKIT and that the GitHub side is free of operations credentials.
 
-### REQ-GIT-002 — Beitragsweg über GitHub
+### REQ-GIT-002 — Contribution path via GitHub
 
-**Status:** Neu gefasst durch ADR-021 (2026-09-14). War von 2026-09-05 bis 2026-09-14 hinfällig (ADR-019); GitHub ist jetzt keine reine Beitragsfassade mehr, sondern die führende Plattform gemäß REQ-GIT-001.
+**Status:** Revised by ADR-021 (2026-09-14). Was obsolete from 2026-09-05 to 2026-09-14 (ADR-019); GitHub is now no longer a mere contribution facade but the primary platform according to REQ-GIT-001.
 
-**Statement:** Externe wie interne Beiträge (Issues, Pull Requests) laufen über GitHub im Repository `normly/web-app`. Es gibt keinen zweiten, parallel gepflegten Beitragsweg.
+**Statement:** External as well as internal contributions (issues, pull requests) go through GitHub in the repository `normly/web-app`. There is no second contribution path maintained in parallel.
 
-**Rationale:** Sichtbarkeit und niedrige Beitragshürde; siehe ADR-021 für die vollständige Begründung des Plattformwechsels.
+**Rationale:** Visibility and a low barrier to contribution; see ADR-021 for the full rationale of the platform switch.
 
-**Akzeptanzkriterium:** Beiträge werden ausschließlich über GitHub entgegengenommen.
+**Acceptance criteria:** Contributions are accepted exclusively via GitHub.
 
-**Abnahmekriterium:** Review bestätigt, dass kein zweiter aktiv gepflegter Issue-Tracker oder Beitragsweg besteht.
+**Acceptance test:** A review confirms that no second actively maintained issue tracker or contribution path exists.
 
-### REQ-GIT-003 — Branch- und Release-Strategie
+### REQ-GIT-003 — Branch and release strategy
 
-**Statement:** Es gilt ein dokumentierter Branching-Ablauf mit geschütztem Hauptzweig, semantischer Versionierung (SemVer), einheitlichem Commit-Format und signierten Release-Tags.
+**Statement:** A documented branching process applies, with a protected main branch, semantic versioning (SemVer), a uniform commit format and signed release tags.
 
-**Rationale:** Nachvollziehbarkeit von Änderungen und verlässliche Versionsstände für Nachnutzer.
+**Rationale:** Traceability of changes and reliable versions for downstream users.
 
-**Akzeptanzkriterium:** Direkte Pushes auf den Hauptzweig sind unterbunden; jeder Release trägt ein signiertes Tag.
+**Acceptance criteria:** Direct pushes to the main branch are prevented; every release carries a signed tag.
 
-**Abnahmekriterium:** Ein Versuch, direkt auf den Hauptzweig zu pushen, wird abgewiesen.
+**Acceptance test:** An attempt to push directly to the main branch is rejected.
 
-### REQ-GIT-004 — Merge-Request-Richtlinie
+### REQ-GIT-004 — Merge request policy
 
-**Statement:** Änderungen gelangen ausschließlich über Merge Requests in den Hauptzweig. Voraussetzung sind mindestens eine fachliche Freigabe, eine erfolgreiche Pipeline und die Zustimmung der zuständigen Codeverantwortlichen.
+**Statement:** Changes reach the main branch exclusively via merge requests. Prerequisites are at least one subject-matter approval, a successful pipeline and the consent of the responsible code owners.
 
-**Rationale:** Qualitätssicherung und Vier-Augen-Prinzip; Schutz vor unbeabsichtigten Regressionen.
+**Rationale:** Quality assurance and the four-eyes principle; protection against unintended regressions.
 
-**Akzeptanzkriterium:** Merge ohne Freigabe oder mit fehlgeschlagener Pipeline ist technisch nicht möglich.
+**Acceptance criteria:** Merging without approval or with a failed pipeline is technically not possible.
 
-**Abnahmekriterium:** Ein Merge Request mit rotem Pipeline-Status lässt sich nicht zusammenführen.
+**Acceptance test:** A merge request with a red pipeline status cannot be merged.
 
-### REQ-GIT-005 — Integrität der Lieferkette
+### REQ-GIT-005 — Supply chain integrity
 
-**Statement:** Commits und Build-Artefakte werden signiert. Für jeden Release werden Herkunftsnachweis und SBOM veröffentlicht.
+**Statement:** Commits and build artifacts are signed. For every release, proof of provenance and an SBOM are published.
 
-**Rationale:** Schutz vor Manipulation und Voraussetzung für die Nachvollziehbarkeit in regulierten Umgebungen.
+**Rationale:** Protection against tampering and a prerequisite for traceability in regulated environments.
 
-**Akzeptanzkriterium:** Signaturprüfung als Pflichtschritt vor dem Rollout; Artefakte signiert in der GitHub Container Registry abgelegt (ADR-021, ADR-023: cosign keyless, SLSA-Provenance und SBOM je Image).
+**Acceptance criteria:** Signature verification as a mandatory step before rollout; artifacts stored signed in the GitHub Container Registry (ADR-021, ADR-023: cosign keyless, SLSA provenance and SBOM per image).
 
-**Abnahmekriterium:** Ein unsigniertes Artefakt wird von der Auslieferung abgewiesen.
+**Acceptance test:** An unsigned artifact is rejected by the shipping process.
 
-**Stand (2026-10-08):** Signatur, Provenance und SBOM je Image sind mit ADR-023 umgesetzt. Die Prüfung als Pflichtschritt vor dem Start auf der Zielumgebung ist mit dem Rollout-Skript `normly-deploy` umgesetzt (ADR-024, 2026-10-09).
+**As of (2026-10-08):** Signature, provenance and SBOM per image are implemented with ADR-023. The verification as a mandatory step before the start on the target environment is implemented with the rollout script `normly-deploy` (ADR-024, 2026-10-09).
 
-## 3.9 Referenzgraph
+## 3.9 Reference graph
 
-Dieses Kapitel definiert Anforderungen an Aufbau, Lizenzierung und Nutzung des Normen-Referenzgraphen.
+This chapter defines requirements for the structure, licensing and use of the norm reference graph.
 
-### REQ-GRAPH-001 — Offener Normen-Referenzgraph
+### REQ-GRAPH-001 — Open norm reference graph
 
-**Statement:** Das System führt einen maschinenlesbaren Referenzgraph über Regelwerke. Erfasst werden stabile Identifikatoren, Verweise zwischen Regelwerken, Ersetzungs- und Zurückziehungsketten, Ausgabestände sowie Verweise aus Gesetzen und Verordnungen auf Normen. Schema und Inhalte des freien Teils werden unter einer offenen Datenlizenz mit Share-Alike-Wirkung (ODbL) veröffentlicht.
+**Statement:** The system maintains a machine-readable reference graph over standards. It records stable identifiers, references between standards, replacement chains and chains of withdrawn norms, editions, and references from laws and regulations to norms. Schema and content of the free part are published under an open data license with share-alike effect (ODbL).
 
-**Rationale:** Der Referenzgraph ist das eigentliche Alleinstellungsmerkmal von normly. Seine Offenheit ist kein Verzicht auf Schutz: Das Datenbankherstellerrecht nach §§ 87a ff. UrhG in Verbindung mit der Share-Alike-Klausel verhindert, dass Dritte den Graph in ein geschlossenes Produkt überführen. Zugleich begründet die Offenheit die Rolle als neutrale Infrastruktur gegenüber den Normungsorganisationen.
+**Rationale:** The reference graph is normly's actual unique selling point. Its openness is not a waiver of protection: the database maker's right under §§ 87a ff. UrhG in conjunction with the share-alike clause prevents third parties from turning the graph into a closed product. At the same time, the openness establishes the role as neutral infrastructure towards the standardization bodies.
 
-**Akzeptanzkriterium:** Vollständiger Dump in einem offenen, dokumentierten Format; Schema versioniert und öffentlich; Lizenzhinweis maschinenlesbar mitgeführt.
+**Acceptance criteria:** Complete dump in an open, documented format; schema versioned and public; license notice carried along in machine-readable form.
 
-**Abnahmekriterium:** Ein Dritter kann den veröffentlichten Dump ohne Rückfrage einlesen und Verweisketten reproduzieren.
+**Acceptance test:** A third party can read in the published dump without further inquiry and reproduce reference chains.
 
-### REQ-GRAPH-002 — Schichtung von freiem und kommerziellem Graphanteil
+### REQ-GRAPH-002 — Layering of free and commercial graph share
 
-**Statement:** Frei veröffentlicht werden Schema, Identifikatoren, Verweise zwischen öffentlich zugänglichen Regelwerken, Ersetzungsketten und Gültigkeitsstände. Der kommerziellen Schicht vorbehalten sind: Aktualitätsgarantie mit SLA und Änderungsbenachrichtigung, Verweise bis auf Abschnittsebene innerhalb lizenzierter Normen, Konfidenzangaben und Belegstellen für Auditzwecke sowie branchenspezifische Anreicherungen.
+**Statement:** Schema, identifiers, references between publicly accessible standards, replacement chains and validity states are published freely. Reserved for the commercial layer are: currency guarantee with SLA and change notification, references down to section level within licensed norms, confidence ratings and evidence citations for audit purposes, and industry-specific enrichments.
 
-**Rationale:** Verweise, die die interne Gliederung geschützter Normen abbilden, dürfen je nach Lizenzvertrag nicht frei veröffentlicht werden. Zugleich zahlen gewerbliche Kunden für Verlässlichkeit und Aktualität, nicht für den Datenbestand als solchen; ein periodischer Dump und eine SLA-gestützte API sind unterschiedliche Produkte.
+**Rationale:** References that map the internal structure of protected norms must not be published freely, depending on the license agreement. At the same time, commercial customers pay for reliability and currency, not for the collection as such; a periodic dump and an SLA-backed API are different products.
 
-**Akzeptanzkriterium:** Jede Kante und jeder Knoten des Graphen trägt eine Herkunfts- und Lizenzklassifikation je Rechtsraum gemäß REQ-GRAPH-006; der freie Export enthält je Rechtsraum ausschließlich dort frei lizenzierbare Elemente.
+**Acceptance criteria:** Every edge and every node of the graph carries a provenance and license classification per jurisdiction according to REQ-GRAPH-006; the free export contains, per jurisdiction, exclusively elements that are freely licensable there.
 
-**Abnahmekriterium:** Ein Export des freien Anteils enthält nachweislich keine lizenzpflichtigen Abschnittsverweise.
+**Acceptance test:** An export of the free share demonstrably contains no section references subject to licensing.
 
-### REQ-GRAPH-003 — Graph-First-Anfrageverarbeitung
+### REQ-GRAPH-003 — Graph-first query processing
 
-**Statement:** Anfragen werden zuerst gegen den Referenzgraph aufgelöst. Ein Sprachmodell wird nur aufgerufen, wenn die Anfrage eine Synthese über Fließtext erfordert. Strukturfragen (Ersetzung, Gültigkeit, Verweisbeziehungen) sind deterministisch und ohne Modellaufruf zu beantworten.
+**Statement:** Queries are resolved against the reference graph first. A language model is only invoked when the query requires synthesis over running text. Structural questions (replacement, validity, reference relationships) are to be answered deterministically and without a model call.
 
-**Rationale:** Strukturfragen sind aus dem Graph exakt beantwortbar. Ein Modellaufruf wäre hier teurer, langsamer und fehleranfälliger; gerade bei Gültigkeits- und Ersetzungsfragen sind Halluzinationen besonders folgenschwer.
+**Rationale:** Structural questions can be answered exactly from the graph. A model call would be more expensive, slower and more error-prone here; especially with validity and replacement questions, hallucinations have particularly serious consequences.
 
-**Akzeptanzkriterium:** Klassifikation jeder Anfrage vor der Verarbeitung; deterministische Antwort mit Quellenangabe für Strukturfragen; Zwischenspeicherung wiederkehrender Anfragen.
+**Acceptance criteria:** Classification of every query before processing; deterministic answer with citation for structural questions; caching of recurring queries.
 
-**Abnahmekriterium:** Ein definierter Satz von Strukturfragen wird vollständig ohne Modellaufruf und mit korrekter Quellenangabe beantwortet.
+**Acceptance test:** A defined set of structural questions is answered completely without a model call and with correct citations.
 
-### REQ-GRAPH-004 — Technologieoffenheit der Graphhaltung
+### REQ-GRAPH-004 — Technology independence of graph storage
 
-**Statement:** Der Zugriff auf den Referenzgraph erfolgt ausschließlich über eine abstrahierte Schnittstelle innerhalb der Anwendung. Die konkrete Speichertechnologie ist austauschbar und darf nicht in die Fachlogik durchschlagen. Für den Start wird eine bei STACKIT betreibbare, quelloffene Datenbank eingesetzt.
+**Statement:** Access to the reference graph takes place exclusively via an abstracted interface within the application. The concrete storage technology is interchangeable and must not leak into the domain logic. For the start, an open-source database that can be operated at STACKIT is used.
 
-**Rationale:** Betreiber eigener Instanzen sollen den freien Kern ohne zusätzliche Lizenzkosten und ohne fremdgehostete Spezialdatenbank betreiben können. Eine spätere Migration auf eine dedizierte Graphdatenbank muss ohne Eingriff in die Fachlogik möglich bleiben.
+**Rationale:** Operators of their own instances should be able to operate the free core without additional license costs and without an externally hosted special-purpose database. A later migration to a dedicated graph database must remain possible without intervening in the domain logic.
 
-**Akzeptanzkriterium:** Keine datenbankspezifischen Abfragen außerhalb der Zugriffsschicht; Austausch der Speichertechnologie ist durch Tests abgedeckt.
+**Acceptance criteria:** No database-specific queries outside the access layer; swapping the storage technology is covered by tests.
 
-**Abnahmekriterium:** Architektur-Review bestätigt, dass die Fachlogik keine Kenntnis der konkreten Graphtechnologie besitzt.
+**Acceptance test:** An architecture review confirms that the domain logic has no knowledge of the concrete graph technology.
 
-### REQ-GRAPH-005 — Internationalisierung des Referenzgraphen
+### REQ-GRAPH-005 — Internationalization of the reference graph
 
-**Statement:** Der Referenzgraph ist von Beginn an für weltweite Abdeckung auszulegen. Erforderlich sind: ein global kollisionsfreies Identifikatorschema, das Herausgeber, Dokumentnummer, Ausgabestand und Teilnummer getrennt abbildet; eine sprachunabhängige Knotenidentität, bei der ein Regelwerk einen Knoten bildet und nationale Übernahmen sowie Übersetzungen als Beziehungen bzw. Attribute geführt werden; mehrsprachige Bezeichnungen je Knoten.
+**Statement:** The reference graph is to be designed for worldwide coverage from the start. Required are: a globally collision-free identifier scheme that maps publisher, document number, edition and part number separately; a language-independent node identity in which one standard forms one node and national adoptions and translations are kept as relationships and attributes, respectively; multilingual designations per node.
 
-**Rationale:** Ein nachträglicher Umbau des Identifikatorschemas ist die teuerste denkbare Altlast. Ein Regelwerk wie EN ISO 9001 wird von mehreren nationalen Gremien in unterschiedlichen Sprachen übernommen; ohne sprachunabhängige Identität entstehen Dubletten, die Verweisketten unbrauchbar machen.
+**Rationale:** A later rebuild of the identifier scheme is the most expensive legacy burden imaginable. A standard such as EN ISO 9001 is adopted by several national bodies in different languages; without language-independent identity, duplicates arise that make reference chains unusable.
 
-**Akzeptanzkriterium:** Identifikatorschema dokumentiert und versioniert; nationale Übernahmen sind als Beziehung zum Ursprungsdokument abgebildet; je Knoten sind Bezeichnungen in mehreren Sprachen führbar.
+**Acceptance criteria:** Identifier scheme documented and versioned; national adoptions are mapped as a relationship to the original document; designations in several languages can be kept per node.
 
-**Abnahmekriterium:** Ein Regelwerk mit Übernahmen durch mindestens drei nationale Gremien wird als ein Knoten mit zugeordneten Übernahmen dargestellt.
+**Acceptance test:** A standard with adoptions by at least three national bodies is represented as one node with assigned adoptions.
 
-### REQ-GRAPH-006 — Rechtsraumabhängige Lizenzklassifikation
+### REQ-GRAPH-006 — Jurisdiction-specific license classification
 
-**Statement:** Die Lizenz- und Veröffentlichungsfähigkeit von Knoten und Kanten wird je Rechtsraum klassifiziert und geführt. Exporte und API-Antworten werden anhand des jeweils maßgeblichen Rechtsraums gefiltert.
+**Statement:** The licensability and publishability of nodes and edges are classified and kept per jurisdiction. Exports and API responses are filtered on the basis of the jurisdiction applicable in each case.
 
-**Rationale:** Der frei veröffentlichbare Anteil ist nicht global einheitlich: § 5 UrhG gilt nur in Deutschland, die Lage bei per Verweis in Gesetze aufgenommenen Normen ist je Rechtsordnung unterschiedlich, und für harmonisierte europäische Normen ist die Rechtslage durch die Entscheidung des EuGH in der Rechtssache C-588/21 gesondert zu bewerten. Eine globale Klassifikation wäre entweder rechtswidrig oder unnötig restriktiv.
+**Rationale:** The freely publishable share is not globally uniform: § 5 UrhG applies only in Germany, the situation for norms incorporated into laws by reference differs per legal system, and for harmonized European norms the legal situation is to be assessed separately due to the decision of the Court of Justice of the European Union (CJEU) in case C-588/21. A global classification would be either unlawful or unnecessarily restrictive.
 
-**Akzeptanzkriterium:** Klassifikation je Rechtsraum am Datenmodell hinterlegt; Exportfilter wählbar; Herkunft der rechtlichen Bewertung dokumentiert und mit Datum versehen.
+**Acceptance criteria:** Classification per jurisdiction stored in the data model; export filter selectable; provenance of the legal assessment documented and dated.
 
-**Abnahmekriterium:** Zwei Exporte für unterschiedliche Rechtsräume liefern nachweislich unterschiedliche, jeweils zulässige Umfänge.
+**Acceptance test:** Two exports for different jurisdictions demonstrably deliver different scopes, each of them permissible.
 
-## 3.10 Inhaltepartnerschaften und Vergütung
+## 3.10 Content partnerships and remuneration
 
-Dieses Kapitel definiert Anforderungen an die Zulieferung lizenzierter Normeninhalte durch herausgebende Organisationen sowie an deren nachvollziehbare Vergütung.
+This chapter defines requirements for the supply of licensed norm content by publishing organizations and for its traceable remuneration.
 
-### REQ-PART-001 — Partnerportal zur Inhaltezulieferung
+### REQ-PART-001 — Partner portal for content supply
 
-**Statement:** Für herausgebende Organisationen wird ein Portal mit zugehöriger Schnittstelle bereitgestellt, über das Normeninhalte im Volltext zugeliefert werden. Unterstützt werden gängige Austauschformate (mindestens PDF und XML). Je Lieferung werden Herausgeber, Dokumentidentifikator, Ausgabestand, Sprache, Rechtsraum sowie die vertraglich eingeräumten Nutzungsrechte als Metadaten erfasst. Lieferungen sind versioniert; ein Zurückziehen einzelner Dokumente oder ganzer Bestände muss jederzeit möglich sein und wirkt unmittelbar auf die Beantwortung von Anfragen.
+**Statement:** For publishing organizations, a portal with an associated interface is provided through which norm content is supplied in full text. Common exchange formats are supported (at least PDF and XML). Per delivery, publisher, document identifier, edition, language, jurisdiction and the contractually granted rights of use are captured as metadata. Deliveries are versioned; withdrawing individual documents or entire collections must be possible at any time and takes immediate effect on the answering of queries.
 
-**Rationale:** Die Zulieferung von Volltexten ist die Voraussetzung für den entscheidenden Sprung im Datenbestand. Ein definierter, nachvollziehbarer Zulieferweg senkt die Hürde für Herausgeber und ist Bestandteil der Verhandlungsposition. Die jederzeitige Rückziehbarkeit ist Voraussetzung dafür, dass Herausgeber die Kontrolle über ihre Werke behalten, und damit Bedingung für den Vertragsabschluss.
+**Rationale:** The supply of full texts is the prerequisite for the decisive leap in the collection. A defined, traceable supply path lowers the hurdle for publishers and is part of the negotiating position. The ability to withdraw at any time is the prerequisite for publishers keeping control over their works, and thus a condition for concluding the contract.
 
-**Akzeptanzkriterium:** Zulieferung, Statusverfolgung und Rückzug sind über das Portal ohne technische Unterstützung durch normly durchführbar; jede Lieferung ist einem Vertrag zugeordnet; Rechte-Metadaten sind Pflichtfelder.
+**Acceptance criteria:** Supply, status tracking and withdrawal can be carried out via the portal without technical support from normly; every delivery is assigned to a contract; rights metadata are mandatory fields.
 
-**Abnahmekriterium:** Ein Herausgeber liefert einen Bestand ein, ruft dessen Verarbeitungsstatus ab und zieht ein Dokument zurück; das zurückgezogene Dokument wird ab diesem Zeitpunkt nicht mehr zur Beantwortung herangezogen.
+**Acceptance test:** A publisher delivers a collection, retrieves its processing status and withdraws a document; from that point on, the retired document is no longer used for answering.
 
-### REQ-PART-002 — Quellenattribution je Antwort
+### REQ-PART-002 — Source attribution per answer
 
-**Statement:** Für jede erzeugte Antwort wird protokolliert, welche Quellen herangezogen wurden und mit welchem Anteil sie zur Antwort beigetragen haben. Der Anteil bemisst sich nach der Anzahl der tatsächlich in die Antwort eingegangenen Passagen je Quelle im Verhältnis zur Gesamtzahl der eingegangenen Passagen. Passagen, die abgerufen, aber nicht verwendet wurden, bleiben unberücksichtigt. Wird eine Anfrage vollständig aus dem Referenzgraph beantwortet, wird dies als eigene Kategorie erfasst.
+**Statement:** For every generated answer, it is logged which sources were used and with which share they contributed to the answer. The share is measured by the number of passages per source that actually went into the answer, relative to the total number of passages that went into it. Passages that were retrieved but not used are disregarded. If a query is answered entirely from the reference graph, this is captured as a separate category.
 
-**Rationale:** Die Attributionsdaten sind die Grundlage jeder Umsatzbeteiligung und lassen sich nachträglich nicht rekonstruieren. Sie müssen daher ab Inbetriebnahme erhoben werden, unabhängig davon, ob bereits ein Vergütungsvertrag besteht. Die Erfassung gehört in den freien Kern, weil sie ohnehin für die Quellenangabe erforderlich ist; nur die Auswertung ist kommerziell.
+**Rationale:** The attribution data are the basis of any revenue share and cannot be reconstructed retroactively. They must therefore be collected from the start of operation, regardless of whether a remuneration contract already exists. The capture belongs in the free core because it is required for the citation anyway; only the evaluation is commercial.
 
-**Akzeptanzkriterium:** Je Antwort liegt ein Attributionsdatensatz mit Quelle, Passagenanzahl und resultierendem Anteil vor; die Anteile je Antwort summieren sich auf 100 Prozent; die Erfassung ist unabhängig von bestehenden Verträgen aktiv.
+**Acceptance criteria:** Per answer, there is an attribution record with source, number of passages and resulting share; the shares per answer add up to 100 percent; the capture is active independently of existing contracts.
 
-**Abnahmekriterium:** Für eine Antwort, die Passagen aus drei verschiedenen Herausgebern verwendet, wird die Verteilung korrekt und nachvollziehbar ausgewiesen.
+**Acceptance test:** For an answer that uses passages from three different publishers, the distribution is shown correctly and traceably.
 
-### REQ-PART-003 — Umsatzbeteiligung und prüffähige Abrechnung
+### REQ-PART-003 — Revenue share and auditable billing
 
-**Statement:** Auf Basis der Attributionsdaten wird je Abrechnungszeitraum und Herausgeber ein anteiliger Vergütungsbetrag ermittelt. Grundlage ist der vertraglich vereinbarte Anteil am zurechenbaren Umsatz, verteilt nach dem Attributionsanteil gemäß REQ-PART-002. Herausgeber erhalten einen Abrechnungsbericht, der Zeitraum, Anfragevolumen, Attributionsanteil, Berechnungsgrundlage und resultierenden Betrag ausweist und maschinenlesbar exportierbar ist.
+**Statement:** On the basis of the attribution data, a proportional remuneration amount is determined per billing period and publisher. The basis is the contractually agreed share of the attributable revenue, distributed according to the attribution share per REQ-PART-002. Publishers receive a billing report that shows period, query volume, attribution share, calculation basis and resulting amount and can be exported in machine-readable form.
 
-**Rationale:** Ein Herausgeber, der eine Umsatzbeteiligung erwartet, wird die Zahlen prüfen wollen. Ohne unabhängig nachvollziehbare Berechnung wird über Vertrauen verhandelt statt über einen Prozentsatz. Eine prüffähige Abrechnung verbessert die Verhandlungsposition erheblich und entschärft den Konflikt, dass normly als Wettbewerber um Verkaufserlöse wahrgenommen wird.
+**Rationale:** A publisher expecting a revenue share will want to check the numbers. Without an independently traceable calculation, the negotiation is about trust instead of a percentage. An auditable billing considerably improves the negotiating position and defuses the conflict that normly is perceived as a competitor for sales revenue.
 
-**Akzeptanzkriterium:** Abrechnungsberichte sind aus den protokollierten Einzeldatensätzen vollständig herleitbar; die Berechnungsvorschrift ist dokumentiert und versioniert; eine Stichprobe einzelner Antworten ist bis in den Bericht nachverfolgbar.
+**Acceptance criteria:** Billing reports can be fully derived from the logged individual records; the calculation rule is documented and versioned; a sample of individual answers can be traced through to the report.
 
-**Abnahmekriterium:** Eine externe Prüfung rechnet einen Abrechnungszeitraum aus den Rohdaten nach und kommt zum selben Ergebnis.
+**Acceptance test:** An external audit recalculates a billing period from the raw data and arrives at the same result.
 
-### REQ-PART-004 — Schutz und Trennung lizenzierter Volltextbestände
+### REQ-PART-004 — Protection and separation of licensed full-text collections
 
-**Statement:** Lizenzierte Volltextbestände werden je Herausgeber logisch getrennt gehalten und ausschließlich im Rahmen der hinterlegten Nutzungsrechte verarbeitet. Ein Bestand darf nicht für Instanzen oder Mandanten herangezogen werden, für die keine entsprechende Berechtigung vorliegt. Der freie Kern und die frei veröffentlichten Exporte enthalten keine lizenzierten Volltextinhalte.
+**Statement:** Licensed full-text collections are kept logically separate per publisher and are processed exclusively within the scope of the stored rights of use. A collection must not be used for instances or tenants for which no corresponding authorization exists. The free core and the freely published exports contain no licensed full-text content.
 
-**Rationale:** Ohne belastbare Trennung ist kein Herausgeber bereit, Volltexte bereitzustellen. Die Trennung ist zugleich Voraussetzung dafür, dass der freie Kern quelloffen und frei verteilbar bleibt, während lizenzierte Bestände nur in berechtigten Instanzen wirksam werden.
+**Rationale:** Without reliable separation, no publisher is willing to provide full texts. The separation is at the same time the prerequisite for the free core remaining open source and freely distributable, while licensed collections only take effect in authorized instances.
 
-**Akzeptanzkriterium:** Berechtigungsprüfung bei jedem Zugriff auf lizenzierte Bestände; Zugriffe werden protokolliert; freie Exporte werden gegen lizenzierte Inhalte automatisiert geprüft.
+**Acceptance criteria:** Authorization check on every access to licensed collections; accesses are logged; free exports are checked automatically against licensed content.
 
-**Abnahmekriterium:** Eine Instanz ohne Berechtigung erhält nachweislich keine Inhalte aus einem lizenzierten Bestand; ein freier Export enthält nachweislich keine lizenzpflichtigen Volltextpassagen.
+**Acceptance test:** An instance without authorization demonstrably receives no content from a licensed collection; a free export demonstrably contains no full-text passages subject to licensing.
 
-## 3.11 Kommerzielle Zusatzdienste
+## 3.11 Commercial add-on services
 
-Dieses Kapitel definiert Anforderungen an die kommerzielle Schicht, die auf dem freien Kern aufsetzt und deren Ausgründung in eine eigene Gesellschaft vorgesehen ist.
+This chapter defines requirements for the commercial layer, which builds on the free core and is intended to be spun off into a separate company.
 
-### REQ-COM-001 — Erweiterungsschnittstelle
+### REQ-COM-001 — Extension interface
 
-**Statement:** Der Kern stellt eine stabile, versionierte Erweiterungsschnittstelle bereit, über die kommerzielle Module ohne Fork angebunden werden können.
+**Statement:** The core provides a stable, versioned extension interface through which commercial modules can be connected without a fork.
 
-**Rationale:** Voraussetzung dafür, dass Kern und kommerzielle Schicht getrennt weiterentwickelt werden können.
+**Rationale:** Prerequisite for core and commercial layer being able to be developed further separately.
 
-**Akzeptanzkriterium:** Erweiterungspunkte dokumentiert und versioniert; ein Beispielmodul lässt sich ohne Änderung am Kern einbinden.
+**Acceptance criteria:** Extension points documented and versioned; an example module can be integrated without changes to the core.
 
-**Abnahmekriterium:** Ein Referenzmodul wird gegen zwei aufeinanderfolgende Kernversionen erfolgreich betrieben.
+**Acceptance test:** A reference module is operated successfully against two consecutive core versions.
 
-### REQ-COM-002 — Integration in Drittsoftware
+### REQ-COM-002 — Integration into third-party software
 
-**Statement:** Für CAD-, ERP- und Expertensysteme werden Integrationen bereitgestellt, die über die öffentliche API des Kerns arbeiten.
+**Statement:** For CAD, ERP and expert systems, integrations are provided that work via the core's public API.
 
-**Rationale:** Zentraler USP der kommerziellen Schicht und größter erwarteter Umsatzträger.
+**Rationale:** Central USP of the commercial layer and largest expected revenue driver.
 
-**Akzeptanzkriterium:** Mindestens eine Integration in ein verbreitetes Fachsystem ist lauffähig und dokumentiert.
+**Acceptance criteria:** At least one integration into a widespread specialist system is operational and documented.
 
-**Abnahmekriterium:** Ein Endnutzer kann eine Anfrage aus dem Drittsystem heraus stellen und erhält eine Antwort mit Quellenangabe.
+**Acceptance test:** An end user can submit a query from within the third-party system and receives an answer with citation.
 
-### REQ-COM-003 — Nutzungsbasierte Abrechnung
+### REQ-COM-003 — Usage-based billing
 
-**Statement:** Kommerzielle API-Zugänge werden über Schlüssel authentifiziert, mit Kontingenten begrenzt und nutzungsbasiert abgerechnet.
+**Statement:** Commercial API accesses are authenticated via keys, limited with quotas and billed based on usage.
 
-**Rationale:** Tragfähiges Erlösmodell für Integrationen ohne Einschränkung des freien Zugangs.
+**Rationale:** Viable revenue model for integrations without restricting free access.
 
-**Akzeptanzkriterium:** Schlüsselverwaltung, Kontingentprüfung und prüffähige Abrechnungsdaten vorhanden.
+**Acceptance criteria:** Key management, quota check and auditable billing data in place.
 
-**Abnahmekriterium:** Eine Testperiode wird vollständig und nachvollziehbar abgerechnet.
+**Acceptance test:** A test period is billed completely and traceably.
 
-### REQ-COM-004 — Nachweisfähige Antworten und Audit-Trail
+### REQ-COM-004 — Verifiable answers and audit trail
 
-**Statement:** Für Compliance-Instanzen werden Anfrage, herangezogene Quellen, Modellversion und Zeitpunkt revisionssicher protokolliert und exportierbar gemacht.
+**Statement:** For compliance instances, query, sources used, model version and point in time are logged in an audit-proof manner and made exportable.
 
-**Rationale:** Haftungssicherheit ist der eigentliche Zahlungsgrund gewerblicher Kunden, nicht der Wissenszugang.
+**Rationale:** Liability certainty is the actual reason commercial customers pay, not access to knowledge.
 
-**Akzeptanzkriterium:** Vollständiger Audit-Datensatz je Antwort; Export in maschinenlesbarem Format.
+**Acceptance criteria:** Complete audit record per answer; export in a machine-readable format.
 
-**Abnahmekriterium:** Ein Audit-Export lässt sich einer konkreten Antwort eindeutig zuordnen.
+**Acceptance test:** An audit export can be unambiguously assigned to a concrete answer.
 
-### REQ-COM-005 — Ausschluss personalisierter Werbung
+### REQ-COM-005 — Exclusion of personalized advertising
 
-**Statement:** Personalisierte Werbung auf Basis von Suchanfragen, Chatverläufen oder Nutzerprofilen ist ausgeschlossen. Zulässig sind kontextfreie Verzeichniseinträge und Verweise auf Bezugsquellen der Originaldokumente.
+**Statement:** Personalized advertising based on search queries, chat histories or user profiles is ruled out. Context-free directory entries and references to points of purchase for the original documents are permitted.
 
-**Rationale:** Personalisierte Werbung ist mit der Neutralität der Trägerorganisation und dem Datenschutzversprechen des freien Kerns unvereinbar.
+**Rationale:** Personalized advertising is incompatible with the neutrality of the Trägerorganisation and the data-protection promise of the free core.
 
-**Akzeptanzkriterium:** Keine Profilbildung zu Werbezwecken; Verzeichniseinträge sind als bezahlt gekennzeichnet.
+**Acceptance criteria:** No profiling for advertising purposes; directory entries are labeled as paid.
 
-**Abnahmekriterium:** Datenschutz-Review bestätigt, dass keine werbebezogenen Nutzerprofile entstehen.
+**Acceptance test:** A data-protection review confirms that no advertising-related user profiles arise.
 
-## 3.12 Datenerfassung und Verarbeitungskette
+## 3.12 Data acquisition and processing chain
 
-Dieses Kapitel beschreibt den Weg, auf dem Inhalte unterschiedlicher Herkunft — frei verfügbare Quellen, lizenzierte Partnerlieferungen und Bestände ohne geklärte Rechtslage — in einen einheitlichen Datenbestand überführt werden.
+This chapter describes the path by which content of different provenance — freely available sources, licensed partner deliveries and collections without a clarified legal situation — is transferred into a uniform collection.
 
-### REQ-PIPE-001 — Einheitliche Verarbeitungskette
+### REQ-PIPE-001 — Uniform processing chain
 
-**Statement:** Inhalte aller Herkunftsarten durchlaufen dieselbe Verarbeitungskette. Die Herkunftsart ist eine Eigenschaft des Datensatzes, nicht ein eigener Verarbeitungsweg. Die Kette gliedert sich in: Quellenregister, Ingest-Adapter, Identitätsauflösung, Rechteklassifikation, Strukturextraktion, Verweisextraktion, Segmentierung und Einbettung, Ausspielung.
+**Statement:** Content of all provenance types passes through the same processing chain. The provenance type is a property of the record, not a separate processing path. The chain is divided into: source register, ingest adapters, identity resolution, rights classification, structure extraction, reference extraction, segmentation and embedding, output.
 
-**Rationale:** Getrennte Verarbeitungswege je Herkunftsart driften auseinander, und die Rechteprüfung säße an mehreren Stellen. Eine einzige Kette mit herkunftsabhängiger Steuerung ist prüfbar und erweiterbar.
+**Rationale:** Separate processing paths per provenance type drift apart, and the rights check would sit in several places. A single chain with provenance-dependent control is auditable and extensible.
 
-**Akzeptanzkriterium:** Neue Quellen werden ausschließlich über einen Adapter angebunden; ab der Identitätsauflösung ist die Verarbeitung von der Herkunftsart unabhängig.
+**Acceptance criteria:** New sources are connected exclusively via an adapter; from identity resolution onward, processing is independent of the provenance type.
 
-**Abnahmekriterium:** Eine neue Quelle wird angebunden, ohne dass Schritte hinter dem Adapter angepasst werden müssen.
+**Acceptance test:** A new source is connected without steps behind the adapter having to be adapted.
 
-### REQ-PIPE-002 — Quellenregister
+### REQ-PIPE-002 — Source register
 
-**Statement:** Jede Quelle wird vor der ersten Verarbeitung registriert. Der Eintrag umfasst Herausgeber, Abrufweg, Rechtsgrundlage der Nutzung, Rechtsraum, Prüfdatum und die für die Prüfung verantwortliche Person. Ohne Registereintrag findet keine Erfassung statt. Die Rechtsgrundlage ist einer der folgenden abschließend definierten Kategorien zuzuordnen: (A) amtliche Werke und Rechtstexte, deren Nutzung sich aus § 5 UrhG oder einer entsprechenden Regelung des jeweiligen Rechtsraums ergibt; (B) Regelwerke unter einer freien Lizenz des Herausgebers; (C) vertraglich bezogene Daten, unter Angabe der Vertragsreferenz; (D) sonstige öffentlich zugängliche Quellen, ausschließlich nach dokumentierter Einzelfallprüfung einschließlich Prüfung nach REQ-PIPE-003 und unter Benennung einer verantwortlichen Person. Quellen, die keiner dieser Kategorien zugeordnet werden können, werden nicht erfasst.
+**Statement:** Every source is registered before its first processing. The entry comprises publisher, retrieval path, legal basis of use, jurisdiction, check date and the person responsible for the check. Without a register entry, no acquisition takes place. The legal basis is to be assigned to one of the following exhaustively defined categories: (A) official works and legal texts whose use follows from § 5 UrhG or a corresponding provision of the respective jurisdiction; (B) standards under a free license of the publisher; (C) data obtained by contract, stating the contract reference; (D) other publicly accessible sources, exclusively after a documented case-by-case review including the check per REQ-PIPE-003 and with a responsible person named. Sources that cannot be assigned to any of these categories are not acquired.
 
-**Rationale:** Das Register ist die Nachweisführung über die Herkunft und die rechtliche Grundlage des gesamten Bestands. Es ist Voraussetzung dafür, gegenüber Herausgebern und Aufsichtsstellen auskunftsfähig zu sein.
+**Rationale:** The register is the documentary record of the provenance and the legal basis of the entire collection. It is the prerequisite for being able to provide information to publishers and supervisory bodies.
 
-**Akzeptanzkriterium:** Registereintrag ist Pflichtvoraussetzung jedes Ingest-Laufs; Änderungen sind historisiert; die Kategoriezuordnung ist Pflichtfeld und ohne gültigen Wert nicht speicherbar.
+**Acceptance criteria:** A register entry is a mandatory prerequisite of every ingest run; changes are historized; the category assignment is a mandatory field and cannot be saved without a valid value.
 
-**Abnahmekriterium:** Ein Erfassungslauf ohne gültigen Registereintrag oder ohne Kategoriezuordnung wird abgewiesen.
+**Acceptance test:** An acquisition run without a valid register entry or without a category assignment is rejected.
 
-### REQ-PIPE-003 — Prüfung von Nutzungsvorbehalten
+### REQ-PIPE-003 — Check for rights reservations
 
-**Statement:** Vor der automatisierten Erfassung frei zugänglicher Quellen wird geprüft, ob ein maschinenlesbarer Nutzungsvorbehalt im Sinne des § 44b Abs. 3 UrhG vorliegt. Das Ergebnis wird mit Datum und Fundstelle im Quellenregister protokolliert und in festzulegenden Abständen erneut geprüft.
+**Statement:** Before the automated acquisition of freely accessible sources, it is checked whether a machine-readable rights reservation within the meaning of § 44b Abs. 3 UrhG exists. The result is logged with date and location in the source register and re-checked at intervals to be determined.
 
-**Rationale:** Text- und Data-Mining ist nur zulässig, solange kein Nutzungsvorbehalt erklärt ist. Eine nicht dokumentierte Prüfung schwächt die Verhandlungsposition gegenüber genau den Organisationen, mit denen Lizenzverträge angestrebt werden.
+**Rationale:** Text and data mining is only permitted as long as no rights reservation has been declared. An undocumented check weakens the negotiating position towards precisely the organizations with which license agreements are sought.
 
-**Akzeptanzkriterium:** Prüfergebnis je Quelle vorhanden, datiert und belegt; Wiedervorlage eingerichtet.
+**Acceptance criteria:** Check result per source present, dated and evidenced; re-check scheduled.
 
-**Abnahmekriterium:** Für jede aktive Quelle lässt sich das Prüfergebnis mit Datum und Fundstelle abrufen.
+**Acceptance test:** For every active source, the check result can be retrieved with date and location.
 
-### REQ-PIPE-004 — Rechteklassifikation als Verarbeitungstor
+### REQ-PIPE-004 — Rights classification as processing gate
 
-**Statement:** Nach der Identitätsauflösung wird je Dokument und Rechtsraum bestimmt, welche Verarbeitungsschritte zulässig sind: Verarbeitung, Volltextindexierung, Zitierung von Passagen, freier Export. Dokumente ohne Klassifikation werden nicht weiterverarbeitet. Eine fehlende Klassifikation gilt nicht als vorläufige Erlaubnis.
+**Statement:** After identity resolution, it is determined per document and jurisdiction which processing steps are permitted: processing, full-text indexing, quoting of passages, free export. Documents without classification are not processed further. A missing classification does not count as provisional permission.
 
-**Rationale:** Die Rechteklassifikation ist der einzige Punkt, an dem über die zulässige Nutzung entschieden wird. Eine zentrale Prüfung ist belastbarer als verteilte Prüfungen in einzelnen Schritten.
+**Rationale:** The rights classification is the only point at which the permissible use is decided. A central check is more reliable than distributed checks in individual steps.
 
-**Akzeptanzkriterium:** Jeder nachgelagerte Schritt prüft die Klassifikation; nicht klassifizierte Dokumente verbleiben in einem Wartezustand.
+**Acceptance criteria:** Every downstream step checks the classification; unclassified documents remain in a waiting state.
 
-**Abnahmekriterium:** Ein Dokument ohne Klassifikation erreicht nachweislich weder Index noch Export.
+**Acceptance test:** A document without classification demonstrably reaches neither index nor export.
 
-### REQ-PIPE-005 — Abstammung und kaskadierende Rücknahme
+### REQ-PIPE-005 — Lineage and cascading withdrawal
 
-**Statement:** Jedes abgeleitete Artefakt — Abschnitt, Segment, Einbettung, Graphkante, Exportdatei — führt eine Referenz auf die Quelllieferung, aus der es entstanden ist. Wird eine Lieferung zurückgezogen oder eine Rechteklassifikation eingeschränkt, werden alle abgeleiteten Artefakte automatisch entfernt oder gesperrt.
+**Statement:** Every derived artifact — section, segment, embedding, graph edge, export file — carries a reference to the source delivery from which it originated. If a delivery is withdrawn or a rights classification is restricted, all derived artifacts are automatically removed or blocked.
 
-**Rationale:** Ohne durchgängige Abstammungskette ist die in REQ-PART-001 zugesagte Rückziehbarkeit nicht einlösbar. Nachträglich lässt sich eine solche Kette nicht herstellen; sie muss von Beginn an mitgeführt werden.
+**Rationale:** Without a continuous lineage chain, the ability to withdraw promised in REQ-PART-001 cannot be honored. Such a chain cannot be established retroactively; it must be carried along from the start.
 
-**Akzeptanzkriterium:** Abstammungsreferenz an allen abgeleiteten Artefakten; Rücknahme läuft als nachvollziehbarer Vorgang mit Protokoll.
+**Acceptance criteria:** Lineage reference on all derived artifacts; withdrawal runs as a traceable process with a log.
 
-**Abnahmekriterium:** Nach Rückzug eines Dokuments sind dessen Segmente, Einbettungen, Graphkanten und Exportanteile nachweislich entfernt.
+**Acceptance test:** After withdrawal of a document, its segments, embeddings, graph edges and parts of exports are demonstrably removed.
 
-### REQ-PIPE-006 — Wiederholbarkeit und Inhaltsadressierung
+### REQ-PIPE-006 — Repeatability and content addressing
 
-**Statement:** Alle Verarbeitungsschritte sind idempotent und beliebig wiederholbar. Rohdateien werden inhaltsadressiert abgelegt, sodass unveränderte Neulieferungen erkannt und nicht erneut verarbeitet werden.
+**Statement:** All processing steps are idempotent and can be repeated any number of times. Raw files are stored content-addressed, so that unchanged re-deliveries are recognized and not processed again.
 
-**Rationale:** Extraktionsverfahren werden sich weiterentwickeln; der Bestand muss neu verarbeitet werden können, ohne abweichende Ergebnisse oder Dubletten zu erzeugen.
+**Rationale:** Extraction methods will evolve; the collection must be able to be reprocessed without producing different results or duplicates.
 
-**Akzeptanzkriterium:** Ein wiederholter Lauf über denselben Eingangsstand erzeugt kein abweichendes Ergebnis; unveränderte Lieferungen werden übersprungen.
+**Acceptance criteria:** A repeated run over the same input state produces no different result; unchanged deliveries are skipped.
 
-**Abnahmekriterium:** Eine vollständige Neuverarbeitung des Bestands liefert ein identisches Ergebnis.
+**Acceptance test:** A complete reprocessing of the collection delivers an identical result.
 
-### REQ-PIPE-008 — Ausschluss kommerziell verwerteter Katalogbestände
+### REQ-PIPE-008 — Exclusion of commercially exploited catalog collections
 
-**Statement:** Katalog- und Metadatenbestände von Herausgebern, die diese selbst kommerziell verwerten, werden ausschließlich über Kategorie C des Quellenregisters bezogen, also auf vertraglicher Grundlage. Eine automatisierte Erfassung solcher Bestände über Kategorie D ist ausgeschlossen. Dies gilt unabhängig davon, ob die Bestände öffentlich zugänglich sind.
+**Statement:** Catalog and metadata collections of publishers who exploit them commercially themselves are obtained exclusively via category C of the source register, that is, on a contractual basis. Automated acquisition of such collections via category D is ruled out. This applies regardless of whether the collections are publicly accessible.
 
-**Rationale:** Ein Normenkatalog ist eine geschützte Datenbank; § 87b UrhG untersagt neben der Entnahme wesentlicher Teile auch die wiederholte und systematische Entnahme unwesentlicher Teile, soweit sie der normalen Auswertung zuwiderläuft. Systematisches Abgreifen mit periodischem Abgleich erfüllt dieses Merkmal. Schwerer wiegt die strategische Seite: normly verhandelt mit denselben Organisationen über freiwillige Bereitstellung gegen Umsatzbeteiligung. Ein Zugriff ohne Vertrag widerspricht dieser Position unmittelbar und gefährdet die Verhandlungen.
+**Rationale:** A norm catalog is a protected database; § 87b UrhG prohibits not only the extraction of substantial parts but also the repeated and systematic extraction of insubstantial parts, insofar as it conflicts with normal exploitation. Systematic harvesting with periodic reconciliation fulfills this criterion. The strategic side weighs more heavily: normly negotiates with the same organizations about voluntary provision in return for a revenue share. Access without a contract directly contradicts this position and endangers the negotiations.
 
-**Akzeptanzkriterium:** Adapter der Kategorie D können technisch nicht auf Quellen konfiguriert werden, die als kommerziell verwerteter Katalogbestand gekennzeichnet sind; die Kennzeichnung ist im Quellenregister geführt.
+**Acceptance criteria:** Category D adapters technically cannot be configured for sources that are flagged as a commercially exploited catalog collection; the flag is kept in the source register.
 
-**Abnahmekriterium:** Der Versuch, eine als kommerziell verwertet gekennzeichnete Quelle über Kategorie D anzubinden, wird abgewiesen und protokolliert.
+**Acceptance test:** The attempt to connect a source flagged as commercially exploited via category D is rejected and logged.
 
-### REQ-PIPE-009 — Erstbestand aus frei zugänglichen Quellen
+### REQ-PIPE-009 — Initial collection from freely accessible sources
 
-**Statement:** Der Erstaufbau von Katalog und Referenzgraph erfolgt aus Quellen der Kategorien A und B. Dazu zählen insbesondere die Listen harmonisierter Normen im Amtsblatt der Europäischen Union über EUR-Lex, Verweise aus Gesetzen und Verordnungen, die Regelwerksverzeichnisse von DGUV und BAuA, die Arbeitsprogramme der europäischen Normungsorganisationen sowie frei verfügbare Katalogdaten internationaler Gremien.
+**Statement:** The initial build-up of catalog and reference graph takes place from sources of categories A and B. These include in particular the lists of harmonized norms in the Official Journal of the European Union via EUR-Lex, references from laws and regulations, the standards registers of DGUV and BAuA, the work programmes of the European standardization bodies and freely available catalog data of international bodies.
 
-**Rationale:** Diese Quellen tragen einen belastbaren Erstbestand ohne Rechtsrisiko und enthalten zugleich den für den Referenzgraph wertvollsten Teil: die Verweise aus dem Recht auf Normen. Der Graph ist damit vor dem ersten Lizenzvertrag aufbaubar und stärkt die Verhandlungsposition, statt sie zu belasten.
+**Rationale:** These sources carry a reliable initial collection without legal risk and at the same time contain the most valuable part for the reference graph: the references from the law to norms. The graph can thus be built before the first license agreement and strengthens the negotiating position instead of burdening it.
 
-**Akzeptanzkriterium:** Katalog und Graph sind ohne Quellen der Kategorien C und D in Betrieb nehmbar; Herkunft je Eintrag nachweisbar.
+**Acceptance criteria:** Catalog and graph can be put into operation without sources of categories C and D; provenance per entry demonstrable.
 
-**Abnahmekriterium:** Ein Erstbestand wird ausschließlich aus Quellen der Kategorien A und B aufgebaut und ist auswertbar.
+**Acceptance test:** An initial collection is built exclusively from sources of categories A and B and can be evaluated.
 
-### REQ-PIPE-007 — Manuelle Prüfung der Identitätsauflösung
+### REQ-PIPE-007 — Manual review of identity resolution
 
-**Statement:** Für Fälle, in denen die automatische Zuordnung eines Dokuments zu einem Knoten nicht eindeutig gelingt, steht eine Prüfoberfläche zur Verfügung. Ungeklärte Fälle blockieren die Weiterverarbeitung des betroffenen Dokuments, nicht die des übrigen Bestands.
+**Statement:** For cases in which the automatic assignment of a document to a node does not succeed unambiguously, a review interface is available. Unresolved cases block the further processing of the affected document, not that of the rest of the collection.
 
-**Rationale:** Herausgeber schreiben Normnummern uneinheitlich; eine vollständige Automatisierung der Zuordnung ist nicht erreichbar. Falsche Zuordnungen machen Verweisketten unbrauchbar und sind schwer zu entdecken.
+**Rationale:** Publishers write norm numbers inconsistently; complete automation of the assignment is not achievable. Wrong assignments make reference chains unusable and are hard to detect.
 
-**Akzeptanzkriterium:** Unklare Fälle werden zur Prüfung vorgelegt statt heuristisch entschieden; Entscheidungen sind protokolliert und rückgängig machbar.
+**Acceptance criteria:** Unclear cases are submitted for review instead of being decided heuristically; decisions are logged and can be undone.
 
-**Abnahmekriterium:** Ein mehrdeutiger Fall wird vorgelegt, entschieden und die Entscheidung ist nachvollziehbar dokumentiert.
+**Acceptance test:** An ambiguous case is submitted, decided, and the decision is documented traceably.
 
 <img src="media/media/image3.png" style="width:6.27014in;height:7.89583in" />
 
-Figure 2: Verarbeitungskette
+Figure 2: Processing chain
 
-## 3.13 Verschlüsselung und Schutz lizenzierter Inhalte
+## 3.13 Encryption and protection of licensed content
 
-Dieses Kapitel ergänzt die allgemeinen Sicherheitsanforderungen aus Kapitel 3.3.2 um Vorgaben zur Verschlüsselung ruhender Daten, zur Schlüsselverwaltung sowie zum Schutz vertraglich bezogener Volltextbestände.
+This section supplements the general security requirements from section 3.3.2 with provisions on the encryption of data at rest, on key management and on the protection of full-text collections obtained by contract.
 
-### REQ-SEC-001 — Verschlüsselung ruhender Daten
+### REQ-SEC-001 — Encryption of data at rest
 
-**Statement:** Alle persistierten Daten werden verschlüsselt abgelegt: Datenbankinhalte, Objektspeicher, Suchindizes, Protokolldaten und sämtliche Sicherungskopien. Dies gilt unabhängig davon, ob es sich um frei verfügbare oder um lizenzierte Inhalte handelt.
+**Statement:** All persisted data is stored encrypted: database contents, object storage, search indexes, log data and all backups. This applies regardless of whether the content is freely available or licensed.
 
-**Rationale:** Die bisherigen Anforderungen decken ausschließlich die Transportverschlüsselung ab. Sobald lizenzierte Volltexte im Bestand liegen, ist die Verschlüsselung ruhender Daten Gegenstand jeder Vertragsprüfung durch die Herausgeber. Eine einheitliche Behandlung aller Bestände vermeidet zudem, dass die Schutzwirkung von einer korrekten Klassifikation abhängt.
+**Rationale:** The previous requirements cover only transport encryption. As soon as licensed full texts are in the collection, the encryption of data at rest is the subject of every contract review by the publishers. A uniform treatment of all collections also avoids the protective effect depending on a correct classification.
 
-**Akzeptanzkriterium:** Verschlüsselung ist für alle Speicherorte nachweisbar aktiv; unverschlüsselte Ablagen sind technisch ausgeschlossen; Sicherungskopien sind einbezogen.
+**Acceptance criteria:** Encryption is demonstrably active for all storage locations; unencrypted storage is technically ruled out; backups are included.
 
-**Abnahmekriterium:** Ein Sicherheitsaudit weist für jeden Speicherort den aktiven Verschlüsselungszustand nach.
+**Acceptance test:** A security audit demonstrates the active encryption state for every storage location.
 
-### REQ-SEC-002 — Schlüsselverwaltung
+### REQ-SEC-002 — Key management
 
-**Statement:** Schlüssel werden im STACKIT Secrets Manager verwaltet und niemals gemeinsam mit den durch sie geschützten Daten abgelegt. Es gelten dokumentierte Rotationsfristen, eine Trennung der Zugriffsrechte zwischen Betrieb und Anwendung sowie eine vollständige Protokollierung jedes Zugriffs auf Schlüsselmaterial. Der Verlust einzelner Schlüssel darf nicht zum Verlust des Gesamtbestands führen.
+**Statement:** Keys are managed in the STACKIT Secrets Manager and never stored together with the data they protect. Documented rotation periods, a separation of access rights between operations and application, and complete logging of every access to key material apply. The loss of individual keys must not lead to the loss of the entire collection.
 
-**Rationale:** Verschlüsselung ohne belastbares Schlüsselkonzept ist eine Zusage ohne Substanz. Die Trennung von Schlüssel und Daten sowie die Protokollierung sind Voraussetzung dafür, gegenüber Herausgebern und Auditoren nachweisfähig zu sein.
+**Rationale:** Encryption without a robust key concept is a promise without substance. The separation of key and data as well as the logging are the prerequisite for being able to provide evidence towards publishers and auditors.
 
-**Akzeptanzkriterium:** Rotationsfristen dokumentiert und technisch durchgesetzt; Zugriffe auf Schlüsselmaterial protokolliert; Rollentrennung wirksam.
+**Acceptance criteria:** Rotation periods documented and technically enforced; accesses to key material logged; role separation effective.
 
-**Abnahmekriterium:** Eine Schlüsselrotation wird ohne Betriebsunterbrechung durchgeführt und ist im Protokoll nachvollziehbar.
+**Acceptance test:** A key rotation is carried out without interruption of operations and is traceable in the log.
 
-### REQ-SEC-003 — Herausgeberspezifische Datenschlüssel und kryptographisches Löschen
+### REQ-SEC-003 — Publisher-specific data keys and cryptographic erasure
 
-**Statement:** Vertraglich bezogene Volltextbestände werden je Herausgeber mit einem eigenen Datenschlüssel verschlüsselt. Bei Beendigung eines Vertrages oder beim Rückzug eines Bestandes nach REQ-PART-001 wird der zugehörige Schlüssel vernichtet. Die betroffenen Daten sind damit auch in bestehenden Sicherungskopien dauerhaft unlesbar. Die Vernichtung wird protokolliert und dem Herausgeber bestätigt.
+**Statement:** Full-text collections obtained by contract are encrypted with a separate data key per publisher. When a contract ends or a collection is withdrawn under REQ-PART-001, the associated key is destroyed. The affected data is thereby permanently unreadable, even in existing backups. The destruction is logged and confirmed to the publisher.
 
-**Rationale:** Die in REQ-PART-001 zugesagte Rückziehbarkeit lässt sich für Sicherungskopien nicht durch Löschen einlösen: Bestehende Sicherungen enthalten die Inhalte weiterhin, und ihre selektive Bereinigung ist praktisch nicht durchführbar. Das kryptographische Löschen schließt diese Lücke und ist zugleich das stärkste Argument in Lizenzverhandlungen — nach Vertragsende sind die Inhalte technisch nicht mehr lesbar, nicht lediglich als gelöscht markiert.
+**Rationale:** The withdrawability promised in REQ-PART-001 cannot be fulfilled for backups by deletion: existing backups still contain the content, and their selective cleanup is practically not feasible. Cryptographic erasure closes this gap and is at the same time the strongest argument in license negotiations — after the contract ends, the content is technically no longer readable, not merely marked as deleted.
 
-**Akzeptanzkriterium:** Ein Datenschlüssel je Herausgeber; kein Bestand ist mit einem gemeinsamen Schlüssel verschlüsselt; Vernichtung ist ein protokollierter Vorgang mit Bestätigung.
+**Acceptance criteria:** One data key per publisher; no collection is encrypted with a shared key; destruction is a logged operation with confirmation.
 
-**Abnahmekriterium:** Nach Vernichtung eines Schlüssels sind die zugehörigen Inhalte weder im Produktivbestand noch in einer Sicherungskopie lesbar; die Bestätigung liegt dem Herausgeber vor.
+**Acceptance test:** After a key is destroyed, the associated content is readable neither in the production data stores nor in any backup; the confirmation is in the publisher's possession.
 
-### REQ-SEC-004 — Schutz vor Massenextraktion
+### REQ-SEC-004 — Protection against bulk extraction
 
-**Statement:** Zugriffe auf lizenzierte Bestände werden durch Ratenbegrenzung, Kontingente und Anomalieerkennung geschützt. Auffällige Zugriffsmuster, die auf eine systematische Extraktion hindeuten, führen zu Drosselung oder Sperrung und werden protokolliert. Zugriffsprotokolle sind je Herausgeber auswertbar.
+**Statement:** Accesses to licensed collections are protected by rate limiting, quotas and anomaly detection. Conspicuous access patterns that indicate systematic extraction lead to throttling or blocking and are logged. Access logs can be evaluated per publisher.
 
-**Rationale:** Herausgeber sorgen sich weniger um unbefugten Zugriff von außen als darum, dass berechtigte Nutzer den Bestand systematisch abziehen. Ohne wirksamen Schutz gegen Massenextraktion ist die Zusage aus REQ-PART-004 nicht belastbar und eine Volltextbereitstellung nicht verhandelbar.
+**Rationale:** Publishers are less concerned about unauthorized access from outside than about authorized users systematically draining the collection. Without effective protection against bulk extraction, the promise from REQ-PART-004 is not robust and providing full texts cannot be negotiated.
 
-**Akzeptanzkriterium:** Ratenbegrenzung und Kontingente je Zugang aktiv; Anomalieerkennung mit definierten Schwellwerten; Auswertung je Herausgeber möglich.
+**Acceptance criteria:** Rate limiting and quotas active per user access; anomaly detection with defined thresholds; evaluation per publisher possible.
 
-**Abnahmekriterium:** Ein simulierter Extraktionsversuch wird erkannt, gedrosselt und protokolliert.
+**Acceptance test:** A simulated extraction attempt is detected, throttled and logged.
 
-## 3.14 Geschützte Anzeige und Offline-Nutzung
+## 3.14 Protected display and offline use
 
-Dieses Kapitel definiert Anforderungen an die Anzeige lizenzierter Volltexte. Ziel ist, dass Inhalte innerhalb der Anwendung vollständig nutzbar sind — auch offline — ohne dass daraus weitergebbare Kopien entstehen. Der Schutz wirkt abschreckend und nachverfolgbar, nicht absolut; diese Einschränkung ist bewusst und gegenüber Herausgebern offen zu benennen.
+This section defines requirements for the display of licensed full texts. The goal is that content is fully usable within the application — also offline — without this producing copies that can be passed on. The protection works as a deterrent and through traceability, not absolutely; this limitation is deliberate and is to be stated openly towards publishers.
 
-### REQ-DRM-001 — Anzeige ohne herausgebbare Datei
+### REQ-DRM-001 — Display without a file that can be handed out
 
-**Statement:** Lizenzierte Volltexte werden ausschließlich innerhalb der Anwendung angezeigt. Es wird keine vollständige, eigenständig verwendbare Dokumentdatei an den Endnutzer ausgeliefert. Die Anzeige erfolgt abschnittsweise und bedarfsgesteuert; ein Export als PDF oder gleichwertiges Format ist für lizenzierte Inhalte nicht vorgesehen. Ebenso ist das markieren von Text in den Volltexten nicht möglich, um copy&paste zu vermeiden.
+**Statement:** Licensed full texts are displayed exclusively within the application. No complete, independently usable document file is handed out to the end user. The display takes place section by section and on demand; an export as PDF or an equivalent format is not provided for licensed content. Likewise, selecting text in the full texts is not possible, in order to prevent copy and paste.
 
-**Rationale:** Der wirtschaftliche Schaden für die Herausgeber entsteht nicht durch das Lesen, sondern durch die Weitergabe vollständiger Dateien. Wer keine Datei erhält, kann keine weitergeben. Dies ist zugleich das Argument, mit dem normly den Herausgebern hilft, die Verbreitung nicht lizenzierter PDF-Kopien zurückzudrängen: ein bequemer legaler Zugang ist wirksamer als jede Rechtsverfolgung.
+**Rationale:** The economic damage for the publishers does not arise from reading, but from passing on complete files. Whoever receives no file cannot pass one on. This is at the same time the argument with which normly helps the publishers to push back the spread of unlicensed PDF copies: convenient legal access is more effective than any legal enforcement.
 
-**Akzeptanzkriterium:** Kein Endpunkt liefert lizenzierte Inhalte als vollständige Datei aus; die Anzeige erfolgt in Teilabrufen; Abrufe sind protokolliert.
+**Acceptance criteria:** No endpoint hands out licensed content as a complete file; the display takes place in partial retrievals; retrievals are logged.
 
-**Abnahmekriterium:** Ein Prüfversuch zeigt, dass sich aus den ausgelieferten Daten keine vollständige Dokumentdatei rekonstruieren lässt, ohne die Anwendung zu umgehen.
+**Acceptance test:** A test attempt shows that no complete document file can be reconstructed from the data handed out without circumventing the application.
 
-### REQ-DRM-002 — Offline-Nutzung mit befristeter Berechtigung
+### REQ-DRM-002 — Offline use with time-limited authorization
 
-**Statement:** Nutzer können lizenzierte Inhalte für die Offline-Nutzung vorhalten. Die lokale Ablage erfolgt verschlüsselt, gebunden an Nutzer und Gerät, mit befristeter Gültigkeit. Nach Ablauf der Frist ist eine erneute Berechtigung erforderlich. Endet die Lizenz des Nutzers oder wird der Bestand nach REQ-PART-001 zurückgezogen, verliert die lokale Ablage ihre Gültigkeit.
+**Statement:** Users can keep licensed content available for offline use. The local storage is encrypted, bound to user and device, with time-limited validity. After the period expires, a renewed authorization is required. If the user's license ends or the collection is withdrawn under REQ-PART-001, the local storage loses its validity.
 
-**Rationale:** Offline-Verfügbarkeit ist für die Zielgruppe wesentlich — auf Baustellen und in Werkshallen ist keine verlässliche Verbindung gegeben. Ohne Offline-Fähigkeit bleibt die PDF-Kopie für die Nutzer die praktischere Lösung, und der Zweck der Anforderung wird verfehlt.
+**Rationale:** Offline availability is essential for the target group — on construction sites and in factory halls, no reliable connection is available. Without offline capability, the PDF copy remains the more practical solution for users, and the purpose of the requirement is missed.
 
-**Akzeptanzkriterium:** Lokale Ablage verschlüsselt und an Nutzer und Gerät gebunden; Gültigkeitsdauer konfigurierbar; Entzug der Berechtigung wirkt bei der nächsten Verbindung.
+**Acceptance criteria:** Local storage encrypted and bound to user and device; validity period configurable; revocation of the authorization takes effect at the next connection.
 
-**Abnahmekriterium:** Ein offline vorgehaltener Inhalt ist nach Ablauf der Frist ohne erneute Berechtigung nicht mehr lesbar und außerhalb der Anwendung zu keinem Zeitpunkt lesbar.
+**Acceptance test:** Content kept available offline is no longer readable after the period expires without a renewed authorization, and is at no point readable outside the application.
 
-### REQ-DRM-003 — Nutzerbezogene Kennzeichnung
+### REQ-DRM-003 — User-specific marking
 
-**Statement:** Angezeigte lizenzierte Inhalte tragen eine nutzerbezogene Kennzeichnung, sichtbar sowie in nicht ohne Weiteres entfernbarer Form. Anhand einer aufgefundenen Kopie muss sich der Zugang bestimmen lassen, über den sie entstanden ist.
+**Statement:** Displayed licensed content carries a user-specific marking, visible and in a form that cannot easily be removed. From a copy that is found, it must be possible to determine the user access through which it was created.
 
-**Rationale:** Bildschirmfotos, Abfotografieren und Texterkennung lassen sich technisch nicht verhindern. Erreichbar ist Nachverfolgbarkeit: Wer weiß, dass eine Weitergabe auf ihn zurückfällt, gibt seltener weiter. Für Herausgeber ist gerade dies der Mehrwert gegenüber der heutigen Situation, in der eine kursierende PDF-Kopie keiner Quelle zuzuordnen ist.
+**Rationale:** Screenshots, photographing the screen and text recognition cannot be prevented technically. What is achievable is traceability: whoever knows that passing on content will be traced back to them passes it on less often. For publishers, precisely this is the added value compared to today's situation, in which a circulating PDF copy cannot be attributed to any source.
 
-**Akzeptanzkriterium:** Kennzeichnung je Zugang eindeutig; in der Anzeige nicht abschaltbar; Zuordnung aus einer Kopie reproduzierbar.
+**Acceptance criteria:** Marking unique per user access; cannot be switched off in the display; attribution from a copy reproducible.
 
-**Abnahmekriterium:** Aus einem Bildschirmfoto einer Anzeige lässt sich der zugehörige Zugang eindeutig bestimmen.
+**Acceptance test:** From a screenshot of a display, the associated user access can be determined unambiguously.
 
-### REQ-DRM-004 — Zuordnung der Schutzkomponenten zur kommerziellen Schicht
+### REQ-DRM-004 — Assignment of the protection components to the commercial layer
 
-**Statement:** Die geschützte Anzeige, die verschlüsselte Offline-Ablage und die Kennzeichnung sind Bestandteil der kommerziellen Schicht und nicht des quelloffenen Kerns. Der Kern stellt hierfür ausschließlich Schnittstellen bereit. Frei verfügbare Inhalte unterliegen diesen Beschränkungen nicht und bleiben ohne Einschränkung exportierbar.
+**Statement:** The protected display, the encrypted offline storage and the marking are part of the commercial layer and not of the open-source core. The core provides only interfaces for this. Freely available content is not subject to these restrictions and remains exportable without limitation.
 
-**Rationale:** Ein Schutzmechanismus, dessen Quellcode vollständig offenliegt, bietet keinen wirksamen Schutz — die Umgehung wäre aus dem Quelltext unmittelbar ableitbar. Die Zuordnung zur kommerziellen Schicht löst diesen Widerspruch, ohne die Quelloffenheit des Kerns einzuschränken. Zugleich stellt sie sicher, dass der freie Kern nicht durch Beschränkungen belastet wird, die für seine Inhalte gar nicht erforderlich sind.
-**Akzeptanzkriterium:** Der Kern ist ohne die Schutzkomponenten vollständig lauffähig; frei verfügbare Inhalte sind ohne Beschränkung abrufbar und exportierbar.
-**Abnahmekriterium:** Eine Instanz des freien Kerns läuft ohne die Schutzkomponenten und liefert frei verfügbare Inhalte uneingeschränkt aus.
+**Rationale:** A protection mechanism whose source code is fully exposed offers no effective protection — the circumvention could be derived directly from the source code. The assignment to the commercial layer resolves this contradiction without restricting the open-source nature of the core. At the same time, it ensures that the free core is not burdened by restrictions that are not even necessary for its content.
+**Acceptance criteria:** The core is fully runnable without the protection components; freely available content can be retrieved and exported without restriction.
+**Acceptance test:** An instance of the free core runs without the protection components and serves freely available content without restriction.
 
-## 3.15 Mobile Bereitstellung
+## 3.15 Mobile provision
 
-Dieses Kapitel definiert, über welche Wege normly auf mobilen Geräten bereitgestellt wird. Die Aufteilung folgt der Grenze zwischen freiem Kern und kommerzieller Schicht: Frei verfügbare Inhalte werden über eine Progressive Web App bereitgestellt, lizenzierte Volltexte erfordern eine native Anwendung.
+This section defines the channels through which normly is provided on mobile devices. The split follows the boundary between the free core and the commercial layer: freely available content is provided via a Progressive Web App, licensed full texts require a native application.
 
-### REQ-MOB-001 — Progressive Web App als primärer mobiler Zugang
+### REQ-MOB-001 — Progressive Web App as primary mobile access
 
-**Statement:** Die Anwendung wird als installierbare Progressive Web App bereitgestellt, auf derselben Codebasis wie die Desktop-Anwendung. Frei verfügbare Inhalte sind über einen Service Worker offline nutzbar. Die PWA ist Bestandteil des freien Kerns.
+**Statement:** The application is provided as an installable Progressive Web App, on the same codebase as the desktop application. Freely available content can be used offline via a service worker. The PWA is part of the free core.
 
-**Rationale:** Eine gemeinsame Codebasis vermeidet doppelten Aufwand und deckt den gesamten Bedarf bis zum ersten Volltextvertrag ab. Für frei verfügbare Inhalte bestehen keine Schutzanforderungen, die über die Möglichkeiten des Browsers hinausgehen.
+**Rationale:** A shared codebase avoids duplicate effort and covers the entire need until the first full-text contract. For freely available content, there are no protection requirements that go beyond the capabilities of the browser.
 
-**Akzeptanzkriterium:** Installierbar auf Android und iOS; frei verfügbare Inhalte offline abrufbar; keine getrennte mobile Codebasis.
+**Acceptance criteria:** Installable on Android and iOS; freely available content retrievable offline; no separate mobile codebase.
 
-**Abnahmekriterium:** Die Anwendung wird auf einem mobilen Gerät installiert und im Flugmodus mit frei verfügbaren Inhalten genutzt.
+**Acceptance test:** The application is installed on a mobile device and used in airplane mode with freely available content.
 
-### REQ-MOB-002 — Native Anwendung für lizenzierte Offline-Inhalte
+### REQ-MOB-002 — Native application for licensed offline content
 
-**Statement:** Die Offline-Bereitstellung lizenzierter Volltexte nach REQ-DRM-002 erfolgt ausschließlich über eine native Anwendung für Android und iOS. Diese nutzt die hardwaregestützte Schlüsselablage des Betriebssystems und die verfügbaren Mechanismen zur Einschränkung von Bildschirmaufnahmen. Die native Anwendung ist Bestandteil der kommerziellen Schicht. Diese Zuordnung betrifft Eigentum, Lizenzierung und Wartung, nicht den Zugang für Nutzer: Die Anwendung ist kostenfrei beziehbar und nutzbar. Frei verfügbare Inhalte sind darin ohne Anmeldung und ohne Entgelt abrufbar. Kostenpflichtig sind ausschließlich lizenzierte Volltexte und deren geschützte Offline-Bereitstellung.
+**Statement:** The offline provision of licensed full texts under REQ-DRM-002 takes place exclusively via a native application for Android and iOS. It uses the operating system's hardware-backed key storage and the available mechanisms for restricting screen recordings. The native application is part of the commercial layer. This assignment concerns ownership, licensing and maintenance, not user access: the application can be obtained and used free of charge. Freely available content in it can be retrieved without sign-in and without a fee. Only licensed full texts and their protected offline provision are subject to a charge.
 
-**Rationale:** Im Browser existiert kein Ort, an dem ein Schlüssel geschützt abgelegt werden kann; lokale Speicher sind einsehbar. Die in REQ-DRM-002 geforderte Bindung an Nutzer und Gerät ist dort nicht umsetzbar. Native Plattformen bieten mit Keychain und Keystore eine belastbare Grundlage.
+**Rationale:** In the browser there is no place where a key can be stored protected; local storage is inspectable. The binding to user and device required in REQ-DRM-002 cannot be implemented there. Native platforms offer a robust foundation with Keychain and Keystore.
 
-**Akzeptanzkriterium:** Schlüsselablage über die Plattformmechanismen; Bindung an Nutzer und Gerät nachweisbar; freier Kern bleibt ohne native Anwendung vollständig nutzbar; die Anwendung ist ohne Konto und ohne Zahlung installier- und nutzbar.
+**Acceptance criteria:** Key storage via the platform mechanisms; binding to user and device demonstrable; the free core remains fully usable without the native application; the application can be installed and used without an account and without payment.
 
-**Abnahmekriterium:** Ein lizenzierter Inhalt ist offline ausschließlich innerhalb der nativen Anwendung lesbar.
+**Acceptance test:** Licensed content is readable offline exclusively within the native application.
 
-### REQ-MOB-003 — Abstrahierte Offline-Schicht
+### REQ-MOB-003 — Abstracted offline layer
 
-**Statement:** Der Zugriff auf lokal vorgehaltene Inhalte erfolgt über eine einheitliche Abstraktion, deren Implementierung je Plattform ausgetauscht wird. Die Anwendungslogik unterscheidet nicht zwischen Browser- und nativer Ablage.
+**Statement:** Access to locally kept content takes place via a uniform abstraction whose implementation is swapped per platform. The application logic does not distinguish between browser and native storage.
 
-**Rationale:** Ohne diese Trennung müsste die Offline-Logik für die native Anwendung vollständig neu gebaut werden. Die Abstraktion ist zu Beginn nahezu kostenlos und später nur mit erheblichem Aufwand nachrüstbar. Sie ist zugleich Voraussetzung dafür, dass beide Anwendungen dieselben frei verfügbaren Inhalte gleichwertig bereitstellen.
+**Rationale:** Without this separation, the offline logic would have to be rebuilt completely for the native application. The abstraction is almost free at the beginning and can only be retrofitted later with considerable effort. It is at the same time the prerequisite for both applications providing the same freely available content on an equal footing.
 
-**Akzeptanzkriterium:** Keine plattformspezifischen Speicherzugriffe außerhalb der Abstraktionsschicht; Austausch durch Tests abgedeckt.
+**Acceptance criteria:** No platform-specific storage accesses outside the abstraction layer; swapping covered by tests.
 
-**Abnahmekriterium:** Architektur-Review bestätigt, dass die Anwendungslogik keine Kenntnis der konkreten Ablageform besitzt.
+**Acceptance test:** An architecture review confirms that the application logic has no knowledge of the concrete form of storage.
 
-### REQ-MOB-004 — Vertriebswege und Lizenzverträglichkeit
+### REQ-MOB-004 — Distribution channels and license compatibility
 
-**Statement:** Die native Anwendung der kommerziellen Schicht wird kostenfrei über die Plattform-Stores von Apple und Google vertrieben; Entgelte fallen ausschließlich für den Zugang zu lizenzierten Inhalten an. Sie ist ein eigenständiger Client, der ausschließlich über die unter Apache-2.0 spezifizierte API mit dem Server kommuniziert, und unterliegt nicht der AGPL. Ergänzend kann ein quelloffener Client des freien Kerns über F-Droid bereitgestellt werden.
+**Statement:** The native application of the commercial layer is distributed free of charge via the platform stores of Apple and Google; fees are charged exclusively for access to licensed content. It is a separate client that communicates with the server exclusively via the API specified under Apache-2.0, and is not subject to the AGPL. In addition, an open-source client of the free core may be provided via F-Droid.
 
-**Rationale:** Die Nutzungsbedingungen des Apple App Store gelten als unvereinbar mit den Bedingungen von AGPL und GPL. Die Trennung in einen eigenständigen Client über eine permissiv lizenzierte Schnittstelle löst diesen Konflikt, ohne die Quelloffenheit des Kerns einzuschränken. F-Droid setzt vollständig quelloffene, reproduzierbare Builds voraus und kommt daher nur für den freien Client in Betracht.
+**Rationale:** The terms of use of the Apple App Store are considered incompatible with the terms of the AGPL and GPL. The separation into a separate client via a permissively licensed interface resolves this conflict without restricting the open-source nature of the core. F-Droid requires fully open-source, reproducible builds and is therefore only an option for the free client.
 
-**Akzeptanzkriterium:** Keine AGPL-lizenzierten Bestandteile in der Store-Anwendung; Kommunikation ausschließlich über die öffentliche API; Lizenzprüfung dokumentiert.
+**Acceptance criteria:** No AGPL-licensed components in the store application; communication exclusively via the public API; license review documented.
 
-**Abnahmekriterium:** Eine Lizenzprüfung bestätigt die Trennung von freiem Kern und Store-Anwendung.
+**Acceptance test:** A license review confirms the separation of the free core and the store application.
 
-## 3.16 Zugang und Kontopflicht
+## 3.16 Access and account requirement
 
-Dieses Kapitel regelt, welche Funktionen ohne Konto nutzbar sind und ab wann eine Anmeldung erforderlich wird. Maßgeblich ist nicht der Zugangsweg, sondern die Lizenzklassifikation der Inhalte.
+This section governs which functions are usable without an account and when a sign-in becomes necessary. The decisive factor is not the access path, but the license classification of the content.
 
-### REQ-ACC-001 — Anonyme Basisnutzung
+### REQ-ACC-001 — Anonymous base use
 
-**Statement:** Suche, Abfrage des Referenzgraphen und Anzeige frei verfügbarer Inhalte sind ohne Konto und ohne Anmeldung nutzbar. Eine Registrierung ist für den Kernzweck der Anwendung nicht erforderlich. Dies gilt für alle Zugangswege gleichermaßen: Webanwendung, Progressive Web App und native Anwendung.
+**Statement:** Search, querying the reference graph and display of freely available content are usable without an account and without sign-in. Registration is not required for the core purpose of the application. This applies equally to all access paths: web application, Progressive Web App and native application.
 
-**Rationale:** Eine Registrierungspflicht ist die höchste Hürde in der Nutzerreise und steht im Widerspruch zur Vision eines frei zugänglichen Normenwissens. Zudem sollen Betreiber eigener Instanzen keine Nutzerverwaltung vorhalten müssen, um frei verfügbare Regelwerke bereitzustellen. Ohne Konto entstehen zugleich keine personenbezogenen Daten, die geschützt werden müssten.
+**Rationale:** A registration requirement is the highest hurdle in the user journey and contradicts the vision of freely accessible knowledge about norms. In addition, operators of their own instances should not have to maintain user management in order to provide freely available standards. Without an account, no personal data arises that would have to be protected.
 
-**Akzeptanzkriterium:** Vollständiger Frage-Antwort-Zyklus ohne Anmeldung durchführbar; keine Registrierungsaufforderung vor der ersten Nutzung.
+**Acceptance criteria:** Complete question-answer cycle can be carried out without sign-in; no registration prompt before first use.
 
-**Abnahmekriterium:** Eine frisch installierte Instanz beantwortet eine Anfrage zu einem frei verfügbaren Regelwerk ohne Anmeldung.
+**Acceptance test:** A freshly installed instance answers a request about a freely available standard without sign-in.
 
-### REQ-ACC-002 — Inhaltliche Begrenzung anonymer Zugänge
+### REQ-ACC-002 — Content limitation of anonymous access
 
-**Statement:** Anonyme Zugänge erreichen ausschließlich Inhalte, die nach REQ-PIPE-004 als frei lizenzierbar klassifiziert sind. Lizenzierte Volltexte sind ohne authentifizierten und berechtigten Zugang technisch nicht erreichbar. Die Antwortlänge ist begrenzt; ein systematischer Abruf aufeinanderfolgender Abschnitte ist ausgeschlossen.
+**Statement:** Anonymous access reaches exclusively content that is classified as freely licensable under REQ-PIPE-004. Licensed full texts are technically unreachable without authenticated and authorized access. The answer length is limited; systematic retrieval of consecutive sections is ruled out.
 
-**Rationale:** Gegenüber Herausgebern muss belegbar sein, dass lizenzierte Inhalte über anonyme Zugänge grundsätzlich nicht erreichbar sind — unabhängig von Kontingenten oder Ratenbegrenzung. Diese strukturelle Zusage ist in Verhandlungen belastbarer als eine reine Registrierungspflicht, die den Zugriff lediglich zurechenbar machen würde.
+**Rationale:** Towards publishers it must be demonstrable that licensed content is fundamentally unreachable via anonymous access — regardless of quotas or rate limiting. This structural promise is more robust in negotiations than a mere registration requirement, which would only make access attributable.
 
-**Akzeptanzkriterium:** Kein anonymer Zugriffspfad auf lizenzierte Bestände; Antwortlänge konfigurierbar begrenzt; keine Abrufreihenfolge über zusammenhängende Abschnitte.
+**Acceptance criteria:** No anonymous access path to licensed collections; answer length limited configurably; no retrieval sequence across contiguous sections.
 
-**Abnahmekriterium:** Ein Prüfversuch belegt, dass lizenzierte Inhalte über keinen anonymen Zugang erreichbar sind.
+**Acceptance test:** A test attempt proves that licensed content is not reachable via any anonymous access.
 
-### REQ-ACC-003 — Kontingent für anonyme Nutzung
+### REQ-ACC-003 — Quota for anonymous use
 
-**Statement:** Anonyme Zugänge unterliegen einem begrenzten Anfragekontingent je Zeitfenster. Die Zählung erfolgt serverseitig anhand eines vergebenen Sitzungsmerkmals in Verbindung mit der Herkunftsadresse, nicht über clientseitig gespeicherte Werte. Bei Erreichen des Kontingents wird auf die Anmeldung verwiesen.
+**Statement:** Anonymous access is subject to a limited request quota per time window. Counting takes place server-side based on an assigned session attribute in combination with the client IP address, not via values stored on the client side. When the quota is reached, the user is referred to sign-in.
 
-**Rationale:** Das Kontingent begrenzt die Inferenzkosten der anonymen Nutzung und schafft einen sachlichen Anlass zur Registrierung, ohne sie zu erzwingen. Eine clientseitige Zählung wäre durch Zurücksetzen des Browsers wirkungslos. Da eine adressbasierte Begrenzung durch Adresswechsel umgehbar bleibt, ist sie kein Schutzmechanismus gegen Massenextraktion; diese Aufgabe erfüllt REQ-SEC-004.
+**Rationale:** The quota limits the inference costs of anonymous use and creates an objective reason to register, without enforcing it. Client-side counting would be ineffective because the browser can be reset. Since address-based limiting remains circumventable by changing addresses, it is not a protection mechanism against bulk extraction; that task is fulfilled by REQ-SEC-004.
 
-**Akzeptanzkriterium:** Kontingent konfigurierbar; Zählung serverseitig; Zurücksetzen clientseitiger Daten hebt die Begrenzung nicht auf; gemeinsame Infrastruktur mit REQ-SEC-004.
+**Acceptance criteria:** Quota configurable; counting server-side; resetting client-side data does not lift the limit; shared infrastructure with REQ-SEC-004.
 
-**Abnahmekriterium:** Nach Ausschöpfung des Kontingents führt das Löschen der Browserdaten nicht zu weiteren freien Anfragen.
+**Acceptance test:** After the quota is exhausted, deleting the browser data does not lead to further free requests.
 
-### REQ-ACC-004 — Kontopflichtige Funktionen
+### REQ-ACC-004 — Functions requiring an account
 
-**Statement:** Ein Konto ist erforderlich für: erhöhte Anfragekontingente, gespeicherte Verläufe und Merklisten, das Hochladen eigener Dokumente, den Zugang zu lizenzierten Inhalten, die Offline-Nutzung nach REQ-DRM-002 sowie sämtliche kostenpflichtigen Dienste. Diese Aufzählung ist abschließend; weitere Funktionen dürfen nicht ohne Anpassung dieser Anforderung mit einer Kontopflicht versehen werden.
+**Statement:** An account is required for: higher request quotas, saved histories and bookmark lists, uploading own documents, access to licensed content, offline use under REQ-DRM-002, and all paid services. This list is exhaustive; further functions must not be made subject to an account requirement without amending this requirement.
 
-**Rationale:** Eine abschließende Aufzählung verhindert, dass die Kontopflicht schrittweise auf Funktionen ausgeweitet wird, die sie nicht benötigen. Alle genannten Funktionen setzen eine zurechenbare Identität voraus — sei es für Kontingente, Abrechnung, Gerätebindung oder die nutzerbezogene Kennzeichnung nach REQ-DRM-003.
+**Rationale:** An exhaustive list prevents the account requirement from being gradually extended to functions that do not need it. All functions named require an attributable identity — be it for quotas, billing, device binding or the user-specific marking under REQ-DRM-003.
 
-**Akzeptanzkriterium:** Keine Kontopflicht außerhalb der genannten Funktionen; die Zuordnung ist im Berechtigungsmodell abgebildet.
+**Acceptance criteria:** No account requirement outside the functions named; the assignment is mapped in the authorization model.
 
-**Abnahmekriterium:** Eine Prüfung der Zugriffspfade bestätigt, dass keine weitere Funktion eine Anmeldung erzwingt.
+**Acceptance test:** A review of the access paths confirms that no other function enforces a sign-in.

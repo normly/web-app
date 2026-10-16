@@ -25,9 +25,6 @@ standard.
 - **[Code reference](reference/core.md)** — generated automatically from
   docstrings, for contributors
 
-The Requirements (SRS) are currently German-only; the rest of the site
-is in English, and their translation is tracked separately.
-
 ## Licenses
 
 | Component | License |
