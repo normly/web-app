@@ -1,40 +1,40 @@
-# Containerisierung (TP1) Implementation Plan
+# Containerisation (TP1) Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Fünf Container-Images und ein Compose-Setup, das normly mit einem Aufruf startet — lokal/Self-Hosting mit gebündeltem Postgres, Ollama und Mailpit, in Produktion auf der STACKIT-VM gegen PostgreSQL Flex und STACKIT AI Model Serving.
+**Goal:** Five container images and a Compose setup that starts normly with one invocation — locally/self-hosting with bundled Postgres, Ollama and Mailpit, in production on the STACKIT VM against PostgreSQL Flex and STACKIT AI Model Serving.
 
-**Architecture:** Ein Multi-Stage-Dockerfile `docker/python.Dockerfile` mit einer gemeinsamen Stage `base` (alle `core`-Abhängigkeiten plus eingebackene e5-Gewichte) und vier Ziel-Stages `api`, `chat`, `accounts`, `pipeline`; BuildKit teilt die `base`-Schichten zwischen den vier Builds. Das Frontend ist ein eigenes Multi-Stage-Dockerfile (Next.js `standalone`). `compose.yaml` an der Repository-Wurzel steuert über Profile (`bundled`, `edge`, `tools`), welche Dienste mitlaufen; Migrationen laufen als Einmal-Dienst `migrate` vor den App-Diensten. Im Chat-Dienst ersetzt eine Provider-Auswahl (`NORMLY_LLM_PROVIDER`) den fest verdrahteten Ollama-Client.
+**Architecture:** One multi-stage Dockerfile `docker/python.Dockerfile` with a shared stage `base` (all `core` dependencies plus baked-in e5 weights) and four target stages `api`, `chat`, `accounts`, `pipeline`; BuildKit shares the `base` layers between the four builds. The frontend has its own multi-stage Dockerfile (Next.js `standalone`). `compose.yaml` at the repository root uses profiles (`bundled`, `edge`, `tools`) to control which services run; migrations run as the one-off service `migrate` before the app services. In the chat service, a provider selection (`NORMLY_LLM_PROVIDER`) replaces the hard-wired Ollama client.
 
-**Tech Stack:** Docker 29 / Compose 2.40 (Ubuntu-Pakete `docker.io`, `docker-compose-v2`), `python:3.12-slim`, `node:22-alpine`, `pgvector/pgvector:pg17`, `ollama/ollama`, `axllent/mailpit`, `caddy:2`, httpx, Alembic, pytest, vitest.
+**Tech Stack:** Docker 29 / Compose 2.40 (Ubuntu packages `docker.io`, `docker-compose-v2`), `python:3.12-slim`, `node:22-alpine`, `pgvector/pgvector:pg17`, `ollama/ollama`, `axllent/mailpit`, `caddy:2`, httpx, Alembic, pytest, vitest.
 
-Spec: `docs/superpowers/specs/2026-10-01-tp1-containerisation-design.md`. Roadmap mit den Grundsatzentscheidungen E1–E8: `docs/superpowers/specs/2026-09-23-stackit-deployment-roadmap-design.md`.
+Spec: `docs/superpowers/specs/2026-10-01-tp1-containerisation-design.md`. Roadmap with the fundamental decisions E1–E8: `docs/superpowers/specs/2026-09-23-stackit-deployment-roadmap-design.md`.
 
 ## Global Constraints
 
-- Lizenzheader in jeder neuen Quelldatei: `# SPDX-License-Identifier: AGPL-3.0-or-later` + `# Copyright (C) 2026 normly contributors` (Dockerfiles, Compose, Shell, Python; in YAML/Dockerfile als `#`-Kommentar, in TypeScript als `//`).
-- Commits: Conventional Commits, Englisch, `git commit -s` (Signed-off-by des Menschen) plus Trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`. Kein Push auf `main`.
-- Keine Secrets im Repo, auch nicht in `.env.example` oder Tests. `.env` ist git-ignoriert.
-- `core` behält Docling und sentence-transformers als Pflichtabhängigkeit (Nutzerentscheidung, nicht aufteilen).
-- Embedding-Gewichte `intfloat/multilingual-e5-large` werden beim Build in die Stage `base` geladen; zur Laufzeit darf kein Container huggingface.co kontaktieren.
-- Alle Container laufen als unprivilegierter Nutzer `normly` (UID/GID 10001).
-- Basis-Images per Tag gepinnt (`python:3.12-slim`, `node:22-alpine`, `pgvector/pgvector:pg17`, `caddy:2`, `axllent/mailpit:v1`, `ollama/ollama` auf den beim Implementieren aktuellen Minor-Tag); Digest-Pinning kommt mit TP2.
-- Nur das Frontend (bzw. Caddy) ist von außen erreichbar; `api`, `chat`, `accounts` veröffentlichen keine Ports.
-- Produktionsmodell `google/gemma-4-31B-it`; Entwicklungs-/Self-Hosting-Modell: kleinste Gemma-Variante in der Ollama-Bibliothek (Task 8 prüft den Tag).
-- `docs/superpowers/`, CLAUDE.md und `docs/adr/`, `docs/srs/` bleiben Deutsch; `docs/guide/` und READMEs sind Englisch (ADR-020).
-- CI-Doku-Job erwartet exakt `3 issues found` beim Zensical-Build; neue Doku darf keine neuen Link-Issues erzeugen.
+- License header in every new source file: `# SPDX-License-Identifier: AGPL-3.0-or-later` + `# Copyright (C) 2026 normly contributors` (Dockerfiles, Compose, shell, Python; in YAML/Dockerfile as a `#` comment, in TypeScript as `//`).
+- Commits: Conventional Commits, English, `git commit -s` (the human's Signed-off-by) plus the trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`. No push to `main`.
+- No secrets in the repo, not even in `.env.example` or tests. `.env` is git-ignored.
+- `core` keeps Docling and sentence-transformers as mandatory dependencies (owner decision, do not split).
+- The embedding weights `intfloat/multilingual-e5-large` are loaded into the stage `base` at build time; at runtime no container may contact huggingface.co.
+- All containers run as the unprivileged user `normly` (UID/GID 10001).
+- Base images pinned by tag (`python:3.12-slim`, `node:22-alpine`, `pgvector/pgvector:pg17`, `caddy:2`, `axllent/mailpit:v1`, `ollama/ollama` to the minor tag current at implementation time); digest pinning comes with TP2.
+- Only the frontend (or Caddy) is reachable from outside; `api`, `chat`, `accounts` publish no ports.
+- Production model `google/gemma-4-31B-it`; development/self-hosting model: smallest Gemma variant in the Ollama library (Task 8 checks the tag).
+- `docs/superpowers/`, CLAUDE.md and `docs/adr/`, `docs/srs/` stay German; `docs/guide/` and READMEs are English (ADR-020).
+- The CI docs job expects exactly `3 issues found` from the Zensical build; new docs must not produce new link issues.
 
 ---
 
-## Arbeitsweise: Bauen und Testen auf der STACKIT-VM (E8)
+## Working mode: building and testing on the STACKIT VM (E8)
 
-Die Images werden **auf der VM** gebaut, nicht lokal. Der Arbeitsbaum wird per rsync hinübergespiegelt (kein GitHub-Zugang auf der VM nötig). Zugangsdaten:
+The images are built **on the VM**, not locally. The working tree is mirrored over via rsync (no GitHub access needed on the VM). Access details:
 
-- VM: `ssh ubuntu@213.17.23.196` (Schlüssel dieses Rechners ist hinterlegt).
-- Produktions-`.env` liegt auf der VM unter `/opt/normly/.env` (Rechte 600, enthält Secrets — **nie ausgeben, nie kopieren, nie in Logs zitieren**).
-- Arbeitsbaum auf der VM: `/opt/normly/src`.
+- VM: `ssh ubuntu@213.17.23.196` (this machine's key is installed).
+- The production `.env` is on the VM at `/opt/normly/.env` (permissions 600, contains secrets — **never print it, never copy it, never quote it in logs**).
+- Working tree on the VM: `/opt/normly/src`.
 
-Sync-Befehl (vom Entwicklungsrechner, aus der Repository-Wurzel; wird in Task 3 als Skript festgehalten):
+Sync command (from the development machine, from the repository root; captured as a script in Task 3):
 
 ```bash
 rsync -az --delete \
@@ -44,40 +44,40 @@ rsync -az --delete \
   ./ ubuntu@213.17.23.196:/opt/normly/src/
 ```
 
-Build-/Run-Befehle werden immer als `ssh ubuntu@213.17.23.196 'cd /opt/normly/src && docker compose ...'` ausgeführt. Unit-Tests (pytest, vitest) laufen weiterhin **lokal** in den vorhandenen `.venv`s bzw. mit `npm test`.
+Build/run commands are always executed as `ssh ubuntu@213.17.23.196 'cd /opt/normly/src && docker compose ...'`. Unit tests (pytest, vitest) still run **locally** in the existing `.venv`s or with `npm test`.
 
-Python-Pakete lokal: `core/.venv`, `api/.venv`, `chat/.venv`, `accounts/.venv` (je `bin/pytest`). Nach Änderungen an `core` muss `core` in den abhängigen Venvs nicht neu installiert werden (editable installs).
+Python packages locally: `core/.venv`, `api/.venv`, `chat/.venv`, `accounts/.venv` (each `bin/pytest`). After changes to `core`, `core` does not need to be reinstalled in the dependent venvs (editable installs).
 
 ---
 
 ## File Structure
 
-**Neu:**
-- `.dockerignore` — Build-Kontext der Python-Images schlank halten.
-- `.env.example` — dokumentierte Vorlage aller Variablen, ohne Secrets.
-- `docker/python.Dockerfile` — Stages `base`, `api`, `chat`, `accounts`, `pipeline`.
-- `docker/caddy/Caddyfile` — TLS-Terminierung, `reverse_proxy frontend:3000`.
+**New:**
+- `.dockerignore` — keep the build context of the Python images lean.
+- `.env.example` — documented template of all variables, without secrets.
+- `docker/python.Dockerfile` — stages `base`, `api`, `chat`, `accounts`, `pipeline`.
+- `docker/caddy/Caddyfile` — TLS termination, `reverse_proxy frontend:3000`.
 - `frontend/Dockerfile`, `frontend/.dockerignore` — Next.js standalone.
-- `compose.yaml` — alle Dienste, Profile, Healthchecks, Volumes.
-- `scripts/sync-to-vm.sh` — rsync-Spiegelung des Arbeitsbaums auf die VM (Entwicklungswerkzeug für E8).
-- `core/src/normly_core/migrate.py` — `python -m normly_core.migrate`: Alembic `upgrade head` aus `NORMLY_DATABASE_URL`.
+- `compose.yaml` — all services, profiles, healthchecks, volumes.
+- `scripts/sync-to-vm.sh` — rsync mirroring of the working tree to the VM (development tool for E8).
+- `core/src/normly_core/migrate.py` — `python -m normly_core.migrate`: Alembic `upgrade head` from `NORMLY_DATABASE_URL`.
 - `core/tests/test_migrate.py`.
 - `chat/src/normly_chat/llm_client.py` — `LlmClient`-Protokoll, `OpenAiCompatibleClient`, `build_llm_client_from_env`.
 - `chat/tests/test_llm_client.py`.
 
-**Geändert:**
+**Changed:**
 - `.gitignore` — `.env`, `data/`.
-- `chat/src/normly_chat/main.py`, `dependencies.py`, `routers/chat.py`, `synthesis.py` — Umstellung auf `LlmClient`.
-- `chat/tests/conftest.py`, `test_chat_router.py`, `test_structural_end_to_end.py` — neue Variablennamen.
-- `docs/adr/README.md` — ADR-022, offener Punkt gestrichen.
-- `CLAUDE.md` — Satz zur Modellherkunft.
-- `docs/srs/03-requirements.md` — REQ-DIST-001, Kapitel 3.5.9.
-- `docs/guide/self-hosting.md`, `docs/guide/getting-started.md` — tatsächlicher Compose-Weg.
-- `frontend/README.md` — Hinweis auf Compose-Betrieb.
+- `chat/src/normly_chat/main.py`, `dependencies.py`, `routers/chat.py`, `synthesis.py` — switch to `LlmClient`.
+- `chat/tests/conftest.py`, `test_chat_router.py`, `test_structural_end_to_end.py` — new variable names.
+- `docs/adr/README.md` — ADR-022, open item struck.
+- `CLAUDE.md` — sentence on model origin.
+- `docs/srs/03-requirements.md` — REQ-DIST-001, chapter 3.5.9.
+- `docs/guide/self-hosting.md`, `docs/guide/getting-started.md` — actual Compose path.
+- `frontend/README.md` — note on running with Compose.
 
 ---
 
-### Task 1: Repository-Hygiene für Container-Builds
+### Task 1: Repository hygiene for container builds
 
 **Files:**
 - Create: `.dockerignore`
@@ -85,9 +85,9 @@ Python-Pakete lokal: `core/.venv`, `api/.venv`, `chat/.venv`, `accounts/.venv` (
 - Modify: `.gitignore`
 
 **Interfaces:**
-- Produces: Build-Kontexte ohne Venvs, `node_modules`, Tests und Doku; `.env` kann in der Repository-Wurzel liegen, ohne je committet zu werden.
+- Produces: build contexts without venvs, `node_modules`, tests and docs; `.env` can sit in the repository root without ever being committed.
 
-- [ ] **Step 1: `.dockerignore` an der Wurzel anlegen**
+- [ ] **Step 1: Create `.dockerignore` at the root**
 
 ```
 # SPDX-License-Identifier: AGPL-3.0-or-later
@@ -114,7 +114,7 @@ site
 data
 ```
 
-- [ ] **Step 2: `frontend/.dockerignore` anlegen**
+- [ ] **Step 2: Create `frontend/.dockerignore`**
 
 ```
 # SPDX-License-Identifier: AGPL-3.0-or-later
@@ -130,9 +130,9 @@ Dockerfile
 .dockerignore
 ```
 
-- [ ] **Step 3: `.gitignore` ergänzen**
+- [ ] **Step 3: Extend `.gitignore`**
 
-Am Ende von `.gitignore` anfügen:
+Append to the end of `.gitignore`:
 
 ```
 .env
@@ -141,10 +141,10 @@ Am Ende von `.gitignore` anfügen:
 data/
 ```
 
-- [ ] **Step 4: Prüfen**
+- [ ] **Step 4: Check**
 
 Run: `touch .env && git check-ignore -v .env && rm .env && git check-ignore -v .env.example; echo "exit=$?"`
-Expected: erste Zeile nennt `.gitignore:…:.env`; `.env.example` wird **nicht** ignoriert (`exit=1` für den zweiten Aufruf).
+Expected: the first line names `.gitignore:…:.env`; `.env.example` is **not** ignored (`exit=1` for the second call).
 
 - [ ] **Step 5: Commit**
 
@@ -157,23 +157,23 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ---
 
-### Task 2: `python -m normly_core.migrate` — Migrationen aus der Umgebung heraus
+### Task 2: `python -m normly_core.migrate` — migrations from the environment
 
-`alembic.ini` hat ein leeres `sqlalchemy.url`; heute setzen nur die Tests die URL programmatisch (`core/tests/conftest.py:50-53`). Der `migrate`-Dienst braucht denselben Weg als Kommando.
+`alembic.ini` has an empty `sqlalchemy.url`; today only the tests set the URL programmatically (`core/tests/conftest.py:50-53`). The `migrate` service needs the same path as a command.
 
 **Files:**
 - Create: `core/src/normly_core/migrate.py`
 - Create: `core/tests/test_migrate.py`
 
 **Interfaces:**
-- Produces: `normly_core.migrate.upgrade_to_head(database_url: str, core_dir: Path) -> None`; `normly_core.migrate.main(argv: list[str] | None = None) -> int`; Umgebungsvariablen `NORMLY_DATABASE_URL` (Pflicht) und `NORMLY_CORE_DIR` (Default `/app/core`, Verzeichnis mit `alembic.ini` und `migrations/`). Exit 0 bei Erfolg, 1 bei fehlender Konfiguration.
+- Produces: `normly_core.migrate.upgrade_to_head(database_url: str, core_dir: Path) -> None`; `normly_core.migrate.main(argv: list[str] | None = None) -> int`; environment variables `NORMLY_DATABASE_URL` (required) and `NORMLY_CORE_DIR` (default `/app/core`, directory with `alembic.ini` and `migrations/`). Exit 0 on success, 1 on missing configuration.
 
-- [ ] **Step 1: Fixture-Namen in `core/tests/conftest.py` prüfen**
+- [ ] **Step 1: Check fixture names in `core/tests/conftest.py`**
 
 Run: `grep -n "def db_url\|def postgres_container\|CORE_DIR" core/tests/conftest.py`
-Expected: Fixture `db_url` (session-scoped, Zeile 44) und `CORE_DIR = Path(__file__).parents[1]` (Zeile 13) — beide am 2026-10-04 verifiziert; der Test unten nutzt `db_url` und definiert `CORE_DIR` selbst.
+Expected: fixture `db_url` (session-scoped, line 44) and `CORE_DIR = Path(__file__).parents[1]` (line 13) — both verified on 2026-10-04; the test below uses `db_url` and defines `CORE_DIR` itself.
 
-- [ ] **Step 2: Failing test schreiben**
+- [ ] **Step 2: Write the failing test**
 
 `core/tests/test_migrate.py`:
 
@@ -246,12 +246,12 @@ def test_migrate_module_fails_when_core_dir_has_no_alembic_ini(tmp_path):
     assert "alembic.ini" in result.stderr
 ```
 
-- [ ] **Step 3: Test laufen lassen, Fehlschlag bestätigen**
+- [ ] **Step 3: Run the test, confirm the failure**
 
 Run: `cd core && .venv/bin/pytest tests/test_migrate.py -v`
-Expected: FAIL — `No module named normly_core.migrate` (returncode 1, aber ohne die erwarteten Meldungen).
+Expected: FAIL — `No module named normly_core.migrate` (returncode 1, but without the expected messages).
 
-- [ ] **Step 4: Modul implementieren**
+- [ ] **Step 4: Implement the module**
 
 `core/src/normly_core/migrate.py`:
 
@@ -316,7 +316,7 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-- [ ] **Step 5: Tests laufen lassen**
+- [ ] **Step 5: Run the tests**
 
 Run: `cd core && .venv/bin/pytest tests/test_migrate.py -v`
 Expected: 3 passed.
@@ -332,25 +332,25 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ---
 
-### Task 3: Python-Basis-Stage mit eingebackenen Embedding-Gewichten, Sync-Skript, Docker auf der VM
+### Task 3: Python base stage with baked-in embedding weights, sync script, Docker on the VM
 
 **Files:**
-- Create: `docker/python.Dockerfile` (nur Stage `base` in diesem Task)
+- Create: `docker/python.Dockerfile` (only stage `base` in this task)
 - Create: `scripts/sync-to-vm.sh`
 
 **Interfaces:**
-- Produces: Stage `base` mit installiertem `normly-core`, `libgl1`, Nutzer `normly` (10001), `ENV NORMLY_EMBEDDING_MODEL_PATH=/opt/models/multilingual-e5-large`, Gewichte unter diesem Pfad, `WORKDIR /app`, `core/` unter `/app/core`. Spätere Stages bauen mit `FROM base AS <name>`.
+- Produces: stage `base` with `normly-core` installed, `libgl1`, user `normly` (10001), `ENV NORMLY_EMBEDDING_MODEL_PATH=/opt/models/multilingual-e5-large`, weights under this path, `WORKDIR /app`, `core/` under `/app/core`. Later stages build with `FROM base AS <name>`.
 
-- [ ] **Step 1: Docker und Compose auf der VM installieren**
+- [ ] **Step 1: Install Docker and Compose on the VM**
 
 Run:
 ```bash
 ssh ubuntu@213.17.23.196 'sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker.io docker-compose-v2 && sudo usermod -aG docker ubuntu && sudo systemctl enable --now docker'
 ssh ubuntu@213.17.23.196 'docker --version && docker compose version && mkdir -p /opt/normly/src'
 ```
-Expected: `Docker version 29.x`, `Docker Compose version v2.40.x`. Der Gruppenwechsel greift bei der nächsten SSH-Sitzung (jeder `ssh`-Aufruf ist eine neue Sitzung).
+Expected: `Docker version 29.x`, `Docker Compose version v2.40.x`. The group change takes effect at the next SSH session (every `ssh` call is a new session).
 
-- [ ] **Step 2: Sync-Skript anlegen**
+- [ ] **Step 2: Create the sync script**
 
 `scripts/sync-to-vm.sh`:
 
@@ -381,7 +381,7 @@ echo "synced to $TARGET:/opt/normly/src"
 Run: `chmod +x scripts/sync-to-vm.sh && scripts/sync-to-vm.sh`
 Expected: `synced to ubuntu@213.17.23.196:/opt/normly/src`.
 
-- [ ] **Step 3: Stage `base` schreiben**
+- [ ] **Step 3: Write stage `base`**
 
 `docker/python.Dockerfile`:
 
@@ -439,7 +439,7 @@ RUN pip install --no-deps /app/core \
     && chown -R normly:normly /opt/models /app
 ```
 
-- [ ] **Step 4: Auf der VM bauen und prüfen**
+- [ ] **Step 4: Build and check on the VM**
 
 Run:
 ```bash
@@ -453,7 +453,7 @@ print(\"whoami\", os.getuid(), \"model path\", os.environ[\"NORMLY_EMBEDDING_MOD
 print(\"dim\", len(m.embed_query(\"Test\")))
 "'
 ```
-Expected: Build endet erfolgreich (erster Build dauert 10–20 Minuten wegen Torch und 2,2 GB Gewichten); Größe im Bereich 6–8 GB; der Lauf mit `--network none` gibt `dim 1024` aus — das beweist, dass die Gewichte aus dem Image kommen, nicht aus dem Netz. `whoami 0` ist hier noch in Ordnung (USER kommt in den Ziel-Stages). Falls `embed_query` anders heißt: `grep -n "def " core/src/normly_core/pipeline/embeddings.py` und die passende Methode verwenden.
+Expected: the build finishes successfully (the first build takes 10–20 minutes because of Torch and 2.2 GB of weights); size in the range of 6–8 GB; the run with `--network none` prints `dim 1024` — this proves that the weights come from the image, not from the network. `whoami 0` is still fine here (USER comes in the target stages). If `embed_query` has a different name: `grep -n "def " core/src/normly_core/pipeline/embeddings.py` and use the matching method.
 
 - [ ] **Step 5: Commit**
 
@@ -466,18 +466,18 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ---
 
-### Task 4: Ziel-Stages `api`, `chat`, `accounts`
+### Task 4: Target stages `api`, `chat`, `accounts`
 
 **Files:**
-- Modify: `docker/python.Dockerfile` (anhängen)
+- Modify: `docker/python.Dockerfile` (append)
 
 **Interfaces:**
-- Consumes: Stage `base` aus Task 3.
-- Produces: Images, die mit `uvicorn normly_<svc>.main:app --host 0.0.0.0 --port 8000` starten, als Nutzer `normly`, Port 8000. Die Images erwarten `NORMLY_DATABASE_URL` (alle), `NORMLY_API_BASE_URL`/`NORMLY_ACCOUNTS_BASE_URL`/`NORMLY_LLM_*` (chat), `NORMLY_SMTP_*`/`NORMLY_PUBLIC_BASE_URL`/`NORMLY_GOOGLE_*` (accounts, optional).
+- Consumes: stage `base` from Task 3.
+- Produces: images that start with `uvicorn normly_<svc>.main:app --host 0.0.0.0 --port 8000`, as user `normly`, port 8000. The images expect `NORMLY_DATABASE_URL` (all), `NORMLY_API_BASE_URL`/`NORMLY_ACCOUNTS_BASE_URL`/`NORMLY_LLM_*` (chat), `NORMLY_SMTP_*`/`NORMLY_PUBLIC_BASE_URL`/`NORMLY_GOOGLE_*` (accounts, optional).
 
-- [ ] **Step 1: Stages anhängen**
+- [ ] **Step 1: Append the stages**
 
-An `docker/python.Dockerfile` anfügen:
+Append to `docker/python.Dockerfile`:
 
 ```dockerfile
 
@@ -508,7 +508,7 @@ EXPOSE 8000
 CMD ["uvicorn", "normly_accounts.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
-- [ ] **Step 2: Bauen und prüfen, dass `normly-core` nicht aus einem Index geladen wurde**
+- [ ] **Step 2: Build and check that `normly-core` was not loaded from an index**
 
 Run:
 ```bash
@@ -516,7 +516,7 @@ scripts/sync-to-vm.sh
 ssh ubuntu@213.17.23.196 'cd /opt/normly/src && for t in api chat accounts; do docker build -f docker/python.Dockerfile --target $t -t normly-$t:local --progress=plain . 2>&1 | tee /tmp/build-$t.log | tail -2; grep -i "downloading normly" /tmp/build-$t.log && echo "!! normly-core came from an index" || echo "ok: normly-core resolved locally ($t)"; done'
 ssh ubuntu@213.17.23.196 'for t in api chat accounts; do docker run --rm --network none normly-$t:local python -c "import os, importlib; importlib.import_module(\"normly_$t.main\"); print(\"$t import ok, uid\", os.getuid())"; done'
 ```
-Expected: drei Builds erfolgreich, jeweils `ok: normly-core resolved locally`, Import-Checks drucken `uid 10001`. Die drei Builds dürfen die `base`-Schichten wiederverwenden (im Log `CACHED` für die base-Schritte).
+Expected: three successful builds, each `ok: normly-core resolved locally`, import checks print `uid 10001`. The three builds may reuse the `base` layers (`CACHED` in the log for the base steps).
 
 - [ ] **Step 3: Commit**
 
@@ -529,16 +529,16 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ---
 
-### Task 5: Ziel-Stage `pipeline` (Migrationen, Ingestion, Docling-Modelle)
+### Task 5: Target stage `pipeline` (migrations, ingestion, Docling models)
 
 **Files:**
-- Modify: `docker/python.Dockerfile` (anhängen)
+- Modify: `docker/python.Dockerfile` (append)
 
 **Interfaces:**
-- Consumes: Stage `base`; `python -m normly_core.migrate` aus Task 2.
-- Produces: Image mit `ENTRYPOINT ["python", "-m", "normly_core.pipeline"]`, `ENV NORMLY_DOCLING_ARTIFACTS_PATH=/opt/models/docling`, `ENV NORMLY_CORE_DIR=/app/core`; Migrationen über `--entrypoint python … -m normly_core.migrate`.
+- Consumes: stage `base`; `python -m normly_core.migrate` from Task 2.
+- Produces: image with `ENTRYPOINT ["python", "-m", "normly_core.pipeline"]`, `ENV NORMLY_DOCLING_ARTIFACTS_PATH=/opt/models/docling`, `ENV NORMLY_CORE_DIR=/app/core`; migrations via `--entrypoint python … -m normly_core.migrate`.
 
-- [ ] **Step 1: Stage anhängen**
+- [ ] **Step 1: Append the stage**
 
 ```dockerfile
 
@@ -555,7 +555,7 @@ USER normly
 ENTRYPOINT ["python", "-m", "normly_core.pipeline"]
 ```
 
-- [ ] **Step 2: Bauen und beide Einstiege prüfen**
+- [ ] **Step 2: Build and check both entry points**
 
 Run:
 ```bash
@@ -563,9 +563,9 @@ scripts/sync-to-vm.sh
 ssh ubuntu@213.17.23.196 'cd /opt/normly/src && docker build -f docker/python.Dockerfile --target pipeline -t normly-pipeline:local . 2>&1 | tail -2'
 ssh ubuntu@213.17.23.196 'docker run --rm --network none normly-pipeline:local --help | head -5; docker run --rm --network none --entrypoint python normly-pipeline:local -m normly_core.migrate; echo "migrate exit=$?"; docker run --rm --network none normly-pipeline:local ingest dguv --directory /nonexistent; echo "ingest exit=$?"'
 ```
-Expected: `--help` zeigt die Subkommandos `ingest`, `backfill-document-embeddings`, …; `migrate` endet mit `exit=1` und der Meldung `NORMLY_DATABASE_URL environment variable is required` (keine URL gesetzt, gewollt); `ingest` endet mit `exit=1` und derselben Meldung. Keine Traceback-Ausgabe.
+Expected: `--help` shows the subcommands `ingest`, `backfill-document-embeddings`, …; `migrate` ends with `exit=1` and the message `NORMLY_DATABASE_URL environment variable is required` (no URL set, intended); `ingest` ends with `exit=1` and the same message. No traceback output.
 
-- [ ] **Step 3: Docling-Modelle offline laden**
+- [ ] **Step 3: Load the Docling models offline**
 
 Run:
 ```bash
@@ -576,9 +576,9 @@ _get_converter(os.environ[\"NORMLY_DOCLING_ARTIFACTS_PATH\"])
 print(\"docling converter built offline\")
 "'
 ```
-Expected: `docling converter built offline`. Falls der Aufruf wegen fehlender Modelle fehlschlägt, in der Fehlermeldung ablesen, welches Modell fehlt, und es in Step 1 zur Download-Liste hinzufügen (z. B. `rapidocr` oder `easyocr`, falls OCR aktiviert ist).
+Expected: `docling converter built offline`. If the call fails because of missing models, read from the error message which model is missing and add it to the download list in Step 1 (e.g. `rapidocr` or `easyocr`, if OCR is enabled).
 
-Bekannt und **nicht** Teil dieses Tasks: Mit frisch geladenen Docling-Modellen liefert die DGUV-Titelerkennung in zwei Tests `None` (siehe `docs/superpowers/specs/2026-09-02-ci-pipeline-design.md`, Offene Punkte). Das betrifft Ingestion-Qualität, nicht den Container.
+Known and **not** part of this task: with freshly loaded Docling models, the DGUV title detection returns `None` in two tests (see `docs/superpowers/specs/2026-09-02-ci-pipeline-design.md`, Open items). This concerns ingestion quality, not the container.
 
 - [ ] **Step 4: Commit**
 
@@ -591,15 +591,15 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ---
 
-### Task 6: Frontend-Image (Next.js standalone)
+### Task 6: Frontend image (Next.js standalone)
 
 **Files:**
 - Create: `frontend/Dockerfile`
 
 **Interfaces:**
-- Produces: Image `normly-frontend:local`, Port 3000, `node server.js`, Nutzer `normly`; liest `NORMLY_API_BASE_URL`, `NORMLY_ACCOUNTS_BASE_URL`, `NORMLY_CHAT_BASE_URL`, `NORMLY_PUBLIC_BASE_URL`, optional `NORMLY_INSTANCE_NAME`, `NORMLY_BRAND_COLOR_HSL`, `NORMLY_LOGO_PATH` zur Laufzeit (`frontend/README.md`).
+- Produces: image `normly-frontend:local`, port 3000, `node server.js`, user `normly`; reads `NORMLY_API_BASE_URL`, `NORMLY_ACCOUNTS_BASE_URL`, `NORMLY_CHAT_BASE_URL`, `NORMLY_PUBLIC_BASE_URL`, optionally `NORMLY_INSTANCE_NAME`, `NORMLY_BRAND_COLOR_HSL`, `NORMLY_LOGO_PATH` at runtime (`frontend/README.md`).
 
-- [ ] **Step 1: Dockerfile schreiben**
+- [ ] **Step 1: Write the Dockerfile**
 
 `frontend/Dockerfile`:
 
@@ -640,7 +640,7 @@ EXPOSE 3000
 CMD ["node", "server.js"]
 ```
 
-- [ ] **Step 2: Bauen und starten**
+- [ ] **Step 2: Build and start**
 
 Run:
 ```bash
@@ -648,7 +648,7 @@ scripts/sync-to-vm.sh
 ssh ubuntu@213.17.23.196 'cd /opt/normly/src/frontend && docker build -t normly-frontend:local . 2>&1 | tail -2 && docker image ls normly-frontend:local --format "{{.Size}}"'
 ssh ubuntu@213.17.23.196 'cid=$(docker run -d --rm -p 127.0.0.1:3100:3000 -e NORMLY_API_BASE_URL=http://api:8000 -e NORMLY_ACCOUNTS_BASE_URL=http://accounts:8000 -e NORMLY_CHAT_BASE_URL=http://chat:8000 -e NORMLY_PUBLIC_BASE_URL=http://localhost:3100 normly-frontend:local); sleep 4; curl -s -o /dev/null -w "frontend http=%{http_code}\n" http://127.0.0.1:3100/; curl -s http://127.0.0.1:3100/manifest.webmanifest | head -c 120; echo; docker exec $cid id -u; docker stop $cid >/dev/null'
 ```
-Expected: Build erfolgreich, Größe unter 300 MB; `frontend http=200`; Manifest-JSON wird ausgeliefert (beweist `public/`-Kopie); `id -u` = `10001`.
+Expected: build successful, size under 300 MB; `frontend http=200`; the manifest JSON is served (proves the `public/` copy); `id -u` = `10001`.
 
 - [ ] **Step 3: Commit**
 
@@ -661,9 +661,9 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ---
 
-### Task 7: LLM-Client-Auswahl im Chat-Dienst (`NORMLY_LLM_*`)
+### Task 7: LLM client selection in the chat service (`NORMLY_LLM_*`)
 
-Heute: `OllamaClient(base_url, model)` fest in `chat/src/normly_chat/main.py:37-40`, Variablen `NORMLY_OLLAMA_BASE_URL`/`NORMLY_OLLAMA_MODEL`. Ziel: Protokoll `LlmClient`, zweiter Client für die OpenAI-kompatible API von STACKIT AI Model Serving, Auswahl per `NORMLY_LLM_PROVIDER`.
+Today: `OllamaClient(base_url, model)` hard-wired in `chat/src/normly_chat/main.py:37-40`, variables `NORMLY_OLLAMA_BASE_URL`/`NORMLY_OLLAMA_MODEL`. Goal: protocol `LlmClient`, a second client for the OpenAI-compatible API of STACKIT AI Model Serving, selection via `NORMLY_LLM_PROVIDER`.
 
 **Files:**
 - Create: `chat/src/normly_chat/llm_client.py`
@@ -675,10 +675,10 @@ Heute: `OllamaClient(base_url, model)` fest in `chat/src/normly_chat/main.py:37-
 - Modify: `chat/tests/conftest.py:86,132-135`, `chat/tests/test_chat_router.py:40`, `chat/tests/test_structural_end_to_end.py:143`
 
 **Interfaces:**
-- Produces: `normly_chat.llm_client.LlmClient` (Protocol mit `chat(messages: list[dict]) -> str`), `OpenAiCompatibleClient(base_url: str, model: str, api_key: str, *, timeout: float = 120.0, transport: httpx.BaseTransport | None = None)`, `build_llm_client_from_env(environ: Mapping[str, str] = os.environ) -> LlmClient`; `app.state.llm_client`; `dependencies.get_llm_client`. Variablen: `NORMLY_LLM_PROVIDER` (`ollama` | `openai-compatible`, Default `ollama`), `NORMLY_LLM_BASE_URL` (Pflicht), `NORMLY_LLM_MODEL` (Pflicht), `NORMLY_LLM_API_KEY` (Pflicht nur bei `openai-compatible`).
-- `OllamaClient` bleibt unverändert; `SynthesisAnswer.ollama_calls` behält seinen Namen (öffentliches Antwortfeld, kein Umbenennen in diesem Task).
+- Produces: `normly_chat.llm_client.LlmClient` (Protocol with `chat(messages: list[dict]) -> str`), `OpenAiCompatibleClient(base_url: str, model: str, api_key: str, *, timeout: float = 120.0, transport: httpx.BaseTransport | None = None)`, `build_llm_client_from_env(environ: Mapping[str, str] = os.environ) -> LlmClient`; `app.state.llm_client`; `dependencies.get_llm_client`. Variables: `NORMLY_LLM_PROVIDER` (`ollama` | `openai-compatible`, default `ollama`), `NORMLY_LLM_BASE_URL` (required), `NORMLY_LLM_MODEL` (required), `NORMLY_LLM_API_KEY` (required only with `openai-compatible`).
+- `OllamaClient` stays unchanged; `SynthesisAnswer.ollama_calls` keeps its name (public response field, no renaming in this task).
 
-- [ ] **Step 1: Failing tests schreiben**
+- [ ] **Step 1: Write the failing tests**
 
 `chat/tests/test_llm_client.py`:
 
@@ -767,12 +767,12 @@ def test_build_from_env_rejects_unknown_provider():
         })
 ```
 
-- [ ] **Step 2: Fehlschlag bestätigen**
+- [ ] **Step 2: Confirm the failure**
 
 Run: `cd chat && .venv/bin/pytest tests/test_llm_client.py -v`
 Expected: FAIL — `No module named normly_chat.llm_client`.
 
-- [ ] **Step 3: Modul implementieren**
+- [ ] **Step 3: Implement the module**
 
 `chat/src/normly_chat/llm_client.py`:
 
@@ -850,14 +850,14 @@ def build_llm_client_from_env(environ: Mapping[str, str] = os.environ) -> LlmCli
     )
 ```
 
-- [ ] **Step 4: Tests laufen lassen**
+- [ ] **Step 4: Run the tests**
 
 Run: `cd chat && .venv/bin/pytest tests/test_llm_client.py -v`
 Expected: 6 passed.
 
-- [ ] **Step 5: Verdrahtung umstellen**
+- [ ] **Step 5: Switch the wiring**
 
-`chat/src/normly_chat/main.py`: Import `from normly_chat.ollama_client import OllamaClient` ersetzen durch `from normly_chat.llm_client import build_llm_client_from_env`; die Zeilen
+`chat/src/normly_chat/main.py`: replace the import `from normly_chat.ollama_client import OllamaClient` with `from normly_chat.llm_client import build_llm_client_from_env`; replace the lines
 
 ```python
     app.state.ollama_client = OllamaClient(
@@ -866,33 +866,33 @@ Expected: 6 passed.
     )
 ```
 
-ersetzen durch
+with
 
 ```python
     app.state.llm_client = build_llm_client_from_env()
 ```
 
-`chat/src/normly_chat/dependencies.py`: Import `OllamaClient` ersetzen durch `from normly_chat.llm_client import LlmClient`; Funktion umbenennen:
+`chat/src/normly_chat/dependencies.py`: replace the import `OllamaClient` with `from normly_chat.llm_client import LlmClient`; rename the function:
 
 ```python
 def get_llm_client(request: Request) -> LlmClient:
     return request.app.state.llm_client
 ```
 
-`chat/src/normly_chat/routers/chat.py`: im Import `get_ollama_client` → `get_llm_client`; `from normly_chat.ollama_client import OllamaClient` → `from normly_chat.llm_client import LlmClient`; Parameter `ollama_client: OllamaClient = Depends(get_ollama_client)` → `llm_client: LlmClient = Depends(get_llm_client)`; Aufruf `build_synthesis_answer(..., PostgresSegmentRepository(session), ollama_client,)` → `llm_client`.
+`chat/src/normly_chat/routers/chat.py`: in the import, `get_ollama_client` → `get_llm_client`; `from normly_chat.ollama_client import OllamaClient` → `from normly_chat.llm_client import LlmClient`; parameter `ollama_client: OllamaClient = Depends(get_ollama_client)` → `llm_client: LlmClient = Depends(get_llm_client)`; call `build_synthesis_answer(..., PostgresSegmentRepository(session), ollama_client,)` → `llm_client`.
 
-`chat/src/normly_chat/synthesis.py`: Parameter `ollama_client` in `_is_faithful` und `build_synthesis_answer` → `llm_client` (nur der Parametername und seine Verwendungen in den Zeilen 68–69, 81, 95, 101; das Feld `ollama_calls` bleibt).
+`chat/src/normly_chat/synthesis.py`: parameter `ollama_client` in `_is_faithful` and `build_synthesis_answer` → `llm_client` (only the parameter name and its uses in lines 68–69, 81, 95, 101; the field `ollama_calls` stays).
 
-- [ ] **Step 6: Tests auf die neuen Variablen umstellen**
+- [ ] **Step 6: Switch the tests to the new variables**
 
-In `chat/tests/conftest.py` (Fixture `client`, Zeile 86) ersetzen:
+In `chat/tests/conftest.py` (fixture `client`, line 86), replace:
 
 ```python
     monkeypatch.setenv("NORMLY_LLM_BASE_URL", "http://localhost:11434")
     monkeypatch.setenv("NORMLY_LLM_MODEL", "test-model")
 ```
 
-In derselben Datei (Fixture `e2e_client`, Zeilen 132–135) ersetzen:
+In the same file (fixture `e2e_client`, lines 132–135), replace:
 
 ```python
     monkeypatch.setenv("NORMLY_LLM_PROVIDER", "ollama")
@@ -902,17 +902,17 @@ In derselben Datei (Fixture `e2e_client`, Zeilen 132–135) ersetzen:
     )
 ```
 
-In `chat/tests/test_chat_router.py:40` und `chat/tests/test_structural_end_to_end.py:143` die Zeile `monkeypatch.setenv("NORMLY_OLLAMA_BASE_URL", …)` durch die zwei Zeilen `NORMLY_LLM_BASE_URL` (gleicher Wert) und `NORMLY_LLM_MODEL` = `"test-model"` ersetzen.
+In `chat/tests/test_chat_router.py:40` and `chat/tests/test_structural_end_to_end.py:143`, replace the line `monkeypatch.setenv("NORMLY_OLLAMA_BASE_URL", …)` with the two lines `NORMLY_LLM_BASE_URL` (same value) and `NORMLY_LLM_MODEL` = `"test-model"`.
 
-In `chat/tests/test_ollama_client.py:20` den Default `"llama3.1:8b-instruct-q4_0"` durch `"gemma3:4b"` ersetzen (Testvariablen `NORMLY_TEST_OLLAMA_*` behalten ihren Namen).
+In `chat/tests/test_ollama_client.py:20`, replace the default `"llama3.1:8b-instruct-q4_0"` with `"gemma3:4b"` (test variables `NORMLY_TEST_OLLAMA_*` keep their names).
 
 Run: `grep -rn "NORMLY_OLLAMA_\|get_ollama_client\|ollama_client" chat/src chat/tests | grep -v "^chat/src/normly_chat/ollama_client.py" | grep -v "_FakeOllamaClient\|ollama_calls"`
-Expected: keine Treffer in `chat/src`; in Tests nur noch `test_synthesis.py`, wo `_FakeOllamaClient` als Keyword-Argument-Name verwendet wird — dort prüfen, ob `build_synthesis_answer` positional aufgerufen wird (ja, Zeilen 42, 73, 99, 160); dann sind keine Änderungen nötig.
+Expected: no matches in `chat/src`; in tests only `test_synthesis.py`, where `_FakeOllamaClient` is used as a keyword argument name — check there whether `build_synthesis_answer` is called positionally (yes, lines 42, 73, 99, 160); then no changes are needed.
 
-- [ ] **Step 7: Gesamte Chat-Suite**
+- [ ] **Step 7: Full chat suite**
 
 Run: `cd chat && .venv/bin/pytest -q`
-Expected: alle Tests grün (die Ollama-abhängigen bleiben `skipped`, solange `NORMLY_TEST_OLLAMA_BASE_URL` nicht gesetzt ist).
+Expected: all tests green (the Ollama-dependent ones stay `skipped` as long as `NORMLY_TEST_OLLAMA_BASE_URL` is not set).
 
 - [ ] **Step 8: Commit**
 
@@ -939,20 +939,20 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Create: `docker/caddy/Caddyfile`
 
 **Interfaces:**
-- Consumes: Images/Targets aus Task 3–6; `python -m normly_core.migrate` (Task 2); `NORMLY_LLM_*` (Task 7).
-- Produces: `docker compose up` startet je nach `COMPOSE_PROFILES` die Instanz. Profile: `bundled` (postgres, ollama, ollama-pull, mailpit), `edge` (caddy), `tools` (pipeline, nur per `run`). Interne Hostnamen: `postgres`, `ollama`, `mailpit`, `api`, `chat`, `accounts`, `frontend`, jeweils Port 5432/11434/1025/8000/8000/8000/3000.
+- Consumes: images/targets from Tasks 3–6; `python -m normly_core.migrate` (Task 2); `NORMLY_LLM_*` (Task 7).
+- Produces: `docker compose up` starts the instance depending on `COMPOSE_PROFILES`. Profiles: `bundled` (postgres, ollama, ollama-pull, mailpit), `edge` (caddy), `tools` (pipeline, only via `run`). Internal hostnames: `postgres`, `ollama`, `mailpit`, `api`, `chat`, `accounts`, `frontend`, with ports 5432/11434/1025/8000/8000/8000/3000 respectively.
 
-- [ ] **Step 1: Ollama-Modell-Tag bestimmen**
+- [ ] **Step 1: Determine the Ollama model tag**
 
 Run: `curl -s -o /dev/null -w "gemma4 %{http_code}\n" https://ollama.com/library/gemma4; curl -s -o /dev/null -w "gemma3 %{http_code}\n" https://ollama.com/library/gemma3`
-Expected: Wenn `gemma4 200`, ist das Entwicklungsmodell die kleinste Variante dieser Seite (Tag von der Seite ablesen, z. B. `gemma4:<kleinste>b`); sonst `gemma3:4b`. Den gewählten Tag in `.env.example` (Step 3) und in `chat/tests/conftest.py`/`test_ollama_client.py` (Task 7, falls abweichend von `gemma3:4b`) eintragen.
+Expected: if `gemma4 200`, the development model is the smallest variant on that page (read the tag from the page, e.g. `gemma4:<smallest>b`); otherwise `gemma3:4b`. Enter the chosen tag in `.env.example` (Step 3) and in `chat/tests/conftest.py`/`test_ollama_client.py` (Task 7, if it differs from `gemma3:4b`).
 
-- [ ] **Step 2: Image-Tags pinnen**
+- [ ] **Step 2: Pin the image tags**
 
 Run: `for i in ollama/ollama axllent/mailpit caddy pgvector/pgvector; do echo "== $i"; curl -s "https://hub.docker.com/v2/repositories/$( [[ $i == */* ]] && echo $i || echo library/$i )/tags?page_size=20&ordering=last_updated" | python3 -c "import sys,json; print(', '.join(t['name'] for t in json.load(sys.stdin)['results'][:12]))"; done`
-Expected: Tag-Listen. Wähle: `pgvector/pgvector:pg17`, `caddy:2`, `axllent/mailpit:v1` (falls kein `v1`-Sammeltag existiert, den aktuellen `v1.x.y`), `ollama/ollama:<aktueller Minor-Tag, z. B. 0.13>` (nicht `latest`). Die gewählten Tags in Step 3 eintragen.
+Expected: tag lists. Choose: `pgvector/pgvector:pg17`, `caddy:2`, `axllent/mailpit:v1` (if no `v1` umbrella tag exists, the current `v1.x.y`), `ollama/ollama:<current minor tag, e.g. 0.13>` (not `latest`). Enter the chosen tags in Step 3.
 
-- [ ] **Step 3: `compose.yaml` schreiben**
+- [ ] **Step 3: Write `compose.yaml`**
 
 ```yaml
 # SPDX-License-Identifier: AGPL-3.0-or-later
@@ -1133,9 +1133,9 @@ volumes:
   caddy-config:
 ```
 
-Hinweise zur Datei: `$$NORMLY_LLM_MODEL` (doppeltes Dollar) lässt Compose die Variable **nicht** selbst ersetzen, sondern reicht sie an die Shell im Container durch, die sie aus `env_file` bekommt. `required: false` bei `depends_on` braucht Compose ≥ 2.20 (die VM hat 2.40).
+Notes on the file: `$$NORMLY_LLM_MODEL` (double dollar) makes Compose **not** substitute the variable itself but pass it through to the shell in the container, which gets it from `env_file`. `required: false` in `depends_on` needs Compose ≥ 2.20 (the VM has 2.40).
 
-- [ ] **Step 4: `.env.example` schreiben**
+- [ ] **Step 4: Write `.env.example`**
 
 ```
 # SPDX-License-Identifier: AGPL-3.0-or-later
@@ -1202,7 +1202,7 @@ NORMLY_SMTP_FROM=noreply@normly.localhost
 # NORMLY_GOOGLE_REDIRECT_URI=
 ```
 
-- [ ] **Step 5: Caddyfile schreiben**
+- [ ] **Step 5: Write the Caddyfile**
 
 `docker/caddy/Caddyfile`:
 
@@ -1219,10 +1219,10 @@ NORMLY_SMTP_FROM=noreply@normly.localhost
 }
 ```
 
-- [ ] **Step 6: Syntaxprüfung lokal**
+- [ ] **Step 6: Syntax check locally**
 
 Run: `cp .env.example .env && docker compose config --quiet && echo "compose config ok" && docker compose --profile edge config --quiet; echo "edge exit=$? (1 expected: NORMLY_PUBLIC_HOST unset)"; rm .env`
-Expected: `compose config ok`; der zweite Aufruf schlägt mit der `NORMLY_PUBLIC_HOST`-Meldung fehl. Lokal wird nichts gebaut oder gestartet.
+Expected: `compose config ok`; the second call fails with the `NORMLY_PUBLIC_HOST` message. Nothing is built or started locally.
 
 - [ ] **Step 7: Commit**
 
@@ -1235,14 +1235,14 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ---
 
-### Task 9: Verifikation auf der VM — Self-Hosting-Pfad und Produktionspfad
+### Task 9: Verification on the VM — self-hosting path and production path
 
-**Files:** keine Codeänderung erwartet; Fehler werden in den Tasks 3–8 behoben und dort nachcommittet.
+**Files:** no code change expected; errors are fixed in Tasks 3–8 and committed there afterwards.
 
 **Interfaces:**
-- Consumes: alles aus Task 1–8; `/opt/normly/.env` (Produktionswerte, vom Nutzer angelegt).
+- Consumes: everything from Tasks 1–8; `/opt/normly/.env` (production values, created by the owner).
 
-- [ ] **Step 1: Self-Hosting-Pfad mit gebündelten Diensten (eigene Postgres, nicht Flex)**
+- [ ] **Step 1: Self-hosting path with bundled services (own Postgres, not Flex)**
 
 Run:
 ```bash
@@ -1250,25 +1250,25 @@ scripts/sync-to-vm.sh
 ssh ubuntu@213.17.23.196 'cd /opt/normly/src && cp .env.example .env && sed -i "s/^NORMLY_FRONTEND_BIND=.*/NORMLY_FRONTEND_BIND=127.0.0.1/" .env && docker compose up -d --build 2>&1 | tail -15'
 ssh ubuntu@213.17.23.196 'cd /opt/normly/src && sleep 60 && docker compose ps --format "table {{.Service}}\t{{.Status}}" && docker compose logs migrate --no-log-prefix | tail -3'
 ```
-Expected: `migrate` mit `Exited (0)` und `migrations: at head`; `postgres`, `ollama`, `mailpit`, `api`, `accounts`, `chat`, `frontend` `Up … (healthy)`; `ollama-pull` `Exited (0)` nach dem Download (kann einige Minuten dauern, bis dahin `Up`).
+Expected: `migrate` with `Exited (0)` and `migrations: at head`; `postgres`, `ollama`, `mailpit`, `api`, `accounts`, `chat`, `frontend` `Up … (healthy)`; `ollama-pull` `Exited (0)` after the download (can take a few minutes, `Up` until then).
 
-- [ ] **Step 2: Funktionsproben (Self-Hosting)**
+- [ ] **Step 2: Functional probes (self-hosting)**
 
 Run:
 ```bash
 ssh ubuntu@213.17.23.196 'curl -s -o /dev/null -w "frontend %{http_code}\n" http://127.0.0.1:3000/; curl -s -o /dev/null -w "search page %{http_code}\n" http://127.0.0.1:3000/search; curl -s -X POST http://127.0.0.1:3000/api/auth/register -H "Content-Type: application/json" -d "{\"email\":\"smoke@example.org\",\"password\":\"Smoke-Test-Passw0rd!\"}" -o /dev/null -w "register %{http_code}\n"; sleep 2; curl -s http://127.0.0.1:8025/api/v1/messages | python3 -c "import sys,json; d=json.load(sys.stdin); print(\"mailpit messages:\", d.get(\"total\"))"'
 ```
-Expected: `frontend 200`, `search page 200`, `register` 200/201/202 (je nach Route), `mailpit messages: 1` (die Verifizierungs-Mail). Falls der Registrierungs-Endpunkt anders heißt: `ls frontend/src/app/api/auth` und den Pfad anpassen.
+Expected: `frontend 200`, `search page 200`, `register` 200/201/202 (depending on the route), `mailpit messages: 1` (the verification mail). If the registration endpoint has a different name: `ls frontend/src/app/api/auth` and adjust the path.
 
-Chat-Probe (Ollama, CPU — kann 30–120 s dauern):
+Chat probe (Ollama, CPU — can take 30–120 s):
 
 Run:
 ```bash
 ssh ubuntu@213.17.23.196 'curl -s -m 300 -X POST http://127.0.0.1:3000/api/chat -H "Content-Type: application/json" -d "{\"message\":\"Was regelt die DGUV Vorschrift 1?\",\"jurisdiction\":\"DE\",\"language\":\"de\"}" | head -c 400; echo'
 ```
-Expected: JSON-Antwort mit `answer`/`text`-Feld (bei leerer Datenbank die Fallback-Antwort — das ist korrekt, es gibt noch keine Segmente). Keine 5xx. Falls das Request-Schema abweicht: `grep -n "class ChatRequest" -A8 chat/src/normly_chat/schemas.py`.
+Expected: JSON response with an `answer`/`text` field (with an empty database, the fallback answer — that is correct, there are no segments yet). No 5xx. If the request schema differs: `grep -n "class ChatRequest" -A8 chat/src/normly_chat/schemas.py`.
 
-- [ ] **Step 3: Idempotenz und Offline-Verhalten**
+- [ ] **Step 3: Idempotency and offline behaviour**
 
 Run:
 ```bash
@@ -1279,46 +1279,46 @@ try:
 except Exception as e: print(\"no network:\", e)
 "; docker compose logs api chat 2>&1 | grep -ci "huggingface" || true'
 ```
-Expected: zweites `up` erzeugt/ersetzt **keine** Container (Zähler 0, nur „Running"); `migrate` meldet weiterhin `at head`; in den Logs von `api`/`chat` kommt `huggingface` **nicht** vor (Zähler 0) — die Gewichte kamen aus dem Image.
+Expected: the second `up` creates/replaces **no** containers (counter 0, only "Running"); `migrate` still reports `at head`; `huggingface` does **not** occur in the logs of `api`/`chat` (counter 0) — the weights came from the image.
 
-- [ ] **Step 4: Self-Hosting-Stack stoppen, Produktionspfad vorbereiten**
+- [ ] **Step 4: Stop the self-hosting stack, prepare the production path**
 
 Run:
 ```bash
 ssh ubuntu@213.17.23.196 'cd /opt/normly/src && docker compose --profile bundled down -v && rm .env && ln -s /opt/normly/.env .env && ls -l .env'
 ssh ubuntu@213.17.23.196 'grep -qE "^COMPOSE_PROFILES=" /opt/normly/.env || echo "COMPOSE_PROFILES=edge" >> /opt/normly/.env; grep -qE "^NORMLY_PUBLIC_HOST=" /opt/normly/.env || echo "NORMLY_PUBLIC_HOST=app.normly.ai" >> /opt/normly/.env; grep -qE "^NORMLY_FRONTEND_BIND=" /opt/normly/.env || echo "NORMLY_FRONTEND_BIND=127.0.0.1" >> /opt/normly/.env; grep -oE "^[A-Z_]+=" /opt/normly/.env | tr -d = | tr "\n" " "; echo'
 ```
-Expected: Symlink `.env -> /opt/normly/.env`; die Variablenliste enthält `NORMLY_DATABASE_URL NORMLY_LLM_PROVIDER NORMLY_LLM_BASE_URL NORMLY_LLM_MODEL NORMLY_LLM_API_KEY NORMLY_PUBLIC_BASE_URL COMPOSE_PROFILES NORMLY_PUBLIC_HOST NORMLY_FRONTEND_BIND`. **Werte nie ausgeben.**
+Expected: symlink `.env -> /opt/normly/.env`; the variable list contains `NORMLY_DATABASE_URL NORMLY_LLM_PROVIDER NORMLY_LLM_BASE_URL NORMLY_LLM_MODEL NORMLY_LLM_API_KEY NORMLY_PUBLIC_BASE_URL COMPOSE_PROFILES NORMLY_PUBLIC_HOST NORMLY_FRONTEND_BIND`. **Never print values.**
 
-- [ ] **Step 5: Produktionspfad starten**
+- [ ] **Step 5: Start the production path**
 
 Run:
 ```bash
 ssh ubuntu@213.17.23.196 'cd /opt/normly/src && docker compose up -d 2>&1 | tail -10 && sleep 90 && docker compose ps --format "table {{.Service}}\t{{.Status}}\t{{.Ports}}" && docker compose logs migrate --no-log-prefix | tail -2'
 ```
-Expected: `migrate Exited (0)` mit `at head` — damit ist auch das Postgres-Flex-Passwort verifiziert; `api`, `accounts`, `chat`, `frontend` healthy; `caddy Up`; in der Ports-Spalte nur `caddy` mit `0.0.0.0:80`/`443` und `frontend` mit `127.0.0.1:3000`. Kein `postgres`, `ollama`, `mailpit`.
+Expected: `migrate Exited (0)` with `at head` — this also verifies the Postgres Flex password; `api`, `accounts`, `chat`, `frontend` healthy; `caddy Up`; in the ports column only `caddy` with `0.0.0.0:80`/`443` and `frontend` with `127.0.0.1:3000`. No `postgres`, `ollama`, `mailpit`.
 
-Bei `migrate`-Fehler `password authentication failed`: Passwort in `/opt/normly/.env` stimmt nicht mit Postgres Flex überein — Nutzer bitten, es zu prüfen (nicht selbst ändern). Bei `could not connect`: ACL der Flex-Instanz prüfen (muss `213.17.23.196/32` enthalten).
+On a `migrate` error `password authentication failed`: the password in `/opt/normly/.env` does not match Postgres Flex — ask the owner to check it (do not change it yourself). On `could not connect`: check the ACL of the Flex instance (must contain `213.17.23.196/32`).
 
-- [ ] **Step 6: TLS und Ende-zu-Ende über die öffentliche Adresse**
+- [ ] **Step 6: TLS and end-to-end via the public address**
 
-Run (vom Entwicklungsrechner):
+Run (from the development machine):
 ```bash
 curl -sS -o /dev/null -w "https://app.normly.ai -> http=%{http_code} ssl=%{ssl_verify_result} issuer=%{certs}\n" https://app.normly.ai/ 2>/dev/null | cut -c1-80
 curl -s -o /dev/null -w "http redirect %{http_code} -> %{redirect_url}\n" http://app.normly.ai/
 curl -s -m 180 -X POST https://app.normly.ai/api/chat -H "Content-Type: application/json" -d '{"message":"Was regelt die DGUV Vorschrift 1?","jurisdiction":"DE","language":"de"}' | head -c 400; echo
 ssh ubuntu@213.17.23.196 'cd /opt/normly/src && docker compose logs chat --since 5m 2>&1 | grep -ciE "model-serving|chat/completions|200 OK" || true'
 ```
-Expected: `http=200 ssl=0` (gültiges Let's-Encrypt-Zertifikat); HTTP → 308/301 auf `https://app.normly.ai/`; Chat liefert eine Antwort (bei leerer Datenbank die Fallback-Antwort) ohne 5xx; die Chat-Logs zeigen den Aufruf an Model Serving beziehungsweise keinen Fehler. Für eine echte Gemma-Antwort braucht es Segmente in der Datenbank — der Datenimport ist TP4; alternativ eine Mini-Ingestion per `docker compose run --rm pipeline ingest dguv --directory /data/raw/dguv` mit einer einzelnen PDF unter `/opt/normly/src/data/raw/dguv/` durchführen und die Chat-Probe wiederholen.
+Expected: `http=200 ssl=0` (valid Let's Encrypt certificate); HTTP → 308/301 to `https://app.normly.ai/`; chat delivers an answer (with an empty database, the fallback answer) without 5xx; the chat logs show the call to Model Serving or no error. A real Gemma answer needs segments in the database — the data import is TP4; alternatively, run a mini ingestion via `docker compose run --rm pipeline ingest dguv --directory /data/raw/dguv` with a single PDF under `/opt/normly/src/data/raw/dguv/` and repeat the chat probe.
 
-- [ ] **Step 7: Firewall-Nachweis**
+- [ ] **Step 7: Firewall evidence**
 
 Run: `for p in 8000 3000 5432 11434 8025; do timeout 3 bash -c "cat < /dev/null > /dev/tcp/213.17.23.196/$p" 2>/dev/null && echo "port $p OPEN (!)" || echo "port $p closed"; done`
-Expected: alle fünf `closed`; nur 22, 80, 443 sind offen.
+Expected: all five `closed`; only 22, 80, 443 are open.
 
-- [ ] **Step 8: Befunde festhalten**
+- [ ] **Step 8: Record the findings**
 
-Wenn in Step 1–7 Korrekturen an Dockerfiles, Compose oder Code nötig waren, sind sie in den jeweiligen Dateien committet (Conventional-Commit `fix(build): …`). Abschließend die Ergebnisse (Image-Größen, Startzeiten, Besonderheiten) als Abschnitt „Verifikation 2026-10-xx" an das Ende der Spec `docs/superpowers/specs/2026-10-01-tp1-containerisation-design.md` anfügen und committen:
+If corrections to Dockerfiles, Compose or code were needed in Steps 1–7, they are committed in the respective files (Conventional Commit `fix(build): …`). Finally, append the results (image sizes, start-up times, peculiarities) as a section "Verification 2026-10-xx" to the end of the spec `docs/superpowers/specs/2026-10-01-tp1-containerisation-design.md` and commit:
 
 ```bash
 git add docs/superpowers/specs/2026-10-01-tp1-containerisation-design.md
@@ -1329,18 +1329,18 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ---
 
-### Task 10: Dokumentation — ADR-022, CLAUDE.md, SRS, Self-Hosting-Guide
+### Task 10: Documentation — ADR-022, CLAUDE.md, SRS, self-hosting guide
 
 **Files:**
-- Modify: `docs/adr/README.md` (ADR-022 vor `## Offene Punkte`, Zeile 745; Zeile der offenen Punkte „Öffentlicher Lesezugriff auf STACKIT Container Registry" entfernen)
+- Modify: `docs/adr/README.md` (ADR-022 before `## Offene Punkte`, line 745; remove the open-items row "Public read access to STACKIT Container Registry" (wording at the time))
 - Modify: `CLAUDE.md:33-35`
-- Modify: `docs/srs/03-requirements.md` (REQ-DIST-001 „Weitere Informationen"; Abschnitt 3.5.9)
+- Modify: `docs/srs/03-requirements.md` (REQ-DIST-001 "Further information"; section 3.5.9)
 - Modify: `docs/guide/self-hosting.md`, `docs/guide/getting-started.md`
-- Modify: `frontend/README.md` (Hinweis unter „Environment variables")
+- Modify: `frontend/README.md` (note under "Environment variables")
 
-- [ ] **Step 1: ADR-022 einfügen**
+- [ ] **Step 1: Insert ADR-022**
 
-Direkt vor `## Offene Punkte` in `docs/adr/README.md` einfügen:
+Insert directly before `## Offene Punkte` in `docs/adr/README.md`:
 
 ```markdown
 ## ADR-022 — Betriebsumgebung Phase 1 und Modellherkunftsregel
@@ -1404,11 +1404,11 @@ Secrets-Bezug per AppRole (TP3), Rollout/Rollback/Datenstand (TP4). Details:
 
 ```
 
-Zusätzlich in der Tabelle unter `## Offene Punkte` die Zeile `| Öffentlicher Lesezugriff auf STACKIT Container Registry | offen | im Portal prüfen |` entfernen (durch ADR-021 gegenstandslos: Registry ist GHCR).
+In addition, remove the row `| Öffentlicher Lesezugriff auf STACKIT Container Registry | offen | im Portal prüfen |` from the table under `## Offene Punkte` (moot because of ADR-021: the registry is GHCR).
 
-- [ ] **Step 2: CLAUDE.md ergänzen**
+- [ ] **Step 2: Extend CLAUDE.md**
 
-Nach dem Punkt „Der Kern darf nicht von proprietären Bestandteilen abhängen." (Zeile 33–34) einfügen:
+After the item "The core must not depend on proprietary components." (lines 33–34), insert:
 
 ```markdown
 - **Sprachmodelle nur als Open-Weight-Modelle mit OSI-Lizenz, betrieben auf
@@ -1416,23 +1416,23 @@ Nach dem Punkt „Der Kern darf nicht von proprietären Bestandteilen abhängen.
   Herkunft ist Präferenz, nicht Pflicht. → ADR-022
 ```
 
-- [ ] **Step 3: SRS anpassen**
+- [ ] **Step 3: Adjust the SRS**
 
-In `docs/srs/03-requirements.md`, REQ-DIST-001, Zeile `**Weitere Informationen:** Gilt auch für ML-Daten und Logs.` ersetzen durch:
+In `docs/srs/03-requirements.md`, REQ-DIST-001, replace the line `**Weitere Informationen:** Gilt auch für ML-Daten und Logs.` with:
 
 ```markdown
 **Weitere Informationen:** Gilt auch für ML-Daten und Logs. **Befristete Abweichung (ADR-022, 2026-09-23):** In Phase 1 existiert nur eine Produktionsumgebung auf STACKIT; das lokale Compose-Setup übernimmt die Rolle der Staging-Umgebung. Aufzuheben, sobald es Nutzer gibt, die ein fehlerhaftes Deployment treffen würde.
 ```
 
-In Abschnitt 3.5.9 den Satz `Als Quell- und Build-Plattform wird STACKIT Git (Forgejo) mit STACKIT Pipelines eingesetzt.` ersetzen durch:
+In section 3.5.9, replace the sentence `Als Quell- und Build-Plattform wird STACKIT Git (Forgejo) mit STACKIT Pipelines eingesetzt.` with:
 
 ```markdown
 Quellcode, CI/CD und Container-Registry des freien Kerns liegen seit ADR-021 auf GitHub (REQ-GIT-001, REQ-BUILD-002). Für Sprachmodelle gilt ADR-022: ausschließlich Open-Weight-Modelle mit OSI-anerkannter Lizenz, betrieben auf STACKIT-Infrastruktur; keine Anfrage erreicht den Modellhersteller.
 ```
 
-- [ ] **Step 4: Self-Hosting-Guide schreiben**
+- [ ] **Step 4: Write the self-hosting guide**
 
-`docs/guide/self-hosting.md` vollständig ersetzen:
+Replace `docs/guide/self-hosting.md` completely:
 
 ````markdown
 # Self-Hosting
@@ -1528,9 +1528,9 @@ Sources: `eur-lex`, `dguv`, `baua`. Other maintenance commands:
 - No Helm chart. Kubernetes is not a target for the free core right now.
 ````
 
-- [ ] **Step 5: Getting-Started-Seite und Frontend-README anpassen**
+- [ ] **Step 5: Adjust the getting-started page and the frontend README**
 
-`docs/guide/getting-started.md` vollständig ersetzen:
+Replace `docs/guide/getting-started.md` completely:
 
 ```markdown
 # Getting Started
@@ -1547,7 +1547,7 @@ The first public release with a published knowledge base is planned for
 December 2026.
 ```
 
-In `frontend/README.md`, direkt unter der Überschrift `## Environment variables` einfügen:
+In `frontend/README.md`, insert directly under the heading `## Environment variables`:
 
 ```markdown
 When running via the repository's `compose.yaml`, the three `*_BASE_URL`
@@ -1555,13 +1555,13 @@ variables are set by Compose to the internal service names; only the
 optional branding variables and `NORMLY_PUBLIC_BASE_URL` come from `.env`.
 ```
 
-- [ ] **Step 6: Doku-Build gegen die Baseline prüfen**
+- [ ] **Step 6: Check the docs build against the baseline**
 
 Run:
 ```bash
 docker run --rm -v "$PWD":/repo:ro -w /tmp python:3.12 bash -c 'cp -r /repo /work && cd /work && pip install -q "zensical==0.0.60" "mkdocstrings==1.0.6" "mkdocstrings-python==2.0.8" "griffelib==2.3.0" >/dev/null 2>&1; zensical build 2>&1' | sed 's/\x1b\[[0-9;]*m//g' | grep -E "issues found|does not exist"
 ```
-Expected: `3 issues found` (die drei bekannten Wiki-Link-Treffer in `docs/superpowers/specs/`), keine neuen `does not exist`-Zeilen. Der ADR-022-Anker in `self-hosting.md` muss exakt `#adr-022-betriebsumgebung-phase-1-und-modellherkunftsregel` lauten (Umlaute werden zu Grundbuchstaben, Sonderzeichen entfallen — vgl. die vorhandenen Anker in `docs/srs/README.md`).
+Expected: `3 issues found` (the three known wiki-link hits in `docs/superpowers/specs/`), no new `does not exist` lines. The ADR-022 anchor in `self-hosting.md` must be exactly `#adr-022-betriebsumgebung-phase-1-und-modellherkunftsregel` (umlauts become their base letters, special characters are dropped — cf. the existing anchors in `docs/srs/README.md`).
 
 - [ ] **Step 7: Commit**
 
@@ -1574,9 +1574,9 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ---
 
-### Task 11: Gesamtprüfung und PR
+### Task 11: Overall check and PR
 
-- [ ] **Step 1: Alle Testsuiten lokal**
+- [ ] **Step 1: All test suites locally**
 
 Run:
 ```bash
@@ -1586,23 +1586,23 @@ Run:
 (cd chat && .venv/bin/pytest -q --ignore=tests/test_structural_end_to_end.py 2>&1 | tail -2)
 (cd frontend && npm test 2>&1 | tail -4)
 ```
-Expected: alle grün (Ollama-Tests `skipped`). `core/tests/pipeline` ist lokal langsam (Docling) und von diesem Teilprojekt nicht berührt; wer Zeit hat, lässt es mitlaufen.
+Expected: all green (Ollama tests `skipped`). `core/tests/pipeline` is slow locally (Docling) and not touched by this sub-project; whoever has time lets it run along.
 
-- [ ] **Step 2: Lizenzheader und Secrets-Scan**
+- [ ] **Step 2: License header and secrets scan**
 
 Run:
 ```bash
 for f in docker/python.Dockerfile docker/caddy/Caddyfile frontend/Dockerfile compose.yaml .env.example scripts/sync-to-vm.sh core/src/normly_core/migrate.py chat/src/normly_chat/llm_client.py core/tests/test_migrate.py chat/tests/test_llm_client.py .dockerignore frontend/.dockerignore; do grep -q "SPDX-License-Identifier: AGPL-3.0-or-later" "$f" && echo "ok  $f" || echo "MISSING header: $f"; done
 git grep -nE "(sk-|Bearer [A-Za-z0-9]{20,}|postgresql\+psycopg://[^:]+:[^@c][^@]*@)" -- ':!docs/superpowers' ':!*.md' || echo "no credential-looking strings"
 ```
-Expected: alle `ok`; `no credential-looking strings` (die einzige URL mit Passwort ist `change-me` in `.env.example`).
+Expected: all `ok`; `no credential-looking strings` (the only URL with a password is `change-me` in `.env.example`).
 
-- [ ] **Step 3: Branch-Zustand**
+- [ ] **Step 3: Branch state**
 
 Run: `git status --short && git log --oneline main..HEAD`
-Expected: Arbeitsbaum sauber; Commit-Liste der Tasks 1–10 plus Spec/Plan-Commits.
+Expected: working tree clean; commit list of Tasks 1–10 plus spec/plan commits.
 
-- [ ] **Step 4: Push und PR — nur nach ausdrücklicher Freigabe des Nutzers** (löst einen CI-Lauf aus)
+- [ ] **Step 4: Push and PR — only after the owner's explicit approval** (triggers a CI run)
 
 ```bash
 git push -u origin docs/tp1-containerisation-design
@@ -1635,8 +1635,8 @@ PRBODY
 
 ## Self-Review
 
-**Spec coverage:** Image-Aufbau (Tasks 3–6), Compose mit Profilen, Migrate-Einmal-Dienst, Healthchecks, nur Frontend/Caddy erreichbar (Task 8, geprüft in Task 9 Step 7), LLM-Client mit Provider-Auswahl und Tests (Task 7), Modellgewichte im Image ohne Laufzeit-Download (Task 3, geprüft in Task 9 Step 3), Docling-Modelle nur im Pipeline-Image (Task 5), Ingestion auf der VM per `run` (Task 8 Profil `tools`, Guide in Task 10), Dokumentation ADR-022/CLAUDE.md/SRS/Self-Hosting/Frontend-README (Task 10), Verifikation beider Pfade inklusive Idempotenz (Task 9). BFF-Verifikation aus der Spec: in Task 8 implizit — Backends ohne `ports`, Frontend-Route-Handler nutzen `getBackendUrls()` serverseitig (`frontend/src/lib/backend-urls.ts`); Client-Komponenten rufen nur `/api/...`. Sollte in Task 9 Step 2 eine Seite im Browser gegen `api:8000` laufen wollen, zeigt sich das als Netzwerkfehler und wird dort behoben.
+**Spec coverage:** image structure (Tasks 3–6), Compose with profiles, migrate one-off service, healthchecks, only frontend/Caddy reachable (Task 8, checked in Task 9 Step 7), LLM client with provider selection and tests (Task 7), model weights in the image without runtime download (Task 3, checked in Task 9 Step 3), Docling models only in the pipeline image (Task 5), ingestion on the VM via `run` (Task 8 profile `tools`, guide in Task 10), documentation ADR-022/CLAUDE.md/SRS/self-hosting/frontend README (Task 10), verification of both paths including idempotency (Task 9). BFF verification from the spec: implicit in Task 8 — backends without `ports`, frontend route handlers use `getBackendUrls()` server-side (`frontend/src/lib/backend-urls.ts`); client components only call `/api/...`. Should a page in the browser try to reach `api:8000` in Task 9 Step 2, this shows up as a network error and is fixed there.
 
-**Type consistency:** `build_llm_client_from_env`, `get_llm_client`, `app.state.llm_client`, `LlmClient`, `OpenAiCompatibleClient(base_url, model, api_key, *, timeout, transport)` sind in Task 7 und 8 (`.env.example`) identisch benannt; `normly_core.migrate.main`/`upgrade_to_head` in Task 2 und 5/8 (`python -m normly_core.migrate`) konsistent; `NORMLY_CORE_DIR` Default `/app/core` entspricht dem `COPY core /app/core` in Task 3.
+**Type consistency:** `build_llm_client_from_env`, `get_llm_client`, `app.state.llm_client`, `LlmClient`, `OpenAiCompatibleClient(base_url, model, api_key, *, timeout, transport)` are named identically in Tasks 7 and 8 (`.env.example`); `normly_core.migrate.main`/`upgrade_to_head` consistent in Task 2 and 5/8 (`python -m normly_core.migrate`); `NORMLY_CORE_DIR` default `/app/core` matches the `COPY core /app/core` in Task 3.
 
-**Offen gelassen, bewusst:** exakte Ollama- und Mailpit-Tags (Task 8 Step 1–2 ermitteln sie). Verifiziert beim Schreiben: `EmbeddingModel.embed_query` existiert, `db_url`/`CORE_DIR` in `core/tests/conftest.py`, Frontend-Routen `/api/auth/register` und `/api/chat`, `ChatRequest` mit `message`/`jurisdiction`/`language`.
+**Left open, deliberately:** exact Ollama and Mailpit tags (Task 8 Steps 1–2 determine them). Verified while writing: `EmbeddingModel.embed_query` exists, `db_url`/`CORE_DIR` in `core/tests/conftest.py`, frontend routes `/api/auth/register` and `/api/chat`, `ChatRequest` with `message`/`jurisdiction`/`language`.

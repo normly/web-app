@@ -21,17 +21,17 @@ Zensical plugin), Python 3.12 (matches other services' CI containers).
 
 ## Global Constraints
 
-- No US services for build, operation, data, secrets, or deployment (CLAUDE.md,
-  non-negotiable). Concretely for this project: the built site must not load
+- No US services for build, operation, data, secrets, or deployment (CLAUDE.md
+  wording at the time, non-negotiable). Concretely for this project: the built site must not load
   fonts from `fonts.googleapis.com` / `fonts.gstatic.com`.
 - No GitHub as a contribution facade (ADR-019) — no new links to
   `github.com/sn4kez/normly-app` anywhere in the site content.
 - Code, identifiers, and commits in English; documentation and UI in German
-  (CLAUDE.md, "Sprache"). All new `docs/*.md` content in this plan is German,
+  (CLAUDE.md wording at the time, section "Language"). All new `docs/*.md` content in this plan is German,
   matching the existing `docs/adr/`, `docs/srs/`, and old-branch content.
 - Commits need `Signed-off-by` (DCO) — use `git commit -s`.
 - No direct push to `main` — this work should land via merge request once
-  complete, per CLAUDE.md ("Kein direkter Push auf `main`"). Ask the user
+  complete, per CLAUDE.md ("No direct push to `main`"). Ask the user
   before pushing/opening a merge request, per the standing "confirm before
   CI runs" rule — pushing triggers the STACKIT pipeline.
 - New source files get the AGPL-3.0 license header where applicable; the
@@ -384,7 +384,8 @@ praktisch nicht durchführbar ist. Details:
 [ADR-014](../adr/README.md#adr-014-encryption-cryptographic-erasure-per-publisher).
 ```
 
-(New paragraph "Getrennte Datenhaltung je Herausgeber" added — the old
+(New paragraph "Getrennte Datenhaltung je Herausgeber", i.e. separate data
+storage per publisher, added — the old
 branch didn't cover ADR-014, but it's directly relevant to the license
 model and was missing.)
 
@@ -675,7 +676,7 @@ keine etablierte Entsprechung gibt.
 (Adds a **Work** entry — new domain term introduced by the Normtracker work
 since the old branch was written on 2026-08-27; matches
 `core/src/normly_core/graph/domain.py`'s `Work` dataclass and CLAUDE.md's
-"Ein Regelwerk = ein Knoten, sprachunabhängig" identifier rule.)
+"One standard = one node, language-independent" identifier rule.)
 
 - [ ] **Step 2: Extend `nav`**
 
