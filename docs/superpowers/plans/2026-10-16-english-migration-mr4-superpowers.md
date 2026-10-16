@@ -14,7 +14,7 @@
 - Only the main session commits. Subagents never run `git add/commit/config/checkout/reset/stash`. Every commit: `git commit -s` plus the trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Conventional Commits, English.
 - **Binding terminology:** `docs/glossary.md`, section "Terminology (binding)", incl. the three-way withdrawal/retired/withdrawn rule and the capture/acquisition split. Translators read it first.
 - **Historical references (owner decision 2026-10-16):** file names and links are updated to today's names; passages quoted from the SRS, the ADRs or CLAUDE.md are replaced by the current English wording of the same passage, verbatim (look it up in `docs/srs/`, `docs/adr/README.md`, `CLAUDE.md`); line numbers stay as historical information.
-- **Code blocks stay byte-identical** (except file-name updates done in Task 3). Translate prose, headings, tables, list items and inline text only. Inline code spans stay unchanged.
+- **Code blocks** (owner decision 2026-10-16): German prose inside fenced code blocks and inline code is translated too — comments, diagrams, Markdown/doc content a plan once wrote, quotes of then-German ADR/SRS lines, placeholders. **Real code stays byte-identical:** commands, identifiers, paths, and every string literal the product, the tests or the adapters actually use (German UI strings, `de.json` values, regex patterns, German source text in fixtures, commit-message strings of past commits). Checked with `$S/fences_german_only.py` (only lines that were German may change; every changed line is listed for review).
 - **Wiki-link constructs:** the docs build's CI guard expects exactly 3 known `[[…]]` warnings, which come from specs in this directory. Every existing `[[…]]` construct stays byte-identical. Translators' `[[QUESTION n]]` markers must be removed before any commit.
 - Faithful translation: no content changes, no corrections; outdated statements stay (these are records of past work). Obvious typos are translated as intended (owner rule). Modal force exact. `Normenausschuss` and `Trägerorganisation` stay German. German statute names stay German with an English gloss at first mention per file.
 - Owner decisions for this MR: Auftraggeber → owner; Fassung/Fassungen → version(s) (edition stays for Ausgabestand); Nutzerwunsch/Nutzerentscheidung → owner's request/owner decision.
@@ -220,14 +220,24 @@ Each batch task:
 
 ```bash
 S=<path>; cd /home/snake/Dokumente/Projekte/01_normly/normly-app
-for f in <files>; do echo "== $f"; python3 -I $S/parity.py $S/orig/sp/$f $f; python3 -I $S/fences_same.py $S/orig/sp/$f $f; done
+for f in <files>; do echo "== $f"; python3 -I $S/parity.py $S/orig/sp/$f $f; python3 -I $S/fences_german_only.py $S/orig/sp/$f $f; done
 python3 -I $S/german_left.py <files>
 git diff --stat
 <build recipe>
 ```
-Expected: `PARITY OK` and `FENCES OK` for every file; no suspect lines except justified quoted German (product UI strings, German source text in fixtures — listed in the report); only the batch's files changed; build check `1`.
+Expected: `PARITY OK` and `FENCES GERMAN-ONLY OK` for every file (every changed code line is real-code-safe — listed in the report); no suspect lines except justified quoted German (product UI strings, German source text in fixtures — listed in the report); only the batch's files changed; build check `1`.
 
 - [ ] **Step 4: Commit** — `docs: translate <short description> to English` (e.g. "translate the August specs (data model, ingestion, accounts) to English"), with `-s` and the Co-Authored-By trailer.
+
+---
+
+### Task 14b: Translate German prose inside code blocks (owner decision 2026-10-16)
+
+Covers every file under `docs/superpowers/` whose fenced blocks contain German that is not real code — including the specs and plans translated in Tasks 4–11 and the plans that were English from the start. Batches: (a) all specs; (b) plans 2026-08-* and 2026-09-0*; (c) plans 2026-09-1* and 2026-10-*. Files: `git ls-files 'docs/superpowers/*.md'` filtered by German lines inside fences.
+
+- [ ] **Step 1:** For each batch, translate German comments, diagrams, Markdown/doc content and quotes inside fenced blocks and inline code. Keep real code byte-identical (see Global Constraints). When unsure whether a German string is a real literal, check the code with one `git grep` and keep it if it occurs there.
+- [ ] **Step 2: Checks per file:** `python3 -I $S/fences_german_only.py $S/orig/sp/<f> <f>` (Tasks 4–11 files: compare against the committed HEAD before this task, saved to `$S/orig14b/`), `parity.py`, build check `1`. List every changed code-block line in the report.
+- [ ] **Step 3: Commit per batch** — `docs: translate German prose inside code blocks (<batch>)`.
 
 ---
 
