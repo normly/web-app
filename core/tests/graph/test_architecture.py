@@ -32,10 +32,10 @@ UNGATED_READS = ("get_document_unchecked", "list_designations", "list_titles")
 
 def test_document_repository_protocol_exposes_no_ungated_read():
     """
-    The design spec: "Es gibt keine Methode, die Dokumente ungefiltert
-    zurückgibt." The ungated reads remain available on the concrete
-    implementation for pipeline and identity-resolution use, but they are not
-    part of the public Protocol any API layer programs against.
+    The design spec: "The public protocol `DocumentRepository` has no method
+    that returns documents unfiltered." The ungated reads remain available on
+    the concrete implementation for pipeline and identity-resolution use, but
+    they are not part of the public Protocol any API layer programs against.
     """
     protocol_methods = {
         name for name in vars(DocumentRepository) if not name.startswith("_")

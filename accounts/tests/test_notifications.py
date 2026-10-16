@@ -73,7 +73,7 @@ def test_notification_endpoints_require_authentication(client):
 
 def test_email_only_preference_hides_notifications_from_the_in_app_feed(client, db_session):
     """
-    "Nur per E-Mail" has to be distinguishable from "beides": the rows are
+    "Only by email" has to be distinguishable from "both": the rows are
     still created (for dedup and for the mail itself), but the bell feed
     hides them. The account's CURRENT preference governs the CURRENT display
     -- no preference-at-creation-time is tracked per row.

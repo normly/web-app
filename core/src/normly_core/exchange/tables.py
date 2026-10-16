@@ -4,10 +4,10 @@
 """
 Which table belongs to which backup/exchange group.
 
-Three groups (TP4 spec, Teil 2):
+Three groups (TP4 spec, Part 2):
 
 * knowledge -- the free knowledge base. Reproducible from source deliveries,
-  distributed as a versioned dump (Teil 3), never part of the daily backup.
+  distributed as a versioned dump (Part 3), never part of the daily backup.
 * user -- accounts, chats, watchlists, notifications. Small, irreplaceable,
   backed up daily. Rows reference knowledge rows by foreign key, which is why
   the dump must keep IDs unchanged.
@@ -69,7 +69,7 @@ UNMANAGED_TABLES: tuple[str, ...] = ("alembic_version",)
 TOMBSTONE_TABLES: tuple[str, ...] = ("work", "document", "edge")
 
 #: Tables of the tombstone support file (parents first): the retired identifier
-#: rows plus their foreign-key parents (ADR-026, Erweiterung 2).
+#: rows plus their foreign-key parents (ADR-026, extension 2).
 TOMBSTONE_SUPPORT_TABLES: tuple[str, ...] = ("source", "delivery", "work", "document", "edge")
 
 #: Provenance only: source and delivery. Never deleted by an import (the

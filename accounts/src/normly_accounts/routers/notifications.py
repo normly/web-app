@@ -33,7 +33,7 @@ def _notification_response(notification) -> NotificationResponse:
 def list_notifications(
     account: Account = Depends(get_current_account), session: Session = Depends(get_session),
 ) -> list[NotificationResponse]:
-    # "Nur per E-Mail" means exactly that: the rows are still created (the
+    # "Only by email" means exactly that: the rows are still created (the
     # notification table is what makes notify-watchers' dedup and the mail
     # itself work), but the in-app feed hides them -- otherwise EMAIL and
     # BOTH would be indistinguishable in the UI. The account's CURRENT

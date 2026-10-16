@@ -165,7 +165,7 @@ def test_password_reset_request_still_succeeds_when_email_delivery_fails(client,
         )
 
     # A failed send must not fail the request -- the spec is explicit that
-    # registration/reset requests "schlagen NICHT fehl" when SMTP is down;
+    # registration/reset requests "do NOT fail" when SMTP is down;
     # the token is already persisted, delivery is a separate concern.
     assert response.status_code == 200
     assert response.json() == {"status": "if_the_account_exists_an_email_was_sent"}

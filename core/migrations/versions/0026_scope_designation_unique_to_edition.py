@@ -3,7 +3,7 @@
 
 """scope the designation unique constraint to the edition
 
-A designation identifies one edition of a Regelwerk, not the Regelwerk as a
+A designation identifies one edition of a standard, not the standard as a
 whole -- keyed on (issuer, designation) alone, a genuinely new edition
 sharing its predecessor's exact designation string (e.g. a DGUV Vorschrift
 reissued under the same "DGUV Vorschrift N" number) could never be recorded

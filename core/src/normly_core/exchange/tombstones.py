@@ -2,7 +2,7 @@
 # Copyright (C) 2026 normly contributors
 
 """
-Tombstone support file (ADR-026, Erweiterung 2).
+Tombstone support file (ADR-026, extension 2).
 
 The backup carries the retired identifier rows and their foreign-key parents
 as one small JSON document, because no knowledge-base dump contains them and

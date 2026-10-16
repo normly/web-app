@@ -138,7 +138,7 @@ def _classify(
 def test_re_asserting_an_identical_active_edge_returns_the_same_edge(db_session):
     """
     Re-running an ingestion step is the normal case, not an error
-    (CLAUDE.md: "Verarbeitungsschritte idempotent").
+    (CLAUDE.md: "Processing steps idempotent").
     """
     old, new, delivery = _make_two_documents(db_session)
     edge_repo = PostgresEdgeRepository(db_session)

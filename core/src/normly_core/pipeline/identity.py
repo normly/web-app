@@ -56,7 +56,7 @@ def resolve(record: RawRecord, document_repo: DocumentRepository) -> IdentityRes
             # Same designation, but not this exact edition -- find the
             # edition immediately preceding record.edition (not merely "an
             # earlier edition" by insertion time), to distinguish "new
-            # edition of a known Regelwerk" from "genuinely first
+            # edition of a known standard" from "genuinely first
             # appearance." find_previous_edition looks strictly backward in
             # edition order, so a record whose own edition is actually the
             # OLDEST known (e.g. an archive edition arriving after its
