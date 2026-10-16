@@ -118,8 +118,8 @@ class BauaAdapter:
 
     def classify_rights(self, record: RawRecord) -> RightsRule:
         # Narrower than the Protocol's `RightsRule | None` on purpose: every
-        # TRGS/TRBS/TRBA is an amtliche Bekanntmachung (official notice), so this
-        # source is always classifiable and never hands the runner a "cannot
+        # TRGS/TRBS/TRBA is an amtliche Bekanntmachung (official announcement), so
+        # this source is always classifiable and never hands the runner a "cannot
         # classify". See design spec, "Legal basis: category A".
         return RightsRule(
             jurisdiction="DE", may_process=True, may_index_fulltext=True,

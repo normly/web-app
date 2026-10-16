@@ -4,7 +4,7 @@
 """
 The source registry the pipeline ingests from.
 
-Every source needs a registry entry with a legal-basis category before a single
+Every source needs a register entry with a legal-basis category before a single
 byte of it may be processed ("Every source needs a register entry with a
 category"). This module is where that entry is declared for the adapters the
 CLI ships with, and `resolve_source` is what turns the declaration into the
