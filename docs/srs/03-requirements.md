@@ -846,201 +846,201 @@ This chapter defines requirements for the structure, licensing and use of the no
 
 **Acceptance test:** Two exports for different jurisdictions demonstrably deliver different scopes, each of them permissible.
 
-## 3.10 Inhaltepartnerschaften und Vergütung
+## 3.10 Content partnerships and remuneration
 
-Dieses Kapitel definiert Anforderungen an die Zulieferung lizenzierter Normeninhalte durch herausgebende Organisationen sowie an deren nachvollziehbare Vergütung.
+This chapter defines requirements for the supply of licensed norm content by publishing organizations and for its traceable remuneration.
 
-### REQ-PART-001 — Partnerportal zur Inhaltezulieferung
+### REQ-PART-001 — Partner portal for content supply
 
-**Statement:** Für herausgebende Organisationen wird ein Portal mit zugehöriger Schnittstelle bereitgestellt, über das Normeninhalte im Volltext zugeliefert werden. Unterstützt werden gängige Austauschformate (mindestens PDF und XML). Je Lieferung werden Herausgeber, Dokumentidentifikator, Ausgabestand, Sprache, Rechtsraum sowie die vertraglich eingeräumten Nutzungsrechte als Metadaten erfasst. Lieferungen sind versioniert; ein Zurückziehen einzelner Dokumente oder ganzer Bestände muss jederzeit möglich sein und wirkt unmittelbar auf die Beantwortung von Anfragen.
+**Statement:** For publishing organizations, a portal with an associated interface is provided through which norm content is supplied in full text. Common exchange formats are supported (at least PDF and XML). Per delivery, publisher, document identifier, edition, language, jurisdiction and the contractually granted rights of use are captured as metadata. Deliveries are versioned; withdrawing individual documents or entire collections must be possible at any time and takes immediate effect on the answering of queries.
 
-**Rationale:** Die Zulieferung von Volltexten ist die Voraussetzung für den entscheidenden Sprung im Datenbestand. Ein definierter, nachvollziehbarer Zulieferweg senkt die Hürde für Herausgeber und ist Bestandteil der Verhandlungsposition. Die jederzeitige Rückziehbarkeit ist Voraussetzung dafür, dass Herausgeber die Kontrolle über ihre Werke behalten, und damit Bedingung für den Vertragsabschluss.
+**Rationale:** The supply of full texts is the prerequisite for the decisive leap in the data collection. A defined, traceable supply path lowers the hurdle for publishers and is part of the negotiating position. The ability to withdraw at any time is the prerequisite for publishers keeping control over their works, and thus a condition for concluding the contract.
 
-**Akzeptanzkriterium:** Zulieferung, Statusverfolgung und Rückzug sind über das Portal ohne technische Unterstützung durch normly durchführbar; jede Lieferung ist einem Vertrag zugeordnet; Rechte-Metadaten sind Pflichtfelder.
+**Acceptance criteria:** Supply, status tracking and withdrawal can be carried out via the portal without technical support from normly; every delivery is assigned to a contract; rights metadata are mandatory fields.
 
-**Abnahmekriterium:** Ein Herausgeber liefert einen Bestand ein, ruft dessen Verarbeitungsstatus ab und zieht ein Dokument zurück; das zurückgezogene Dokument wird ab diesem Zeitpunkt nicht mehr zur Beantwortung herangezogen.
+**Acceptance test:** A publisher delivers a collection, retrieves its processing status and withdraws a document; from that point on, the withdrawn document is no longer used for answering.
 
-### REQ-PART-002 — Quellenattribution je Antwort
+### REQ-PART-002 — Source attribution per answer
 
-**Statement:** Für jede erzeugte Antwort wird protokolliert, welche Quellen herangezogen wurden und mit welchem Anteil sie zur Antwort beigetragen haben. Der Anteil bemisst sich nach der Anzahl der tatsächlich in die Antwort eingegangenen Passagen je Quelle im Verhältnis zur Gesamtzahl der eingegangenen Passagen. Passagen, die abgerufen, aber nicht verwendet wurden, bleiben unberücksichtigt. Wird eine Anfrage vollständig aus dem Referenzgraph beantwortet, wird dies als eigene Kategorie erfasst.
+**Statement:** For every generated answer, it is logged which sources were used and with which share they contributed to the answer. The share is measured by the number of passages per source that actually went into the answer, relative to the total number of passages that went into it. Passages that were retrieved but not used are disregarded. If a query is answered entirely from the reference graph, this is captured as a separate category.
 
-**Rationale:** Die Attributionsdaten sind die Grundlage jeder Umsatzbeteiligung und lassen sich nachträglich nicht rekonstruieren. Sie müssen daher ab Inbetriebnahme erhoben werden, unabhängig davon, ob bereits ein Vergütungsvertrag besteht. Die Erfassung gehört in den freien Kern, weil sie ohnehin für die Quellenangabe erforderlich ist; nur die Auswertung ist kommerziell.
+**Rationale:** The attribution data are the basis of any revenue share and cannot be reconstructed retroactively. They must therefore be collected from the start of operation, regardless of whether a remuneration contract already exists. The capture belongs in the free core because it is required for the citation anyway; only the evaluation is commercial.
 
-**Akzeptanzkriterium:** Je Antwort liegt ein Attributionsdatensatz mit Quelle, Passagenanzahl und resultierendem Anteil vor; die Anteile je Antwort summieren sich auf 100 Prozent; die Erfassung ist unabhängig von bestehenden Verträgen aktiv.
+**Acceptance criteria:** Per answer, there is an attribution record with source, number of passages and resulting share; the shares per answer add up to 100 percent; the capture is active independently of existing contracts.
 
-**Abnahmekriterium:** Für eine Antwort, die Passagen aus drei verschiedenen Herausgebern verwendet, wird die Verteilung korrekt und nachvollziehbar ausgewiesen.
+**Acceptance test:** For an answer that uses passages from three different publishers, the distribution is shown correctly and traceably.
 
-### REQ-PART-003 — Umsatzbeteiligung und prüffähige Abrechnung
+### REQ-PART-003 — Revenue share and auditable billing
 
-**Statement:** Auf Basis der Attributionsdaten wird je Abrechnungszeitraum und Herausgeber ein anteiliger Vergütungsbetrag ermittelt. Grundlage ist der vertraglich vereinbarte Anteil am zurechenbaren Umsatz, verteilt nach dem Attributionsanteil gemäß REQ-PART-002. Herausgeber erhalten einen Abrechnungsbericht, der Zeitraum, Anfragevolumen, Attributionsanteil, Berechnungsgrundlage und resultierenden Betrag ausweist und maschinenlesbar exportierbar ist.
+**Statement:** On the basis of the attribution data, a proportional remuneration amount is determined per billing period and publisher. The basis is the contractually agreed share of the attributable revenue, distributed according to the attribution share per REQ-PART-002. Publishers receive a billing report that shows period, query volume, attribution share, calculation basis and resulting amount and can be exported in machine-readable form.
 
-**Rationale:** Ein Herausgeber, der eine Umsatzbeteiligung erwartet, wird die Zahlen prüfen wollen. Ohne unabhängig nachvollziehbare Berechnung wird über Vertrauen verhandelt statt über einen Prozentsatz. Eine prüffähige Abrechnung verbessert die Verhandlungsposition erheblich und entschärft den Konflikt, dass normly als Wettbewerber um Verkaufserlöse wahrgenommen wird.
+**Rationale:** A publisher expecting a revenue share will want to check the numbers. Without an independently traceable calculation, the negotiation is about trust instead of a percentage. An auditable billing considerably improves the negotiating position and defuses the conflict that normly is perceived as a competitor for sales revenue.
 
-**Akzeptanzkriterium:** Abrechnungsberichte sind aus den protokollierten Einzeldatensätzen vollständig herleitbar; die Berechnungsvorschrift ist dokumentiert und versioniert; eine Stichprobe einzelner Antworten ist bis in den Bericht nachverfolgbar.
+**Acceptance criteria:** Billing reports can be fully derived from the logged individual records; the calculation rule is documented and versioned; a sample of individual answers can be traced through to the report.
 
-**Abnahmekriterium:** Eine externe Prüfung rechnet einen Abrechnungszeitraum aus den Rohdaten nach und kommt zum selben Ergebnis.
+**Acceptance test:** An external audit recalculates a billing period from the raw data and arrives at the same result.
 
-### REQ-PART-004 — Schutz und Trennung lizenzierter Volltextbestände
+### REQ-PART-004 — Protection and separation of licensed full-text collections
 
-**Statement:** Lizenzierte Volltextbestände werden je Herausgeber logisch getrennt gehalten und ausschließlich im Rahmen der hinterlegten Nutzungsrechte verarbeitet. Ein Bestand darf nicht für Instanzen oder Mandanten herangezogen werden, für die keine entsprechende Berechtigung vorliegt. Der freie Kern und die frei veröffentlichten Exporte enthalten keine lizenzierten Volltextinhalte.
+**Statement:** Licensed full-text collections are kept logically separate per publisher and are processed exclusively within the scope of the stored rights of use. A collection must not be used for instances or tenants for which no corresponding authorization exists. The free core and the freely published exports contain no licensed full-text content.
 
-**Rationale:** Ohne belastbare Trennung ist kein Herausgeber bereit, Volltexte bereitzustellen. Die Trennung ist zugleich Voraussetzung dafür, dass der freie Kern quelloffen und frei verteilbar bleibt, während lizenzierte Bestände nur in berechtigten Instanzen wirksam werden.
+**Rationale:** Without reliable separation, no publisher is willing to provide full texts. The separation is at the same time the prerequisite for the free core remaining open source and freely distributable, while licensed collections only take effect in authorized instances.
 
-**Akzeptanzkriterium:** Berechtigungsprüfung bei jedem Zugriff auf lizenzierte Bestände; Zugriffe werden protokolliert; freie Exporte werden gegen lizenzierte Inhalte automatisiert geprüft.
+**Acceptance criteria:** Authorization check on every access to licensed collections; accesses are logged; free exports are checked automatically against licensed content.
 
-**Abnahmekriterium:** Eine Instanz ohne Berechtigung erhält nachweislich keine Inhalte aus einem lizenzierten Bestand; ein freier Export enthält nachweislich keine lizenzpflichtigen Volltextpassagen.
+**Acceptance test:** An instance without authorization demonstrably receives no content from a licensed collection; a free export demonstrably contains no full-text passages subject to licensing.
 
-## 3.11 Kommerzielle Zusatzdienste
+## 3.11 Commercial add-on services
 
-Dieses Kapitel definiert Anforderungen an die kommerzielle Schicht, die auf dem freien Kern aufsetzt und deren Ausgründung in eine eigene Gesellschaft vorgesehen ist.
+This chapter defines requirements for the commercial layer, which builds on the free core and is intended to be spun off into a separate company.
 
-### REQ-COM-001 — Erweiterungsschnittstelle
+### REQ-COM-001 — Extension interface
 
-**Statement:** Der Kern stellt eine stabile, versionierte Erweiterungsschnittstelle bereit, über die kommerzielle Module ohne Fork angebunden werden können.
+**Statement:** The core provides a stable, versioned extension interface through which commercial modules can be connected without a fork.
 
-**Rationale:** Voraussetzung dafür, dass Kern und kommerzielle Schicht getrennt weiterentwickelt werden können.
+**Rationale:** Prerequisite for core and commercial layer being able to be developed further separately.
 
-**Akzeptanzkriterium:** Erweiterungspunkte dokumentiert und versioniert; ein Beispielmodul lässt sich ohne Änderung am Kern einbinden.
+**Acceptance criteria:** Extension points documented and versioned; an example module can be integrated without changes to the core.
 
-**Abnahmekriterium:** Ein Referenzmodul wird gegen zwei aufeinanderfolgende Kernversionen erfolgreich betrieben.
+**Acceptance test:** A reference module is operated successfully against two consecutive core versions.
 
-### REQ-COM-002 — Integration in Drittsoftware
+### REQ-COM-002 — Integration into third-party software
 
-**Statement:** Für CAD-, ERP- und Expertensysteme werden Integrationen bereitgestellt, die über die öffentliche API des Kerns arbeiten.
+**Statement:** For CAD, ERP and expert systems, integrations are provided that work via the core's public API.
 
-**Rationale:** Zentraler USP der kommerziellen Schicht und größter erwarteter Umsatzträger.
+**Rationale:** Central USP of the commercial layer and largest expected revenue driver.
 
-**Akzeptanzkriterium:** Mindestens eine Integration in ein verbreitetes Fachsystem ist lauffähig und dokumentiert.
+**Acceptance criteria:** At least one integration into a widespread specialist system is operational and documented.
 
-**Abnahmekriterium:** Ein Endnutzer kann eine Anfrage aus dem Drittsystem heraus stellen und erhält eine Antwort mit Quellenangabe.
+**Acceptance test:** An end user can submit a query from within the third-party system and receives an answer with citation.
 
-### REQ-COM-003 — Nutzungsbasierte Abrechnung
+### REQ-COM-003 — Usage-based billing
 
-**Statement:** Kommerzielle API-Zugänge werden über Schlüssel authentifiziert, mit Kontingenten begrenzt und nutzungsbasiert abgerechnet.
+**Statement:** Commercial API accesses are authenticated via keys, limited with quotas and billed based on usage.
 
-**Rationale:** Tragfähiges Erlösmodell für Integrationen ohne Einschränkung des freien Zugangs.
+**Rationale:** Viable revenue model for integrations without restricting free access.
 
-**Akzeptanzkriterium:** Schlüsselverwaltung, Kontingentprüfung und prüffähige Abrechnungsdaten vorhanden.
+**Acceptance criteria:** Key management, quota check and auditable billing data in place.
 
-**Abnahmekriterium:** Eine Testperiode wird vollständig und nachvollziehbar abgerechnet.
+**Acceptance test:** A test period is billed completely and traceably.
 
-### REQ-COM-004 — Nachweisfähige Antworten und Audit-Trail
+### REQ-COM-004 — Verifiable answers and audit trail
 
-**Statement:** Für Compliance-Instanzen werden Anfrage, herangezogene Quellen, Modellversion und Zeitpunkt revisionssicher protokolliert und exportierbar gemacht.
+**Statement:** For compliance instances, query, sources used, model version and point in time are logged in an audit-proof manner and made exportable.
 
-**Rationale:** Haftungssicherheit ist der eigentliche Zahlungsgrund gewerblicher Kunden, nicht der Wissenszugang.
+**Rationale:** Liability certainty is the actual reason commercial customers pay, not access to knowledge.
 
-**Akzeptanzkriterium:** Vollständiger Audit-Datensatz je Antwort; Export in maschinenlesbarem Format.
+**Acceptance criteria:** Complete audit record per answer; export in a machine-readable format.
 
-**Abnahmekriterium:** Ein Audit-Export lässt sich einer konkreten Antwort eindeutig zuordnen.
+**Acceptance test:** An audit export can be unambiguously assigned to a concrete answer.
 
-### REQ-COM-005 — Ausschluss personalisierter Werbung
+### REQ-COM-005 — Exclusion of personalized advertising
 
-**Statement:** Personalisierte Werbung auf Basis von Suchanfragen, Chatverläufen oder Nutzerprofilen ist ausgeschlossen. Zulässig sind kontextfreie Verzeichniseinträge und Verweise auf Bezugsquellen der Originaldokumente.
+**Statement:** Personalized advertising based on search queries, chat histories or user profiles is ruled out. Permitted are context-free directory entries and references to sources of supply for the original documents.
 
-**Rationale:** Personalisierte Werbung ist mit der Neutralität der Trägerorganisation und dem Datenschutzversprechen des freien Kerns unvereinbar.
+**Rationale:** Personalized advertising is incompatible with the neutrality of the Trägerorganisation and the data-protection promise of the free core.
 
-**Akzeptanzkriterium:** Keine Profilbildung zu Werbezwecken; Verzeichniseinträge sind als bezahlt gekennzeichnet.
+**Acceptance criteria:** No profiling for advertising purposes; directory entries are marked as paid.
 
-**Abnahmekriterium:** Datenschutz-Review bestätigt, dass keine werbebezogenen Nutzerprofile entstehen.
+**Acceptance test:** A data-protection review confirms that no advertising-related user profiles arise.
 
-## 3.12 Datenerfassung und Verarbeitungskette
+## 3.12 Data acquisition and processing chain
 
-Dieses Kapitel beschreibt den Weg, auf dem Inhalte unterschiedlicher Herkunft — frei verfügbare Quellen, lizenzierte Partnerlieferungen und Bestände ohne geklärte Rechtslage — in einen einheitlichen Datenbestand überführt werden.
+This chapter describes the path by which content of different provenance — freely available sources, licensed partner deliveries and collections without a clarified legal situation — is transferred into a uniform data collection.
 
-### REQ-PIPE-001 — Einheitliche Verarbeitungskette
+### REQ-PIPE-001 — Uniform processing chain
 
-**Statement:** Inhalte aller Herkunftsarten durchlaufen dieselbe Verarbeitungskette. Die Herkunftsart ist eine Eigenschaft des Datensatzes, nicht ein eigener Verarbeitungsweg. Die Kette gliedert sich in: Quellenregister, Ingest-Adapter, Identitätsauflösung, Rechteklassifikation, Strukturextraktion, Verweisextraktion, Segmentierung und Einbettung, Ausspielung.
+**Statement:** Content of all provenance types passes through the same processing chain. The provenance type is a property of the record, not a separate processing path. The chain is divided into: source register, ingest adapters, identity resolution, rights classification, structure extraction, reference extraction, segmentation and embedding, output.
 
-**Rationale:** Getrennte Verarbeitungswege je Herkunftsart driften auseinander, und die Rechteprüfung säße an mehreren Stellen. Eine einzige Kette mit herkunftsabhängiger Steuerung ist prüfbar und erweiterbar.
+**Rationale:** Separate processing paths per provenance type drift apart, and the rights check would sit in several places. A single chain with provenance-dependent control is auditable and extensible.
 
-**Akzeptanzkriterium:** Neue Quellen werden ausschließlich über einen Adapter angebunden; ab der Identitätsauflösung ist die Verarbeitung von der Herkunftsart unabhängig.
+**Acceptance criteria:** New sources are connected exclusively via an adapter; from identity resolution onward, processing is independent of the provenance type.
 
-**Abnahmekriterium:** Eine neue Quelle wird angebunden, ohne dass Schritte hinter dem Adapter angepasst werden müssen.
+**Acceptance test:** A new source is connected without steps behind the adapter having to be adapted.
 
-### REQ-PIPE-002 — Quellenregister
+### REQ-PIPE-002 — Source register
 
-**Statement:** Jede Quelle wird vor der ersten Verarbeitung registriert. Der Eintrag umfasst Herausgeber, Abrufweg, Rechtsgrundlage der Nutzung, Rechtsraum, Prüfdatum und die für die Prüfung verantwortliche Person. Ohne Registereintrag findet keine Erfassung statt. Die Rechtsgrundlage ist einer der folgenden abschließend definierten Kategorien zuzuordnen: (A) amtliche Werke und Rechtstexte, deren Nutzung sich aus § 5 UrhG oder einer entsprechenden Regelung des jeweiligen Rechtsraums ergibt; (B) Regelwerke unter einer freien Lizenz des Herausgebers; (C) vertraglich bezogene Daten, unter Angabe der Vertragsreferenz; (D) sonstige öffentlich zugängliche Quellen, ausschließlich nach dokumentierter Einzelfallprüfung einschließlich Prüfung nach REQ-PIPE-003 und unter Benennung einer verantwortlichen Person. Quellen, die keiner dieser Kategorien zugeordnet werden können, werden nicht erfasst.
+**Statement:** Every source is registered before its first processing. The entry comprises publisher, retrieval path, legal basis of use, jurisdiction, check date and the person responsible for the check. Without a register entry, no acquisition takes place. The legal basis is to be assigned to one of the following exhaustively defined categories: (A) official works and legal texts whose use follows from § 5 UrhG or a corresponding provision of the respective jurisdiction; (B) standards under a free license of the publisher; (C) data obtained by contract, stating the contract reference; (D) other publicly accessible sources, exclusively after a documented case-by-case review including the check per REQ-PIPE-003 and with a responsible person named. Sources that cannot be assigned to any of these categories are not acquired.
 
-**Rationale:** Das Register ist die Nachweisführung über die Herkunft und die rechtliche Grundlage des gesamten Bestands. Es ist Voraussetzung dafür, gegenüber Herausgebern und Aufsichtsstellen auskunftsfähig zu sein.
+**Rationale:** The register is the documentary record of the provenance and the legal basis of the entire collection. It is the prerequisite for being able to provide information to publishers and supervisory bodies.
 
-**Akzeptanzkriterium:** Registereintrag ist Pflichtvoraussetzung jedes Ingest-Laufs; Änderungen sind historisiert; die Kategoriezuordnung ist Pflichtfeld und ohne gültigen Wert nicht speicherbar.
+**Acceptance criteria:** A register entry is a mandatory prerequisite of every ingest run; changes are historized; the category assignment is a mandatory field and cannot be saved without a valid value.
 
-**Abnahmekriterium:** Ein Erfassungslauf ohne gültigen Registereintrag oder ohne Kategoriezuordnung wird abgewiesen.
+**Acceptance test:** An acquisition run without a valid register entry or without a category assignment is rejected.
 
-### REQ-PIPE-003 — Prüfung von Nutzungsvorbehalten
+### REQ-PIPE-003 — Check for rights reservations
 
-**Statement:** Vor der automatisierten Erfassung frei zugänglicher Quellen wird geprüft, ob ein maschinenlesbarer Nutzungsvorbehalt im Sinne des § 44b Abs. 3 UrhG vorliegt. Das Ergebnis wird mit Datum und Fundstelle im Quellenregister protokolliert und in festzulegenden Abständen erneut geprüft.
+**Statement:** Before the automated acquisition of freely accessible sources, it is checked whether a machine-readable rights reservation within the meaning of § 44b Abs. 3 UrhG exists. The result is logged with date and location in the source register and re-checked at intervals to be determined.
 
-**Rationale:** Text- und Data-Mining ist nur zulässig, solange kein Nutzungsvorbehalt erklärt ist. Eine nicht dokumentierte Prüfung schwächt die Verhandlungsposition gegenüber genau den Organisationen, mit denen Lizenzverträge angestrebt werden.
+**Rationale:** Text and data mining is only permitted as long as no rights reservation has been declared. An undocumented check weakens the negotiating position towards precisely the organizations with which license agreements are sought.
 
-**Akzeptanzkriterium:** Prüfergebnis je Quelle vorhanden, datiert und belegt; Wiedervorlage eingerichtet.
+**Acceptance criteria:** Check result per source present, dated and evidenced; re-check scheduled.
 
-**Abnahmekriterium:** Für jede aktive Quelle lässt sich das Prüfergebnis mit Datum und Fundstelle abrufen.
+**Acceptance test:** For every active source, the check result can be retrieved with date and location.
 
-### REQ-PIPE-004 — Rechteklassifikation als Verarbeitungstor
+### REQ-PIPE-004 — Rights classification as processing gate
 
-**Statement:** Nach der Identitätsauflösung wird je Dokument und Rechtsraum bestimmt, welche Verarbeitungsschritte zulässig sind: Verarbeitung, Volltextindexierung, Zitierung von Passagen, freier Export. Dokumente ohne Klassifikation werden nicht weiterverarbeitet. Eine fehlende Klassifikation gilt nicht als vorläufige Erlaubnis.
+**Statement:** After identity resolution, it is determined per document and jurisdiction which processing steps are permitted: processing, full-text indexing, quoting of passages, free export. Documents without classification are not processed further. A missing classification does not count as provisional permission.
 
-**Rationale:** Die Rechteklassifikation ist der einzige Punkt, an dem über die zulässige Nutzung entschieden wird. Eine zentrale Prüfung ist belastbarer als verteilte Prüfungen in einzelnen Schritten.
+**Rationale:** The rights classification is the only point at which the permissible use is decided. A central check is more reliable than distributed checks in individual steps.
 
-**Akzeptanzkriterium:** Jeder nachgelagerte Schritt prüft die Klassifikation; nicht klassifizierte Dokumente verbleiben in einem Wartezustand.
+**Acceptance criteria:** Every downstream step checks the classification; unclassified documents remain in a waiting state.
 
-**Abnahmekriterium:** Ein Dokument ohne Klassifikation erreicht nachweislich weder Index noch Export.
+**Acceptance test:** A document without classification demonstrably reaches neither index nor export.
 
-### REQ-PIPE-005 — Abstammung und kaskadierende Rücknahme
+### REQ-PIPE-005 — Lineage and cascading withdrawal
 
-**Statement:** Jedes abgeleitete Artefakt — Abschnitt, Segment, Einbettung, Graphkante, Exportdatei — führt eine Referenz auf die Quelllieferung, aus der es entstanden ist. Wird eine Lieferung zurückgezogen oder eine Rechteklassifikation eingeschränkt, werden alle abgeleiteten Artefakte automatisch entfernt oder gesperrt.
+**Statement:** Every derived artifact — section, segment, embedding, graph edge, export file — carries a reference to the source delivery from which it originated. If a delivery is withdrawn or a rights classification is restricted, all derived artifacts are automatically removed or blocked.
 
-**Rationale:** Ohne durchgängige Abstammungskette ist die in REQ-PART-001 zugesagte Rückziehbarkeit nicht einlösbar. Nachträglich lässt sich eine solche Kette nicht herstellen; sie muss von Beginn an mitgeführt werden.
+**Rationale:** Without a continuous lineage chain, the ability to withdraw promised in REQ-PART-001 cannot be honored. Such a chain cannot be established retroactively; it must be carried along from the start.
 
-**Akzeptanzkriterium:** Abstammungsreferenz an allen abgeleiteten Artefakten; Rücknahme läuft als nachvollziehbarer Vorgang mit Protokoll.
+**Acceptance criteria:** Lineage reference on all derived artifacts; withdrawal runs as a traceable process with a log.
 
-**Abnahmekriterium:** Nach Rückzug eines Dokuments sind dessen Segmente, Einbettungen, Graphkanten und Exportanteile nachweislich entfernt.
+**Acceptance test:** After withdrawal of a document, its segments, embeddings, graph edges and export shares are demonstrably removed.
 
-### REQ-PIPE-006 — Wiederholbarkeit und Inhaltsadressierung
+### REQ-PIPE-006 — Repeatability and content addressing
 
-**Statement:** Alle Verarbeitungsschritte sind idempotent und beliebig wiederholbar. Rohdateien werden inhaltsadressiert abgelegt, sodass unveränderte Neulieferungen erkannt und nicht erneut verarbeitet werden.
+**Statement:** All processing steps are idempotent and can be repeated any number of times. Raw files are stored content-addressed, so that unchanged re-deliveries are recognized and not processed again.
 
-**Rationale:** Extraktionsverfahren werden sich weiterentwickeln; der Bestand muss neu verarbeitet werden können, ohne abweichende Ergebnisse oder Dubletten zu erzeugen.
+**Rationale:** Extraction methods will evolve; the collection must be able to be reprocessed without producing different results or duplicates.
 
-**Akzeptanzkriterium:** Ein wiederholter Lauf über denselben Eingangsstand erzeugt kein abweichendes Ergebnis; unveränderte Lieferungen werden übersprungen.
+**Acceptance criteria:** A repeated run over the same input state produces no different result; unchanged deliveries are skipped.
 
-**Abnahmekriterium:** Eine vollständige Neuverarbeitung des Bestands liefert ein identisches Ergebnis.
+**Acceptance test:** A complete reprocessing of the collection delivers an identical result.
 
-### REQ-PIPE-008 — Ausschluss kommerziell verwerteter Katalogbestände
+### REQ-PIPE-008 — Exclusion of commercially exploited catalog collections
 
-**Statement:** Katalog- und Metadatenbestände von Herausgebern, die diese selbst kommerziell verwerten, werden ausschließlich über Kategorie C des Quellenregisters bezogen, also auf vertraglicher Grundlage. Eine automatisierte Erfassung solcher Bestände über Kategorie D ist ausgeschlossen. Dies gilt unabhängig davon, ob die Bestände öffentlich zugänglich sind.
+**Statement:** Catalog and metadata collections of publishers who exploit them commercially themselves are obtained exclusively via category C of the source register, that is, on a contractual basis. Automated acquisition of such collections via category D is ruled out. This applies regardless of whether the collections are publicly accessible.
 
-**Rationale:** Ein Normenkatalog ist eine geschützte Datenbank; § 87b UrhG untersagt neben der Entnahme wesentlicher Teile auch die wiederholte und systematische Entnahme unwesentlicher Teile, soweit sie der normalen Auswertung zuwiderläuft. Systematisches Abgreifen mit periodischem Abgleich erfüllt dieses Merkmal. Schwerer wiegt die strategische Seite: normly verhandelt mit denselben Organisationen über freiwillige Bereitstellung gegen Umsatzbeteiligung. Ein Zugriff ohne Vertrag widerspricht dieser Position unmittelbar und gefährdet die Verhandlungen.
+**Rationale:** A norm catalog is a protected database; § 87b UrhG prohibits not only the extraction of substantial parts but also the repeated and systematic extraction of insubstantial parts, insofar as it conflicts with normal exploitation. Systematic harvesting with periodic reconciliation fulfills this criterion. The strategic side weighs more heavily: normly negotiates with the same organizations about voluntary provision in return for a revenue share. Access without a contract directly contradicts this position and endangers the negotiations.
 
-**Akzeptanzkriterium:** Adapter der Kategorie D können technisch nicht auf Quellen konfiguriert werden, die als kommerziell verwerteter Katalogbestand gekennzeichnet sind; die Kennzeichnung ist im Quellenregister geführt.
+**Acceptance criteria:** Category D adapters technically cannot be configured for sources that are marked as a commercially exploited catalog collection; the marking is kept in the source register.
 
-**Abnahmekriterium:** Der Versuch, eine als kommerziell verwertet gekennzeichnete Quelle über Kategorie D anzubinden, wird abgewiesen und protokolliert.
+**Acceptance test:** The attempt to connect a source marked as commercially exploited via category D is rejected and logged.
 
-### REQ-PIPE-009 — Erstbestand aus frei zugänglichen Quellen
+### REQ-PIPE-009 — Initial collection from freely accessible sources
 
-**Statement:** Der Erstaufbau von Katalog und Referenzgraph erfolgt aus Quellen der Kategorien A und B. Dazu zählen insbesondere die Listen harmonisierter Normen im Amtsblatt der Europäischen Union über EUR-Lex, Verweise aus Gesetzen und Verordnungen, die Regelwerksverzeichnisse von DGUV und BAuA, die Arbeitsprogramme der europäischen Normungsorganisationen sowie frei verfügbare Katalogdaten internationaler Gremien.
+**Statement:** The initial build-up of catalog and reference graph takes place from sources of categories A and B. These include in particular the lists of harmonized norms in the Official Journal of the European Union via EUR-Lex, references from laws and regulations, the standards registers of DGUV and BAuA, the work programmes of the European standardization bodies and freely available catalog data of international bodies.
 
-**Rationale:** Diese Quellen tragen einen belastbaren Erstbestand ohne Rechtsrisiko und enthalten zugleich den für den Referenzgraph wertvollsten Teil: die Verweise aus dem Recht auf Normen. Der Graph ist damit vor dem ersten Lizenzvertrag aufbaubar und stärkt die Verhandlungsposition, statt sie zu belasten.
+**Rationale:** These sources carry a reliable initial collection without legal risk and at the same time contain the most valuable part for the reference graph: the references from the law to norms. The graph can thus be built before the first license agreement and strengthens the negotiating position instead of burdening it.
 
-**Akzeptanzkriterium:** Katalog und Graph sind ohne Quellen der Kategorien C und D in Betrieb nehmbar; Herkunft je Eintrag nachweisbar.
+**Acceptance criteria:** Catalog and graph can be put into operation without sources of categories C and D; provenance per entry demonstrable.
 
-**Abnahmekriterium:** Ein Erstbestand wird ausschließlich aus Quellen der Kategorien A und B aufgebaut und ist auswertbar.
+**Acceptance test:** An initial collection is built exclusively from sources of categories A and B and can be evaluated.
 
-### REQ-PIPE-007 — Manuelle Prüfung der Identitätsauflösung
+### REQ-PIPE-007 — Manual review of identity resolution
 
-**Statement:** Für Fälle, in denen die automatische Zuordnung eines Dokuments zu einem Knoten nicht eindeutig gelingt, steht eine Prüfoberfläche zur Verfügung. Ungeklärte Fälle blockieren die Weiterverarbeitung des betroffenen Dokuments, nicht die des übrigen Bestands.
+**Statement:** For cases in which the automatic assignment of a document to a node does not succeed unambiguously, a review interface is available. Unresolved cases block the further processing of the affected document, not that of the rest of the collection.
 
-**Rationale:** Herausgeber schreiben Normnummern uneinheitlich; eine vollständige Automatisierung der Zuordnung ist nicht erreichbar. Falsche Zuordnungen machen Verweisketten unbrauchbar und sind schwer zu entdecken.
+**Rationale:** Publishers write norm numbers inconsistently; complete automation of the assignment is not achievable. Wrong assignments make reference chains unusable and are hard to detect.
 
-**Akzeptanzkriterium:** Unklare Fälle werden zur Prüfung vorgelegt statt heuristisch entschieden; Entscheidungen sind protokolliert und rückgängig machbar.
+**Acceptance criteria:** Unclear cases are submitted for review instead of being decided heuristically; decisions are logged and can be undone.
 
-**Abnahmekriterium:** Ein mehrdeutiger Fall wird vorgelegt, entschieden und die Entscheidung ist nachvollziehbar dokumentiert.
+**Acceptance test:** An ambiguous case is submitted, decided, and the decision is documented traceably.
 
 <img src="media/media/image3.png" style="width:6.27014in;height:7.89583in" />
 
-Figure 2: Verarbeitungskette
+Figure 2: Processing chain
 
 ## 3.13 Verschlüsselung und Schutz lizenzierter Inhalte
 
