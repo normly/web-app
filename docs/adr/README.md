@@ -1477,7 +1477,7 @@ by hand.
   be reviewed by a data-protection professional; this document is not
   legal advice.
 - Privacy policy and record of processing activities (Art. 30
-  DSGVO, the EU General Data Protection Regulation) are separate legal texts and not part of this work.
+  GDPR (DSGVO)) are separate legal texts and not part of this work.
 - *Tombstones* (ADR-026): retention and expiry remain open.
 - A previous release without `replay-deletions` needs manual re-deletion
   (see above); this also applies to the restore test and the

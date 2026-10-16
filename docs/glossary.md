@@ -220,10 +220,10 @@ are never interchangeable: *norm* is the German *Norm*, *standard* is the
 German *Regelwerk*. "Standard" in its ordinary technical sense ("standard
 library", "standard output") is untouched.
 
-**German statutes.** Names of German statutes stay German. At first
-mention per file, add an English gloss: "DSGVO (the EU General Data
-Protection Regulation)", "UrhG (German Copyright Act)". After that, the
-bare name. Translated text never uses "GDPR".
+**Statutes.** Names of German statutes stay German, with an English
+gloss at first mention per file: "UrhG (German Copyright Act)". EU
+regulations use their official English name, with the German short name
+at first mention per file: "GDPR (DSGVO)"; afterwards "GDPR".
 
 **Withdrawal vs. retired vs. withdrawn.** Three separate terms:
 

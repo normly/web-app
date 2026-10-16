@@ -37,8 +37,8 @@ applies in Germany. Details: [ADR-011](../adr/README.md#adr-011-internationaliza
 
 ## Separate data storage per publisher
 
-Licensed holdings (Category C) are stored separately per publisher, each
-with its own data encryption key. This enables cryptographic deletion at
+Licensed collections (Category C) are stored separately per publisher, each
+with its own data encryption key. This enables cryptographic erasure at
 contract end — even in backups, where selective deletion is otherwise
 practically infeasible. Details:
 [ADR-014](../adr/README.md#adr-014-encryption-cryptographic-erasure-per-publisher).
