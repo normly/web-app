@@ -1,135 +1,135 @@
-# Referenzgraph-Suche/-Browsing — Design
+# Reference graph search/browsing — Design
 
-Sub-Projekt 2 des Frontends. Sub-Projekt 1 (App-Grundgerüst + Chat) ist abgeschlossen und
-in `main` gemergt. Dieses Dokument beschreibt Suche, Browsing nach Herausgeber und eine
-klickbare Dokumentdetailseite über den bestehenden `api/`-Dienst — ohne Sprachmodell.
+Sub-project 2 of the frontend. Sub-project 1 (app shell + chat) is complete and
+merged into `main`. This document describes search, browsing by publisher and a
+clickable document detail page on top of the existing `api/` service — without a language model.
 
-## Entschieden mit dem Auftraggeber
+## Decided with the owner
 
-1. **Funktionsumfang:** Suche + Dokumentdetailseite mit Graph-Browsing (Verweise,
-   Gültigkeitsstatus) + eigene Browse-Ansicht nach Herausgeber, unabhängig von einer
-   Sucheingabe.
-2. **Ratenbegrenzung:** Jetzt eine einfache serverseitige Ratenbegrenzung in `api/`
-   mitbauen (Postgres-gestützt), statt sie weiter als offenen Punkt zu verschieben —
-   die durchsuchbare Katalogansicht ist ein deutlich attraktiveres Ziel für
-   automatisierte Massenabfragen als der bisherige Chat.
-3. **Sitzungsmerkmal für die Ratenbegrenzung:** REQ-ACC-003 verlangt die Zählung
-   "anhand eines vergebenen Sitzungsmerkmals in Verbindung mit der Herkunftsadresse"
-   — nicht Herkunftsadresse allein. Statt das als offenen Punkt stehen zu lassen,
-   vergibt das Frontend-BFF einen neuen, eigenständigen anonymen Identifier-Cookie
-   (`normly_anon_id`, getrennt von Chat-/Konto-Sitzung, nur für Ratenbegrenzung
-   gedacht), der bei jedem `api/`-Aufruf als Header mitgeschickt wird. `api/`s
-   Ratenbegrenzung schlüsselt auf (Anon-Id + Herkunftsadresse) statt nur
-   Herkunftsadresse.
-4. **Jurisdiktion:** Wird app-weiter Zustand (neuer `normly_jurisdiction`-Cookie,
-   analog zum bestehenden `normly_locale`), gilt für Chat **und** Suche/Browsing
-   gemeinsam. Behebt nebenbei die bisher fest kodierte `"DE"`-Vorgabe im Chat-Aufruf.
-   Start-Auswahl: DE (Default) und EU — beide bereits in vorhandenen Testdaten
-   vertreten.
+1. **Scope of functions:** search + document detail page with graph browsing (references,
+   validity status) + a dedicated browse view by publisher, independent of a
+   search input.
+2. **Rate limiting:** build a simple server-side rate limiting into `api/` now
+   (Postgres-backed), instead of deferring it further as an open item —
+   the searchable catalog view is a considerably more attractive target for
+   automated bulk queries than the chat so far.
+3. **Session attribute for rate limiting:** REQ-ACC-003 requires counting
+   "based on an assigned session attribute in combination with the client IP address"
+   — not the client IP address alone. Instead of leaving that as an open item,
+   the frontend BFF assigns a new, separate anonymous identifier cookie
+   (`normly_anon_id`, separate from the chat/account session, intended only for rate
+   limiting), which is sent along as a header with every `api/` call. `api/`'s
+   rate limiting keys on (anon ID + client IP address) instead of only the
+   client IP address.
+4. **Jurisdiction:** becomes app-wide state (new `normly_jurisdiction` cookie,
+   analogous to the existing `normly_locale`), applies to chat **and** search/browsing
+   together. Incidentally fixes the previously hard-coded `"DE"` default in the chat call.
+   Initial selection: DE (default) and EU — both already represented in existing test
+   data.
 
-## Architektur
+## Architecture
 
-Zwei Bausteine: eine kleine Backend-Erweiterung in `api/` (neuer Such-/Browse-Endpunkt
-plus Ratenbegrenzung) und neue Frontend-Seiten nach demselben BFF-Muster wie
-Sub-Projekt 1 — kein direkter Client-Zugriff auf `api/`, jeder Aufruf läuft über einen
-Next.js Route Handler unter `/api/*`.
+Two building blocks: a small backend extension in `api/` (new search/browse endpoint
+plus rate limiting) and new frontend pages following the same BFF pattern as
+sub-project 1 — no direct client access to `api/`, every call goes through a
+Next.js Route Handler under `/api/*`.
 
 ### Backend (`api/`)
 
-**Neuer Endpunkt `GET /v1/documents/search`** — deckt Volltextsuche und
-Browse-nach-Herausgeber mit einem Endpunkt ab, statt zwei separate zu bauen:
+**New endpoint `GET /v1/documents/search`** — covers full-text search and
+browse-by-publisher with one endpoint, instead of building two separate ones:
 
-- Query-Parameter: `jurisdiction` (Pflicht, wie bei allen bestehenden Endpunkten),
-  `q` (optional, Freitext über `DocumentDesignation.designation` und
-  `DocumentTitle.title`, `ILIKE`-basiert — kein Volltextindex nötig für den aktuellen
-  Datenumfang), `issuer` (optional, exakter Filter auf `DocumentDesignation.issuer`),
-  `limit` (Default 20, Obergrenze 100), `offset` (Default 0).
-- Antwort: `{ results: list[DocumentResponse], total: int }` — Wiederverwendung des
-  bestehenden `DocumentResponse`-Schemas statt eines neuen, fast identischen
-  Summary-Typs (YAGNI).
-- Rechtegate: dieselbe jurisdiktionsgebundene Sichtbarkeitsprüfung wie die
-  bestehenden Endpunkte (`get_document_for_jurisdiction`-Äquivalent pro Treffer) —
-  nur was der Einzelabruf ohnehin durchließe, taucht in der Trefferliste auf.
-- Baut auf `DocumentRepository.list_documents_for_jurisdiction` auf — im Protokoll
-  bereits als der sanktionierte Pfad für genau diesen Zweck dokumentiert, aber
-  bislang an keinem Router verdrahtet. Die Repository-Schicht bekommt eine
-  Erweiterung um `q`/`issuer`-Filter und Pagination — keine neue Abstraktion, kein
-  Bruch von ADR-006 (Datenbankzugriff nur über die Repository-Schicht).
+- Query parameters: `jurisdiction` (required, as with all existing endpoints),
+  `q` (optional, free text over `DocumentDesignation.designation` and
+  `DocumentTitle.title`, `ILIKE`-based — no full-text index needed for the current
+  data volume), `issuer` (optional, exact filter on `DocumentDesignation.issuer`),
+  `limit` (default 20, upper limit 100), `offset` (default 0).
+- Response: `{ results: list[DocumentResponse], total: int }` — reuse of the
+  existing `DocumentResponse` schema instead of a new, almost identical
+  summary type (YAGNI).
+- Rights gate: the same jurisdiction-bound visibility check as the
+  existing endpoints (`get_document_for_jurisdiction` equivalent per hit) —
+  only what the single retrieval would let through anyway appears in the hit list.
+- Builds on `DocumentRepository.list_documents_for_jurisdiction` — already
+  documented in the protocol as the sanctioned path for exactly this purpose, but
+  not wired to any router so far. The repository layer gets an
+  extension with `q`/`issuer` filters and pagination — no new abstraction, no
+  breach of ADR-006 (database access only through the repository layer).
 
-**Ratenbegrenzung** — deckt REQ-ACC-003 jetzt vollständig ab (Sitzungsmerkmal **und**
-Herkunftsadresse gemeinsam), nicht nur einen Teilaspekt:
+**Rate limiting** — now fully covers REQ-ACC-003 (session attribute **and**
+client IP address together), not just one partial aspect:
 
-- Postgres-gestützter Zähler (kein Redis — nicht Teil des freigegebenen Stacks nach
-  CLAUDE.md; Postgres ist ohnehin die gemeinsame Datenhaltung und funktioniert daher
-  korrekt auch über mehrere `api/`-Replicas hinweg, anders als ein reiner
-  In-Memory-Zähler pro Prozess).
-- Schlüssel: die Kombination aus einem anonymen Sitzungsmerkmal (siehe unten) und der
-  Herkunftsadresse, ausgelesen aus `X-Forwarded-For` (vom vorgeschalteten Reverse
-  Proxy gesetzt) mit Fallback auf die direkte Verbindungsadresse.
-- **Sitzungsmerkmal:** `api/` selbst bleibt bewusst zustandslos — die Vergabe eines
-  Anonym-Identifiers passt konzeptionell an den Rand der Anwendung, nicht in den
-  Kern-Datendienst. Das Frontend-BFF vergibt daher beim ersten Besuch einen neuen,
-  eigenständigen Cookie `normly_anon_id` (httpOnly, zufälliger Wert, ~1 Jahr Laufzeit
-  — getrennt von `normly_session`/`normly_account_session`, ausschließlich für
-  Ratenbegrenzung, keine Verknüpfung zu Chat-Verlauf oder Konto) und reicht ihn bei
-  jedem `api/`-Aufruf als Header `X-Normly-Anon-Id` durch. `api/`s
-  Ratenbegrenzungs-Dependency liest diesen Header, falls vorhanden, und schlüsselt
-  auf `(anon_id, Herkunftsadresse)`; fehlt der Header (z. B. ein hypothetischer
-  künftiger Direktzugriff ohne das Frontend-BFF), fällt sie auf die Herkunftsadresse
-  allein zurück, statt die Anfrage abzulehnen.
-- Festes Zeitfenster (300 anonyme Anfragen/Minute je Schlüssel, über alle
-  `api/`-Endpunkte hinweg, nicht nur die Suche) als wiederverwendbare
-  FastAPI-Dependency. Ursprünglich 60; eine einzelne Detailseite kostet 3+N
-  Anfragen (Dokument, Kanten, Gültigkeit, je Kante eine Auflösung), sodass
-  gewöhnliches Blättern das alte Kontingent aufgebraucht hätte. Der Wert ist
-  ein Startpunkt mit Reserve, nicht aus gemessenem Verkehr abgeleitet.
+- Postgres-backed counter (no Redis — not part of the approved stack under
+  CLAUDE.md; Postgres is the shared data store anyway and therefore also works
+  correctly across several `api/` replicas, unlike a pure
+  in-memory counter per process).
+- Key: the combination of an anonymous session attribute (see below) and the
+  client IP address, read from `X-Forwarded-For` (set by the upstream reverse
+  proxy) with a fallback to the direct connection address.
+- **Session attribute:** `api/` itself deliberately stays stateless — assigning an
+  anonymous identifier conceptually belongs at the edge of the application, not in the
+  core data service. The frontend BFF therefore assigns a new,
+  separate cookie `normly_anon_id` on the first visit (httpOnly, random value, ~1 year lifetime
+  — separate from `normly_session`/`normly_account_session`, exclusively for
+  rate limiting, no link to chat history or account) and passes it through as the header
+  `X-Normly-Anon-Id` with every `api/` call. `api/`'s
+  rate-limiting dependency reads this header, if present, and keys
+  on `(anon_id, client IP address)`; if the header is missing (e.g. a hypothetical
+  future direct access without the frontend BFF), it falls back to the client IP address
+  alone instead of rejecting the request.
+- Fixed time window (300 anonymous requests/minute per key, across all
+  `api/` endpoints, not just search) as a reusable
+  FastAPI dependency. Originally 60; a single detail page costs 3+N
+  requests (document, edges, validity, one resolution per edge), so
+  ordinary browsing would have used up the old quota. The value is
+  a starting point with headroom, not derived from measured traffic.
 
 ### Frontend
 
-**Anonym-Identifier für die Ratenbegrenzung:** Da Next.js Server Components während
-des Renderns keine Cookies setzen können, übernimmt das eine neue, minimale
-`middleware.ts` (bislang nicht vorhanden im Projekt) — läuft vor jeder Anfrage,
-prüft auf `normly_anon_id` und setzt ihn bei Fehlen einmalig. Damit ist der Cookie
-unabhängig davon gesetzt, welche Seite zuerst besucht wird, ohne dass jeder einzelne
-BFF-Route-Handler diese Logik dupliziert.
+**Anonymous identifier for rate limiting:** since Next.js Server Components cannot set
+cookies during rendering, a new, minimal
+`middleware.ts` (not present in the project so far) takes this on — it runs before every request,
+checks for `normly_anon_id` and sets it once if missing. This way the cookie is
+set regardless of which page is visited first, without every single
+BFF route handler duplicating this logic.
 
-**Neue Seiten:**
-- `/search` — Sucheingabe + paginierte Trefferliste, Filter nach Herausgeber. Ohne
-  Sucheingabe, nur mit gesetztem Herausgeber-Filter, deckt dieselbe Seite "Browse
-  nach Herausgeber" ab — keine separate Seite dafür nötig.
-- `/documents/[id]` — Detailseite: Bezeichnungen/Titel/Quelle (`GET
-  /v1/documents/{id}`), Gültigkeitsstatus (`.../validity`) und ausgehende Verweise
-  gruppiert nach Kantentyp (`.../edges`). Jeder Verweis verlinkt auf die jeweilige
-  Ziel-Detailseite — der Referenzgraph wird klickbar durchquerbar, nicht nur
-  strukturiert gespeichert.
+**New pages:**
+- `/search` — search input + paginated hit list, filter by publisher. Without
+  a search input, with only the publisher filter set, the same page covers "browse
+  by publisher" — no separate page needed for it.
+- `/documents/[id]` — detail page: designations/title/source (`GET
+  /v1/documents/{id}`), validity status (`.../validity`) and outgoing references
+  grouped by edge type (`.../edges`). Each reference links to the respective
+  target detail page — the reference graph becomes traversable by clicking, not just
+  stored in a structured way.
 
-**Neue BFF-Route-Handler** (gleiches Muster wie das bestehende
-`api/documents/[id]/route.ts`, reine Proxys mit Statuscode-Durchreichung):
+**New BFF route handlers** (same pattern as the existing
+`api/documents/[id]/route.ts`, pure proxies passing the status code through):
 `GET /api/documents/search`, `GET /api/documents/[id]/edges`,
-`GET /api/documents/[id]/validity`. Alle Pfad- und Query-Werte werden von Anfang an
-mit `encodeURIComponent()` behandelt — Sub-Projekt 1 hatte hier eine reale
-Path-Traversal-Lücke, die erst im Abschluss-Review gefunden wurde; dieses Mal wird
-korrekt encodiert gebaut, nicht nachträglich gepatcht.
+`GET /api/documents/[id]/validity`. All path and query values are handled with
+`encodeURIComponent()` from the start — sub-project 1 had a real
+path traversal gap here that was only found in the final review; this time it is
+built correctly encoded, not patched afterwards.
 
-**Neue UI-Bausteine** (shadcn/ui-Stil, wie die bestehenden vier — Button/Input/
-Dialog/Tabs): eine einfache Tabelle/Liste für Trefferlisten, eine
-Pagination-Komponente, ein `Badge` für Kantentyp/Gültigkeitsstatus. Kein
-Autocomplete/Command-Palette — zusätzlicher Scope ohne SRS-Vorgabe.
+**New UI building blocks** (shadcn/ui style, like the existing four — Button/Input/
+Dialog/Tabs): a simple table/list for hit lists, a
+pagination component, a `Badge` for edge type/validity status. No
+autocomplete/command palette — additional scope without an SRS requirement.
 
-**`JurisdictionSwitcher`** im bestehenden `AppHeader`, analog zum `LocaleSwitcher`:
-setzt einen `normly_jurisdiction`-Cookie (nicht httpOnly, wie `normly_locale` — reiner
-UI-Zustand, kein Sicherheitsmerkmal), gelesen server-seitig in `layout.tsx`. Der
-Chat-Aufruf in `home-page-content.tsx` liest ab jetzt diese Jurisdiktion statt der
-fest kodierten `"DE"`.
+**`JurisdictionSwitcher`** in the existing `AppHeader`, analogous to the `LocaleSwitcher`:
+sets a `normly_jurisdiction` cookie (not httpOnly, like `normly_locale` — pure
+UI state, not a security attribute), read server-side in `layout.tsx`. The
+chat call in `home-page-content.tsx` reads this jurisdiction from now on instead of the
+hard-coded `"DE"`.
 
-**i18n:** neuer `search`-Namensraum in `de.json`/`en.json` für Sucheingabe,
-Leerzustand, Paginierung, sowie menschenlesbare DE/EN-Bezeichnungen für die fünf
-`EdgeType`-Werte (references/replaces/withdrawn_by/based_on_law/adopted_from) und die
-drei `ValidityResponse`-Status (valid/replaced/withdrawn).
+**i18n:** new `search` namespace in `de.json`/`en.json` for the search input,
+empty state, pagination, as well as human-readable DE/EN labels for the five
+`EdgeType` values (references/replaces/withdrawn_by/based_on_law/adopted_from) and the
+three `ValidityResponse` statuses (valid/replaced/withdrawn).
 
-## Datenfluss
+## Data flow
 
-**Suchzyklus:**
+**Search cycle:**
 ```
 Eingabe /search → GET /api/documents/search?q=...&jurisdiction=<Cookie>
   → api/'s neuer Endpunkt (Ratenbegrenzung-Dependency zuerst)
@@ -139,54 +139,54 @@ Klick auf Treffer → /documents/[id]
   → Detailseite mit anklickbaren Verweisen zu weiteren Detailseiten
 ```
 
-**Jurisdiktionswechsel:** `JurisdictionSwitcher` setzt Cookie clientseitig
-(`document.cookie`, wie der bestehende `LocaleSwitcher`) → nächster Server-Request
-(Seitenwechsel oder manueller Reload) liest den neuen Wert in `layout.tsx` →
-sowohl Chat- als auch Such-/Browse-Aufrufe verwenden ihn.
+**Jurisdiction change:** `JurisdictionSwitcher` sets the cookie client-side
+(`document.cookie`, like the existing `LocaleSwitcher`) → the next server request
+(page change or manual reload) reads the new value in `layout.tsx` →
+both chat and search/browse calls use it.
 
-## Fehlerbehandlung
+## Error handling
 
-| Fall | Verhalten |
+| Case | Behavior |
 |---|---|
-| Ratenbegrenzung überschritten | `api/` antwortet 429, BFF reicht durch, UI zeigt Meldung mit Verweis auf Anmeldung (REQ-ACC-003: "bei Erreichen des Kontingents wird auf die Anmeldung verwiesen") |
-| Leere Trefferliste | Eigener Leerzustand, kein Fehler |
-| Dokument nicht gefunden / nicht rechtefreigegeben | Wie bei der bestehenden Zitat-Auflösung: 404 wird nicht unterschieden (bewusstes Bestehendes Verhalten von `api/`, verhindert Rückschluss auf Existenz gesperrter Inhalte); UI zeigt generisches "nicht gefunden" |
-| `api/` nicht erreichbar | Wie im Chat-BFF: Statuscode durchgereicht, UI zeigt generische Fehlermeldung |
+| Rate limit exceeded | `api/` responds 429, BFF passes it through, UI shows a message pointing to sign-in (REQ-ACC-003: "When the quota is reached, the user is referred to sign-in") |
+| Empty hit list | Dedicated empty state, not an error |
+| Document not found / not rights-cleared | As with the existing citation resolution: 404 is not differentiated (deliberate existing behavior of `api/`, prevents inferring the existence of blocked content); UI shows a generic "not found" |
+| `api/` unreachable | As in the chat BFF: status code passed through, UI shows a generic error message |
 
-## Testkonzept
+## Test concept
 
-- **`api/`:** Pytest für den neuen Such-Endpunkt (Treffer/Filter/Pagination/
-  Rechtegate) und für die Ratenbegrenzung — inklusive eines Tests, der das
-  Zeitfenster tatsächlich auslöst und den 429 verifiziert, sowie eines Tests, der
-  bestätigt, dass zwei unterschiedliche `X-Normly-Anon-Id`-Werte von derselben
-  Herkunftsadresse getrennt gezählt werden (nicht nur die Dependency-Verdrahtung).
-- **`core/`:** Repository-Test für die erweiterte `list_documents_for_jurisdiction`
-  (Filter- und Pagination-Verhalten), gleiches Muster wie die bestehenden
-  Repository-Tests.
-- **`frontend/`:** Test für die neue `middleware.ts` (`normly_anon_id` wird bei
-  fehlendem Cookie gesetzt, bei vorhandenem Cookie unverändert gelassen),
-  Vitest-Unit-Tests für die neuen BFF-Routen (inkl. eines Encoding-Tests nach dem
-  Vorbild des in Sub-Projekt 1 gefundenen Path-Traversal-Fixes) und Komponenten,
-  Playwright-Erweiterung der bestehenden E2E-Suite um einen Such-und-Detail-Durchlauf.
+- **`api/`:** pytest for the new search endpoint (hits/filter/pagination/
+  rights gate) and for rate limiting — including a test that actually triggers the
+  time window and verifies the 429, as well as a test that
+  confirms that two different `X-Normly-Anon-Id` values from the same
+  client IP address are counted separately (not just the dependency wiring).
+- **`core/`:** repository test for the extended `list_documents_for_jurisdiction`
+  (filter and pagination behavior), same pattern as the existing
+  repository tests.
+- **`frontend/`:** test for the new `middleware.ts` (`normly_anon_id` is set when
+  the cookie is missing, left unchanged when the cookie is present),
+  Vitest unit tests for the new BFF routes (incl. an encoding test modeled on
+  the path traversal fix found in sub-project 1) and components,
+  Playwright extension of the existing E2E suite with a search-and-detail run.
 
-## Bezug zu Requirements und ADRs
+## Relation to requirements and ADRs
 
-| Requirement/ADR | Bezug |
+| Requirement/ADR | Relation |
 |---|---|
-| REQ-ACC-001 (anonyme Basisnutzung) | Suche/Browsing/Referenzgraph-Abfrage funktionieren ohne Konto |
-| REQ-ACC-003 (Kontingent anonyme Nutzung) | Ratenbegrenzung deckt Sitzungsmerkmal (`normly_anon_id`) **und** Herkunftsadresse gemeinsam ab, wie im Wortlaut gefordert |
-| REQ-GRAPH-001/003/004 | Neuer Endpunkt bleibt hinter der Repository-Abstraktion, rein deterministisch, kein Modellaufruf |
-| REQ-GRAPH-005 (Internationalisierung) | Jurisdiktions-Auswahl macht die von Anfang an mehrsprachig/mehrrechtsraum-fähige Graphmodellierung erstmals in der UI sichtbar |
-| REQ-GRAPH-006 (rechtsraumabhängige Klassifikation) | Suchendpunkt filtert wie alle bestehenden Endpunkte strikt nach `jurisdiction` |
-| REQ-SEC-004 (Schutz vor Massenextraktion) | Teilweise: Ratenbegrenzung ja, Anomalieerkennung/Protokollauswertung nein — offener Punkt |
-| ADR-006 (Speichertechnologie austauschbar) | Suchfilterung bleibt in der Repository-Schicht, keine SQL-Fachlogik im Router |
-| ADR-017 (anonyme Nutzung, gemeinsame Infrastruktur mit Ratenbegrenzung) | Die neue Dependency ist bewusst wiederverwendbar für weitere `api/`-Endpunkte angelegt, nicht nur für die Suche |
+| REQ-ACC-001 (anonymous base use) | Search/browsing/reference graph queries work without an account |
+| REQ-ACC-003 (quota for anonymous use) | Rate limiting covers the session attribute (`normly_anon_id`) **and** the client IP address together, as required by the wording |
+| REQ-GRAPH-001/003/004 | New endpoint stays behind the repository abstraction, purely deterministic, no model call |
+| REQ-GRAPH-005 (internationalization) | The jurisdiction selection makes the graph modeling, multilingual/multi-jurisdiction-capable from the start, visible in the UI for the first time |
+| REQ-GRAPH-006 (jurisdiction-specific classification) | The search endpoint filters strictly by `jurisdiction`, like all existing endpoints |
+| REQ-SEC-004 (protection against bulk extraction) | Partially: rate limiting yes, anomaly detection/log analysis no — open item |
+| ADR-006 (storage technology interchangeable) | Search filtering stays in the repository layer, no SQL business logic in the router |
+| ADR-017 (anonymous use, shared infrastructure with rate limiting) | The new dependency is deliberately designed to be reusable for further `api/` endpoints, not just for search |
 
-## Offene Punkte
+## Open items
 
-- Volle Anomalieerkennung/protokollbasierte Auswertung je Herausgeber (REQ-SEC-004)
-  — nur die Ratenbegrenzung ist Teil dieses Sub-Projekts.
-- Weitere Rechtsräume über DE/EU hinaus — Auswahl ist als einfache, erweiterbare
-  Liste angelegt, nicht dynamisch aus dem Backend ermittelt.
-- Volltextindex (statt `ILIKE`) — für den aktuellen Datenumfang ausreichend; wird
-  relevant, sobald der Katalog deutlich wächst.
+- Full anomaly detection/log-based analysis per publisher (REQ-SEC-004)
+  — only rate limiting is part of this sub-project.
+- Further jurisdictions beyond DE/EU — the selection is set up as a simple, extensible
+  list, not determined dynamically from the backend.
+- Full-text index (instead of `ILIKE`) — sufficient for the current data volume; becomes
+  relevant as soon as the catalog grows considerably.
