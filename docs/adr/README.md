@@ -311,7 +311,7 @@ A–D, REQ-PIPE-002) with a technical block (REQ-PIPE-008).
 
 1. *The catalog is the product.* Nautos comprises around 2.35 million records from
    29 countries, including monthly updates by the
-   standardization organizations — that is, exactly the catalog including change tracking that
+   standardization bodies — that is, exactly the catalog including change tracking that
    normly would need. Rebuilding it means attacking the revenue product of exactly the
    organizations with which negotiations are to take place.
 2. *Legally.* A norm catalog is a protected database. § 87b UrhG
@@ -451,7 +451,7 @@ commercial layer. F-Droid later for the free client.
 copy protection. REQ-DRM-002 requires encrypted local storage bound to
 user and device. In the browser there is no place where a
 key could be kept protected — IndexedDB is inspectable. Native platforms
-offer Keychain and Keystore respectively, partly hardware-backed, plus `FLAG_SECURE` against
+offer Keychain or Keystore, partly hardware-backed, plus `FLAG_SECURE` against
 screenshots on Android.
 
 The PWA/native boundary thus coincides with the free/commercial boundary.
@@ -469,7 +469,7 @@ channel for reach.
 **Corrected:** Chapter 3.5.6 tied the native app to the availability of a
 normlyLLM of its own. This coupling was factually wrong.
 
-**Take into account already now:** offline layer behind an abstraction (REQ-MOB-003)
+**Already consider now:** offline layer behind an abstraction (REQ-MOB-003)
 — can only be retrofitted later with considerable effort.
 
 **Important distinction — commercial layer ≠ paid access:** The
@@ -579,7 +579,7 @@ decision concerns a different point in time and a different kind of model:
 Docling's layout/table model runs **once at ingestion time**, is
 **discriminative** (detects structure in existing content), not
 **generative** (invents no content, no hallucination risk in the
-actual sense) and is deterministically reproducible for the same input.
+strict sense) and is deterministically reproducible for the same input.
 The result flows into the reference graph as normal, deterministic content
 — every later query is still answered exclusively
 on the basis of the graph, entirely without a model call. ADR-008 remains unchanged in its
@@ -598,8 +598,8 @@ For details see
 `docs/superpowers/specs/2026-08-30-docling-migration-design.md`.
 
 **Rejected:** Docling's VLM pipeline (generative vision-language model)
-as the standard extraction path — considerably heavier dependency and
-operational profile without current need; the discriminative standard layout
+as the default extraction path — considerably heavier dependency and
+operational profile without current need; the discriminative default layout
 model is sufficient for today's requirements.
 
 ---
@@ -672,7 +672,7 @@ Zensical documentation site that is already open but not yet merged
 is rewritten in English before the merge, since it counts as "from now
 on".
 
-**Addendum 2026-09-14 — migration partially started:** At the user's request,
+**Addendum 2026-09-14 — migration partially started:** At the owner's request,
 translated into English: `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
 `CODE_OF_CONDUCT.md`. The original "not retroactive" rule thus no longer
 applies without restriction to all eight originally named files,
@@ -682,7 +682,7 @@ separate, later project, in particular `docs/adr/` and `docs/srs/` because of
 their size. No change in content to the four translated files,
 only a change of language.
 
-**Addendum 2026-10-15 — complete migration:** At the owner's request,
+**Addendum 2026-10-15 — full migration:** At the owner's request,
 everything in the repository moves to English, including `CLAUDE.md` and
 the working documents under `docs/superpowers/`. The exception for
 `docs/superpowers/` and `CLAUDE.md` stated above no longer applies. The
@@ -710,7 +710,7 @@ future hosting of the norms knowledge base as soon as licensed
 collections are added — that is a data project, not a code project, and
 continues to follow the separation from ADR-010 (code and data versioned separately).
 
-**Rationale:** User decision. Collaboration — external as well as internal
+**Rationale:** Owner decision. Collaboration — external as well as internal
 — is noticeably easier on GitHub than on the self-hosted
 Forgejo setup: tooling, reviewer ecosystem and contributor-friendliness were
 already the original reason for ADR-004, before ADR-019 rejected them in favor
@@ -725,7 +725,7 @@ image registry.
 
 - Supersedes ADR-019 entirely and changes ADR-004 (STACKIT instead of GitHub
   as primary) as well as the registry addendum in ADR-010 (STACKIT Container
-  Registry instead of GHCR) in their respective core point.
+  Registry instead of GHCR) each in its core point.
 - CLAUDE.md's non-negotiable US-services rule continues to apply unchanged to
   operations, user data, the norms knowledge base, secrets management and
   production deployment — STACKIT remains in place for these without
@@ -778,7 +778,7 @@ The original wording remains in place as the decision history.
    exclusively on STACKIT infrastructure; no request reaches the
    model vendor. European origin is a preference, not a requirement.
    Revisit: as soon as STACKIT offers a European model of suitable
-   size, the switch is examined.
+   size, the switch will be examined.
 4. **DNS:** the zone `normly.ai` is hosted entirely at STACKIT DNS
    (registrar remains Strato); no more Cloudflare. App at
    `app.normly.ai`.
@@ -804,11 +804,11 @@ Cloudflare as DNS would have been a US service in the operations chain. The
 domain's mail was already at Strato; a second provider would have meant an
 MX change.
 
-**Rejected:** Ollama on CPU in production (response times), own GPU VM
+**Rejected:** Ollama on CPU in production (response times), dedicated GPU VM
 (standing costs), European model origin as a requirement (no offering),
 subzone delegation only for `app` (Cloudflare would remain authoritative), IONOS
 as a second mail provider (MX conflict), splitting the
-`core` dependencies into extras (user decision in favor of
+`core` dependencies into extras (owner decision in favor of
 simplicity).
 
 **Consequence:** CLAUDE.md gets a sentence on model origin; REQ-DIST-001
@@ -830,7 +830,7 @@ obtaining secrets via AppRole (TP3), rollout/rollback/data version (TP4). Detail
    `accounts`, `pipeline`, `frontend`) are built in GitHub Actions
    and stored as public packages under `ghcr.io/normly/web-app/`
    (confirms ADR-021). Builds run on push to `main` (tags `edge`,
-   `sha-<kurz>`), on Git tags `vX.Y.Z` (`X.Y.Z`, `X.Y`, `latest`) and
+   `sha-<short>`), on Git tags `vX.Y.Z` (`X.Y.Z`, `X.Y`, `latest`) and
    manually — never on pull requests.
 2. **Signing:** cosign keyless via GitHub OIDC. No key material
    is generated or kept; the short-lived certificate binds the
@@ -852,7 +852,7 @@ obtaining secrets via AppRole (TP3), rollout/rollback/data version (TP4). Detail
 Sigstore infrastructure (Fulcio, Rekor) — is **operated by the Linux
 Foundation, a non-profit organization.** This distinguishes it
 qualitatively from the commercial US services in the build chain that
-ADR-021 permits for the free core, and weighs less than
+ADR-021 permits for the free core, and is a lighter burden than
 key management, rotation and re-signing on loss. The shared
 version reflects what is actually tested: the services only in
 combination, `api` and `chat` even from one base image; a rollback
@@ -1071,7 +1071,7 @@ a rollback can reproduce it.
 
 **Rationale:**
 
-- *Parquet instead of `pg_dump` (user decision, against the original
+- *Parquet instead of `pg_dump` (owner decision, against the original
   recommendation):* ADR-006 and CLAUDE.md require database access only through the
   repository layer so that the storage technology stays interchangeable;
   `pg_dump` is a Postgres artifact and bypasses it.
@@ -1177,7 +1177,7 @@ an unexpected foreign key.
   rights classification; every gate-bound read site (the single gate)
   thereby excludes it. No second check path arises.
 - Protection against an empty dump: A dump without documents is rejected as long as the
-  database holds documents (`allow_empty` respectively `--allow-empty` lifts this).
+  database holds documents (`allow_empty`, or `--allow-empty` on the CLI, lifts this).
 - A test walks through all foreign keys of every table outside the knowledge base
   that point to the knowledge base (fail-closed), not only those of the
   user data tables, so also `identity_resolution_case`: every target must
@@ -1364,7 +1364,7 @@ deletion, sign-in URL from `NORMLY_PUBLIC_BASE_URL`, no token) and sets
 conditions. Sign-in, verification or a Google link make the
 account "not abandoned" again; the next run resets the warning.
 Prerequisite is an SMTP relay (`NORMLY_SMTP_*`): without a relay or if
-sending fails, nobody is ever warned and thus never deleted; the sending
+sending fails, no warning is ever sent and thus no account is ever deleted; the sending
 is retried in the next run. An account is never
 warned and deleted in the same run (order: reset, delete, warn). The
 deletion run locks the candidates and re-checks the condition together with the warning time,
@@ -1440,8 +1440,8 @@ by hand.
 - The deletion log contains only IDs. It is therefore not itself a
   copy of the deleted data and can run along as part of the user data backup;
   without the ID, a deletion would remain ineffective after a rollback or restore.
-- The export remains synchronous and readable (designations instead of internal IDs, where
-  possible); a secret such as the chat token is not a datum of the person.
+- The export remains synchronous and readable (readable document IDs instead of internal IDs, where
+  possible); a secret such as the chat token is not the person's data.
 
 **Rejected:**
 
@@ -1501,7 +1501,7 @@ operations in `docs/guide/operations.md`.
 | Topic | Status | Next step |
 |---|---|---|
 | Spin-off GmbH | preferred, not accepted | Review under tax law and association law before founding |
-| Legal form of the Trägerorganisation (e.V. / eG / alternative) | open | An eG could bring standardization organizations in as members instead of opponents |
+| Legal form of the Trägerorganisation (e.V. / eG / alternative) | open | An eG could bring standardization bodies in as members instead of opponents |
 | Rights holder in the copyright header | open | Clarify before the first external contribution |
 | License agreement Trägerorganisation → GmbH | open | Must be on customary market terms, otherwise a risk to non-profit status |
 | RDF/JSON-LD export with SKOS | proposed | Storage format and publication format are separable |

@@ -90,7 +90,7 @@ When in doubt, the first list applies.
 - **Make processing steps idempotent.** Repetition produces no different
   result.
 - **Licensed collections kept separate per publisher** — including a data key
-  per publisher. Enables cryptographic deletion at the end of a contract,
+  per publisher. Enables cryptographic erasure at the end of a contract,
   even in backups. Authorization check on every access. → ADR-014
 - **Offline access only through the abstraction layer.** No direct storage
   access (IndexedDB, Keychain, Keystore) in the application logic —

@@ -89,6 +89,7 @@ added here.
 | Akzeptanzkriterium, Abnahmekriterium | acceptance criterion (both; the SRS uses them as synonyms) |
 | Alterung (of tombstones) | expiry |
 | anerkannter Stand der Technik | recognized state of the art |
+| Anmeldung | sign-in |
 | Attributionserfassung | attribution capture (exception to Erfassung → acquisition: recording attribution data per answer) |
 | Aufbewahrung | retention |
 | Aufräumbefehl | cleanup command |
@@ -96,6 +97,7 @@ added here.
 | Auslieferung (shipping software to operators) | shipping (software to operators) |
 | Auslieferung (of a file to an end user), ausgeliefert, Dateiauslieferung | handed out, file download (distinct from shipping software to operators) |
 | Ausspielung (output to users at the end of the processing chain) | output |
+| baut auf (ADR status) | builds on |
 | Begründung / Entscheidung / Konsequenz | Rationale / Decision / Consequence |
 | Beitragsfassade | contribution facade (explained at first mention) |
 | Beobachtungsliste | watchlist |
@@ -110,11 +112,13 @@ added here.
 | führend (platform, registry) | primary |
 | Herausgeber | publisher |
 | Herkunft (attribute) | provenance |
-| (sachliche) Herkunftsangabe | (factual) statement of origin |
 | Herkunftsadresse | client IP address |
+| (sachliche) Herkunftsangabe | (factual) statement of origin |
+| hinfällig (status) | obsolete |
 | Identifikator, Identifikatorschema | identifier, identifier scheme |
-| Kennung (record ID, e.g. "zurückgezogene Kennungen", "Google-Kennung") | ID |
-| Kennungen (in the export, ADR-027) | designations (export uses publisher/number/edition/part) |
+| Kennung (record ID, e.g. "Google-Kennung") | ID |
+| Kennungen (in the export, ADR-027) | readable document IDs (export uses publisher/number/edition/part) |
+| Kennzeichnung (of displays/copies, ADR-015, REQ-DRM-003) | marking |
 | kommunizierbarer Prototyp | presentable prototype |
 | Kontingent | quota |
 | Konto-, Kontolöschung | account deletion |
@@ -132,6 +136,8 @@ added here.
 | Norm, Normen | norm, norms |
 | Normen und Regelwerke / Normen- und Regelwerkswissen | norms and standards / knowledge about norms and standards |
 | Normenausschuss, Trägerorganisation | unchanged (German loanwords, see above) |
+| Normungsorganisation | standardization body |
+| Nutzerwunsch, Nutzerentscheidung (the project owner) | at the owner's request, owner decision |
 | Nutzungsvorbehalt | rights reservation |
 | Offene Punkte | Open items |
 | Partnerschaftsleiter / Volltext-Sprung (ADR-013) | partnership ladder / full-text leap |
@@ -154,6 +160,7 @@ added here.
 | Trägerschaft | stewardship |
 | Umsetzung (ADR label) | Implementation |
 | Verarbeitungskette | processing chain |
+| Verläufe (chat) | histories |
 | Verworfen (ADR label) | Rejected |
 | Widerruf | revocation (code: `revoked_at`) |
 | Wissensbasis, Wissensbestand | knowledge base |
@@ -169,7 +176,13 @@ are never interchangeable: *norm* is the German *Norm*, *standard* is the
 German *Regelwerk*. "Standard" in its ordinary technical sense ("standard
 library", "standard output") is untouched.
 
-**Withdrawal vs. withdrawn.** *Withdrawal* is the removal of a source
-delivery and all artifacts derived from it; a norm that is *withdrawn* is
-one its publisher has withdrawn, a status recorded in the graph as the edge
-`WITHDRAWN_BY`.
+**Withdrawal vs. retired vs. withdrawn.** Three separate terms:
+
+- The act of a publisher or source pulling content (Rücknahme, Rückzug,
+  "zieht … zurück") is **withdraw / withdrawal**: the removal of a source
+  delivery and all artifacts derived from it. Deliveries carry
+  `withdrawn_at`.
+- The resulting database state of a tombstoned document or edge is
+  **retired** (`retired_at`), e.g. "retired IDs".
+- A norm withdrawn by its standardization body is **withdrawn**: a norm
+  status, recorded in the graph as the edge `WITHDRAWN_BY`.
