@@ -69,12 +69,12 @@ listing.
 ### Data model
 
 ```
-DocumentEmbedding (neu)
+DocumentEmbedding (new)
   document_id: UUID (FK → document.id)
   model_name: str
   vector: Vector(1024)
-  delivery_id: UUID (FK → delivery.id)   # Abstammung — welche Lieferung
-                                          # den zugrundeliegenden Text erzeugt hat
+  delivery_id: UUID (FK → delivery.id)   # lineage — which delivery
+                                          # produced the underlying text
   created_at: datetime
   UNIQUE(document_id, model_name)
 ```
@@ -130,11 +130,11 @@ step.
 ```
 WorkSearchResultResponse
   work_id: UUID
-  best_match: DocumentResponse   # bestplatziertes Document dieses Works
-  other_editions_count: int       # Anzahl weiterer Documents im selben Work
+  best_match: DocumentResponse   # best-ranked Document of this Work
+  other_editions_count: int       # number of further Documents in the same Work
 WorkSearchResponse
   results: list[WorkSearchResultResponse]
-  total: int   # Anzahl DISTINCT Works, nicht Rohtreffer
+  total: int   # number of DISTINCT Works, not raw hits
 ```
 
 Replaces today's `DocumentSearchResponse { results: list[DocumentResponse],

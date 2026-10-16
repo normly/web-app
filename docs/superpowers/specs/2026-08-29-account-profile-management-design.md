@@ -186,16 +186,16 @@ forgot-password flow.
 **Email change cycle:**
 ```
 /account → POST /api/account/email {new_email}
-  → accounts/ legt AccountToken(purpose=EMAIL_CHANGE, email=new_email) an, sendet Mail
-Nutzer klickt Link → GET /api/account/email/confirm?token=
-  → Account.email wird umgestellt, Token verbraucht
+  → accounts/ creates AccountToken(purpose=EMAIL_CHANGE, email=new_email), sends mail
+User clicks the link → GET /api/account/email/confirm?token=
+  → Account.email is switched, token consumed
 ```
 
 **Session sign-out cycle:**
 ```
-/account → GET /api/account/sessions → Liste mit is_current-Kennzeichnung
-Klick auf "Abmelden" bei einer Zeile → DELETE /api/account/sessions/{id}
-  → falls is_current: Frontend löscht auch den lokalen normly_account_session-Cookie
+/account → GET /api/account/sessions → list, each entry labeled with is_current
+Click "Abmelden" on a row → DELETE /api/account/sessions/{id}
+  → if is_current: the frontend also deletes the local normly_account_session cookie
 ```
 
 ## Error handling

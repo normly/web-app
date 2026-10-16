@@ -77,18 +77,18 @@ Two approaches were weighed:
 
 ```
 accounts/
-  pyproject.toml        # eigenes Paket, hängt von normly_core ab
+  pyproject.toml        # own package, depends on normly_core
   src/normly_accounts/
-    main.py              # FastAPI-App, mountet /v1/accounts
-    dependencies.py       # DB-Session, SMTP-Client, Google-OAuth-Client
-    security.py            # Passwort-Hashing (bcrypt), Token-Erzeugung
-    schemas.py               # Pydantic-Modelle
-    email.py                  # EmailSender-Abstraktion + SMTP-Implementierung
+    main.py              # FastAPI app, mounts /v1/accounts
+    dependencies.py       # DB session, SMTP client, Google OAuth client
+    security.py            # password hashing (bcrypt), token generation
+    schemas.py               # Pydantic models
+    email.py                  # EmailSender abstraction + SMTP implementation
     routers/
-      registration.py          # Registrierung, E-Mail-Verifizierung
-      login.py                   # Login, Logout, Passwort-Reset
-      google.py                    # Google-OAuth-Flow
-      session.py                    # Token-Validierung für andere Dienste
+      registration.py          # registration, email verification
+      login.py                   # login, logout, password reset
+      google.py                    # Google OAuth flow
+      session.py                    # token validation for other services
   tests/
 ```
 

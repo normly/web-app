@@ -134,7 +134,7 @@ on:
 
 jobs:
   test-accounts:
-    runs-on: docker  # Label gegen die echte Runner-Registrierung prüfen, siehe Offene Punkte
+    runs-on: docker  # check the label against the real runner registration, see Open items
     container: python:3.12
     steps:
       - run: cd accounts && pip install -e .[dev] && pytest

@@ -85,15 +85,15 @@ id: uuid, primary key
 account_id: uuid, FK account.id
 work_id: uuid, FK work.id
 trigger_type: enum (NEW_EDITION, NATIONAL_ADOPTION, RIGHTS_CHANGE)
-trigger_edge_id: uuid | None, FK edge.id  -- gesetzt für NEW_EDITION/NATIONAL_ADOPTION
-trigger_document_id: uuid | None, FK document.id  -- gesetzt für RIGHTS_CHANGE
-trigger_jurisdiction: str | None  -- gesetzt für RIGHTS_CHANGE
+trigger_edge_id: uuid | None, FK edge.id  -- set for NEW_EDITION/NATIONAL_ADOPTION
+trigger_document_id: uuid | None, FK document.id  -- set for RIGHTS_CHANGE
+trigger_jurisdiction: str | None  -- set for RIGHTS_CHANGE
 created_at: datetime
-read_at: datetime | None  -- In-App-Gelesen-Status, NULL = ungelesen
-emailed_at: datetime | None  -- NULL = nicht per Mail zugestellt
+read_at: datetime | None  -- in-app read status, NULL = unread
+emailed_at: datetime | None  -- NULL = not delivered by email
 UniqueConstraint(account_id, work_id, trigger_type, trigger_edge_id)
-  -- für NEW_EDITION/NATIONAL_ADOPTION; RIGHTS_CHANGE nutzt eine separate
-  -- Eindeutigkeits-Prüfung, siehe Trigger-Erkennung
+  -- for NEW_EDITION/NATIONAL_ADOPTION; RIGHTS_CHANGE uses a separate
+  -- uniqueness check, see Trigger detection
 ```
 
 ### Trigger detection: `notify-watchers` CLI subcommand

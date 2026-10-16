@@ -74,16 +74,16 @@ Three approaches were weighed:
 
 ```
 api/
-  pyproject.toml        # eigenes Paket, hängt von normly_core ab
+  pyproject.toml        # own package, depends on normly_core
   src/normly_api/
-    main.py             # FastAPI-App-Fabrik, mountet Router unter /v1
-    dependencies.py      # DB-Session-Dependency (nutzt normly_core.graph.postgres)
-    schemas.py            # Pydantic-Antwortmodelle
+    main.py             # FastAPI app factory, mounts routers under /v1
+    dependencies.py      # DB session dependency (uses normly_core.graph.postgres)
+    schemas.py            # Pydantic response models
     routers/
-      documents.py        # Suche, Detail
-      edges.py             # Verweise/Beziehungen
-      validity.py          # Ersetzungs-/Gültigkeitsstatus
-      export.py            # Freier Dump
+      documents.py        # search, detail
+      edges.py             # references/relationships
+      validity.py          # replacement/validity status
+      export.py            # free dump
   tests/
 ```
 
@@ -110,8 +110,8 @@ class TitleResponse(BaseModel):
 
 class SourceResponse(BaseModel):
     publisher: str
-    retrieval_path: str        # Ursprungs-URL der Quelle
-    legal_basis_category: str  # A/B/C/D, siehe Quellenregister
+    retrieval_path: str        # origin URL of the source
+    legal_basis_category: str  # A/B/C/D, see source register
     jurisdiction: str
 
 class DocumentResponse(BaseModel):
@@ -235,12 +235,12 @@ start, see Open items.
 Example `GET /v1/documents/{id}/edges`:
 
 ```
-Router nimmt jurisdiction, edge_type (optional) entgegen
+Router accepts jurisdiction, edge_type (optional)
     -> get_document_unchecked(id) is None? -> 404
     -> EdgeRepository(session).list_free_layer_edges_for_jurisdiction(id, jurisdiction)
-    -> Python-seitiger Filter auf edge_type, falls gesetzt (kein Repository-Parameter)
-    -> Domain-Edges -> EdgeResponse-Liste gemappt
-    -> 200 mit (ggf. leerer) Liste
+    -> Python-side filter on edge_type, if set (no repository parameter)
+    -> domain edges -> mapped to an EdgeResponse list
+    -> 200 with a (possibly empty) list
 ```
 
 `edge_type` is NOT passed through to the repository method — `list_free_layer_edges_for_jurisdiction`

@@ -98,15 +98,15 @@ frontend/
   next.config.ts          # output: "standalone"
   tailwind.config.ts
   public/
-    manifest.webmanifest    # Name, Icons, Theme-Farbe -- aus derselben Konfiguration wie Theming
+    manifest.webmanifest    # name, icons, theme color -- from the same configuration as theming
   src/
     app/
-      layout.tsx             # Grundgerüst, Theming-Provider, Service-Worker-Registrierung
-      page.tsx                # Chat-Hauptansicht ("/")
+      layout.tsx             # skeleton, theming provider, service worker registration
+      page.tsx                # main chat view ("/")
       chats/
-        page.tsx                # Chat-Historie ("/chats")
+        page.tsx                # chat history ("/chats")
       api/
-        chat/route.ts            # Route Handler -> chat/ POST /v1/chat, setzt/liest Cookie
+        chat/route.ts            # route handler -> chat/ POST /v1/chat, sets/reads cookie
         auth/
           login/route.ts           # -> accounts/ POST /v1/accounts/login
           register/route.ts        # -> accounts/ POST /v1/accounts/register
@@ -116,22 +116,22 @@ frontend/
           google/
             login/route.ts          # -> accounts/ GET /v1/accounts/google/login (Redirect)
             callback/route.ts       # -> accounts/ GET /v1/accounts/google/callback
-          session/route.ts         # -> accounts/ GET /v1/accounts/session (Sitzungsprüfung)
+          session/route.ts         # -> accounts/ GET /v1/accounts/session (session check)
     components/
-      chat/                    # Eingabe, Nachrichtenliste, Ladeindikator, Zitat-Chip
-      auth/                    # Login-/Registrierungs-Dialog
-      ui/                      # shadcn/ui-Komponenten (generiert, im Repo)
+      chat/                    # input, message list, loading indicator, citation chip
+      auth/                    # login/registration dialog
+      ui/                      # shadcn/ui components (generated, in the repo)
     lib/
-      config.ts                # Theming-/White-Label-Konfiguration, zur Laufzeit gelesen
-      backend-clients.ts       # server-seitige fetch-Wrapper für accounts/ und chat/
+      config.ts                # theming/white-label configuration, read at runtime
+      backend-clients.ts       # server-side fetch wrappers for accounts/ and chat/
       i18n/
-        provider.tsx              # React-Context, liest normly_locale-Cookie
+        provider.tsx              # React context, reads the normly_locale cookie
         de.json
         en.json
-    public/sw.ts oder service-worker.ts  # App-Shell-Caching, kein Push-Handler
+    public/sw.ts or service-worker.ts  # app-shell caching, no push handler
   tests/
     unit/                    # Vitest + React Testing Library
-    e2e/                      # Playwright, gegen echte chat/+accounts/-Prozesse
+    e2e/                      # Playwright, against real chat/+accounts/ processes
 ```
 
 ### Theming/white-label configuration
@@ -210,28 +210,28 @@ addresses.
 
 **Chat cycle:**
 ```
-Nutzer sendet Nachricht
+User sends a message
 -> POST /app/api/chat (Next.js Route Handler)
-   liest normly_session-Cookie (falls vorhanden) und normly_account_session-Cookie
-   (falls vorhanden, als Authorization: Bearer Header)
--> POST {CHAT_BASE_URL}/v1/chat mit {session_token, jurisdiction, language, message}
-   + optionalem Authorization-Header
-<- Antwort: {session_token, answer, answer_type, citations}
-   Route Handler setzt/aktualisiert normly_session-Cookie aus der Antwort
--> Antwort ans UI: Nachricht anzeigen, Zitate zu Links auflösen
-   (je Zitat ein Lese-Aufruf gegen GET {API_BASE_URL}/v1/documents/{id} -- liefert
-   Herausgeber/Bezugsquelle für REQ-UI-003s Verlinkung)
+   reads the normly_session cookie (if present) and the normly_account_session cookie
+   (if present, as an Authorization: Bearer header)
+-> POST {CHAT_BASE_URL}/v1/chat with {session_token, jurisdiction, language, message}
+   + optional Authorization header
+<- response: {session_token, answer, answer_type, citations}
+   route handler sets/updates the normly_session cookie from the response
+-> response to the UI: show the message, resolve citations to links
+   (one read call per citation against GET {API_BASE_URL}/v1/documents/{id} -- provides
+   publisher/point of purchase for REQ-UI-003's linking)
 ```
 
 **Login cycle (email/password, analogous for magic link):**
 ```
-Nutzer sendet Login-Formular
+User submits the login form
 -> POST /app/api/auth/login -> POST {ACCOUNTS_BASE_URL}/v1/accounts/login
-<- {session_token, account} oder 401 (generisch, kein Enumeration-Leak)
-   Route Handler setzt normly_account_session-Cookie
--> nächste Chat-Anfrage hängt diesen Token als Authorization-Header an
-   chat/ verknüpft die laufende chat_session mit dem Konto (siehe chat/-Design,
-   "Sitzungsidentität und Kontoverknüpfung") -- bisheriger Verlauf bleibt erhalten
+<- {session_token, account} or 401 (generic, no enumeration leak)
+   route handler sets the normly_account_session cookie
+-> the next chat request attaches this token as an Authorization header
+   chat/ links the running chat_session to the account (see the chat/ design,
+   "Session identity and account linking") -- the previous history is kept
 ```
 
 **Google OAuth cycle:** The browser is redirected directly (not via the route handler) to

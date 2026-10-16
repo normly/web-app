@@ -106,15 +106,15 @@ Three approaches were weighed:
 
 ```
 chat/
-  pyproject.toml        # eigenes Paket, hängt von normly_core ab
+  pyproject.toml        # own package, depends on normly_core
   src/normly_chat/
-    main.py              # FastAPI-App, mountet /v1/chat
-    dependencies.py       # DB-Session, HTTP-Client für api/, Ollama-Client
-    schemas.py             # Pydantic-Request-/Response-Modelle
-    classify.py             # regelbasierte Struktur-vs-Synthese-Erkennung
-    structural.py            # baut Antworten aus api/-Aufrufen (kein LLM)
-    synthesis.py              # RAG-Retrieval + Ollama-Aufruf + Paraphrasierungs-Prompt
-                               # + Verbatim-Überlapp-Check + Faithfulness-Check
+    main.py              # FastAPI app, mounts /v1/chat
+    dependencies.py       # DB session, HTTP client for api/, Ollama client
+    schemas.py             # Pydantic request/response models
+    classify.py             # rule-based structural-vs-synthesis detection
+    structural.py            # builds answers from api/ calls (no LLM)
+    synthesis.py              # RAG retrieval + Ollama call + paraphrasing prompt
+                               # + verbatim-overlap check + faithfulness check
   tests/
 ```
 
@@ -142,7 +142,7 @@ is no automatic merging of several device histories into one session.
 
 ### Session identity and account linking
 
-`POST /v1/chat` optionally accepts an `Authorization: Bearer <accounts-Sitzungstoken>`
+`POST /v1/chat` optionally accepts an `Authorization: Bearer <accounts-session-token>`
 header. `chat/` verifies a supplied account token exclusively via an
 HTTP call against `accounts/` (`GET /v1/accounts/session`) — the same "service as
 HTTP client" principle as with `api/`, no direct access to `accounts` tables. Three
@@ -197,56 +197,56 @@ stays unchanged, no breaking change for the ingestion pipeline.
 ## Data flow
 
 `POST /v1/chat` — `{session_token: str | None, jurisdiction: str, language: Literal["de", "en"], message: str}`,
-optional header `Authorization: Bearer <accounts-Sitzungstoken>`
+optional header `Authorization: Bearer <accounts-session-token>`
 
 ```
-Kein/unbekannter session_token? -> neue chat_session anlegen, neuen Token zurückgeben
+No/unknown session_token? -> create a new chat_session, return a new token
 
-Authorization-Header vorhanden?
-    -> GET /v1/accounts/session bei accounts/ (HTTP-Aufruf)
-    ungültig/abgelaufen? -> wie "kein Header" behandeln, weiter wie gehabt
-    gültig, chat_session.account_id noch NULL?
-        -> chat_session.account_id setzen, Verlauf bleibt erhalten
-    gültig, chat_session.account_id bereits eine ANDERE Konto-ID?
-        -> neue chat_session für dieses Konto anlegen, neuen session_token zurückgeben
-    gültig, chat_session.account_id == diese Konto-ID?
-        -> nichts zu tun, weiter wie gehabt
+Authorization header present?
+    -> GET /v1/accounts/session at accounts/ (HTTP call)
+    invalid/expired? -> treat like "no header", continue as before
+    valid, chat_session.account_id still NULL?
+        -> set chat_session.account_id, history is kept
+    valid, chat_session.account_id already a DIFFERENT account ID?
+        -> create a new chat_session for this account, return a new session_token
+    valid, chat_session.account_id == this account ID?
+        -> nothing to do, continue as before
 
-message klassifizieren (classify.py, regelbasiert, kein Modellaufruf):
-    Muster wie "ersetzt", "gültig", "Verweis auf" + erkennbare Bezeichnung im Text
-    -> STRUKTURFRAGE
-    sonst -> SYNTHESEFRAGE
+classify message (classify.py, rule-based, no model call):
+    patterns like "ersetzt", "gültig", "Verweis auf" + a recognizable designation in the text
+    -> STRUCTURAL QUESTION
+    otherwise -> SYNTHESIS QUESTION
 
-STRUKTURFRAGE:
-    Bezeichnung aus dem Text extrahieren (Regex/Heuristik)
-    -> HTTP-Aufruf gegen api/: GET /v1/documents (Suche), dann je nach erkanntem
-       Fragetyp GET .../validity oder GET .../edges
-    -> deterministischer, textuell zusammengesetzter Antwortsatz aus der
-       strukturierten JSON-Antwort — KEIN Modellaufruf
-    -> Zitat: das gefundene Dokument selbst
-    -> Dokument nicht gefunden (404 von api/)? -> Fallback-Antwort
+STRUCTURAL QUESTION:
+    extract the designation from the text (regex/heuristic)
+    -> HTTP call against api/: GET /v1/documents (search), then, depending on the detected
+       question type, GET .../validity or GET .../edges
+    -> deterministic answer sentence, assembled as text from the
+       structured JSON response — NO model call
+    -> citation: the found document itself
+    -> document not found (404 from api/)? -> fallback answer
 
-SYNTHESEFRAGE:
+SYNTHESIS QUESTION:
     EmbeddingModel.embed_query(message)
     -> SegmentRepository.find_similar_segments_for_jurisdiction(vector, jurisdiction, limit)
-    kein Treffer? -> Fallback-Antwort (Textbaustein, kein Modellaufruf)
-    Treffer vorhanden?
-        -> Prompt: System-Anweisung "nur paraphrasieren, nur aus dem Kontext antworten,
-           keine Volltextwiedergabe, antworte auf {language}" (REQ-FUNC-001/002) +
-           Segmenttexte + Frage
-        -> Ollama-Aufruf (Llama 3.1 8B Instruct)
-        -> Verbatim-Überlapp-Check der Antwort gegen die zitierten Segmenttexte (billig,
-           kein Modellaufruf; zuerst, damit ein klarer Treffer keinen zweiten,
-           teureren Modellaufruf mehr braucht)
-           (15+ aufeinanderfolgende Wörter überlappend? -> Antwort verwerfen, Fallback
-           stattdessen, Vorfall geloggt)
-        -> sonst: Faithfulness-Check (zweiter, gezielter Ollama-Aufruf: "sind die
+    no match? -> fallback answer (canned text, no model call)
+    matches present?
+        -> prompt: system instruction "only paraphrase, answer only from the context,
+           no full-text reproduction, answer in {language}" (REQ-FUNC-001/002) +
+           segment texts + question
+        -> Ollama call (Llama 3.1 8B Instruct)
+        -> verbatim-overlap check of the answer against the cited segment texts (cheap,
+           no model call; first, so that a clear hit no longer needs a second,
+           more expensive model call)
+           (15+ consecutive words overlapping? -> discard the answer, fallback
+           instead, incident logged)
+        -> otherwise: faithfulness check (second, targeted Ollama call: "sind die
            Aussagen dieser Antwort durch den folgenden Kontext gedeckt? ja/nein +
-           Begründung", Kontext = dieselben zitierten Segmente)
-           "nein"? -> Antwort verwerfen, Fallback stattdessen, Vorfall geloggt
-        -> sonst: Antwort + Zitate (die verwendeten Segmente/Dokumente)
+           Begründung", i.e. is the answer backed by the context, yes/no + reasoning; context = the same cited segments)
+           "nein"? -> discard the answer, fallback instead, incident logged
+        -> otherwise: answer + citations (the segments/documents used)
 
-chat_message (Nutzerfrage) + chat_message (Antwort) + chat_message_citation(s) speichern
+store chat_message (user question) + chat_message (answer) + chat_message_citation(s)
 -> Response: {session_token, answer, answer_type, citations}
 ```
 

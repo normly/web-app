@@ -37,7 +37,7 @@ segmentation and embedding, output. That is too large for one sub-project.
    no external API. Tests consistently use the real model, no stub.
 6. Raw files are stored content-addressed locally on disk. STACKIT Object
    Storage is a later deployment decision.
-7. Invocation as a CLI (`python -m normly_core.pipeline ingest <quelle>`), no scheduler.
+7. Invocation as a CLI (`python -m normly_core.pipeline ingest <source>`), no scheduler.
 8. For the start, `adapter.fetch()` reads from a configured local directory
    (EUR-Lex/DGUV files are downloaded there manually for now) instead of retrieving
    over HTTP itself. Reason: automated, recurring retrieval (login session,
@@ -96,8 +96,8 @@ class RawRecord:
     raw_designation: str
     raw_issuer: str | None
     raw_title: str | None
-    full_text: str | None          # None bei EUR-Lex
-    language: str | None           # "en" (EUR-Lex) / "de" (DGUV); Fallback "de" im Runner
+    full_text: str | None          # None for EUR-Lex
+    language: str | None           # "en" (EUR-Lex) / "de" (DGUV); fallback "de" in the runner
     raw_references: list[RawReference]
     fetched_at: datetime
 
@@ -151,8 +151,8 @@ Accompanying helper types (also in `pipeline.domain`, no SQLAlchemy dependency):
 ```python
 @dataclass(frozen=True)
 class RawReference:
-    target_designation: str        # Bezeichnung des Zieldokuments, roh
-    edge_type: EdgeType            # aus graph.domain, z. B. REFERENCES, REPLACES
+    target_designation: str        # designation of the target document, raw
+    edge_type: EdgeType            # from graph.domain, e.g. REFERENCES, REPLACES
 
 @dataclass(frozen=True)
 class RawSection:
@@ -171,10 +171,10 @@ class RightsRule:
 
 @dataclass(frozen=True)
 class IdentityResolution:
-    document_id: uuid.UUID | None  # None, wenn neu anzulegen
+    document_id: uuid.UUID | None  # None if it is to be newly created
     is_new: bool
     is_ambiguous: bool
-    reason: str | None             # gesetzt, wenn is_ambiguous
+    reason: str | None             # set if is_ambiguous
 ```
 
 `extract_structure` always returns an empty list for EUR-Lex (no full text).
@@ -190,19 +190,19 @@ Part of the same `core` package, no new top-level component:
 core/src/normly_core/pipeline/
   domain.py          # RawRecord, RawSection, RawReference, RightsRule,
                        # IdentityResolution, SourceAdapter Protocol
-  sources.py           # Quellregister (Publisher -> Kategorie/Rechtsraum/Meta),
-                       # resolve_source() legt fehlende Registereinträge idempotent an
+  sources.py           # source register (publisher -> category/jurisdiction/meta),
+                       # resolve_source() creates missing register entries idempotently
   adapters/
     __init__.py
     eur_lex.py
     dguv.py
-  identity.py         # Bezeichnung parsen + gegen document_designation abgleichen
-  references.py       # RawReference -> edge (Layer aus RightsRule.may_export_free)
-  embeddings.py        # EmbeddingModel-Wrapper um sentence-transformers,
-                       # optionaler lokaler model_path (siehe unten)
-  runner.py           # Orchestrierung (siehe Datenfluss)
+  identity.py         # parse designation + match it against document_designation
+  references.py       # RawReference -> edge (layer from RightsRule.may_export_free)
+  embeddings.py        # EmbeddingModel wrapper around sentence-transformers,
+                       # optional local model_path (see below)
+  runner.py           # orchestration (see Data flow)
   cli.py              # build_adapter(), main()
-  __main__.py          # `python -m normly_core.pipeline ingest <quelle>`
+  __main__.py          # `python -m normly_core.pipeline ingest <source>`
 ```
 
 Deviation from the original draft: `SourceAdapter` lives in `domain.py` instead of in a
@@ -336,37 +336,37 @@ gets `based_on_law` edges to listed norm nodes. DGUV: cited norms/laws yield
 ## Data flow
 
 ```
-für jeden RawRecord aus adapter.fetch():
-    wenn delivery_repo.find_delivery(source_id, content_hash) vorhanden: weiter  # REQ-PIPE-006
-    versuche (in einem Savepoint, siehe Fehlerbehandlung):
+for each RawRecord from adapter.fetch():
+    if delivery_repo.find_delivery(source_id, content_hash) exists: continue  # REQ-PIPE-006
+    try (in a savepoint, see Error handling):
         delivery = delivery_repo.record_delivery(source_id, content_hash, ingested_at)
 
-        regel = adapter.classify_rights(raw_record)
-        wenn regel ist None ODER regel.may_process ist False:
+        rule = adapter.classify_rights(raw_record)
+        if rule is None OR rule.may_process is False:
             identity_resolution_repo.enqueue_case(delivery_id, raw_designation, raw_issuer, reason)
-            Savepoint erfolgreich beenden, nächster Datensatz  # keine Artefakte angelegt
+            end the savepoint successfully, next record  # no artifacts created
 
-        ergebnis = identity.resolve(raw_record)
-        wenn ergebnis uneindeutig:
+        result = identity.resolve(raw_record)
+        if result is ambiguous:
             identity_resolution_repo.enqueue_case(delivery_id, raw_designation, raw_issuer, reason)
-            Savepoint erfolgreich beenden, nächster Datensatz
+            end the savepoint successfully, next record
 
-        document = ergebnis.document ODER document_repo.create_document(..., delivery_id)
-        document_repo.add_designation(document.id, ..., sprache=raw_record.language, delivery_id)
+        document = result.document OR document_repo.create_document(..., delivery_id)
+        document_repo.add_designation(document.id, ..., language=raw_record.language, delivery_id)
 
-        rights_repo.classify(document.id, regel.jurisdiction, regel.may_process, ..., delivery_id)
+        rights_repo.classify(document.id, rule.jurisdiction, rule.may_process, ..., delivery_id)
 
-        für jede RawReference in raw_record.raw_references:
-            references.extract(raw_record, document, regel, delivery_id)  # Layer aus regel.may_export_free
+        for each RawReference in raw_record.raw_references:
+            references.extract(raw_record, document, rule, delivery_id)  # layer from rule.may_export_free
 
-        wenn raw_record.full_text ist nicht None:
-            für jeden RawSection in adapter.extract_structure(raw_record):
-                segment = segment_repo.add_segment(document.id, delivery_id, ..., abschnitt)
-                vektor = embeddings.embed(segment.text)
-                embedding_repo.add_embedding(segment.id, delivery_id, modell_name, vektor)
-    außer Exception:
-        Savepoint zurückrollen (inkl. der `delivery`-Zeile — sonst gilt der Datensatz beim
-        nächsten Lauf fälschlich als bereits verarbeitet), records_failed zählen, weiter
+        if raw_record.full_text is not None:
+            for each RawSection in adapter.extract_structure(raw_record):
+                segment = segment_repo.add_segment(document.id, delivery_id, ..., section)
+                vector = embeddings.embed(segment.text)
+                embedding_repo.add_embedding(segment.id, delivery_id, model_name, vector)
+    except Exception:
+        roll back the savepoint (incl. the `delivery` row — otherwise the record is wrongly
+        treated as already processed on the next run), count records_failed, continue
 ```
 
 Every write call with `delivery_id` passes through the already existing

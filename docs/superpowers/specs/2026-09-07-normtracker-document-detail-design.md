@@ -67,7 +67,7 @@ WorkStructureEntry
   origin_issuer: str
   origin_number: str
   edition: str
-  designation: str | None   # primäre Designation, falls vorhanden
+  designation: str | None   # primary designation, if present
   status: "valid" | "replaced" | "withdrawn"
 
 WorkStructureResponse

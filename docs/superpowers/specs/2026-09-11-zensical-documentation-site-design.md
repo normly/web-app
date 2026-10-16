@@ -76,23 +76,23 @@ copying needed.
 
 ```
 docs/
-  index.md                    # neu (Basis: alter Branch, geprüft)
+  index.md                    # new (basis: old branch, reviewed)
   guide/
-    getting-started.md        # neu (Basis: alter Branch, geprüft)
-    self-hosting.md           # neu (Basis: alter Branch, geprüft)
+    getting-started.md        # new (basis: old branch, reviewed)
+    self-hosting.md           # new (basis: old branch, reviewed)
   concepts/
-    norm-graph.md           # neu (Basis: alter Branch, geprüft)
-    license-model.md           # neu (Basis: alter Branch, geprüft)
+    norm-graph.md           # new (basis: old branch, reviewed)
+    license-model.md           # new (basis: old branch, reviewed)
   reference/
-    core.md                    # neu, mkdocstrings-Stub: ::: normly_core
-    api.md                     # neu, mkdocstrings-Stub: ::: normly_api
-    accounts.md                # neu, mkdocstrings-Stub: ::: normly_accounts
-    chat.md                    # neu, mkdocstrings-Stub: ::: normly_chat
-  glossary.md                 # neu (Basis: alter Branch, geprüft)
-  adr/README.md               # bereits vorhanden, unverändert
-  srs/*.md                    # bereits vorhanden, unverändert
-  superpowers/                # bereits vorhanden, von der Nav ausgeschlossen
-zensical.toml                 # neu, root-level
+    core.md                    # new, mkdocstrings stub: ::: normly_core
+    api.md                     # new, mkdocstrings stub: ::: normly_api
+    accounts.md                # new, mkdocstrings stub: ::: normly_accounts
+    chat.md                    # new, mkdocstrings stub: ::: normly_chat
+  glossary.md                 # new (basis: old branch, reviewed)
+  adr/README.md               # already present, unchanged
+  srs/*.md                    # already present, unchanged
+  superpowers/                # already present, excluded from the nav
+zensical.toml                 # new, root-level
 ```
 
 `docs/superpowers/` (internal plans/specs, incl. this file) is not entered in
@@ -169,7 +169,7 @@ test-docs:
   timeout-minutes: 30
   steps:
     - run: |
-        # (Checkout wie in den anderen Jobs)
+        # (checkout as in the other jobs)
     - run: apt-get update && apt-get install -y --no-install-recommends libgl1 && rm -rf /var/lib/apt/lists/*
     - run: pip install -e core -e api -e accounts -e chat zensical
     - run: zensical build
@@ -231,8 +231,8 @@ container/deployment sub-project. Not built, not tested, not wired into
 CI — serves only as a starting point for this follow-up work.
 
 ```dockerfile
-# ENTWURF -- nicht verifiziert, nicht in CI eingebunden.
-# Folgearbeit: Basis-Image-Wahl, Signierung, Versionierung klären (ADR-010).
+# DRAFT -- not verified, not wired into CI.
+# Follow-up work: clarify base image choice, signing, versioning (ADR-010).
 
 FROM python:3.12-slim AS build
 WORKDIR /site

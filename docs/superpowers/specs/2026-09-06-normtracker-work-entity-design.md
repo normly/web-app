@@ -62,16 +62,16 @@ document detail, watchlist) can refer to "one standard" instead of "one document
 ### Data model
 
 ```
-Work (neu)
-  id: UUID (PK, surrogate — kein natürlicher Schlüssel, da ein Work
-      bewusst mehrere Herausgeber/Nummern überspannen kann)
+Work (new)
+  id: UUID (PK, surrogate — no natural key, since a Work
+      can deliberately span several publishers/numbers)
   status: enum(active, merged)
-  merged_into_work_id: UUID | None (FK → Work, self-ref; nur bei
-      status=merged gesetzt)
+  merged_into_work_id: UUID | None (FK → Work, self-ref; set only when
+      status=merged)
   created_at: datetime
   created_via: enum(auto_matched, manual)
 
-Document (bestehend, erweitert)
+Document (existing, extended)
   + work_id: UUID (FK → Work, NOT NULL)
 ```
 
@@ -114,10 +114,10 @@ law that refers to a norm) and must never result in the same work.
 `IdentityResolutionCase` (existing) gets a second case type:
 
 ```
-IdentityResolutionCase (erweitert)
+IdentityResolutionCase (extended)
   ...
   case_type: enum(new_document, work_merge)
-  # bei case_type=work_merge:
+  # for case_type=work_merge:
   source_work_id: UUID | None
   target_work_id: UUID | None
 ```
