@@ -19,7 +19,7 @@ segmentation and embedding, output. That is too large for one sub-project.
 
 1. Scope: the full chain up to and including segmentation/embedding, but only for two
    concrete sources — **EUR-Lex** (lists of harmonized norms, metadata/references only, no
-   full text) and **DGUV** (DGUV regulations (Vorschriften), real full text). "Output" is explicitly not
+   full text) and **DGUV** (regulations, i.e. Vorschriften; real full text). "Output" is explicitly not
    part of this sub-project. For EUR-Lex specifically: the "Summary list of harmonised
    standards" PDFs published by the Commission per directive/regulation (e.g. for the
    Machinery Directive 2006/42/EC under
@@ -81,7 +81,7 @@ Three approaches were weighed:
 
 1. **Protocol-based `SourceAdapter`**, adapters deliver a source-neutral `RawRecord`.
 2. Adapters write directly to the database — rejected, violates REQ-PIPE-001's requirement
-   that processing from identity resolution onward is independent of provenance.
+   that processing from identity resolution onward is independent of the provenance type.
 3. A generic, configurable adapter (URL+mapping without code) — rejected for two
    structurally very different sources (EUR-Lex table PDF vs. DGUV running-text PDF); premature
    abstraction.
@@ -139,7 +139,7 @@ for the Machinery Directive 2006/42/EC, generated 15.10.2021, retrievable via
 | Date of start of presumption of conformity | `08/04/2011` | not modeled for now |
 | OJ reference for publication in OJ | `OJ C 110 - 08/04/2011` | Evidence for the `based_on_law` edge (not stored as a separate field) |
 | Restriction, date/OJ reference for restriction | mostly `-` | not modeled for now |
-| Date of withdrawal from OJ | e.g. `03/09/2022` | not modeled for now — the table names no successor standard, only a withdrawal date; a `withdrawn_by` edge would need a target document that cannot be cleanly derived from this alone. A deliberate simplification for the start, see Open items. |
+| Date of withdrawal from OJ | e.g. `03/09/2022` | not modeled for now — the table names no successor norm, only a withdrawal date; a `withdrawn_by` edge would need a target document that cannot be cleanly derived from this alone. A deliberate simplification for the start, see Open items. |
 
 Per row, the following is created: `document_designation` with `(issuer="CEN", designation="EN ISO 12100:2010")`,
 `document_title` with the title, and a `RawReference(target_designation="2006/42/EC",
@@ -306,7 +306,7 @@ already accepted, merged code.
 | `resolved_by` | text, nullable | |
 | `created_at` | timestamptz | |
 
-No rights gate needed — an internal administrative process, no content output. New
+No rights gate needed — an internal administrative process, no content is served. New
 repository interface `IdentityResolutionRepository` (`enqueue_case`,
 `list_pending_cases`, `resolve_case`, `reject_case`).
 
@@ -414,7 +414,7 @@ half-created `delivery` row that would make the record wrongly appear
 
 | Requirement/ADR | Coverage in this design |
 |---|---|
-| REQ-PIPE-001 | Adapter abstraction, provenance-independent processing from identity resolution onward |
+| REQ-PIPE-001 | Adapter abstraction, provenance-type-independent processing from identity resolution onward |
 | REQ-PIPE-002 | `source` entries for EUR-Lex/DGUV (already in the schema, populated here) |
 | REQ-PIPE-003 | TDM rights-reservation check documented at source registration (field already present) |
 | REQ-PIPE-004 | Automatic, source-specific rights classification per document/jurisdiction |
@@ -439,8 +439,8 @@ half-created `delivery` row that would make the record wrongly appear
   sub-project.
 - **STACKIT Object Storage for raw files** instead of local disk storage — likewise a
   later deployment decision, analogous to the database question from the previous sub-project.
-- **EUR-Lex withdrawal date without a successor standard.** For withdrawn norms, the "Summary list" table
-  names only a date and an OJ reference, no successor standard — but a
+- **EUR-Lex withdrawal date without a successor norm.** For withdrawn norms, the "Summary list" table
+  names only a date and an OJ reference, no successor norm — but a
   `withdrawn_by` edge would need a target document. For the start, the withdrawal date
   is not modeled; a later refinement could keep the referenced decision
   (OJ reference) itself as a node.

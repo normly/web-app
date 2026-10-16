@@ -60,7 +60,7 @@ via EU/self-hosted email sending.
   This sub-project only delivers the account foundation (registration, login, session check);
   which functions an account concretely unlocks is decided by the respective
   domain sub-projects (chat, uploads, …) that consume `accounts/`'s session check.
-- **Account deletion/GDPR access request/export.** Important, but a separate topic with its own
+- **Account deletion/DSGVO (the EU General Data Protection Regulation) access request/export.** Important, but a separate topic with its own
   requirements — not specified here.
 
 ## Architecture
@@ -217,7 +217,7 @@ the frontend reads the token from the URL and sends it via POST.
   sending a verification or reset mail, this is currently only logged —
   no queue/no automatic retry. Sufficient for the start; to be added as soon as
   it becomes a real problem.
-- **Account deletion, GDPR access request/export** — a separate topic, not specified here.
+- **Account deletion, DSGVO access request/export** — a separate topic, not specified here.
 - **Concrete email provider/SMTP configuration** — a later deployment decision, analogous
   to the previous sub-projects (e.g. database hosting, LLM provisioning).
 - **The LLM chat design must be updated** as soon as this sub-project is in place:

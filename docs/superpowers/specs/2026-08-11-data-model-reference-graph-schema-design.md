@@ -226,7 +226,7 @@ public protocol `DocumentRepository` has no method that returns documents
 unfiltered. The concrete implementation additionally carries unfiltered
 methods (`get_document_unchecked`, `list_designations`, `list_titles`) for
 identity resolution, pipeline and administration — they are deliberately not part of the
-protocol and not an output path for content.
+protocol and not a path for serving content.
 
 **Withdrawal path.** `revoke_delivery(delivery_id)` sets `delivery.withdrawn_at`,
 sets `revoked_at` on all associated `edge` and `rights_classification` rows and
