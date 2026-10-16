@@ -227,7 +227,7 @@ to it wouldn't resolve on the built site, only when browsing the raw repo.)
 
 !!! warning "Noch keine lauffähige Version"
     Auslieferung ist laut [ADR-010](
-    ../adr/README.md#adr-010-auslieferung-als-container-daten-getrennt-vom-image)
+    ../adr/README.md#adr-010-shipping-as-a-container-data-separate-from-the-image)
     als signierte
     Container-Images plus Compose-Setup geplant, mit dem Wissensbestand als
     eigenständig versioniertem Dump. Diese Seite beschreibt den geplanten
@@ -312,7 +312,7 @@ Millisekunden, ohne Tokenkosten. Ein Modellaufruf wäre hier teurer,
 langsamer und fehleranfälliger. Gerade bei Gültigkeits- und
 Ersetzungsfragen sind Halluzinationen besonders folgenschwer.
 
-Details und Abwägung: [ADR-008](../adr/README.md#adr-008-graph-first-anfrageverarbeitung).
+Details und Abwägung: [ADR-008](../adr/README.md#adr-008-graph-first-query-processing).
 
 ## Datenhaltung
 
@@ -322,7 +322,7 @@ Systeme, die synchron gehalten werden müssten. Der Datenbankzugriff läuft
 ausschließlich über die Repository-Schicht; welche Speichertechnologie
 dahintersteckt, bleibt austauschbar.
 
-Details: [ADR-006](../adr/README.md#adr-006-postgresql-statt-neo4j-fur-den-referenzgraph).
+Details: [ADR-006](../adr/README.md#adr-006-postgresql-instead-of-neo4j-for-the-reference-graph).
 
 ## Offen und geschichtet zugleich
 
@@ -352,9 +352,9 @@ Drittsystem, das über die HTTP-API mit einer normly-Instanz spricht, ist
 ein getrenntes Programm und nicht betroffen — Integrationen sind
 ausdrücklich erwünscht.
 
-Begründung der Lizenzwahl: [ADR-002](../adr/README.md#adr-002-lizenzmodell-agpl-30-apache-20-odbl).
+Begründung der Lizenzwahl: [ADR-002](../adr/README.md#adr-002-license-model-agpl-30-apache-20-odbl).
 Warum der Graph trotz Lizenzierung offen bleibt:
-[ADR-007](../adr/README.md#adr-007-referenzgraph-bleibt-offen).
+[ADR-007](../adr/README.md#adr-007-reference-graph-stays-open).
 
 ## Rechteklassifikation nach Kategorie
 
@@ -370,10 +370,10 @@ wird:
 
 Keine Kategorie zuordenbar heißt: nicht erfassen. Kategorie D wird nie für
 kommerziell verwertete Kataloge (DIN Media/Nautos u. Ä.) verwendet — dazu
-[ADR-012](../adr/README.md#adr-012-kein-scraping-kommerziell-verwerteter-katalogbestande).
+[ADR-012](../adr/README.md#adr-012-no-scraping-of-commercially-exploited-catalog-collections).
 
 Die Klassifikation gilt **je Rechtsraum**, nicht global — § 5 UrhG gilt nur
-in Deutschland. Details: [ADR-011](../adr/README.md#adr-011-internationalisierung-von-beginn-an).
+in Deutschland. Details: [ADR-011](../adr/README.md#adr-011-internationalization-from-the-start).
 
 ## Getrennte Datenhaltung je Herausgeber
 
@@ -381,7 +381,7 @@ Lizenzierte Bestände (Kategorie C) werden je Herausgeber mit einem eigenen
 Datenschlüssel getrennt gespeichert. Das ermöglicht kryptographisches
 Löschen bei Vertragsende — auch in Backups, wo selektives Löschen sonst
 praktisch nicht durchführbar ist. Details:
-[ADR-014](../adr/README.md#adr-014-verschlusselung-kryptographisches-loschen-je-herausgeber).
+[ADR-014](../adr/README.md#adr-014-encryption-cryptographic-erasure-per-publisher).
 ```
 
 (New paragraph "Getrennte Datenhaltung je Herausgeber" added — the old
@@ -660,7 +660,7 @@ keine etablierte Entsprechung gibt.
 : Hält Marke, offene Daten und Quellcode; verantwortet den freien Kern und
   die Beziehungen zu Herausgebern und Community. Getrennt von einer
   künftigen kommerziellen Gesellschaft — siehe
-  [ADR-001](adr/README.md#adr-001-open-core-modell-statt-white-label-produkt).
+  [ADR-001](adr/README.md#adr-001-open-core-model-instead-of-a-white-label-product).
 
 **Normenausschuss vs. Herausgeber**
 : Der Herausgeber (z. B. DIN, VDI, DGUV) veröffentlicht eine Norm; der

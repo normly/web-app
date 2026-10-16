@@ -359,7 +359,7 @@ repository root is the right starting point, not this page.
 # Self-Hosting
 
 !!! warning "No runnable version yet"
-    Delivery is planned per [ADR-010](../adr/README.md#adr-010-auslieferung-als-container-daten-getrennt-vom-image)
+    Delivery is planned per [ADR-010](../adr/README.md#adr-010-shipping-as-a-container-data-separate-from-the-image)
     as signed container images plus a Compose setup, with the knowledge
     base as an independently versioned dump. This page will describe the
     actual path once there's a first release that does it — speculation
@@ -424,7 +424,7 @@ deterministically, in milliseconds, at no token cost. A model call here
 would be more expensive, slower, and more error-prone. Hallucinations are
 especially costly for validity and replacement questions.
 
-Details and trade-offs: [ADR-008](../adr/README.md#adr-008-graph-first-anfrageverarbeitung).
+Details and trade-offs: [ADR-008](../adr/README.md#adr-008-graph-first-query-processing).
 
 ## Data storage
 
@@ -434,7 +434,7 @@ systems that would need to be kept in sync. Database access goes
 exclusively through the repository layer; the underlying storage
 technology stays swappable.
 
-Details: [ADR-006](../adr/README.md#adr-006-postgresql-statt-neo4j-fur-den-referenzgraph).
+Details: [ADR-006](../adr/README.md#adr-006-postgresql-instead-of-neo4j-for-the-reference-graph).
 
 ## Open and layered at once
 
@@ -461,9 +461,9 @@ The AGPL applies when someone modifies and operates the server itself. A
 third-party system that talks to a normly instance over the HTTP API is a
 separate program and unaffected — integrations are explicitly welcome.
 
-Rationale for the license choice: [ADR-002](../adr/README.md#adr-002-lizenzmodell-agpl-30-apache-20-odbl).
+Rationale for the license choice: [ADR-002](../adr/README.md#adr-002-license-model-agpl-30-apache-20-odbl).
 Why the graph stays open despite licensing:
-[ADR-007](../adr/README.md#adr-007-referenzgraph-bleibt-offen).
+[ADR-007](../adr/README.md#adr-007-reference-graph-stays-open).
 
 ## Rights classification by category
 
@@ -478,10 +478,10 @@ Every data source gets a category before it's processed at all:
 
 No assignable category means: not ingested. Category D is never used for
 commercially exploited catalogs (DIN Media/Nautos and similar) — see
-[ADR-012](../adr/README.md#adr-012-kein-scraping-kommerziell-verwerteter-katalogbestande).
+[ADR-012](../adr/README.md#adr-012-no-scraping-of-commercially-exploited-catalog-collections).
 
 Classification applies **per jurisdiction**, not globally — § 5 UrhG only
-applies in Germany. Details: [ADR-011](../adr/README.md#adr-011-internationalisierung-von-beginn-an).
+applies in Germany. Details: [ADR-011](../adr/README.md#adr-011-internationalization-from-the-start).
 
 ## Separate data storage per publisher
 
@@ -489,7 +489,7 @@ Licensed holdings (Category C) are stored separately per publisher, each
 with its own data encryption key. This enables cryptographic deletion at
 contract end — even in backups, where selective deletion is otherwise
 practically infeasible. Details:
-[ADR-014](../adr/README.md#adr-014-verschlusselung-kryptographisches-loschen-je-herausgeber).
+[ADR-014](../adr/README.md#adr-014-encryption-cryptographic-erasure-per-publisher).
 ```
 
 Note: `§ 5 UrhG` and `§ 44b Abs. 3` are references to specific sections of
@@ -571,7 +571,7 @@ established English equivalent.
 : Holds the brand, open data, and source code; responsible for the free
   core and relationships with publishers and the community. Separate from
   a future commercial entity — see
-  [ADR-001](adr/README.md#adr-001-open-core-modell-statt-white-label-produkt).
+  [ADR-001](adr/README.md#adr-001-open-core-model-instead-of-a-white-label-product).
 
 **Normenausschuss vs. publisher**
 : The publisher (e.g. DIN, VDI, DGUV) releases a standard; the

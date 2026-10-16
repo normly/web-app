@@ -22,7 +22,7 @@ established English equivalent.
 : Holds the brand, open data, and source code; responsible for the free
   core and relationships with publishers and the community. Separate from
   a future commercial entity — see
-  [ADR-001](adr/README.md#adr-001-open-core-modell-statt-white-label-produkt).
+  [ADR-001](adr/README.md#adr-001-open-core-model-instead-of-a-white-label-product).
 
 **Normenausschuss vs. publisher**
 : The publisher (e.g. DIN, VDI, DGUV) releases a standard; the
@@ -84,31 +84,66 @@ added here.
 
 | German | English |
 |---|---|
+| abgelöst durch / ersetzt / ergänzt (ADR status) | superseded by / replaces / amends |
 | Abstammung | lineage |
 | Akzeptanzkriterium, Abnahmekriterium | acceptance criterion (both; the SRS uses them as synonyms) |
+| Alterung (of tombstones) | expiry |
 | anerkannter Stand der Technik | recognized state of the art |
+| Anmeldung | sign-in |
 | Attributionserfassung | attribution capture (exception to Erfassung → acquisition: recording attribution data per answer) |
+| Aufbewahrung | retention |
+| Aufräumbefehl | cleanup command |
 | Ausgabestand | edition |
-| Auslieferung (shipping software to operators) | shipping |
+| Auslieferung (shipping software to operators) | shipping (software to operators) |
+| Auslieferung (of a file to an end user), ausgeliefert, Dateiauslieferung | handed out, file download (distinct from shipping software to operators) |
 | Ausspielung (output to users at the end of the processing chain) | output |
+| baut auf (ADR status) | builds on |
 | Begründung / Entscheidung / Konsequenz | Rationale / Decision / Consequence |
 | Beitragsfassade | contribution facade (explained at first mention) |
-| Bestand, Bestände | collection, collections |
+| Beobachtungsliste | watchlist |
+| beschlossen / favorisiert / offen (ADR status) | accepted / preferred / open |
+| Bestand, Bestände | collection, collections (content); data stores (in the sense of storage: database, object storage, indexes, logs, backups) |
+| Betreiber | operator |
+| Bezeichner (of a norm, e.g. "DIN EN ISO 9001") | designation (code: `DocumentDesignation`) |
+| Bezeichner (programming sense) | identifier |
+| Entscheidungsdokumentation | architecture decision records |
 | Erfassung, Datenerfassung | acquisition, data acquisition |
 | Ersetzung | replacement (matches the graph edge `REPLACES`; the existing "supersession" in the README stays) |
+| führend (platform, registry) | primary |
 | Herausgeber | publisher |
 | Herkunft (attribute) | provenance |
+| Herkunftsadresse | client IP address |
 | (sachliche) Herkunftsangabe | (factual) statement of origin |
+| hinfällig (status) | obsolete |
+| Identifikator, Identifikatorschema | identifier, identifier scheme |
+| Kennung (record ID, e.g. "Google-Kennung") | ID |
+| Kennungen (in the export, ADR-027) | readable document IDs (export uses publisher/number/edition/part) |
+| Kennzeichnung (of displays/copies, ADR-015, REQ-DRM-003) | marking |
 | kommunizierbarer Prototyp | presentable prototype |
+| Kontingent | quota |
 | Konto-, Kontolöschung | account deletion |
+| Kontobezug | account reference |
+| Kopierschutz | copy protection |
+| kryptographisches Löschen | cryptographic erasure |
 | Lizenzklassifikation | license classification (distinct from rights classification) |
+| Löschprotokoll | deletion log |
+| Massenextraktion | bulk extraction |
+| Modellherkunft, Modellherkunftsregel | model origin, model-origin rule |
 | Nachtrag | addendum |
+| Nachverfolgbarkeit | traceability |
+| Neulieferung | re-delivery |
+| Nicht betroffen (ADR label) | Not affected |
 | Norm, Normen | norm, norms |
 | Normen und Regelwerke / Normen- und Regelwerkswissen | norms and standards / knowledge about norms and standards |
 | Normenausschuss, Trägerorganisation | unchanged (German loanwords, see above) |
+| Normungsorganisation | standardization body |
+| Nutzerwunsch, Nutzerentscheidung (the project owner) | at the owner's request, owner decision |
 | Nutzungsvorbehalt | rights reservation |
+| Offene Punkte | Open items |
+| Partnerschaftsleiter / Volltext-Sprung (ADR-013) | partnership ladder / full-text leap |
 | Quellenregister | source register |
 | Quelllieferung | source delivery |
+| Ratenbegrenzung | rate limiting |
 | Rechteklassifikation | rights classification |
 | Rechtsraum | jurisdiction |
 | Referenzgraph | reference graph |
@@ -117,11 +152,19 @@ added here.
 | Rücknahme | withdrawal |
 | Rückzug | withdrawal (same concept as Rücknahme, REQ-PIPE-005) |
 | Schlüssel, Datenschlüssel je Herausgeber | data key per publisher |
+| Schlüsselzeremonie | key ceremony |
+| Selbsthoster | self-hosters |
 | Sicherung | backup |
+| Sicherungs-Stand / -Stände | backup(s) |
 | Tombstone | tombstone |
 | Trägerschaft | stewardship |
+| Umsetzung (ADR label) | Implementation |
 | Verarbeitungskette | processing chain |
+| Verläufe (chat) | histories |
+| Verworfen (ADR label) | Rejected |
+| Widerruf | revocation (code: `revoked_at`) |
 | Wissensbasis, Wissensbestand | knowledge base |
+| zurückgezogen (documents/edges kept as tombstones), zurückgezogene Kennungen | retired, retired IDs (code: `retired_at`; the process stays "withdrawal") |
 
 **Compounds follow their stem.** Rechtsnorm → legal norm, EU-Normen → EU
 norms, Regelwerkswissen → knowledge about standards, Regelwerksreihen →
@@ -133,7 +176,13 @@ are never interchangeable: *norm* is the German *Norm*, *standard* is the
 German *Regelwerk*. "Standard" in its ordinary technical sense ("standard
 library", "standard output") is untouched.
 
-**Withdrawal vs. withdrawn.** *Withdrawal* is the removal of a source
-delivery and all artifacts derived from it; a norm that is *withdrawn* is
-one its publisher has withdrawn, a status recorded in the graph as the edge
-`WITHDRAWN_BY`.
+**Withdrawal vs. retired vs. withdrawn.** Three separate terms:
+
+- The act of a publisher or source pulling content (Rücknahme, Rückzug,
+  "zieht … zurück") is **withdraw / withdrawal**: the removal of a source
+  delivery and all artifacts derived from it. Deliveries carry
+  `withdrawn_at`.
+- The resulting database state of a tombstoned document or edge is
+  **retired** (`retired_at`), e.g. "retired IDs".
+- A norm withdrawn by its standardization body is **withdrawn**: a norm
+  status, recorded in the graph as the edge `WITHDRAWN_BY`.

@@ -1,1517 +1,1525 @@
-# normly — Entscheidungsdokumentation (ADR)
+# normly — Architecture decision records (ADR)
 
-Stand: 10.08.2026 · Bezug: SRS/SDD v0.2 (Redline)
+As of: 10.08.2026 · Reference: SRS/SDD v0.2 (redline)
 
-Dieses Dokument hält fest, **was** entschieden wurde und **warum**. Die
-Umsetzung steht in der SRS/SDD; hier stehen die Begründungen, die dort
-keinen Platz haben und die erfahrungsgemäß als erstes vergessen werden.
+This document records **what** was decided and **why**. The
+implementation is in the SRS/SDD; here are the rationales that have no
+place there and that, experience shows, are the first to be forgotten.
 
-Status je Eintrag: `beschlossen` · `favorisiert` · `offen`
-
----
-
-## ADR-001 — Open-Core-Modell statt White-Label-Produkt
-
-**Status:** beschlossen
-
-**Entscheidung:** Ein quelloffener, selbst hostbarer Kern trägt die frei
-verfügbare Wissensbasis und den Referenzgraph. Kommerzielle Zusatzdienste
-setzen darauf auf und sollen in eine eigene Gesellschaft ausgegründet werden.
-
-**Begründung:** Die ursprüngliche Vision („Normenwissen für jeden") und das
-White-Label-Geschäftsmodell widersprachen sich. Der Rechtsformwechsel allein
-löst das Urheberrechtsproblem nicht — auch eine gemeinnützige Organisation,
-die DIN-/VDI-/DVGW-Volltexte weitergibt, bleibt für diese Häuser ein
-Wettbewerber. Tragfähig ist nur die Trennung: frei ist, was frei sein darf;
-bezahlt wird für Prozess, Haftungssicherheit und Integration.
-
-**Konsequenz:** Der Kern darf keine Abhängigkeit auf proprietäre Bestandteile
-haben (REQ-OSS-002). Verworfen wurde die Variante „alles in einer GmbH".
+Status per entry: `accepted` · `preferred` · `open`
 
 ---
 
-## ADR-002 — Lizenzmodell: AGPL-3.0 / Apache-2.0 / ODbL
+## ADR-001 — Open-core model instead of a white-label product
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Kern unter AGPL-3.0. Client-SDKs und API-Spezifikation unter
-Apache-2.0. Daten und Referenzgraph unter offener Datenlizenz mit
-Share-Alike-Wirkung (ODbL).
+**Decision:** An open-source, self-hostable core carries the freely
+available knowledge base and the reference graph. Commercial add-on services
+build on it and are to be spun off into a separate company.
 
-**Begründung:** Die AGPL schließt über § 13 die Lücke der Netzwerknutzung —
-wer den Kern als gehosteten Dienst betreibt, muss Änderungen offenlegen. Das
-ist der Schutz gegen einen Fork durch eine Normungsorganisation oder einen
-großen Softwarehersteller. Apache-2.0 für SDKs und API-Spezifikation sichert
-maximale Verbreitung dort, wo keine schützenswerte Logik liegt.
+**Rationale:** The original vision ("knowledge about norms for everyone") and the
+white-label business model contradicted each other. Changing the legal form alone
+does not solve the copyright problem — even a non-profit organization
+that passes on DIN/VDI/DVGW full texts remains a
+competitor for these organizations. Only the separation is viable: free is what may be free;
+payment is for process, liability certainty and integration.
 
-**Verworfen:** Apache-2.0 als alleinige Kernlizenz (gibt den Code ohne
-Gegenleistung an potenzielle Wettbewerber). MPL-2.0 (dateibasiertes Copyleft
-ist durch Auslagern in neue Dateien umgehbar, SaaS-Lücke bleibt offen —
-kombiniert die Nachteile beider Seiten).
-
-**Wichtig:** Die AGPL blockiert die Drittsoftware-Integration nicht. Ein
-Plugin, das über HTTP mit einer normly-Instanz spricht, ist ein getrenntes
-Programm. Die AGPL greift erst, wenn jemand den Server selbst modifiziert und
-betreibt.
+**Consequence:** The core must not have any dependency on proprietary components
+(REQ-OSS-002). The variant "everything in one GmbH" was rejected.
 
 ---
 
-## ADR-003 — Beitragsmodell: DCO statt CLA
+## ADR-002 — License model: AGPL-3.0 / Apache-2.0 / ODbL
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Externe Beiträge über das Developer Certificate of Origin.
-Jeder Commit trägt eine `Signed-off-by`-Zeile. Keine Rechteübertragung.
+**Decision:** Core under AGPL-3.0. Client SDKs and API specification under
+Apache-2.0. Data and reference graph under an open data license with
+share-alike effect (ODbL).
 
-**Begründung:** Das DCO senkt die Hürde für Beitragende und passt zum Anspruch
-auf frei zugängliches Normenwissen.
+**Rationale:** Through § 13, the AGPL closes the network-use gap —
+anyone who operates the core as a hosted service must disclose changes. That
+is the protection against a fork by a standardization body or a
+large software vendor. Apache-2.0 for SDKs and API specification ensures
+maximum reach where no logic worth protecting resides.
 
-**Bewusst in Kauf genommen:** Damit ist **Dual-Licensing dauerhaft
-ausgeschlossen.** Sobald der erste externe Beitrag im Kern liegt, sind die
-Rechte verteilt und niemand kann mehr eine kommerzielle Ausnahmelizenz zur
-AGPL verkaufen. Diese Einnahmequelle entfällt.
+**Rejected:** Apache-2.0 as the sole core license (gives the code away without
+anything in return to potential competitors). MPL-2.0 (file-based copyleft
+can be circumvented by moving code into new files, the SaaS gap stays open —
+combines the disadvantages of both sides).
 
-**Verworfen:** CLA (hätte Dual-Licensing ermöglicht, wurde zugunsten der
-Community-Offenheit abgelehnt). Ebenfalls verworfen: DCO mit permissiver
-Inbound-Lizenz (Beiträge unter Apache-2.0, Auslieferung unter AGPL) — hätte
-die Relizenzierung offengehalten.
-
-**Offen:** Wer ist Rechteinhaber im LICENSE- und Copyright-Header — Person,
-künftige Trägerorganisation oder GmbH? Vor dem ersten externen Beitrag klären.
-
----
-
-## ADR-004 — STACKIT Git als führende Plattform, GitHub als Beitragsfassade
-
-**Status:** war teilweise abgelöst durch ADR-019 (2026-09-05), das die
-Beitragsfassade auf GitHub verwarf. Seit ADR-021 (2026-09-14) gilt für
-Quellcode, CI und Registry wieder die hier ursprünglich getroffene
-GitHub-Aufteilung, allerdings mit GitHub als führend statt als reiner
-Beitragsfassade — siehe ADR-021 für den aktuellen Stand.
-
-**Entscheidung:** STACKIT Git (Forgejo) mit STACKIT Pipelines ist führend für
-Quellcode, Build, Artefakte, Zugangsdaten und Deployment. GitHub dient als
-öffentliche Beitragsfassade: Issues, Pull Requests, Sichtbarkeit. Dort keine
-Zugangsdaten, Runner, Build-Artefakte oder Deployment-Rechte.
-
-**Begründung:** Ein öffentliches Image und öffentlicher Quellcode sind
-souveränitätsrechtlich unkritisch — schützenswert sind Betrieb, Daten und
-Credentials. Der Split gibt Sichtbarkeit ohne Souveränitätsverlust und ist
-gegenüber Normungspartnern sogar das stärkere Argument: der Code ist offen und
-prüfbar, Daten und Betrieb liegen in Deutschland.
-
-**Praktisch:** STACKIT Pipelines sind weitgehend GitHub-Actions-kompatibel,
-ein späterer Wechsel der Workflows ist billig. Beiträge werden nur an **einer**
-Stelle entgegengenommen — zwei parallele Issue-Tracker wirken wie ein totes
-Projekt.
-
-**Verworfen:** GitHub + Vercel als Ursprung (hätte eine Ausnahmeklausel gegen
-die eigene Spezifikation erfordert). Reines STACKIT ohne öffentliche Fassade
-(Verlust an Sichtbarkeit und externen Beiträgen).
+**Important:** The AGPL does not block third-party software integration. A
+plugin that talks to a normly instance over HTTP is a separate
+program. The AGPL only applies when someone modifies and
+operates the server itself.
 
 ---
 
-## ADR-005 — Kein Vercel, Deployment durchgängig auf STACKIT
+## ADR-003 — Contribution model: DCO instead of CLA
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Kein Vercel. Next.js als Container (`standalone`-Output) über
-die STACKIT Container Registry, Betrieb zunächst auf VM mit Compose, später
+**Decision:** External contributions via the Developer Certificate of Origin.
+Every commit carries a `Signed-off-by` line. No transfer of rights.
+
+**Rationale:** The DCO lowers the barrier for contributors and fits the aim
+of freely accessible knowledge about norms.
+
+**Knowingly accepted:** This **permanently rules out
+dual licensing.** As soon as the first external contribution is in the core, the
+rights are distributed and no one can sell a commercial exception license to the
+AGPL any longer. This source of revenue is lost.
+
+**Rejected:** CLA (would have enabled dual licensing, was turned down in favor of
+community openness). Also rejected: DCO with a permissive
+inbound license (contributions under Apache-2.0, shipping under AGPL) — would have
+kept relicensing open.
+
+**Open:** Who is the rights holder in the LICENSE and copyright header — a person,
+a future Trägerorganisation or a GmbH? Clarify before the first external contribution.
+
+---
+
+## ADR-004 — STACKIT Git as the primary platform, GitHub as contribution facade
+
+**Status:** was partially superseded by ADR-019 (2026-09-05), which rejected the
+contribution facade on GitHub (a public presence for issues, pull requests and
+visibility, holding no credentials or deployment rights). Since ADR-021
+(2026-09-14), the GitHub split originally made here applies again to source
+code, CI and registry, but with GitHub as primary instead of as a mere
+contribution facade — see ADR-021 for the current state.
+
+**Decision:** STACKIT Git (Forgejo) with STACKIT Pipelines is primary for
+source code, build, artifacts, credentials and deployment. GitHub serves as the
+public contribution facade: issues, pull requests, visibility. No
+credentials, runners, build artifacts or deployment rights there.
+
+**Rationale:** A public image and public source code are
+uncritical in terms of sovereignty — what is worth protecting is operations, data and
+credentials. The split gives visibility without loss of sovereignty and is
+even the stronger argument towards standardization partners: the code is open and
+auditable, data and operations are in Germany.
+
+**In practice:** STACKIT Pipelines are largely GitHub Actions compatible,
+a later switch of the workflows is cheap. Contributions are accepted in only **one**
+place — two parallel issue trackers look like a dead
+project.
+
+**Rejected:** GitHub + Vercel as the origin (would have required an exception clause against
+our own specification). Pure STACKIT without a public facade
+(loss of visibility and external contributions).
+
+---
+
+## ADR-005 — No Vercel, deployment entirely on STACKIT
+
+**Status:** accepted
+
+**Decision:** No Vercel. Next.js as a container (`standalone` output) via
+the STACKIT Container Registry, operation initially on a VM with Compose, later
 SKE.
 
-**Begründung:** Vercel bindet automatische Deployments nur an GitHub, GitLab
-und Bitbucket — Forgejo ist nicht dabei, der Komfortvorteil entfällt also
-ohnehin. Der Mehraufwand ist zu Projektbeginn am kleinsten, und die
-US-Ausnahmeklausel in der SRS entfällt vollständig.
+**Rationale:** Vercel ties automatic deployments only to GitHub, GitLab
+and Bitbucket — Forgejo is not among them, so the convenience advantage is lost
+anyway. The extra effort is smallest at the start of the project, and the
+US exception clause in the SRS is dropped entirely.
 
-**Nebenbedingung:** LLM-Inferenz und Vektorsuche laufen ohnehin nicht auf
-Serverless-Plattformen (Laufzeitgrenzen, keine GPUs). Der Kern ist daher als
-eigenständiger Dienst mit HTTP-API konzipiert.
+**Side condition:** LLM inference and vector search do not run on
+serverless platforms anyway (runtime limits, no GPUs). The core is therefore designed as a
+standalone service with an HTTP API.
 
 ---
 
-## ADR-006 — PostgreSQL statt Neo4j für den Referenzgraph
+## ADR-006 — PostgreSQL instead of Neo4j for the reference graph
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** PostgreSQL Flex mit pgvector. Graphzugriff hinter einer
-abstrahierten Schnittstelle gekapselt (REQ-GRAPH-004), Speichertechnologie
-austauschbar.
+**Decision:** PostgreSQL Flex with pgvector. Graph access encapsulated behind an
+abstracted interface (REQ-GRAPH-004), storage technology
+interchangeable.
 
-**Begründung:**
+**Rationale:**
 
-1. STACKIT bietet kein Managed Neo4j. Neo4j müsste selbst auf SKE betrieben
-   werden — Backup, Failover, Updates inklusive. PostgreSQL Flex bringt das mit.
-2. Neo4j Community (GPLv3) hat kein Clustering und keine Hot Backups; Enterprise
-   ist proprietär und teuer. Beides untergräbt das Self-Hosting-Versprechen aus
+1. STACKIT offers no managed Neo4j. Neo4j would have to be operated on SKE ourselves
+   — backup, failover, updates included. PostgreSQL Flex provides this out of the box.
+2. Neo4j Community (GPLv3) has no clustering and no hot backups; Enterprise
+   is proprietary and expensive. Both undermine the self-hosting promise of
    REQ-OSS-002.
-3. Die Abfragen sind flach (ein bis drei Sprünge, begrenzte Ersetzungsketten).
-   Rekursive CTEs reichen. Neo4j spielt seine Stärke bei tiefen, variabel langen
-   Traversierungen aus — nicht das Muster hier.
-4. Graph und Embeddings liegen in derselben Datenbank, derselben Transaktion,
-   demselben Backup. Zwei Systeme synchron zu halten ist eine dauerhafte
-   Fehlerquelle.
+3. The queries are shallow (one to three hops, bounded replacement chains).
+   Recursive CTEs suffice. Neo4j plays to its strength in deep, variable-length
+   traversals — not the pattern here.
+4. Graph and embeddings live in the same database, the same transaction,
+   the same backup. Keeping two systems in sync is a permanent
+   source of errors.
 
-**Auch bei weltweiter Abdeckung gültig:** Bei geschätzt 2–4 Mio. Dokumenten und
-50–200 Mio. Kanten bleibt das für PostgreSQL unkritisch. Neo4j skaliert nicht
-horizontal durch Sharding; Postgres lässt sich nach Herausgeber oder Rechtsraum
-partitionieren.
+**Valid even at worldwide coverage:** With an estimated 2–4 million documents and
+50–200 million edges, this remains uncritical for PostgreSQL. Neo4j does not scale
+horizontally through sharding; Postgres can be partitioned by publisher or
+jurisdiction.
 
-**Das eigentliche Skalierungsrisiko** ist der Vektorindex, nicht der Graph.
-Bei weltweiter Abdeckung sind mehrere Milliarden Textabschnitte zu erwarten —
-dort wird pgvector deutlich früher zum Engpass. Retrieval-Schicht daher ebenso
-kapseln.
+**The actual scaling risk** is the vector index, not the graph.
+At worldwide coverage, several billion text sections are to be expected —
+there pgvector becomes the bottleneck much sooner. Therefore encapsulate the retrieval layer
+as well.
 
 ---
 
-## ADR-007 — Referenzgraph bleibt offen
+## ADR-007 — Reference graph stays open
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Der Referenzgraph wird nicht zurückgehalten, sondern unter
-ODbL veröffentlicht — geschichtet in einen freien und einen kommerziellen Teil.
+**Decision:** The reference graph is not withheld but published under
+ODbL — layered into a free and a commercial part.
 
-**Begründung:** Offen heißt nicht schutzlos. Das Datenbankherstellerrecht
-(§§ 87a ff. UrhG) schützt die wesentliche Investition in Beschaffung und
-Aufbereitung und macht die Share-Alike-Klausel durchsetzbar: Wer den Graph in
-ein eigenes Produkt einbaut, muss die abgeleitete Datenbank unter denselben
-Bedingungen offenlegen. Das ist bei Daten der Gegenpart zur AGPL beim Code.
+**Rationale:** Open does not mean unprotected. The database maker's right
+(§§ 87a ff. UrhG, German Copyright Act) protects the substantial investment in procurement and
+preparation and makes the share-alike clause enforceable: anyone who builds the graph into
+their own product must disclose the derived database under the same
+terms. For data, this is the counterpart to the AGPL for code.
 
-Geheimhaltung wäre der schwächere Schutz — der Graph ist aus den Quelldokumenten
-rekonstruierbar. Ohne den Graph bliebe vom freien Kern ein Chatbot über
-DGUV-/BAuA-Dokumente übrig; die Trägerorganisation hätte keine
-Existenzberechtigung.
+Secrecy would be the weaker protection — the graph can be reconstructed from the source documents.
+Without the graph, all that would remain of the free core is a chatbot over
+DGUV/BAuA documents; the Trägerorganisation would have no
+reason to exist.
 
-**Trennlinie:**
+**Dividing line:**
 
-| Frei (ODbL) | Kommerziell |
+| Free (ODbL) | Commercial |
 |---|---|
-| Schema, Identifikatoren | Aktualitätsgarantie mit SLA |
-| Verweise zwischen öffentlichen Regelwerken | Verweise auf Abschnittsebene in lizenzierten Normen |
-| Ersetzungsketten, Gültigkeitsstände | Konfidenzangaben, Belegstellen für Audits |
-| Verweise Gesetz → Norm | Branchenspezifische Anreicherungen |
-| Periodischer Dump | SLA-API mit Änderungsbenachrichtigung |
+| Schema, identifiers | Currency guarantee with SLA |
+| References between public standards | Section-level references in licensed norms |
+| Replacement chains, validity states | Confidence ratings, evidence citations for audits |
+| References law → norm | Industry-specific enrichments |
+| Periodic dump | SLA API with change notification |
 
-Der letzte Punkt ist der wirtschaftlich entscheidende: **Ein monatlicher Dump
-und eine garantiert aktuelle API mit Haftungszusage sind verschiedene Produkte.
-Firmen zahlen für Verlässlichkeit, nicht für Daten.**
-
----
-
-## ADR-008 — Graph-First-Anfrageverarbeitung
-
-**Status:** beschlossen
-
-**Entscheidung:** Anfragen werden zuerst gegen den Referenzgraph aufgelöst. Ein
-Sprachmodell wird nur aufgerufen, wenn Synthese über Fließtext nötig ist.
-
-**Begründung:** Strukturfragen („was ersetzt X", „welche Vorschrift verweist auf
-Y") sind aus dem Graph exakt beantwortbar — deterministisch, in Millisekunden,
-ohne Tokenkosten. Ein Modellaufruf wäre teurer, langsamer und fehleranfälliger.
-Gerade bei Gültigkeits- und Ersetzungsfragen sind Halluzinationen besonders
-folgenschwer.
-
-**Doppelter Gewinn:** geringere Inferenzkosten *und* höhere Verlässlichkeit
-genau dort, wo Fehler am teuersten wären. Ergänzend: Caching gleicher Anfragen,
-kleines Modell für Routing, großes nur für komplexe Synthesen, Kontingente in
-der freien Nutzung.
+The last point is the economically decisive one: **A monthly dump
+and a guaranteed up-to-date API with a liability commitment are different products.
+Companies pay for reliability, not for data.**
 
 ---
 
-## ADR-009 — Keine personalisierte Werbung
+## ADR-008 — Graph-first query processing
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Personalisierte Werbung auf Basis von Suchanfragen,
-Chatverläufen oder Nutzerprofilen ist ausgeschlossen. Zulässig: kontextfreie
-Verzeichniseinträge, Affiliate auf Shoplinks, bezahlte Einträge im
-Konformitätsverzeichnis.
+**Decision:** Queries are resolved against the reference graph first. A
+language model is only invoked when synthesis over running text is needed.
 
-**Begründung:**
+**Rationale:** Structural questions ("what replaces X", "which regulation
+references Y") can be answered exactly from the graph — deterministically, in
+milliseconds, without token costs. A model call would be more expensive, slower
+and more error-prone. Especially with validity and replacement questions,
+hallucinations have particularly serious consequences.
 
-- *Rechnerisch:* Eine Chat-Sitzung erzeugt kaum Werbeplätze, verbraucht aber
-  mehrere LLM-Aufrufe mit langen Kontexten. Kleine, deutschsprachige
-  Fachzielgruppe bei hohen Kosten pro Anfrage — strukturell die schlechteste
-  Kombination für Werbefinanzierung.
-- *Datenschutz:* Die Fragen sind ungewöhnlich sensibel — ein
-  Sicherheitsbeauftragter nach einem Unfall, ein Mittelständler vor einer
-  Produkteinführung. Das ist Wettbewerbsinformation und teils haftungsrelevant.
-- *Neutralität:* Wer sagt, was der anerkannte Stand der Technik ist, kann nicht
-  gleichzeitig Produkte bewerben. Gegenüber DIN und VDI ein unnötiger
-  Angriffspunkt.
-
-**Der bessere Hebel ist die Kostenseite** — siehe ADR-008.
+**Double gain:** lower inference costs *and* higher reliability exactly
+where errors would be most expensive. In addition: caching of identical queries,
+a small model for routing, a large one only for complex syntheses, quotas in
+free use.
 
 ---
 
-## ADR-010 — Auslieferung als Container, Daten getrennt vom Image
+## ADR-009 — No personalized advertising
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Signierte, versionierte Container-Images plus lauffähiges
-Compose-Setup. Der freie Wissensbestand ist **nicht** Teil des Images, sondern
-ein eigenständig versionierter Dump, der beim ersten Start bezogen wird.
+**Decision:** Personalized advertising based on search queries, chat
+histories or user profiles is ruled out. Permitted: context-free directory
+entries, affiliate on shop links, paid entries in the conformity
+directory.
 
-**Begründung:** Ein AGPL-Kern, den außer dem Projekt selbst niemand betreiben
-kann, ist praktisch nicht offen. Das Image ist der Nachweis der
-Selbst-Hostbarkeit — und dasselbe Artefakt, das im Managed Hosting läuft.
-Die Trennung von Code und Daten ist nötig, weil sich Normenstände deutlich
-häufiger ändern als der Code; sonst wächst das Image und jede Datenaktualisierung
-erzwingt einen Neubau.
+**Rationale:**
 
-**Registry:** **Nachtrag 2026-09-14 (ADR-021):** GitHub Container Registry
-(GHCR) im Repository `normly/web-app` ist die führende Registry für den
-freien Kern — löst den vorherigen Nachtrag vom 2026-09-05 (ADR-019, STACKIT
-Container Registry alleinig) wieder ab. STACKIT Container Registry bleibt
-für Artefakte der kommerziellen Schicht bzw. spätere Normen-Datenprojekte
-verfügbar, ist aber nicht mehr die Registry des Kern-Images. Docker Hub
-allenfalls später als eigenständiger Spiegel, falls Pull-Limits für anonyme
-Zugriffe zum echten Problem werden.
+- *By the numbers:* A chat session generates hardly any ad slots, but consumes
+  several LLM calls with long contexts. A small, German-speaking specialist
+  target group at high cost per query — structurally the worst
+  combination for advertising financing.
+- *Data protection:* The questions are unusually sensitive — a
+  safety officer after an accident, a mid-sized company before a
+  product launch. That is competitive information and partly liability-relevant.
+- *Neutrality:* Whoever says what the recognized state of the art is cannot
+  advertise products at the same time. With respect to DIN and VDI, an unnecessary
+  point of attack.
 
----
-
-## ADR-011 — Internationalisierung von Beginn an
-
-**Status:** beschlossen
-
-**Entscheidung:** Der Referenzgraph wird von Anfang an für weltweite Abdeckung
-ausgelegt: global kollisionsfreies Identifikatorschema, sprachunabhängige
-Knotenidentität, nationale Übernahmen als Beziehungen, mehrsprachige
-Bezeichnungen. Lizenzklassifikation **je Rechtsraum**, nicht global.
-
-**Begründung:** Ein nachträglicher Umbau des Identifikatorschemas ist die
-teuerste denkbare Altlast. DIN EN ISO 9001 und BS EN ISO 9001 sind dasselbe
-Dokument — ohne sprachunabhängige Identität entstehen Dubletten, die
-Verweisketten unbrauchbar machen.
-
-Der frei veröffentlichbare Anteil ist **nicht** global einheitlich: § 5 UrhG
-gilt nur in Deutschland; in den USA ist die Lage über die
-Edicts-of-Government-Doktrin tendenziell großzügiger; für harmonisierte
-EU-Normen ist EuGH C-588/21 (2024) gesondert zu bewerten. Eine globale
-Klassifikation wäre entweder rechtswidrig oder unnötig restriktiv.
-
-**Folgeaufgabe:** Die rechtliche Bewertung je Rechtsraum ist eine laufende
-Aufgabe, keine einmalige Klärung. Braucht später eine Rolle oder einen Prozess.
+**The better lever is the cost side** — see ADR-008.
 
 ---
 
-## ADR-012 — Kein Scraping kommerziell verwerteter Katalogbestände
+## ADR-010 — Shipping as a container, data separate from the image
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Katalog- und Metadatenbestände von Herausgebern, die diese
-selbst kommerziell verwerten (insbesondere DIN Media / Nautos, vormals
-Perinorm), werden **ausschließlich vertraglich** bezogen. Automatisierte
-Erfassung ist ausgeschlossen — auch dann, wenn die Bestände öffentlich
-zugänglich sind. Umgesetzt als Positivliste im Quellenregister (Kategorien
-A–D, REQ-PIPE-002) mit technischer Sperre (REQ-PIPE-008).
+**Decision:** Signed, versioned container images plus a runnable
+Compose setup. The free knowledge base is **not** part of the image, but
+an independently versioned dump that is obtained on first start.
 
-**Begründung:**
+**Rationale:** An AGPL core that no one except the project itself can operate
+is practically not open. The image is the proof of
+self-hostability — and the same artifact that runs in managed hosting.
+The separation of code and data is necessary because norm editions change
+considerably more often than the code; otherwise the image grows and every data update
+forces a rebuild.
 
-1. *Der Katalog ist das Produkt.* Nautos umfasst rund 2,35 Mio. Datensätze aus
-   29 Ländern inklusive monatlicher Aktualisierung durch die
-   Normungsorganisationen — also genau den Katalog samt Änderungsverfolgung, den
-   normly bräuchte. Ihn nachzubauen heißt, das Umsatzprodukt genau der
-   Organisationen anzugreifen, mit denen verhandelt werden soll.
-2. *Rechtlich.* Ein Normenkatalog ist eine geschützte Datenbank. § 87b UrhG
-   untersagt neben der Entnahme wesentlicher Teile auch die **wiederholte und
-   systematische** Entnahme unwesentlicher Teile, soweit sie der normalen
-   Auswertung zuwiderläuft — das beschreibt periodisches Scraping mit Abgleich
-   exakt. Die TDM-Schranke des § 44b greift bei maschinenlesbarem
-   Nutzungsvorbehalt nicht.
-3. *Strategisch — der schwerste Punkt.* normly verhandelt darüber, dass
-   Herausgeber Inhalte **freiwillig** bereitstellen und dafür beteiligt werden
-   (ADR-013). Paralleles Abgreifen ist das exakte Gegenteil dieser Erzählung und
-   würde die Verhandlungen beschädigen.
-
-**Konsequenz:** Der Erstbestand kommt aus frei zugänglichen Quellen
-(REQ-PIPE-009): EU-Amtsblatt via EUR-Lex (Listen harmonisierter Normen, datiert
-und maschinenlesbar), Verweise aus Gesetzen und Verordnungen, DGUV- und
-BAuA-Verzeichnisse, Arbeitsprogramme von CEN/CENELEC, Katalogdaten von ISO/IEC.
-Das ist zugleich der für den Referenzgraph wertvollste Teil, weil dort die
-Verweise **aus dem Recht** stehen.
-
-**Verworfen:** Nautos-Lizenz als Datenquelle für den eigenen Bestand — solche
-Lizenzen schließen die Weiterverwendung in einem eigenen Produkt typischerweise
-aus. Vor einer solchen Lizenz wären die Vertragsbedingungen genau zu prüfen.
-
-**Nicht regelbar durch Vorsatz:** Die Sperre ist bewusst *technisch* formuliert
-(Adapter der Kategorie D lassen sich auf gekennzeichnete Quellen nicht
-konfigurieren), nicht als Richtlinie. Sobald Werkstudenten oder externe
-Beitragende Adapter schreiben, entscheidet die Spezifikation, nicht das
-Bauchgefühl.
+**Registry:** **Addendum 2026-09-14 (ADR-021):** GitHub Container Registry
+(GHCR) in the repository `normly/web-app` is the primary registry for the
+free core — supersedes the previous addendum of 2026-09-05 (ADR-019, STACKIT
+Container Registry exclusively) in turn. STACKIT Container Registry remains
+available for artifacts of the commercial layer or later norm data projects,
+but is no longer the registry of the core image. Docker Hub
+at most later as an independent mirror, should pull limits for anonymous
+access become a real problem.
 
 ---
 
-## ADR-013 — Metadaten zuerst: Partnerschaftsleiter statt Volltext-Sprung
+## ADR-011 — Internationalization from the start
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Gegenüber Herausgebern wird zuerst um **Katalogmetadaten**
-gebeten, nicht um Volltexte. Volltextzulieferung ist die zweite Stufe, gestützt
-auf reale Attributionszahlen aus der ersten.
+**Decision:** The reference graph is designed for worldwide coverage from the
+start: globally collision-free identifier scheme, language-independent
+node identity, national adoptions as relationships, multilingual
+designations. License classification **per jurisdiction**, not globally.
 
-**Begründung:** Metadaten kosten einen Herausgeber fast nichts und bringen ihm
-Sichtbarkeit und Verkäufe über Weiterleitung. Volltext ist die große Hürde,
-Metadaten die kleine. Ein Herausgeber, der monatliche Metadaten-Deltas ohnehin
-an Nautos liefert, hat mit einer zweiten Lieferung keinen zusätzlichen Aufwand.
+**Rationale:** A later rebuild of the identifier scheme is the
+most expensive legacy burden imaginable. DIN EN ISO 9001 and BS EN ISO 9001 are the same
+document — without language-independent identity, duplicates arise that
+make reference chains unusable.
 
-Sobald die erste Stufe läuft, liegen prüffähige Attributionszahlen vor
-(REQ-PART-002/003). Damit verändert sich das Volltextgespräch grundlegend: Es
-geht dann um einen Prozentsatz auf belegbaren Zahlen statt um die Frage, ob man
-normly überhaupt glaubt.
+The freely publishable share is **not** globally uniform: § 5 UrhG
+applies only in Germany; in the USA the situation tends to be more generous
+through the edicts-of-government doctrine; for harmonized
+EU norms, CJEU C-588/21 (2024) must be assessed separately. A global
+classification would be either unlawful or unnecessarily restrictive.
 
-**Kernaussage für Verhandlungen:** normly tritt nicht als Wettbewerber auf, der
-Verkaufserlöse verdrängt, sondern als Kanal, der neue Erlöse erschließt und
-nachvollziehbar zurückführt.
-
-**Erster Gesprächspartner:** Austrian Standards (Volltextbereitstellung
-angekündigt).
+**Follow-up task:** The legal assessment per jurisdiction is an ongoing
+task, not a one-time clarification. It will later need a role or a process.
 
 ---
 
-## ADR-014 — Verschlüsselung: kryptographisches Löschen je Herausgeber
+## ADR-012 — No scraping of commercially exploited catalog collections
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Verschlüsselung ruhender Daten für **alle** Bestände
-(Datenbank, Objektspeicher, Indizes, Protokolle, Sicherungen). Schlüssel im
-STACKIT Secrets Manager, getrennt von den Daten, mit Rotation und
-Zugriffsprotokoll. **Ein eigener Datenschlüssel je Herausgeber.** Dazu Schutz
-vor Massenextraktion (Ratenbegrenzung, Kontingente, Anomalieerkennung).
+**Decision:** Catalog and metadata collections of publishers who
+exploit them commercially themselves (in particular DIN Media / Nautos, formerly
+Perinorm) are obtained **exclusively by contract**. Automated
+acquisition is ruled out — even when the collections are publicly
+accessible. Implemented as an allowlist in the source register (categories
+A–D, REQ-PIPE-002) with a technical block (REQ-PIPE-008).
+
+**Rationale:**
+
+1. *The catalog is the product.* Nautos comprises around 2.35 million records from
+   29 countries, including monthly updates by the
+   standardization bodies — that is, exactly the catalog including change tracking that
+   normly would need. Rebuilding it means attacking the revenue product of exactly the
+   organizations with which negotiations are to take place.
+2. *Legally.* A norm catalog is a protected database. § 87b UrhG
+   prohibits not only the extraction of substantial parts but also the **repeated and
+   systematic** extraction of insubstantial parts, insofar as this conflicts with normal
+   exploitation — that describes periodic scraping with reconciliation
+   exactly. The TDM exception of § 44b does not apply where there is a machine-readable
+   rights reservation.
+3. *Strategically — the weightiest point.* normly negotiates for
+   publishers to provide content **voluntarily** and to receive a share in return
+   (ADR-013). Parallel harvesting is the exact opposite of this narrative and
+   would damage the negotiations.
+
+**Consequence:** The initial collection comes from freely accessible sources
+(REQ-PIPE-009): EU Official Journal via EUR-Lex (lists of harmonized norms, dated
+and machine-readable), references from laws and regulations, DGUV and
+BAuA registers, work programmes of CEN/CENELEC, catalog data from ISO/IEC.
+This is at the same time the most valuable part for the reference graph, because that is where the
+references **from the law** are.
+
+**Rejected:** A Nautos license as a data source for our own collection — such
+licenses typically exclude reuse in one's own product.
+Before such a license, the contract terms would have to be examined closely.
+
+**Not governable by good intentions:** The block is deliberately formulated *technically*
+(category D adapters cannot be configured for flagged sources),
+not as a policy. As soon as student employees or external
+contributors write adapters, the specification decides, not
+gut feeling.
+
+---
+
+## ADR-013 — Metadata first: partnership ladder instead of full-text leap
+
+**Status:** accepted
+
+**Decision:** Publishers are first asked for **catalog metadata**,
+not for full texts. Full-text supply is the second stage, based
+on real attribution figures from the first.
+
+**Rationale:** Metadata costs a publisher almost nothing and brings them
+visibility and sales through referrals. Full text is the big hurdle,
+metadata the small one. A publisher that delivers monthly metadata deltas
+to Nautos anyway has no additional effort with a second delivery.
+
+As soon as the first stage is running, auditable attribution figures are available
+(REQ-PART-002/003). This fundamentally changes the full-text conversation: it is
+then about a percentage on verifiable figures instead of the question of whether one
+believes normly at all.
+
+**Key message for negotiations:** normly does not appear as a competitor that
+displaces sales revenue, but as a channel that opens up new revenue and
+traceably passes it back.
+
+**First conversation partner:** Austrian Standards (full-text provision
+announced).
+
+---
+
+## ADR-014 — Encryption: cryptographic erasure per publisher
+
+**Status:** accepted
+
+**Decision:** Encryption of data at rest for **all** data stores
+(database, object storage, indexes, logs, backups). Keys in the
+STACKIT Secrets Manager, separate from the data, with rotation and
+access logging. **A separate data key per publisher.** In addition, protection
+against bulk extraction (rate limiting, quotas, anomaly detection).
 → REQ-SEC-001…004
 
-**Begründung — der eigentliche Punkt sind die Backups:** REQ-PART-001 sagt zu,
-dass ein Herausgeber Bestände **jederzeit** zurückziehen kann. REQ-PIPE-005
-löst das über die Abstammungskette für Datenbank, Index und Exporte — aber
-**nicht für Sicherungskopien.** Bestehende Backups enthalten die Inhalte
-weiterhin, und selektive Bereinigung ist praktisch nicht durchführbar.
+**Rationale — the actual point is the backups:** REQ-PART-001 promises
+that a publisher can withdraw collections **at any time**. REQ-PIPE-005
+solves this via the lineage chain for database, index and exports — but
+**not for backup copies.** Existing backups still contain the content,
+and selective cleanup is practically not feasible.
 
-Ein Schlüssel je Herausgeber schließt die Lücke: Vertragsende → Schlüssel
-vernichten → Inhalte sind überall unlesbar, auch in Backups, ohne dass ein Byte
-gelöscht werden muss.
+A data key per publisher closes the gap: contract end → destroy the key
+→ content is unreadable everywhere, even in backups, without a single byte
+having to be deleted.
 
-**Verhandlungsargument:** nicht „wir löschen zuverlässig", sondern „wir *können*
-es danach technisch nicht mehr lesen". Das ist qualitativ etwas anderes und in
-einem Lizenzgespräch deutlich belastbarer.
+**Negotiating argument:** not "we delete reliably", but "we technically *cannot*
+read it any longer afterwards". That is qualitatively something different and
+considerably more robust in a licensing conversation.
 
-**Nebenbefund:** Kapitel 3.3.2 deckte nur Transportverschlüsselung ab. Die
-Formulierung „Vaults oder Env-Variablen" war sachlich schief — Umgebungsvariablen
-sind kein Secrets-Manager. Korrigiert.
+**Side finding:** Chapter 3.3.2 covered only transport encryption. The
+wording "vaults or env variables" was factually off — environment variables
+are not a secrets manager. Corrected.
 
 ---
 
-## ADR-015 — Kopierschutz: Nachverfolgbarkeit statt Verhinderung
+## ADR-015 — Copy protection: traceability instead of prevention
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Lizenzierte Volltexte werden nie als vollständige Datei
-ausgeliefert. Offline-Nutzung über verschlüsselte, an Nutzer und Gerät
-gebundene, befristete lokale Ablage. Nutzerbezogene Kennzeichnung jeder Anzeige.
-Alle drei Komponenten gehören zur **kommerziellen Schicht**, nicht zum Kern.
+**Decision:** Licensed full texts are never handed out as a complete file.
+Offline use via encrypted, time-limited local storage bound to user and
+device. User-specific marking of every display. All three components belong
+to the **commercial layer**, not to the core.
 → REQ-DRM-001…004
 
-**Begründung:** Absoluter Schutz ist bei Text nicht erreichbar — Bildschirmfoto
-plus Texterkennung liefert in Sekunden eine brauchbare Kopie. Wer das anders
-verspricht, verspricht Unhaltbares. Erreichbar und ausreichend sind:
+**Rationale:** Absolute protection is not achievable for text — a screenshot
+plus text recognition delivers a usable copy in seconds. Whoever promises
+otherwise promises the untenable. Achievable and sufficient are:
 
-1. *Keine Datei ausliefern.* Der Schaden entsteht durch weitergegebene PDFs,
-   nicht durch Lesen.
-2. *Offline trotzdem ermöglichen.* Ohne Offline-Fähigkeit bleibt die PDF-Kopie
-   für Leute auf der Baustelle praktischer — dann verfehlt der Ansatz seinen
-   Zweck.
-3. *Zurechenbarkeit.* Verhindert das Abfotografieren nicht, macht es aber
-   nachverfolgbar. Genau das ist der Mehrwert gegenüber heute, wo eine
-   kursierende PDF-Kopie keiner Quelle zuzuordnen ist.
+1. *Hand out no file.* The damage arises from passed-on PDFs,
+   not from reading.
+2. *Enable offline use nonetheless.* Without offline capability, the PDF copy
+   remains more practical for people on the construction site — then the
+   approach misses its purpose.
+3. *Attributability.* Does not prevent photographing the screen, but makes it
+   traceable. That is exactly the added value compared to today, where a
+   circulating PDF copy cannot be attributed to any source.
 
-**Warum kommerzielle Schicht:** Ein Schutzmechanismus mit offenliegendem
-Quellcode ist kein Schutz — die Umgehung wäre direkt ablesbar. Das ist der
-einzige Punkt, an dem AGPL und Kopierschutz wirklich kollidieren; die Trennung
-löst ihn. Frei verfügbare Inhalte unterliegen den Beschränkungen ohnehin nicht.
+**Why the commercial layer:** A protection mechanism with exposed
+source code is no protection — the circumvention could be read off directly. That is the
+only point at which the AGPL and copy protection truly collide; the separation
+resolves it. Freely available content is not subject to the restrictions anyway.
 
-**Verhandlungsargument:** normly verdrängt illegale Kopien nicht durch besseren
-Schutz, sondern durch **besseren Zugang.** Eine durchsuchbare, verlinkte,
-offline verfügbare Norm ist nützlicher als ein herumgereichtes PDF — und
-zurückverfolgbar.
+**Negotiating argument:** normly does not displace illegal copies through better
+protection, but through **better access.** A searchable, linked norm
+available offline is more useful than a PDF passed around — and
+traceable.
 
 ---
 
-## ADR-016 — Mobil: PWA zuerst, nativ nur für lizenzierte Inhalte
+## ADR-016 — Mobile: PWA first, native only for licensed content
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Phase 0–1 ausschließlich **PWA** auf derselben Codebasis wie
-Desktop, Offline über Service Worker für freie Inhalte. **Native App ab Phase
-2/3**, ausschließlich für lizenzierte Offline-Volltexte, als Teil der
-kommerziellen Schicht. F-Droid später für den freien Client.
+**Decision:** Phases 0–1 exclusively a **PWA** on the same codebase as
+desktop, offline via service worker for free content. **Native app from phase
+2/3**, exclusively for licensed offline full texts, as part of the
+commercial layer. F-Droid later for the free client.
 → REQ-MOB-001…004
 
-**Begründung:** Der Treiber ist **nicht** das Sprachmodell, sondern der
-Kopierschutz. REQ-DRM-002 verlangt eine an Nutzer und Gerät gebundene,
-verschlüsselte lokale Ablage. Im Browser gibt es keinen Ort, an dem ein
-Schlüssel geschützt liegen könnte — IndexedDB ist einsehbar. Native Plattformen
-bieten Keychain bzw. Keystore, teils hardwaregestützt, dazu `FLAG_SECURE` gegen
-Screenshots unter Android.
+**Rationale:** The driver is **not** the language model but
+copy protection. REQ-DRM-002 requires encrypted local storage bound to
+user and device. In the browser there is no place where a
+key could be kept protected — IndexedDB is inspectable. Native platforms
+offer Keychain or Keystore, partly hardware-backed, plus `FLAG_SECURE` against
+screenshots on Android.
 
-Damit fällt die Grenze PWA/nativ mit der Grenze frei/kommerziell zusammen.
+The PWA/native boundary thus coincides with the free/commercial boundary.
 
-**Lizenzkonflikt gelöst:** Die Nutzungsbedingungen des Apple App Store gelten
-als unvereinbar mit AGPL/GPL (vgl. VLC-Entfernung). Die kommerzielle App ist
-deshalb ein **eigenständiger Client**, der nur über die Apache-2.0-spezifizierte
-API mit dem Server spricht — ein getrenntes Programm, nicht AGPL-pflichtig.
+**License conflict resolved:** The terms of use of the Apple App Store are considered
+incompatible with AGPL/GPL (cf. the removal of VLC). The commercial app is
+therefore a **separate client** that talks to the server only via the API
+specified under Apache-2.0 — a separate program, not subject to the AGPL.
 
-**F-Droid** verlangt vollständig quelloffene, reproduzierbare Builds ohne
-proprietäre Bestandteile; die DRM-Komponenten schließen die kommerzielle App
-dort aus. Für den freien Client passend — als Positionierung, nicht als
-Reichweitenkanal.
+**F-Droid** requires fully open-source, reproducible builds without
+proprietary components; the DRM components exclude the commercial app
+there. Suitable for the free client — as positioning, not as a
+channel for reach.
 
-**Korrigiert:** Kapitel 3.5.6 koppelte die native App an die Verfügbarkeit eines
-eigenen normlyLLM. Diese Kopplung war sachlich falsch.
+**Corrected:** Chapter 3.5.6 tied the native app to the availability of a
+normlyLLM of its own. This coupling was factually wrong.
 
-**Jetzt schon beachten:** Offline-Schicht hinter einer Abstraktion (REQ-MOB-003)
-— später nur mit erheblichem Aufwand nachrüstbar.
+**Already consider now:** offline layer behind an abstraction (REQ-MOB-003)
+— can only be retrofitted later with considerable effort.
 
-**Wichtige Abgrenzung — kommerzielle Schicht ≠ kostenpflichtiger Zugang:** Die
-Zuordnung der nativen App zur kommerziellen Schicht betrifft **Eigentum,
-Lizenzierung und Wartung**, nicht den Nutzerzugang. Die App ist kostenfrei in
-den Stores, frei verfügbare Inhalte sind darin ohne Konto und ohne Entgelt
-abrufbar. Entgelte fallen ausschließlich für lizenzierte Volltexte und deren
-geschützte Offline-Bereitstellung an.
+**Important distinction — commercial layer ≠ paid access:** The
+assignment of the native app to the commercial layer concerns **ownership,
+licensing and maintenance**, not user access. The app is free of charge in
+the stores; freely available content in it is accessible without an account and without a fee.
+Fees are charged exclusively for licensed full texts and their
+protected offline provision.
 
-Gründe: Eine App, die vor der ersten Nutzung Geld verlangt, wird nicht
-installiert und nicht ausprobiert. Und die kostenlose Nutzung ist der Kanal in
-die Zielgruppe — wer auf der Baustelle eine DGUV-Regel nachschlägt, ist später
-derjenige, der im Betrieb nach einem Zugang zu den DIN-Volltexten fragt.
+Reasons: An app that asks for money before its first use is not
+installed and not tried out. And free use is the channel into
+the target group — whoever looks up a DGUV rule on the construction site is later
+the one who asks at their company for access to the DIN full texts.
 
-**Abgrenzung PWA/App:** Beide zeigen dieselben freien Inhalte. Um doppelte
-Pflege für dieselbe Nutzergruppe zu vermeiden, bleibt die PWA der Standardweg
-für Gelegenheitsnutzer; die native App wird gezielt dort beworben, wo
-Offline-Nutzung gebraucht wird.
-
----
-
-## ADR-017 — Anonyme Basisnutzung mit Kontingent statt Kontopflicht
-
-**Status:** beschlossen
-
-**Entscheidung:** Suche, Referenzgraph und frei verfügbare Inhalte sind **ohne
-Konto** nutzbar, begrenzt durch ein serverseitig gezähltes Anfragekontingent.
-Konto erforderlich für: höhere Kontingente, Verläufe und Merklisten, eigene
-Uploads, lizenzierte Inhalte, Offline-Nutzung, kostenpflichtige Dienste — die
-Aufzählung ist **abschließend**. → REQ-ACC-001…004
-
-**Begründung gegen durchgehende Kontopflicht:**
-
-- Sie ist die höchste Hürde in der Nutzerreise; wer erst ein Konto anlegen soll,
-  geht zu Google zurück.
-- Sie widerspricht „offen für jeden" — und das fällt Fördergebern und
-  Normungspartnern auf.
-- Betreiber eigener Instanzen (z. B. eine Innung) müssten eine Nutzerverwaltung
-  betreiben, nur um freie Regelwerke anzuzeigen.
-- Ohne Konto entstehen keine personenbezogenen Daten — einfachste Form der
-  Datensparsamkeit.
-
-Praktisch entstehen dadurch **mehr** Konten, nicht weniger: Wer das Produkt erst
-erlebt, meldet sich freiwillig und mit erkennbarem Gegenwert an.
-
-**Zur Sorge vor Massenextraktion über anonyme Zugänge:** Die Trennlinie ist der
-**Inhalt**, nicht der Zugangsweg. Anonym erreichbar ist ausschließlich, was
-nach REQ-PIPE-004 frei lizenzierbar ist — und das darf ohnehin jeder abziehen.
-Lizenzierte Volltexte sind anonym **strukturell** nicht erreichbar
-(REQ-PART-004 Berechtigungsprüfung, REQ-DRM-001 keine Dateiauslieferung,
-REQ-DRM-003 Kennzeichnungspflicht). Das ist keine Einstellung, sondern folgt
-aus der Architektur.
-
-**Wichtig richtig einzuordnen:** Ein Konto ist **kein** Schutz vor
-Massenextraktion — es macht sie nur zurechenbar. Auch angemeldete Nutzer können
-systematisch abziehen, und zwar mit mehr Rechten. Der eigentliche Schutz ist
-REQ-SEC-004 (Ratenbegrenzung, Anomalieerkennung, Sperrung). Ebenso ist die
-adressbasierte Kontingentzählung durch Adresswechsel umgehbar; sie dient der
-Kostenbegrenzung, nicht der Sicherheit.
-
-**Umsetzung:** Zählung serverseitig über Sitzungsmerkmal plus Herkunftsadresse,
-nicht über Cookies oder Browser-Speicher (beides in zwei Klicks zurückgesetzt).
-Gemeinsame Infrastruktur mit REQ-SEC-004 — eine Stelle statt zwei.
-
-**Verworfen:** Künstliche Verzögerung anonymer Antworten. Schadet dem Eindruck
-mehr, als sie an Kosten spart.
+**PWA/app distinction:** Both show the same free content. To avoid duplicate
+maintenance for the same user group, the PWA remains the default route
+for occasional users; the native app is promoted specifically where
+offline use is needed.
 
 ---
 
-## ADR-018 — ML-gestützte Struktur-Erkennung in der Ingestion-Pipeline (Docling)
+## ADR-017 — Anonymous base use with a quota instead of an account requirement
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Die Ingestion-Pipeline nutzt ab sofort
-[Docling](https://github.com/docling-project/docling) statt pdfplumber zur
-PDF-Extraktion, einschließlich dessen ML-gestützter Layout- und
-Tabellenstruktur-Erkennung (Standard-Pipeline: Layout-Modell + TableFormer).
-Damit wird der bisher im Ingestion-Spec explizit festgehaltene Nicht-Ziel-
-Punkt "kein generisches Dokumentenverständnis" aufgehoben.
+**Decision:** Search, reference graph and freely available content are usable **without
+an account**, limited by a request quota counted on the server side.
+Account required for: higher quotas, histories and bookmark lists, own
+uploads, licensed content, offline use, paid services — the
+list is **exhaustive**. → REQ-ACC-001…004
 
-**Begründung:** Die ersten beiden Quellen (DGUV, EUR-Lex) kommen mit
-regelbasierter Extraktion zufriedenstellend aus, aber deutlich mehr Quellen
-mit unbekannten, teils komplexeren Layouts folgen. Docling liefert dafür in
-jedem Fall eine sauberere, layoutbewusste Textsegmentierung als
-pdfplumbers reine Zeilenausgabe, sowie eine nachweislich zuverlässige
-Tabellenstruktur-Erkennung (TableFormer, gegen die echte EUR-Lex-Fixture
-verifiziert).
+**Rationale against a blanket account requirement:**
 
-**Wichtig, empirisch korrigiert:** Die ursprüngliche Erwartung, Docling
-würde Überschriften/Abschnittsstruktur für *jede* künftige Quelle
-automatisch erkennen und damit quellenspezifische Regeln überflüssig
-machen, hält nicht für schlicht formatierte Dokumente ohne optische
-Überschriften-Merkmale — bei der DGUV-Fixture kommen `§ N`-Überschriften
-als `ListItem` zurück, nicht als `SectionHeaderItem` (siehe
-`docs/superpowers/specs/2026-08-30-docling-migration-design.md`). Für
-solche Quellen bleibt die Grenzerkennung musterbasiert, jetzt angewendet
-auf Doclings sauber segmentierte Elemente statt auf rohem Text. Der
-Gewinn ist real (bessere Segmentierung, zuverlässige Tabellen, künftig
-auch Nicht-PDF-Formate ohne Zusatzaufwand), aber kleiner als ursprünglich
-erhofft — jede neue Quelle muss weiterhin empirisch gegen eine echte
-Beispieldatei geprüft werden, ob Doclings native Klassifikation für sie
-zuverlässig funktioniert.
+- It is the highest hurdle in the user journey; whoever has to create an account first
+  goes back to Google.
+- It contradicts "open to everyone" — and funders and
+  standardization partners notice that.
+- Operators of their own instances (e.g. a craft guild) would have to run user
+  management just to display free standards.
+- Without an account, no personal data arises — the simplest form of
+  data minimization.
 
-**Abgrenzung zu ADR-008:** ADR-008 verbietet den Einsatz eines
-Sprachmodells zur **Anfragezeit** für Strukturfragen — aus Kosten-, Latenz-
-und Halluzinationsgründen bei jeder einzelnen Nutzeranfrage. Diese
-Entscheidung betrifft einen anderen Zeitpunkt und eine andere Modellart:
-Doclings Layout-/Tabellenmodell läuft **einmalig zur Ingestion-Zeit**, ist
-**diskriminativ** (erkennt Struktur in vorhandenem Inhalt), nicht
-**generativ** (erfindet keinen Inhalt, kein Halluzinationsrisiko im
-eigentlichen Sinn) und ist bei gleicher Eingabe deterministisch
-reproduzierbar. Das Ergebnis fließt als normaler, deterministischer Inhalt
-in den Referenzgraph ein — jede spätere Anfrage wird weiterhin ausschließlich
-graphbasiert beantwortet, ganz ohne Modellaufruf. ADR-008 bleibt in seinem
-eigentlichen Geltungsbereich unverändert.
+In practice, this produces **more** accounts, not fewer: whoever first
+experiences the product signs up voluntarily and with a recognizable benefit in return.
 
-**Umsetzung:** Modellgewichte werden einmalig beim Container-Image-Build
-bezogen und gebacken — kein Zugriff auf externe Modell-Repositories zur
-Laufzeit, passend zur STACKIT-only-Vorgabe für den Betrieb. Empirisch
-bestätigt: Doclings Standard-Pipeline führt automatisch OCR aus (auch ohne
-Bildinhalte) und lädt dafür bei aktivierter OCR zusätzliche Modelle von
-modelscope.cn nach — einer zweiten, ursprünglich nicht bedachten externen
-Quelle neben Hugging Face (dem Layout-/TableFormer-Modell). OCR wird daher
-explizit deaktiviert (`do_ocr=False`), wodurch dieser zweite Modellbezug
-vollständig entfällt, statt ihn ebenfalls ins Image backen zu müssen.
-Details siehe
+**On the concern about bulk extraction via anonymous access:** The dividing line is the
+**content**, not the access path. Anonymously reachable is exclusively what
+is freely licensable under REQ-PIPE-004 — and anyone may extract that anyway.
+Licensed full texts are **structurally** unreachable anonymously
+(REQ-PART-004 authorization check, REQ-DRM-001 no file download,
+REQ-DRM-003 mandatory marking). That is not a setting but follows
+from the architecture.
+
+**Important to put in perspective:** An account is **no** protection against
+bulk extraction — it only makes it attributable. Signed-in users can also
+extract systematically, and with more rights at that. The actual protection is
+REQ-SEC-004 (rate limiting, anomaly detection, blocking). Likewise,
+address-based quota counting can be circumvented by changing addresses; it serves
+cost limitation, not security.
+
+**Implementation:** Counting on the server side via a session attribute plus client IP address,
+not via cookies or browser storage (both reset in two clicks).
+Shared infrastructure with REQ-SEC-004 — one place instead of two.
+
+**Rejected:** Artificial delay of anonymous answers. Harms the impression
+more than it saves in costs.
+
+---
+
+## ADR-018 — ML-based structure detection in the ingestion pipeline (Docling)
+
+**Status:** accepted
+
+**Decision:** The ingestion pipeline uses
+[Docling](https://github.com/docling-project/docling) instead of pdfplumber for
+PDF extraction with immediate effect, including its ML-based layout and
+table structure detection (standard pipeline: layout model + TableFormer).
+This lifts the non-goal item "no generic document understanding"
+previously recorded explicitly in the ingestion spec.
+
+**Rationale:** The first two sources (DGUV, EUR-Lex) get by satisfactorily with
+rule-based extraction, but considerably more sources
+with unknown, partly more complex layouts will follow. For these, Docling in
+any case delivers a cleaner, layout-aware text segmentation than
+pdfplumber's plain line output, as well as demonstrably reliable
+table structure detection (TableFormer, verified against the real EUR-Lex fixture).
+
+**Important, corrected empirically:** The original expectation that Docling
+would automatically detect headings/section structure for *every* future source
+and thereby make source-specific rules
+superfluous does not hold for plainly formatted documents without visual
+heading features — with the DGUV fixture, `§ N` headings come back
+as `ListItem`, not as `SectionHeaderItem` (see
+`docs/superpowers/specs/2026-08-30-docling-migration-design.md`). For
+such sources, boundary detection remains pattern-based, now applied
+to Docling's cleanly segmented elements instead of to raw text. The
+gain is real (better segmentation, reliable tables, in future
+also non-PDF formats without extra effort), but smaller than originally
+hoped — every new source must still be checked empirically against a real
+sample file to see whether Docling's native classification works
+reliably for it.
+
+**Distinction from ADR-008:** ADR-008 forbids the use of a
+language model at **query time** for structural questions — for reasons of cost, latency
+and hallucination with every single user query. This
+decision concerns a different point in time and a different kind of model:
+Docling's layout/table model runs **once at ingestion time**, is
+**discriminative** (detects structure in existing content), not
+**generative** (invents no content, no hallucination risk in the
+strict sense) and is deterministically reproducible for the same input.
+The result flows into the reference graph as normal, deterministic content
+— every later query is still answered exclusively
+on the basis of the graph, entirely without a model call. ADR-008 remains unchanged in its
+actual scope.
+
+**Implementation:** Model weights are obtained once during the container image build
+and baked in — no access to external model repositories at
+runtime, in line with the STACKIT-only requirement for operations. Empirically
+confirmed: Docling's standard pipeline automatically runs OCR (even without
+image content) and, with OCR enabled, downloads additional models from
+modelscope.cn for it — a second external source not originally considered,
+alongside Hugging Face (the layout/TableFormer model). OCR is therefore
+explicitly disabled (`do_ocr=False`), which drops this second model download
+entirely instead of also having to bake it into the image.
+For details see
 `docs/superpowers/specs/2026-08-30-docling-migration-design.md`.
 
-**Verworfen:** Doclings VLM-Pipeline (generatives Vision-Language-Modell)
-als Standard-Extraktionsweg — deutlich schwereres Abhängigkeits- und
-Betriebsprofil ohne aktuellen Bedarf; das diskriminative Standard-Layout-
-Modell reicht für die heutigen Anforderungen.
+**Rejected:** Docling's VLM pipeline (generative vision-language model)
+as the default extraction path — considerably heavier dependency and
+operational profile without current need; the discriminative default layout
+model is sufficient for today's requirements.
 
 ---
 
-## ADR-019 — Kein GitHub mehr als Beitragsfassade
+## ADR-019 — No more GitHub as contribution facade
 
-**Status:** abgelöst durch ADR-021 (2026-09-14) — Quellcode, CI und
-Registry liegen wieder auf GitHub. Eintrag bleibt als Begründungshistorie
-stehen.
+**Status:** superseded by ADR-021 (2026-09-14) — source code, CI and
+registry are on GitHub again. The entry remains in place as a history of the
+rationale.
 
-**Entscheidung:** GitHub entfällt als Ziel für jede künftige Automatisierung.
-Es wird kein Push-Mirror von STACKIT Git nach GitHub eingerichtet und keine
-Beitragsannahme (Issues, Pull Requests) dort mehr vorgesehen. STACKIT Git
-ist von Anfang an die alleinige Plattform für Quellcode, Beiträge, Build und
-Betrieb — nicht nur führend neben einer öffentlichen Fassade. Der
-bestehende GitHub-Spiegel (`Sn4kez/normly-app`, Remote `origin`) bleibt als
-historischer Schnappschuss stehen, wird aber nicht mehr aktiv bespielt.
+**Decision:** GitHub is dropped as a target for any future automation.
+No push mirror from STACKIT Git to GitHub is set up, and no
+acceptance of contributions (issues, pull requests) is planned there any longer. STACKIT Git
+is from the start the sole platform for source code, contributions, build and
+operations — not merely primary alongside a public facade. The
+existing GitHub mirror (`Sn4kez/normly-app`, remote `origin`) remains in place as a
+historical snapshot but is no longer actively pushed to.
 
-**Begründung:** Zwei Plattformen parallel zu pflegen — Push-Mirror,
-doppelte Issue-Tracker-Disziplin, Sync-Aufwand — steht in keinem Verhältnis
-zum bislang ausgebliebenen externen Beitragsvolumen über GitHub. Eine
-Plattform ist einfacher und passt besser zur ohnehin STACKIT-zentrierten
-Betriebsrealität.
+**Rationale:** Maintaining two platforms in parallel — push mirror,
+duplicate issue-tracker discipline, sync effort — is out of all proportion
+to the external contribution volume via GitHub, which has so far failed to materialize. One
+platform is simpler and fits better with the operational reality, which is
+STACKIT-centered anyway.
 
-**Konsequenz:** Löst ADR-004 teilweise ab (STACKIT-Git-Teil bleibt
-unverändert bestehen, der GitHub-Beitragsfassade-Teil entfällt). REQ-GIT-002
-(„Öffentliche Beitragsfassade") ist damit hinfällig und in
-`docs/srs/03-requirements.md` entsprechend markiert. Der in
+**Consequence:** Partially supersedes ADR-004 (the STACKIT Git part remains
+unchanged in place, the GitHub contribution facade part is dropped). REQ-GIT-002
+("Public contribution facade") is thereby obsolete and marked accordingly in
+`docs/srs/03-requirements.md`. The push mirror step documented in
 `docs/superpowers/specs/2026-09-02-ci-pipeline-design.md` /
-`docs/superpowers/plans/2026-09-02-ci-pipeline.md` dokumentierte
-Push-Mirror-Schritt wird nicht umgesetzt.
+`docs/superpowers/plans/2026-09-02-ci-pipeline.md`
+is not implemented.
 
-**Verworfen:** Beibehaltung von GitHub als reine, weiterhin manuell
-gepflegte Beitragsfassade ohne Automatisierung (löst das
-Pflegeaufwand-Problem nicht, verzögert die Entscheidung nur).
+**Rejected:** Keeping GitHub as a pure contribution facade, still maintained
+manually, without automation (does not solve the
+maintenance-effort problem, only delays the decision).
 
 ---
 
-## ADR-020 — Dokumentation auf Englisch statt Deutsch
+## ADR-020 — Documentation in English instead of German
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Neue Dokumentation (`docs/`-Inhalte, Code-Referenz,
-Guides) wird ab sofort auf Englisch verfasst statt auf Deutsch. Ursprünglich
-nicht rückwirkend gedacht; die Migration des bestehenden deutschen Contents
-ist inzwischen teilweise erfolgt (siehe Nachtrag 2026-09-14 unten).
-`docs/superpowers/` fällt nicht unter diese Regel — die Specs, Pläne und
-Ledger dort sind Arbeitsdokumente des KI-gestützten Entwicklungsprozesses,
-keine Dokumentation für Leser von außen, und bleiben wie CLAUDE.md auf
-Deutsch.
+**Decision:** New documentation (`docs/` content, code reference,
+guides) is written in English instead of German with immediate effect. Originally
+not intended to be retroactive; the migration of the existing German content
+has meanwhile partially taken place (see Addendum 2026-09-14 below).
+`docs/superpowers/` does not fall under this rule — the specs, plans and
+ledgers there are working documents of the AI-assisted development process,
+not documentation for outside readers, and remain in German like CLAUDE.md.
 
-**Begründung:** Englisch ist der De-facto-Standard für
-Open-Source-Dokumentation. Er ermöglicht internationalen Beitragenden
-Teilnahme, unabhängig vom deutschsprachigen Kernteam — passend zum
-Open-Core-Modell (ADR-001) und dem Anspruch, dass der freie Kern von
-außen mitgetragen werden kann. Die ursprüngliche Regel (Dokumentation auf
-Deutsch) stand dem im Weg.
+**Rationale:** English is the de facto standard for
+open-source documentation. It enables international contributors to
+participate, independently of the German-speaking core team — in line with the
+open-core model (ADR-001) and the aim that the free core can be
+co-sustained from outside. The original rule (documentation in
+German) stood in the way of this.
 
-**Nicht betroffen:** Code, Bezeichner und Commits waren schon vorher
-Englisch (unverändert). Die App-eigene Sprachumschaltung
-(`LocaleProvider`, Deutsch/Englisch für Endnutzer) ist eine
-Laufzeit-Funktion, keine Projektdokumentation, und bleibt unverändert.
-Die Fachbegriffs-Ausnahme für Normenwesen-Begriffe ohne etablierte
-englische Entsprechung (z. B. `Normenausschuss`) gilt unabhängig von der
-Sprache weiter.
+**Not affected:** Code, identifiers and commits were already in
+English before (unchanged). The app's own language switch
+(`LocaleProvider`, German/English for end users) is a
+runtime function, not project documentation, and remains unchanged.
+The technical-term exception for terms from the standards domain without an established
+English equivalent (e.g. `Normenausschuss`) continues to apply regardless of the
+language.
 
-**Konsequenz:** CLAUDE.md's Abschnitt „Sprache" ist entsprechend
-angepasst. Der bereits offene, noch nicht gemergte Merge Request für die
-Zensical-Dokumentations-Site
+**Consequence:** CLAUDE.md's "Language" section has been adjusted
+accordingly. The merge request for the
+Zensical documentation site that is already open but not yet merged
 (`docs/superpowers/plans/2026-09-11-zensical-documentation-site.md`)
-wird vor dem Merge auf Englisch umgeschrieben, da er als „ab jetzt"
-zählt.
+is rewritten in English before the merge, since it counts as "from now
+on".
 
-**Nachtrag 2026-09-14 — Migration teilweise begonnen:** Auf Nutzerwunsch ins
-Englische übersetzt: `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
-`CODE_OF_CONDUCT.md`. Die ursprüngliche „nicht rückwirkend"-Regel gilt damit
-nicht mehr uneingeschränkt für alle acht ursprünglich genannten Dateien,
-sondern nur noch für die verbliebenen: `docs/adr/` (dieses Dokument),
-`docs/srs/`, `GOVERNANCE.md`, `TRADEMARK.md` — deren Migration bleibt ein
-eigenes, späteres Projekt, insbesondere `docs/adr/` und `docs/srs/` wegen
-ihres Umfangs. Keine inhaltliche Änderung an den vier übersetzten Dateien,
-nur Sprachwechsel.
+**Addendum 2026-09-14 — migration partially started:** At the owner's request,
+translated into English: `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
+`CODE_OF_CONDUCT.md`. The original "not retroactive" rule thus no longer
+applies without restriction to all eight originally named files,
+but only to the remaining ones: `docs/adr/` (this document),
+`docs/srs/`, `GOVERNANCE.md`, `TRADEMARK.md` — their migration remains a
+separate, later project, in particular `docs/adr/` and `docs/srs/` because of
+their size. No change in content to the four translated files,
+only a change of language.
 
----
-
-## ADR-021 — Rückkehr zu GitHub für Quellcode, CI und Registry
-
-**Status:** beschlossen
-
-**Entscheidung:** GitHub (Organisation `normly`, Repository
-`github.com/normly/web-app`) ist ab dem 14.09.2026 wieder die führende
-Plattform für Quellcode, CI/CD und Container-Registry (GitHub Actions,
-GitHub Container Registry). Das löst ADR-019 vollständig ab — nicht nur den
-Beitragsfassade-Teil, sondern die gesamte Festlegung „STACKIT Git ist die
-alleinige Plattform für Quellcode, Beiträge, Build und Betrieb". STACKIT
-Git (`jwokittel/normly-webapp`) wird nicht mehr für Quellcode, CI oder
-Registry verwendet. Es bleibt bestehen und ist als Plattform für das
-künftige Hosting der Normen-Wissensbasis vorgesehen, sobald lizenzierte
-Bestände hinzukommen — das ist ein Datenprojekt, kein Code-Projekt, und
-folgt weiter der Trennung aus ADR-010 (Code und Daten getrennt versioniert).
-
-**Begründung:** Nutzerentscheidung. Die Kollaboration — externe wie interne
-— ist auf GitHub spürbar einfacher als auf dem selbst gehosteten
-Forgejo-Setup: Tooling, Reviewer-Ökosystem und Beitragsfreundlichkeit waren
-schon der ursprüngliche Grund für ADR-004, bevor ADR-019 sie zugunsten der
-Souveränität einer einzigen STACKIT-Plattform verworfen hatte. Der
-Kollaborationsnachteil hat sich in der Praxis stärker ausgewirkt als
-erwartet; die Souveränitätsanforderung selbst bleibt bestehen, gilt aber ab
-sofort für Betrieb, Nutzerdaten, die Normen-Wissensbasis und Secrets — nicht
-mehr für den quelloffenen Kern-Quellcode, dessen CI und dessen
-Image-Registry.
-
-**Konsequenz:**
-
-- Löst ADR-019 vollständig ab und ändert ADR-004 (STACKIT statt GitHub
-  führend) sowie den Registry-Nachtrag in ADR-010 (STACKIT Container
-  Registry statt GHCR) auf ihren jeweiligen Kernpunkt.
-- CLAUDE.md's nicht-verhandelbare US-Dienste-Regel gilt unverändert für
-  Betrieb, Nutzerdaten, Normen-Wissensbasis, Secrets-Management und
-  Produktions-Deployment — dafür bleibt STACKIT ohne Ausnahme. Für
-  Quellcode, CI/CD und Container-Registry des freien Kerns gilt ab jetzt
-  die hier getroffene Ausnahme.
-- `docs/srs/03-requirements.md` ist entsprechend zu aktualisieren:
-  REQ-GIT-001 (führende Plattform), REQ-GIT-002 (Beitragsweg), REQ-BUILD-002
-  (CI/CD-Infrastruktur), REQ-INST-001 (Ausnahme im Fließtext) und
-  REQ-DIST-004 (Registry-Verweis).
-- Der bisherige GitHub-Spiegel `Sn4kez/normly-app` (lokaler Remote
-  `github-old`) war ein reiner, nicht mehr gepflegter Schnappschuss aus der
-  ADR-004-Ära und ist vom neuen Repository `normly/web-app` zu
-  unterscheiden — kein automatischer Zusammenhang zwischen beiden.
-- Offen als technische Folgearbeit, nicht Teil dieser Entscheidung selbst:
-  Port von `.forgejo/workflows/ci.yml` nach `.github/workflows/`,
-  GHCR-Zugangsdaten und Secrets-Einrichtung in den GitHub-Repository-
-  Einstellungen. Bis dahin läuft auf GitHub keine CI.
-
-**Verworfen:** STACKIT Git als alleinige Plattform beibehalten (Status quo
-aus ADR-019) — der Kollaborationsnachteil wiegt für den Kern-Quellcode
-schwerer als der Souveränitätsgewinn, während dieser für Betrieb und Daten
-weiterhin überwiegt und dort unangetastet bleibt.
-
-**Nachtrag 2026-10-09 (ADR-025):** Die Aussage oben, STACKIT Git sei als
-Plattform für das künftige Hosting der Normen-Wissensbasis vorgesehen, ist
-überholt. Die Wissensbasis wird als signierter Dump in einem öffentlich
-lesbaren STACKIT-Object-Storage-Bucket verteilt (ADR-025); die Trennung von
-Code und Daten aus ADR-010 bleibt davon unberührt. Das Repository
-`jwokittel/normly-webapp` hat damit keine Aufgabe mehr. **Entschieden
-(2026-10-09): Das Repository wird gelöscht**, nicht archiviert; der Betreiber
-führt das im STACKIT-Portal aus. Der Git-Remote `stackit` ist damit hinfällig.
-Der ursprüngliche Wortlaut bleibt als Entscheidungsverlauf stehen.
+**Addendum 2026-10-15 — full migration:** At the owner's request,
+everything in the repository moves to English, including `CLAUDE.md` and
+the working documents under `docs/superpowers/`. The exception for
+`docs/superpowers/` and `CLAUDE.md` stated above no longer applies. The
+migration runs in four merge requests: foundation (root files,
+`CLAUDE.md`, diagrams, file names, binding glossary), the ADRs (this
+document), the SRS, and `docs/superpowers/`. Terminology is binding and
+recorded in `docs/glossary.md`, section "Terminology (binding)". Design:
+`docs/superpowers/specs/2026-10-15-english-docs-migration-design.md`.
 
 ---
 
-## ADR-022 — Betriebsumgebung Phase 1 und Modellherkunftsregel
+## ADR-021 — Return to GitHub for source code, CI and registry
 
-**Status:** beschlossen (2026-09-23, ergänzt 2026-10-03)
+**Status:** accepted
 
-**Entscheidung:**
+**Decision:** GitHub (organization `normly`, repository
+`github.com/normly/web-app`) is again the primary platform for source code,
+CI/CD and container registry (GitHub Actions, GitHub Container Registry) from
+14.09.2026. This supersedes ADR-019 entirely — not only the contribution
+facade part, but the entire stipulation "STACKIT Git is the sole platform
+for source code, contributions, build and operations". STACKIT
+Git (`jwokittel/normly-webapp`) is no longer used for source code, CI or
+registry. It remains in place and is intended as the platform for the
+future hosting of the norms knowledge base as soon as licensed
+collections are added — that is a data project, not a code project, and
+continues to follow the separation from ADR-010 (code and data versioned separately).
 
-1. **Zielumgebung:** eine STACKIT-VM (`g1a.4d`) mit Docker Compose, Caddy
-   für TLS, PostgreSQL Flex (Einzelinstanz, pgvector), Secrets Manager,
-   später Object Storage. Kein SKE, kein Load Balancer. Bestätigt ADR-005.
-2. **LLM-Inferenz:** STACKIT AI Model Serving (OpenAI-kompatible API,
-   Region eu01), Startmodell `google/gemma-4-31B-it`. Ollama bleibt für
-   lokale Entwicklung und Self-Hosting.
-3. **Modellherkunftsregel:** Produktiv eingesetzte Sprachmodelle sind
-   Open-Weight-Modelle unter OSI-anerkannter Lizenz, betrieben
-   ausschließlich auf STACKIT-Infrastruktur; keine Anfrage erreicht den
-   Modellhersteller. Europäische Herkunft ist Präferenz, nicht Pflicht.
-   Wiedervorlage: sobald STACKIT ein europäisches Modell in passender
-   Größe anbietet, wird der Wechsel geprüft.
-4. **DNS:** die Zone `normly.ai` liegt vollständig bei STACKIT DNS
-   (Registrar bleibt Strato); kein Cloudflare mehr. App unter
+**Rationale:** Owner decision. Collaboration — external as well as internal
+— is noticeably easier on GitHub than on the self-hosted
+Forgejo setup: tooling, reviewer ecosystem and contributor-friendliness were
+already the original reason for ADR-004, before ADR-019 rejected them in favor
+of the sovereignty of a single STACKIT platform. The
+collaboration disadvantage has had a stronger effect in practice than
+expected; the sovereignty requirement itself remains in place, but with
+immediate effect applies to operations, user data, the norms knowledge base
+and secrets — no longer to the open-source core source code, its CI and its
+image registry.
+
+**Consequence:**
+
+- Supersedes ADR-019 entirely and changes ADR-004 (STACKIT instead of GitHub
+  as primary) as well as the registry addendum in ADR-010 (STACKIT Container
+  Registry instead of GHCR) each in its core point.
+- CLAUDE.md's non-negotiable US-services rule continues to apply unchanged to
+  operations, user data, the norms knowledge base, secrets management and
+  production deployment — STACKIT remains in place for these without
+  exception. For source code, CI/CD and container registry of the free core,
+  the exception made here applies from now on.
+- `docs/srs/03-requirements.md` is to be updated accordingly:
+  REQ-GIT-001 (primary platform), REQ-GIT-002 (contribution path), REQ-BUILD-002
+  (CI/CD infrastructure), REQ-INST-001 (exception in the running text) and
+  REQ-DIST-004 (registry reference).
+- The previous GitHub mirror `Sn4kez/normly-app` (local remote
+  `github-old`) was a pure snapshot from the ADR-004 era, no longer
+  maintained, and is to be distinguished from the new repository
+  `normly/web-app` — no automatic connection between the two.
+- Open as technical follow-up work, not part of this decision itself:
+  port of `.forgejo/workflows/ci.yml` to `.github/workflows/`,
+  GHCR credentials and secrets setup in the GitHub repository
+  settings. Until then, no CI runs on GitHub.
+
+**Rejected:** Keeping STACKIT Git as the sole platform (status quo
+from ADR-019) — the collaboration disadvantage weighs more heavily for the
+core source code than the sovereignty gain, while the latter continues to
+prevail for operations and data and remains untouched there.
+
+**Addendum 2026-10-09 (ADR-025):** The statement above that STACKIT Git is
+intended as the platform for the future hosting of the norms knowledge base
+is outdated. The knowledge base is distributed as a signed dump in a publicly
+readable STACKIT Object Storage bucket (ADR-025); the separation of
+code and data from ADR-010 is unaffected by this. The repository
+`jwokittel/normly-webapp` thus no longer has a purpose. **Decided
+(2026-10-09): The repository will be deleted**, not archived; the operator
+carries this out in the STACKIT portal. The Git remote `stackit` is thus obsolete.
+The original wording remains in place as the decision history.
+
+---
+
+## ADR-022 — Operating environment phase 1 and model-origin rule
+
+**Status:** accepted (2026-09-23, amended 2026-10-03)
+
+**Decision:**
+
+1. **Target environment:** one STACKIT VM (`g1a.4d`) with Docker Compose, Caddy
+   for TLS, PostgreSQL Flex (single instance, pgvector), Secrets Manager,
+   later Object Storage. No SKE, no load balancer. Confirms ADR-005.
+2. **LLM inference:** STACKIT AI Model Serving (OpenAI-compatible API,
+   region eu01), initial model `google/gemma-4-31B-it`. Ollama remains for
+   local development and self-hosting.
+3. **Model-origin rule:** Language models used in production are
+   open-weight models under an OSI-approved license, operated
+   exclusively on STACKIT infrastructure; no request reaches the
+   model vendor. European origin is a preference, not a requirement.
+   Revisit: as soon as STACKIT offers a European model of suitable
+   size, the switch will be examined.
+4. **DNS:** the zone `normly.ai` is hosted entirely at STACKIT DNS
+   (registrar remains Strato); no more Cloudflare. App at
    `app.normly.ai`.
-5. **Mailversand:** SMTP aus dem bestehenden Strato-Mailpaket
-   (`noreply@normly.ai`), SPF und DKIM in der STACKIT-Zone.
-6. **Umgebungen:** zunächst nur eine Produktionsumgebung auf STACKIT; das
-   lokale Compose-Setup übernimmt die Rolle der Staging-Umgebung.
-   Bewusste, befristete Abweichung von REQ-DIST-001, aufzuheben, sobald es
-   Nutzer gibt, die ein fehlerhaftes Deployment treffen würde.
-7. **Images:** ein gemeinsames Python-Basis-Image mit allen
-   `core`-Abhängigkeiten und eingebackenen Embedding-Gewichten; keine
-   Aufteilung der Abhängigkeiten.
+5. **Mail sending:** SMTP from the existing Strato mail package
+   (`noreply@normly.ai`), SPF and DKIM in the STACKIT zone.
+6. **Environments:** initially only one production environment on STACKIT; the
+   local Compose setup takes on the role of the staging environment.
+   Deliberate, temporary deviation from REQ-DIST-001, to be lifted as soon as
+   there are users whom a faulty deployment would hit.
+7. **Images:** one shared Python base image with all
+   `core` dependencies and baked-in embedding weights; no
+   splitting of the dependencies.
 
-**Begründung:** Die VM mit Compose ist die günstigste Umgebung und zugleich
-das Self-Hosting-Artefakt aus ADR-010. AI Model Serving liefert
-GPU-Inferenz pro Token ohne Dauerkosten; die Daten gehen an STACKIT, nicht
-an den Modellhersteller — Gewichte sind eine Datei, kein Dienst. Die
-Herkunftsregel schließt die bisher ungeregelte Lücke, dass das
-Standardmodell (Llama, Meta-Lizenz) weder offen lizenziert noch
-geregelt war; europäische Pflicht hätte nur eine eigene GPU-VM übrig
-gelassen, da der STACKIT-Katalog kein europäisches Chat-Modell führt.
-Cloudflare als DNS wäre ein US-Dienst in der Betriebskette gewesen. Die
-Mail der Domain lag bereits bei Strato; ein zweiter Anbieter hätte einen
-MX-Wechsel bedeutet.
+**Rationale:** The VM with Compose is the cheapest environment and at the
+same time the self-hosting artifact from ADR-010. AI Model Serving delivers
+GPU inference per token without standing costs; the data goes to STACKIT, not
+to the model vendor — weights are a file, not a service. The
+origin rule closes the previously unregulated gap that the
+default model (Llama, Meta license) was neither openly licensed nor
+regulated; a European requirement would have left only a dedicated GPU VM,
+since the STACKIT catalog lists no European chat model.
+Cloudflare as DNS would have been a US service in the operations chain. The
+domain's mail was already at Strato; a second provider would have meant an
+MX change.
 
-**Verworfen:** Ollama auf CPU in Produktion (Antwortzeiten), eigene GPU-VM
-(Dauerkosten), europäische Modellherkunft als Pflicht (kein Angebot),
-Subzonen-Delegation nur für `app` (Cloudflare bliebe autoritativ), IONOS
-als zweiter Mailanbieter (MX-Konflikt), Aufteilung der
-`core`-Abhängigkeiten in Extras (Nutzerentscheidung zugunsten der
-Einfachheit).
+**Rejected:** Ollama on CPU in production (response times), dedicated GPU VM
+(standing costs), European model origin as a requirement (no offering),
+subzone delegation only for `app` (Cloudflare would remain authoritative), IONOS
+as a second mail provider (MX conflict), splitting the
+`core` dependencies into extras (owner decision in favor of
+simplicity).
 
-**Konsequenz:** CLAUDE.md erhält einen Satz zur Modellherkunft; REQ-DIST-001
-und Kapitel 3.5.9 der SRS verweisen hierher; `docs/guide/self-hosting.md`
-beschreibt den Compose-Weg. Folgearbeiten: Embedding-Modell nur einmal
-laden und VM auf `g1a.2d` verkleinern (TP1a), Image-Pipeline (TP2),
-Secrets-Bezug per AppRole (TP3), Rollout/Rollback/Datenstand (TP4). Details:
+**Consequence:** CLAUDE.md gets a sentence on model origin; REQ-DIST-001
+and chapter 3.5.9 of the SRS refer here; `docs/guide/self-hosting.md`
+describes the Compose route. Follow-up work: load the embedding model only once
+and downsize the VM to `g1a.2d` (TP1a), image pipeline (TP2),
+obtaining secrets via AppRole (TP3), rollout/rollback/data version (TP4). Details:
 `docs/superpowers/specs/2026-09-23-stackit-deployment-roadmap-design.md`.
 
 ---
 
-## ADR-023 — Image-Pipeline: GHCR, keyless Signatur, eine Version, Lock-Datei
+## ADR-023 — Image pipeline: GHCR, keyless signing, one version, lock file
 
-**Status:** beschlossen (2026-10-08)
+**Status:** accepted (2026-10-08)
 
-**Entscheidung:**
+**Decision:**
 
-1. **Veröffentlichung:** Die fünf Container-Images (`api`, `chat`,
-   `accounts`, `pipeline`, `frontend`) werden in GitHub Actions gebaut
-   und als öffentliche Pakete unter `ghcr.io/normly/web-app/` abgelegt
-   (bestätigt ADR-021). Gebaut wird bei Push auf `main` (Tags `edge`,
-   `sha-<kurz>`), bei Git-Tags `vX.Y.Z` (`X.Y.Z`, `X.Y`, `latest`) und
-   manuell — nie bei Pull Requests.
-2. **Signatur:** cosign keyless über GitHub-OIDC. Kein Schlüsselmaterial
-   wird erzeugt oder verwahrt; das kurzlebige Zertifikat bindet die
-   Signatur an Repository, Workflow und Commit. Dazu je Image
-   SLSA-Provenance und SBOM aus BuildKit (REQ-GIT-005).
-3. **Versionierung:** Eine Version für alle fünf Images; der annotierte
-   Git-Tag `vX.Y.Z` ist die einzige Quelle. Die Versionsfelder der
-   Pakete werden im Release-Commit auf denselben Wert gesetzt, der
-   Workflow prüft die Übereinstimmung.
-4. **Reproduzierbarkeit:** Die vier Python-Pakete bilden einen
-   uv-Workspace mit einer `uv.lock`; Torch kommt ausschließlich aus dem
-   CPU-Wheel-Index; Basis-Images sind per Digest, Modellgewichte (e5,
-   Docling) per Commit gepinnt und liegen in einer eigenen Build-Stufe
-   (REQ-BUILD-001). Bewusst offen bleiben Zeitstempel in den Schichten
-   und die apt-Pakete der Basisschicht; bit-identische Images sind damit
-   noch nicht erreicht.
+1. **Publication:** The five container images (`api`, `chat`,
+   `accounts`, `pipeline`, `frontend`) are built in GitHub Actions
+   and stored as public packages under `ghcr.io/normly/web-app/`
+   (confirms ADR-021). Builds run on push to `main` (tags `edge`,
+   `sha-<short>`), on Git tags `vX.Y.Z` (`X.Y.Z`, `X.Y`, `latest`) and
+   manually — never on pull requests.
+2. **Signing:** cosign keyless via GitHub OIDC. No key material
+   is generated or kept; the short-lived certificate binds the
+   signature to repository, workflow and commit. In addition, per image,
+   SLSA provenance and SBOM from BuildKit (REQ-GIT-005).
+3. **Versioning:** One version for all five images; the annotated
+   Git tag `vX.Y.Z` is the single source. The version fields of the
+   packages are set to the same value in the release commit; the
+   workflow checks that they match.
+4. **Reproducibility:** The four Python packages form a
+   uv workspace with one `uv.lock`; Torch comes exclusively from the
+   CPU wheel index; base images are pinned by digest, model weights (e5,
+   Docling) by commit, and sit in a build stage of their own
+   (REQ-BUILD-001). Deliberately left open are timestamps in the layers
+   and the apt packages of the base layer; bit-identical images are thus
+   not yet achieved.
 
-**Begründung:** Der Vertrauensanker der keyless Signatur — die öffentliche
-Sigstore-Infrastruktur (Fulcio, Rekor) — wird von der **Linux Foundation
-betrieben, einer Non-Profit-Organisation.** Das unterscheidet ihn
-qualitativ von den kommerziellen US-Diensten in der Build-Kette, die
-ADR-021 für den freien Kern erlaubt, und wiegt leichter als
-Schlüsselpflege, Rotation und Neusignierung bei Verlust. Die gemeinsame
-Version bildet ab, was tatsächlich getestet wird: die Dienste nur in
-Kombination, `api` und `chat` sogar aus einem Basis-Image; ein Rollback
-ist damit ein Handgriff. Der Verzicht auf PR-Builds hält die Pipeline
-schlank; ein kaputtes Dockerfile fällt nach dem Merge laut und ohne
-Schaden auf (`edge` bleibt stehen, der Release-Tag schlägt fehl). Ohne
-gepinnte Gewichte könnte derselbe Git-Tag andere Embeddings erzeugen als
-der Datenstand, den TP4 importiert.
+**Rationale:** The trust anchor of the keyless signature — the public
+Sigstore infrastructure (Fulcio, Rekor) — is **operated by the Linux
+Foundation, a non-profit organization.** This distinguishes it
+qualitatively from the commercial US services in the build chain that
+ADR-021 permits for the free core, and is a lighter burden than
+key management, rotation and re-signing on loss. The shared
+version reflects what is actually tested: the services only in
+combination, `api` and `chat` even from one base image; a rollback
+is thus a single step. Doing without PR builds keeps the pipeline
+lean; a broken Dockerfile shows up loudly and without harm after the merge
+(`edge` stays where it is, the release tag fails). Without
+pinned weights, the same Git tag could produce different embeddings than
+the data version that TP4 imports.
 
-**Verworfen:** eigenes cosign-Schlüsselpaar (Schlüsselpflege, Ablage
-außerhalb von GitHub, Neusignierung bei Verlust); Version je Paket
-(getestete Kombination nicht mehr ablesbar, ein Tag je Paket je Release);
-Image-Build bei Pull Requests (voller Build je PR, Pfadfilter übersieht
-Codeänderungen); pip-tools (vier Lock-Dateien mit möglicher Drift, keine
-saubere Index-Trennung für Torch).
+**Rejected:** own cosign key pair (key management, storage
+outside GitHub, re-signing on loss); version per package
+(tested combination no longer readable, one tag per package per release);
+image build on pull requests (full build per PR, path filter misses
+code changes); pip-tools (four lock files with possible drift, no
+clean index separation for Torch).
 
-**Konsequenz:** `docker compose up -d` zieht veröffentlichte Images,
-`--build` bleibt der lokale Weg; `docs/guide/self-hosting.md` beschreibt
-Bezug und Signaturprüfung, `docs/guide/releasing.md` den Release-Ablauf,
-`CONTRIBUTING.md` die uv-Entwicklungsumgebung. REQ-BUILD-001,
-REQ-DIST-004 und REQ-GIT-005 verweisen hierher. Die Signaturprüfung als
-Pflichtschritt vor dem Start auf der VM folgt mit dem Rollout-Skript
+**Consequence:** `docker compose up -d` pulls published images,
+`--build` remains the local route; `docs/guide/self-hosting.md` describes
+obtaining the images and verifying the signatures, `docs/guide/releasing.md`
+the release procedure, `CONTRIBUTING.md` the uv development environment.
+REQ-BUILD-001, REQ-DIST-004 and REQ-GIT-005 refer here. Signature verification
+as a mandatory step before start on the VM follows with the rollout script
 (TP4). Details:
 `docs/superpowers/specs/2026-10-08-tp2-image-pipeline-design.md`.
 
 ---
 
-## ADR-024 — Rollout, Rollback und Sicherung auf der Einzel-VM
+## ADR-024 — Rollout, rollback and backup on the single VM
 
-**Status:** beschlossen (2026-10-09); baut auf ADR-010, ADR-014 und ADR-023
+**Status:** accepted (2026-10-09); builds on ADR-010, ADR-014 and ADR-023
 
-**Kontext:** Die Produktions-VM baut ihre Images heute aus dem Quellcode; es
-gibt keinen Rollback-Punkt. Nutzerdaten sind nur durch die Flex-Sicherung
-gesichert (täglich, 30 Tage, anbieterintern). STACKIT-Zugangsdaten dürfen
-nicht auf GitHub liegen (ADR-021), ein Push-Rollout aus der CI scheidet also
-aus. Die Signaturen aus ADR-023 nützen erst etwas, wenn die VM sie vor dem
-Start prüft (REQ-GIT-005).
+**Context:** The production VM currently builds its images from source code;
+there is no rollback point. User data is backed up only by the Flex backup
+(daily, 30 days, provider-internal). STACKIT credentials must
+not be stored on GitHub (ADR-021), so a push rollout from CI is ruled
+out. The signatures from ADR-023 are of use only once the VM verifies them
+before start (REQ-GIT-005).
 
-**Entscheidung:**
+**Decision:**
 
-1. **Auslöser:** Rollout manuell per SSH: `normly-deploy deploy vX.Y.Z`. Das
-   Skript ist timerfähig gehalten, einen Timer gibt es nicht.
-2. **Prüfung vor dem Start:** `cosign verify` aller fünf Images gegen die
-   Identität `images.yml@refs/tags/vX.Y.Z` des Release-Workflows. Compose-Datei
-   und Skript-Assets reisen im signierten `pipeline`-Image und werden aus dem
-   geprüften `pipeline@<digest>` entnommen. Die geprüften Digests werden
-   festgehalten (Digest-Pinning); nach `compose pull` müssen die gezogenen
-   Digests den geprüften entsprechen, sonst startet nichts.
-3. **Ablauf:** aktuellen Tag und Wissensbestand-Version lesen,
-   Pre-Rollout-Sicherung (ohne bestätigten Upload kein Rollout), `pull`,
-   `up -d --wait`. Der aktuelle Tag wird abgelehnt; solange ein
-   fehlgeschlagener Rollout vermerkt ist (`state/failed_rollout`), startet
-   kein neuer `deploy` (bewusstes Übergehen: die Markierungsdatei entfernen).
-   Es gibt keinen automatischen Rückweg.
-4. **Rollback stellt Images und Daten auf den Stand vor dem Rollout zurück.**
-   Weil Alembic-Migrationen nur vorwärts laufen, wird das Schema neu
-   aufgebaut: Dienste stoppen, alle Tabellen des Schemas `public` verwerfen
-   (Liste aus der Datenbank, das Schema bleibt, damit pgvector erhalten
-   bleibt), `migrate` mit dem vorherigen Image, Wissensbestand in der
-   damals aktiven Dump-Version importieren (vor den Nutzerdaten, wegen der
-   Fremdschlüssel), die zurückgezogenen Kennungen der Sicherung
-   (`exchange import-tombstones`, siehe ADR-026), Nutzerdaten mit
-   `pg_restore --data-only`, vorheriges Release starten. Vorab prüft das
-   Skript, dass die Alembic-Revision der Sicherung dem Alembic-Head des
-   vorherigen Images entspricht, dass der aufgezeichnete Wissensbestand-Dump
-   abrufbar und prüfbar ist (Signatur, Modell, Prüfsummen; ohne nutzbaren
-   öffentlichen Schlüssel Abbruch, bevor etwas verändert wird) und dass die
-   Tombstone-Datei der Sicherung abrufbar, entschlüsselbar und gültig ist
-   (eine Sicherung, deren `meta.json` die Datei zusagt, der sie aber fehlt,
-   gilt als beschädigt: Abbruch; eine ältere Sicherung ohne Zusage führt zu
-   einer Warnung, der Rollback läuft weiter), und verlangt
-   die Eingabe des Ziel-Tags (oder `--yes`). Der private Schlüssel wird nur
-   für den Lauf bereitgestellt (`--age-identity FILE`). Scheitert der
-   Rollback nach dem Verwerfen, gibt das Skript Hinweise zur Wiederherstellung;
-   ein erneuter Aufruf ist gefahrlos.
-5. **Sicherung:** die Nutzerdaten-Tabellen (`exchange tables user`) und, als
-   zweite verschlüsselte Datei, die zurückgezogenen Kennungen
-   (`<base>.tombstones.age`, ADR-026; nie Inhalt, Rechte oder Nutzerdaten).
-   Beide `age`-verschlüsselt auf der VM mit dem öffentlichen Schlüssel, Upload
-   per `rclone` in einen privaten STACKIT-Object-Storage-Bucket. Der private
-   Schlüssel liegt nie auf der VM. Reihenfolge des Uploads: `meta.json`,
-   `dump.age`, `tombstones.age`, `.sha256`; die Prüfsumme deckt beide
-   verschlüsselten Dateien ab und ist die Commit-Markierung, erst mit ihr
-   zählt eine Sicherung. `meta.json` trägt `"tombstones": true`.
-6. **Aufbewahrung:** 7 tägliche, 2 monatliche (jeweils der neueste tägliche
-   Stand der beiden jüngsten Kalendermonate), 3 Pre-Rollout-Stände. Die
-   Aufbewahrung gilt für beide Dateien einer Sicherung: die Bereinigung löscht
-   `.sha256`, `meta.json`, `tombstones.age`, `dump.age` in dieser Reihenfolge
-   und überspringt Objekte, die nicht im Bucket liegen (ältere Sicherungen
-   ohne Tombstone-Datei). Sie zählt nur committete Sicherungen und löscht
-   Waisen (ohne `.sha256`, auch eine einzelne `tombstones.age`) erst nach
-   einem Tag. Zusätzlich bleibt die 30-Tage-Sicherung
-   der Gesamtdatenbank durch Flex das Betriebsnetz.
-7. **Restore-Test:** manuell und dokumentiert (`docs/guide/operations.md`),
-   nach dem Bau einmal, danach monatliche Erinnerung.
+1. **Trigger:** Rollout manually via SSH: `normly-deploy deploy vX.Y.Z`. The
+   script is kept timer-capable; there is no timer.
+2. **Verification before start:** `cosign verify` of all five images against the
+   identity `images.yml@refs/tags/vX.Y.Z` of the release workflow. Compose file
+   and script assets travel in the signed `pipeline` image and are taken from the
+   verified `pipeline@<digest>`. The verified digests are
+   recorded (digest pinning); after `compose pull` the pulled
+   digests must match the verified ones, otherwise nothing starts.
+3. **Procedure:** read the current tag and knowledge base version,
+   pre-rollout backup (no rollout without a confirmed upload), `pull`,
+   `up -d --wait`. The current tag is rejected; as long as a
+   failed rollout is recorded (`state/failed_rollout`), no new
+   `deploy` starts (deliberate override: remove the marker file).
+   There is no automatic way back.
+4. **Rollback restores images and data to their state before the rollout.**
+   Because Alembic migrations run forward only, the schema is
+   rebuilt: stop services, drop all tables of the schema `public`
+   (list from the database; the schema remains so that pgvector is
+   preserved), `migrate` with the previous image, import the knowledge base
+   in the dump version active at the time (before the user data, because of the
+   foreign keys), the retired IDs of the backup
+   (`exchange import-tombstones`, see ADR-026), user data with
+   `pg_restore --data-only`, start the previous release. Beforehand the
+   script checks that the Alembic revision of the backup matches the Alembic head of the
+   previous image, that the recorded knowledge base dump is
+   retrievable and verifiable (signature, model, checksums; without a usable
+   public key, abort before anything is changed) and that the
+   tombstone file of the backup is retrievable, decryptable and valid
+   (a backup whose `meta.json` promises the file but which lacks it
+   counts as damaged: abort; an older backup without such a promise leads to
+   a warning, the rollback continues), and requires
+   entering the target tag (or `--yes`). The private key is provided only
+   for the run (`--age-identity FILE`). If the
+   rollback fails after the drop, the script gives hints for the restore;
+   calling it again is safe.
+5. **Backup:** the user data tables (`exchange tables user`) and, as a
+   second encrypted file, the retired IDs
+   (`<base>.tombstones.age`, ADR-026; never content, rights or user data).
+   Both `age`-encrypted on the VM with the public key, upload
+   via `rclone` into a private STACKIT Object Storage bucket. The private
+   key never resides on the VM. Upload order: `meta.json`,
+   `dump.age`, `tombstones.age`, `.sha256`; the checksum covers both
+   encrypted files and is the commit marker; only with it does
+   a backup count. `meta.json` carries `"tombstones": true`.
+6. **Retention:** 7 daily, 2 monthly (in each case the newest daily
+   backup of the two most recent calendar months), 3 pre-rollout backups. The
+   retention applies to both files of a backup: the cleanup deletes
+   `.sha256`, `meta.json`, `tombstones.age`, `dump.age` in this order
+   and skips objects that are not in the bucket (older backups
+   without a tombstone file). It counts only committed backups and deletes
+   orphans (without `.sha256`, including a lone `tombstones.age`) only after
+   one day. In addition, Flex's 30-day backup
+   of the entire database remains the operational safety net.
+7. **Restore test:** manual and documented (`docs/guide/operations.md`),
+   once after the build, a monthly reminder thereafter.
 
-**Begründung:**
+**Rationale:**
 
-- *Manueller Auslöser:* Ein Mensch entscheidet über das Migrationsfenster.
-  Migrationen liefen sonst unbeaufsichtigt, und ein Timer bräuchte eine
-  „höchster Tag“-Logik und ein Stabilitätsfenster.
-- *Rollback = Neuaufbau:* Migrationen sind nur vorwärts. Ein reiner
-  Image-Rollback verlangte eine Expand/Contract-Disziplin, die es nicht gibt;
-  ein reiner Datenrestore ließe das neue Schema stehen.
-- *Nur Nutzerdaten sichern:* Der Wissensbestand ist über den Dump
-  (ADR-025) reproduzierbar; ein täglicher Gesamtdump wäre bei zweistelligen GB
-  verschwendet, die Nutzerdaten sind dagegen klein und unersetzlich.
-- *Schlüsseltrennung:* Die VM kann Sicherungen schreiben, aber nicht
-  entschlüsseln (der Bucket-Zugang der VM umfasst Lesen, weil der Rollback
-  die Sicherung herunterlädt; der private Schlüssel fehlt).
-  Auch bei kompromittierter VM bleiben die Sicherungen geschützt, anders als
-  bei serverseitiger Verschlüsselung, deren Schlüssel beim Anbieter neben den
-  Daten liegt (CLAUDE.md: Schlüssel nie neben den Daten).
-- *Digest-Pinning:* `cosign verify` prüft, worauf das Tag in diesem Moment
-  zeigt. Ein zwischen Prüfung und `pull` umgesetztes Tag würde sonst die
-  Prüfung umgehen.
-- *Commit-Markierung:* Ein abgebrochener Upload darf weder als Sicherung
-  zählen noch eine ältere, gültige verdrängen.
+- *Manual trigger:* A human decides on the migration window.
+  Otherwise migrations would run unattended, and a timer would need
+  "highest tag" logic and a stability window.
+- *Rollback = rebuild:* Migrations are forward only. A pure
+  image rollback would require an expand/contract discipline that does not exist;
+  a pure data restore would leave the new schema in place.
+- *Back up only user data:* The knowledge base is reproducible via the dump
+  (ADR-025); a daily full dump would be wasteful at double-digit GB,
+  whereas the user data is small and irreplaceable.
+- *Key separation:* The VM can write backups but not
+  decrypt them (the VM's bucket access includes reading, because the rollback
+  downloads the backup; the private key is missing).
+  Even with a compromised VM the backups remain protected, unlike
+  with server-side encryption, whose key lies with the provider next to the
+  data (CLAUDE.md: keys never next to the data).
+- *Digest pinning:* `cosign verify` checks what the tag points to at that
+  moment. A tag moved between verification and `pull` would otherwise bypass the
+  verification.
+- *Commit marker:* An aborted upload must neither count as a backup
+  nor displace an older, valid one.
 
-**Verworfen:** Timer mit Auto-Rollout; reiner Image-Rollback mit
-Expand/Contract-Disziplin; ausschließlich serverseitige Verschlüsselung;
-täglicher Gesamtdump; nur Pre-Rollout-Dumps; wöchentliche Stände (Nutzen
-jenseits von 7 Tagen klein).
+**Rejected:** timer with auto-rollout; pure image rollback with
+expand/contract discipline; exclusively server-side encryption;
+daily full dump; only pre-rollout dumps; weekly backups (benefit
+beyond 7 days small).
 
-**Folgen:**
+**Consequences:**
 
-- Ein Rollback verwirft alle Änderungen seit der Pre-Rollout-Sicherung
-  (Konten, Chats, Watchlists). Das Skript warnt und verlangt Bestätigung.
-- Die Rollback-Dauer wächst mit dem Wissensbestand (Neu-Import).
-- Voraussetzung: Der Wissensbestand in Produktion ändert sich nur durch
-  Dump-Import, nie durch Ingestion auf der VM (zugleich Voraussetzung für die
-  Verkleinerung der VM, TP1a).
-- `pg_dump`, `psql` und `pg_restore` laufen auf dem Host; `NORMLY_DATABASE_URL`
-  muss dort auflösbar sein (verwaltete Datenbank, nicht das gebündelte Profil).
-  Das Datenbankpasswort steht in den Prozessargumenten (Annahme: Einzelmandant-VM;
-  Härtung zurückgestellt). Es braucht Docker Compose ab 2.20 (`--wait-timeout`).
-- Offen: Kryptographisches Löschen bei Vertragsende (ADR-014) für lizenzierte
-  Bestände ist Aufgabe der kommerziellen Schicht; sie müssen von Sicherungen
-  ausgenommen oder je Herausgeber verschlüsselt werden. Der Secrets-Fluss per
-  AppRole (TP3) liegt außerhalb. PITR und Verschlüsselung der Flex-Sicherungen
-  sind zu klären. **Objektsperre (Entscheidung 2026-10-10): vorerst keine.**
-  STACKIT bietet Object Lock nach Angabe des Betreibers nur nach einem
-  projektweiten Compliance Lock und nur beim Anlegen des Buckets;
-  unumkehrbar (vor Umsetzung gegen die STACKIT-Doku zu prüfen). Dagegen
-  sprechen: Unumkehrbarkeit vor der ersten Live-Abnahme, Wirkung auf das ganze
-  Projekt, Konflikt mit der eigenen Aufbewahrung (`normly-backup` löscht alte
-  Stände) und der Zusage, gelöschte Nutzerdaten nicht wiederkehren zu lassen
-  (Rollback spielt Löschungen der letzten 90 Tage nach; eine längere Sperre
-  hielte sie länger vor). Akzeptiertes Restrisiko: Mit gestohlenen Zugangsdaten
-  der VM ließen sich Sicherungen löschen; gelesen werden können sie nicht
-  (`age`, privater Schlüssel außerhalb). Minderung zu prüfen: eigene
-  Zugangsdaten der VM ohne Löschrecht. Neubewertung nach der Live-Abnahme; ein
-  späterer zweiter Bucket mit Sperre und Frist von höchstens 90 Tagen wäre
-  möglich. Das Zusammenspiel
-  von `docker compose up --wait` mit dem einmaligen `migrate`-Dienst und die
-  Abfrage des Alembic-Heads sind bislang nur gegen Attrappen geprüft, bis
-  zur Live-Abnahme.
+- A rollback discards all changes since the pre-rollout backup
+  (accounts, chats, watchlists). The script warns and requires confirmation.
+- The rollback duration grows with the knowledge base (re-import).
+- Prerequisite: the knowledge base in production changes only through
+  dump import, never through ingestion on the VM (at the same time a prerequisite for
+  downsizing the VM, TP1a).
+- `pg_dump`, `psql` and `pg_restore` run on the host; `NORMLY_DATABASE_URL`
+  must be resolvable there (managed database, not the bundled profile).
+  The database password appears in the process arguments (assumption: single-tenant VM;
+  hardening deferred). Docker Compose 2.20 or later is required (`--wait-timeout`).
+- Open: Cryptographic erasure at contract end (ADR-014) for licensed
+  collections is a task of the commercial layer; they must be excluded from backups
+  or encrypted per publisher. The secrets flow via
+  AppRole (TP3) is out of scope. PITR and encryption of the Flex backups
+  are to be clarified. **Object lock (decision 2026-10-10): none for now.**
+  According to the operator, STACKIT offers Object Lock only after a
+  project-wide Compliance Lock and only when the bucket is created;
+  irreversible (to be checked against the STACKIT documentation before implementation). Arguments
+  against it: irreversibility before the first live acceptance, effect on the whole
+  project, conflict with the in-house retention (`normly-backup` deletes old
+  backups) and with the promise not to let deleted user data come back
+  (rollback replays deletions of the last 90 days; a longer lock
+  would retain them longer). Accepted residual risk: with stolen credentials
+  of the VM, backups could be deleted; they cannot be read
+  (`age`, private key kept elsewhere). Mitigation to be examined: separate
+  credentials for the VM without delete permission. Reassessment after the live acceptance; a
+  later second bucket with a lock and a period of at most 90 days would be
+  possible. The interplay
+  of `docker compose up --wait` with the one-off `migrate` service and the
+  query of the Alembic head have so far only been tested against mocks, until
+  the live acceptance.
 
 Details: `docs/superpowers/specs/2026-10-09-tp4-deployment-automation-design.md`,
-Betrieb: `docs/guide/operations.md`.
+operations: `docs/guide/operations.md`.
 
 ---
 
-## ADR-025 — Wissensbestand-Dump als Austauschformat
+## ADR-025 — Knowledge base dump as exchange format
 
-**Status:** beschlossen (2026-10-09); ergänzt ADR-010, ändert die Aussage zur
-Wissensbasis in ADR-021 (siehe Nachtrag dort)
+**Status:** accepted (2026-10-09); amends ADR-010, changes the statement on the
+knowledge base in ADR-021 (see the addendum there)
 
-**Kontext:** ADR-010 trennt Code und Daten, REQ-DIST-004 verlangt einen
-eigenständig versionierten Dump, der beim ersten Start bezogen wird. Bisher
-entsteht der Wissensbestand per Ingestion auf der VM; weder Selbsthoster noch
-ein Rollback können ihn reproduzieren.
+**Context:** ADR-010 separates code and data; REQ-DIST-004 requires a
+separately versioned dump that is obtained on first start. So far the
+knowledge base is created by ingestion on the VM; neither self-hosters nor
+a rollback can reproduce it.
 
-**Entscheidung:**
+**Decision:**
 
-1. **Format:** Parquet je Tabelle plus `manifest.json` und die Ed25519-Signatur
-   `manifest.json.sig`. Das Manifest führt Austauschschema-Version
-   (unabhängig von Alembic), Dump-Version und Zeitpunkt, Einbettungsmodell mit
-   Name und gepinnter Revision, Vektordimension (1024), Quelllieferungen und
-   Prüfsumme samt Zeilenzahl je Datei.
-2. **Zugriff:** Export und Import laufen über die Repository-Schicht
-   (`KnowledgeExchangeRepository`), nicht über Postgres-Werkzeuge.
-3. **Signatur:** Ed25519 in Python (`cryptography`), im Kern geprüft. Der
-   öffentliche Schlüssel liegt im Repository. Die Schlüsselzeremonie steht noch
-   aus; bis dahin muss der Schlüssel angegeben werden. Er wird in dieser
-   Reihenfolge aufgelöst: `--public-key`, Umgebungsvariable
-   `NORMLY_KB_PUBLIC_KEY_FILE`, mitgepackter Schlüssel.
-4. **Verteilung:** öffentlich lesbarer STACKIT-Object-Storage-Bucket mit
-   Kalenderversion `kb/<version>/` und `kb/latest`. Eine Version ist
-   unveränderlich. `fetch` lädt nur von `NORMLY_KB_BASE_URL` (https, für
-   localhost auch http) und prüft Version und Pfade.
-5. **Import:** atomar und idempotent; der Aufrufer committet, die
-   importierte Version wird in der Datenbank festgehalten. Was die neue Version
-   nicht mehr enthält, wird nach ADR-026 behandelt, nie blockiert durch
-   Nutzerdaten: Zitate lösen, Inhalt löschen, Tombstones setzen, Lieferungen
-   zurückziehen, dann einfügen oder aktualisieren. Ein Dump ohne Dokumente
-   wird abgelehnt, solange die Datenbank Dokumente hält, es sei denn
-   `--allow-empty` ist gesetzt.
-6. **Prüfungen beim Import:** Signatur, Austauschschema-Version, Modellname
-   **und** Modellrevision (`NORMLY_EMBEDDING_MODEL_REVISION`), Dimension,
-   Prüfsummen. Bei Abweichung Abbruch, keine stillen falschen Einbettungen.
-   Dieselben Prüfungen laufen ohne Datenbank als Unterbefehl `verify
-   (--from DIR | --fetch VERSION)`; der Rollback ruft ihn vor dem ersten
-   destruktiven Schritt auf, damit ein nicht prüfbarer Dump nicht erst nach
-   dem Verwerfen der Tabellen auffällt.
-7. **Export-Gate:** die Rechteklassifikation als einziges Tor, über alle
-   Rechtsräume hinweg ausgewertet. Exportiert wird, was eine nicht
-   widerrufene Klassifikation mit `may_process` und `may_export_free` hat,
-   dessen Lieferung nicht zurückgezogen ist und dessen Quelle Kategorie A, B
-   oder D hat und kein kommerziell verwerteter Katalog ist. Fehlende
-   Klassifikation heißt nicht exportieren. Zusammengeführte Werke werden samt
-   Ziel exportiert, damit die Weiterleitung erhalten bleibt. Nutzerdaten und
-   lizenzierte Bestände sind nie enthalten.
-8. **Erster Start:** der Compose-Dienst `kb-import` (Profil `tools`) führt
-   `import --fetch latest` aus.
+1. **Format:** Parquet per table plus `manifest.json` and the Ed25519 signature
+   `manifest.json.sig`. The manifest records the exchange schema version
+   (independent of Alembic), dump version and timestamp, embedding model with
+   name and pinned revision, vector dimension (1024), source deliveries, and
+   checksum together with row count per file.
+2. **Access:** Export and import run through the repository layer
+   (`KnowledgeExchangeRepository`), not through Postgres tools.
+3. **Signature:** Ed25519 in Python (`cryptography`), verified in the core. The
+   public key lives in the repository. The key ceremony is still
+   pending; until then the key must be specified. It is resolved in this
+   order: `--public-key`, environment variable
+   `NORMLY_KB_PUBLIC_KEY_FILE`, bundled key.
+4. **Distribution:** publicly readable STACKIT Object Storage bucket with
+   calendar version `kb/<version>/` and `kb/latest`. A version is
+   immutable. `fetch` downloads only from `NORMLY_KB_BASE_URL` (https, for
+   localhost also http) and checks version and paths.
+5. **Import:** atomic and idempotent; the caller commits, the
+   imported version is recorded in the database. What the new version
+   no longer contains is handled according to ADR-026, never blocked by
+   user data: detach citations, delete content, set tombstones, withdraw
+   deliveries, then insert or update. A dump without documents
+   is rejected as long as the database holds documents, unless
+   `--allow-empty` is set.
+6. **Checks on import:** signature, exchange schema version, model name
+   **and** model revision (`NORMLY_EMBEDDING_MODEL_REVISION`), dimension,
+   checksums. On a mismatch, abort; no silently wrong embeddings.
+   The same checks run without a database as the subcommand `verify
+   (--from DIR | --fetch VERSION)`; the rollback calls it before the first
+   destructive step so that an unverifiable dump is not noticed only after
+   the tables have been dropped.
+7. **Export gate:** the rights classification as the single gate, evaluated
+   across all jurisdictions. Exported is what has a non-revoked
+   classification with `may_process` and `may_export_free`,
+   whose delivery is not withdrawn, and whose source has category A, B
+   or D and is not a commercially exploited catalog. Missing
+   classification means do not export. Merged works are exported together
+   with their target so that the redirect is preserved. User data and
+   licensed collections are never included.
+8. **First start:** the Compose service `kb-import` (profile `tools`) runs
+   `import --fetch latest`.
 
-**Begründung:**
+**Rationale:**
 
-- *Parquet statt `pg_dump` (Nutzerentscheidung, gegen die ursprüngliche
-  Empfehlung):* ADR-006 und CLAUDE.md verlangen Datenbankzugriff nur über die
-  Repository-Schicht, damit die Speichertechnologie austauschbar bleibt;
-  `pg_dump` ist ein Postgres-Artefakt und umgeht sie.
-- *Öffentliches Produkt (REQ-DIST-004):* Ein Format ohne Bindung an unsere
-  Alembic-Revision überlebt Schemaänderungen. Bei `pg_dump` müsste jeder
-  Selbsthoster die passende Anwendungsversion finden.
-- *Abstammung:* Ein tabellenweiser Export mit Quelllieferung je Zeile hält die
-  Rücknahme einer Lieferung auch im Dump nachvollziehbar.
-- *Parquet statt NDJSON:* Einbettungen (1024 Floats, etwa 4 KB je Abschnitt)
-  wären sonst unhandlich.
-- *Preis:* mehr Code (Export, Import, Austauschschema), langsamerer Import,
-  Idempotenz selbst herzustellen. Das nehmen wir in Kauf.
-- *Ed25519 im Kern statt cosign/minisign:* Der Import läuft im
-  `pipeline`-Image und beim Selbsthoster; ein zusätzliches Binary vergrößerte
-  das Image und schüfe eine zweite Installationshürde. Keyless-Signatur geht
-  nicht, weil der Dump lokal entsteht, nicht in der CI.
-- *Object Storage statt Git:* große Binärdateien und anonymer Zugriff sind in
-  einem Git-Repository unhandlich; die Wissensbasis bleibt damit auf STACKIT
+- *Parquet instead of `pg_dump` (owner decision, against the original
+  recommendation):* ADR-006 and CLAUDE.md require database access only through the
+  repository layer so that the storage technology stays interchangeable;
+  `pg_dump` is a Postgres artifact and bypasses it.
+- *Public product (REQ-DIST-004):* A format not bound to our
+  Alembic revision survives schema changes. With `pg_dump`, every
+  self-hoster would have to find the matching application version.
+- *Lineage:* A table-by-table export with the source delivery per row keeps the
+  withdrawal of a delivery traceable in the dump as well.
+- *Parquet instead of NDJSON:* Embeddings (1024 floats, about 4 KB per section)
+  would otherwise be unwieldy.
+- *Price:* more code (export, import, exchange schema), slower import,
+  idempotency to be established ourselves. We accept that.
+- *Ed25519 in the core instead of cosign/minisign:* The import runs in the
+  `pipeline` image and at the self-hoster's; an additional binary would enlarge
+  the image and create a second installation hurdle. Keyless signing does
+  not work because the dump is created locally, not in CI.
+- *Object Storage instead of Git:* large binary files and anonymous access are
+  unwieldy in a Git repository; the knowledge base thus stays on STACKIT
   (CLAUDE.md).
-- *Import mit Tombstones statt Blockieren:* siehe ADR-026.
+- *Import with tombstones instead of blocking:* see ADR-026.
 
-**Verworfen:** `pg_dump` des Wissensbestands; Delta-Dumps (das Format lässt
-sie offen, gebaut werden sie nicht); STACKIT Git als Ablage; ein zusätzliches
-Git-Manifest als Verlauf (zweites System); NDJSON.
+**Rejected:** `pg_dump` of the knowledge base; delta dumps (the format leaves
+them open, they are not built); STACKIT Git as storage; an additional
+Git manifest as history (second system); NDJSON.
 
-**Folgen:**
+**Consequences:**
 
-- ADR-021 erhält einen Nachtrag; CLAUDE.md und REQ-GIT-005 sind angepasst.
-- `docs/guide/self-hosting.md` beschreibt den Import, `docs/guide/operations.md`
-  Export, Signatur und Veröffentlichung.
-- Das Export-Gate liest die Rechteklassifikation und führt keinen zweiten
-  Prüfpfad ein.
+- ADR-021 receives an addendum; CLAUDE.md and REQ-GIT-005 have been adjusted.
+- `docs/guide/self-hosting.md` describes the import, `docs/guide/operations.md`
+  export, signature and publication.
+- The export gate reads the rights classification and introduces no second
+  check path.
 
-**Personennamen (entschieden 2026-10-09):** Der Export ersetzt Personennamen
-durch die Rolle `normly maintainers`. Betroffen sind
-`source.responsible_person` und `rights_classification.classified_by`; beide
-Spalten tragen in jeder exportierten Zeile die Konstante `PUBLISHED_ROLE`. Die
-Ersetzung geschieht im Export-Statement der Repository-Schicht, also an der
-Stelle des Export-Gates, und ändert weder Manifest noch Austauschschema (keine
-Versionserhöhung). Der Dump trägt nie einen Namen; die Quellenregistrierung im Code enthält nur
-einen Platzhalter, und Namen, die ein Ingestion-Betreiber einträgt, liegen nur
-in dessen eigener Datenbank. Ein Import überschreibt die beiden Spalten mit dem
-Rollenlabel: Produktion, die den öffentlichen Dump einspielt, trägt daher das
-Label, nie Namen; ein erneuter Export eines importierten Stands ist zeilengleich.
-Einen Dump nie in die Ingestion-Datenbank importieren: der Upsert überschreibt
-dort die Namen unwiderruflich. Maskiert wird auch
-`classified_by="pipeline:automatic"`; der öffentliche Dump unterscheidet damit
-nicht zwischen automatischer und menschlicher Klassifikation (bewusster
-Kompromiss, das Label ist eine Rolle und keine Aussage über menschliche
-Prüfung).
-Ein Test sucht einen eindeutigen Namen in allen Zeilen, allen Parquet-Dateien
-und im Manifest.
+**Personal names (decided 2026-10-09):** The export replaces personal names
+with the role `normly maintainers`. Affected are
+`source.responsible_person` and `rights_classification.classified_by`; both
+columns carry the constant `PUBLISHED_ROLE` in every exported row. The
+replacement happens in the export statement of the repository layer, that is, at the
+location of the export gate, and changes neither the manifest nor the exchange schema (no
+version increment). The dump never carries a name; the source registration in the code contains only
+a placeholder, and names that an ingestion operator enters live only
+in that operator's own database. An import overwrites the two columns with the
+role label: production, which loads the public dump, therefore carries the
+label, never names; a re-export of an imported state is row-identical.
+Never import a dump into the ingestion database: the upsert there overwrites
+the names irrevocably. Also masked is
+`classified_by="pipeline:automatic"`; the public dump thus does not distinguish
+between automatic and human classification (deliberate
+compromise; the label is a role and not a statement about human
+review).
+A test searches for a unique name in all rows, all Parquet files
+and the manifest.
 
-**Offene Punkte:**
+**Open items:**
 
-- **Delta-Dumps** sind nicht gebaut.
-- **Schlüsselzeremonie:** Erzeugung, Verwahrung und Veröffentlichung des
-  Signaturschlüssels stehen aus.
+- **Delta dumps** are not built.
+- **Key ceremony:** generation, safekeeping and publication of the
+  signing key are pending.
 
 Details: `docs/superpowers/specs/2026-10-09-tp4-deployment-automation-design.md`.
 
 ---
 
-## ADR-026 — Umgang mit Nutzerdaten beim Wissensbestand-Import
+## ADR-026 — Handling user data on knowledge base import
 
-**Status:** beschlossen (2026-10-09); ersetzt die Blockierregel des Imports
-aus ADR-025
+**Status:** accepted (2026-10-09); replaces the import's blocking rule
+from ADR-025
 
-**Kontext:** Der Import eines Wissensbestand-Dumps brach mit
-`ImportBlockedError` ab, sobald Nutzerdaten (`watchlist`, `notification`,
-`notified_edge`, `chat_message_citation`) auf eine Zeile verwiesen, die der neue
-Dump nicht mehr enthält. Für eine rechtlich gebotene Rücknahme (Lieferung
-zurückgezogen, Klassifikation widerrufen) ist das falsch: Sie darf nicht an
-Nutzerdaten scheitern (CLAUDE.md, „Abstammung mitführen“). Befund aus dem Code:
-Keine Nutzerdaten-Tabelle speichert urheberrechtlich geschützten Inhalt, es
-sind nur Verweise (`work_id`, `edge_id`, `document_id`, `segment_id`); der Text
-eines Zitats wird erst beim Lesen aus `segment` geholt.
+**Context:** The import of a knowledge base dump aborted with
+`ImportBlockedError` as soon as user data (`watchlist`, `notification`,
+`notified_edge`, `chat_message_citation`) referenced a row that the new
+dump no longer contains. For a legally required withdrawal (delivery
+withdrawn, classification revoked) that is wrong: it must not fail because of
+user data (CLAUDE.md, "Carry lineage along"). Finding from the code:
+no user data table stores copyrighted content; they
+are only references (`work_id`, `edge_id`, `document_id`, `segment_id`); the text
+of a citation is fetched from `segment` only when it is read.
 
-**Entscheidung:** Eine Rücknahme gewinnt immer; ein Nutzerverweis blockiert nie
-einen Import. Was der Dump nicht mehr enthält, wird nach Klasse behandelt:
+**Decision:** A withdrawal always wins; a user reference never blocks
+an import. What the dump no longer contains is handled by class:
 
-| Klasse | Tabellen | Behandlung |
+| Class | Tables | Handling |
 |---|---|---|
-| Tombstone (Kennung, kein Inhalt) | `work`, `document`, `edge` | Zeile bleibt, `retired_at` wird gesetzt; Kanten werden zusätzlich widerrufen (`revoked_at`). Nutzerverweise bleiben gültig. |
-| Herkunft | `source`, `delivery` | Werden nie gelöscht; eine fehlende Lieferung erhält `withdrawn_at`. |
-| Inhalt/Ableitung | `document_designation`, `document_title`, `rights_classification`, `segment`, `embedding`, `document_embedding` | Werden physisch gelöscht. |
+| Tombstone (ID, no content) | `work`, `document`, `edge` | Row stays, `retired_at` is set; edges are additionally revoked (`revoked_at`). User references remain valid. |
+| Provenance | `source`, `delivery` | Are never deleted; a missing delivery receives `withdrawn_at`. |
+| Content/derivation | `document_designation`, `document_title`, `rights_classification`, `segment`, `embedding`, `document_embedding` | Are physically deleted. |
 
-Ablauf in `replace_knowledge_base`, in dieser Reihenfolge: Schlüssel des Dumps
-laden; Zitate lösen (`chat_message_citation.segment_id` wird `NULL` für Segmente,
-die der Dump nicht enthält); fehlenden Inhalt in umgekehrter
-Fremdschlüssel-Reihenfolge löschen; fehlende Tombstones zurückziehen; fehlende
-Lieferungen mit `withdrawn_at` versehen; den Dump einfügen oder aktualisieren
-(Zeilen der Tombstone-Klassen aus dem Dump erhalten `retired_at = NULL`:
-Wiederkehr); Importvermerk schreiben. Löschen und Zurückziehen laufen **vor**
-dem Einfügen, damit eine Neulieferung mit neuen IDs nicht an natürlichen
-Eindeutigkeitsschlüsseln kollidiert (Bezeichner, Titel, partieller Index aktiver
-Kanten). `ImportBlockedError` (mit `.step`) bleibt nur als letzte Sicherung für
-einen unerwarteten Fremdschlüssel.
+Procedure in `replace_knowledge_base`, in this order: load the dump's
+keys; detach citations (`chat_message_citation.segment_id` becomes `NULL` for segments
+that the dump does not contain); delete missing content in reverse
+foreign-key order; retire missing tombstones; mark missing
+deliveries with `withdrawn_at`; insert or update the dump
+(rows of the tombstone classes from the dump receive `retired_at = NULL`:
+return); write the import record. Deleting and retiring run **before**
+inserting, so that a re-delivery with new IDs does not collide with natural
+unique keys (designation, title, partial index of active
+edges). `ImportBlockedError` (with `.step`) remains only as a last safeguard for
+an unexpected foreign key.
 
-- `retired_at` (Migration 0033; `work`, `document`, `edge`) ist keine
-  Austauschspalte: Dumpformat und `EXCHANGE_SCHEMA_VERSION` bleiben unverändert.
-- `retired_at` ist keine Filterpflicht. Ein zurückgezogenes Dokument hat keine
-  Rechteklassifikation mehr; jede tor-gebundene Lesestelle (das einzige Tor)
-  schließt es damit aus. Es entsteht kein zweiter Prüfpfad.
-- Schutz vor leerem Dump: Ein Dump ohne Dokumente wird abgelehnt, solange die
-  Datenbank Dokumente hält (`allow_empty` bzw. `--allow-empty` hebt das auf).
-- Ein Test geht alle Fremdschlüssel jeder Tabelle außerhalb des Wissensbestands
-  auf den Wissensbestand durch (fail-closed), nicht nur die der
-  Nutzerdaten-Tabellen, also auch `identity_resolution_case`: Jedes Ziel muss
-  zu einer Klasse gehören oder eine ausdrückliche Löseregel haben.
-- Meldung: Ein Widerruf löscht in Produktion die Klassifikation, der
-  Rechteänderungs-Pfad von `notify-watchers` sähe also nichts. Neuer
-  Benachrichtigungstyp `no_longer_available` (Migration 0034, Tabelle
-  `notified_retirement`, `trigger_type` auf VARCHAR(19)): `notify-watchers`
-  erzeugt eine Meldung je zurückgezogenem Dokument eines beobachteten Werks, nur
-  für Rücknahmen nach Beginn der Beobachtung; Dedup-Schlüssel enthält
-  `retired_at` (eine erneute Rücknahme nach Wiederkehr wird neu gemeldet). Kein
-  Link; E-Mail-Betreff „Ein beobachtetes Regelwerk ist nicht mehr verfügbar“;
-  Glocke „Nicht mehr verfügbar“ / „No longer available“. `delete_account`
-  entfernt die `notified_retirement`-Zeilen des Kontos.
+- `retired_at` (migration 0033; `work`, `document`, `edge`) is not an
+  exchange column: dump format and `EXCHANGE_SCHEMA_VERSION` remain unchanged.
+- `retired_at` is not a mandatory filter. A retired document no longer has a
+  rights classification; every gate-bound read site (the single gate)
+  thereby excludes it. No second check path arises.
+- Protection against an empty dump: A dump without documents is rejected as long as the
+  database holds documents (`allow_empty`, or `--allow-empty` on the CLI, lifts this).
+- A test walks through all foreign keys of every table outside the knowledge base
+  that point to the knowledge base (fail-closed), not only those of the
+  user data tables, so also `identity_resolution_case`: every target must
+  belong to a class or have an explicit resolution rule.
+- Notification: In production a revocation deletes the classification, so the
+  rights-change path of `notify-watchers` would see nothing. New
+  notification type `no_longer_available` (migration 0034, table
+  `notified_retirement`, `trigger_type` to VARCHAR(19)): `notify-watchers`
+  creates one notification per retired document of a watched work, only
+  for withdrawals after watching began; the dedup key contains
+  `retired_at` (a renewed withdrawal after a return is notified again). No
+  link; e-mail subject "Ein beobachtetes Regelwerk ist nicht mehr verfügbar";
+  bell "Nicht mehr verfügbar" / "No longer available". `delete_account`
+  removes the account's `notified_retirement` rows.
 
-**Begründung:** Die zugesagte Rücknahme darf nie von einem Menschen oder von
-Nutzerdaten abhängen. Gelöschter Inhalt ist auch in Produktion und nach Ablauf
-der Sicherungen nicht mehr lesbar; Tombstones tragen nur Kennungen. Kein
-Nutzerverweis geht verloren, weil sich der Wissensbestand ändert.
+**Rationale:** The promised withdrawal must never depend on a human or on
+user data. Deleted content is no longer readable, in production as well as after the
+backups expire; tombstones carry only IDs. No
+user reference is lost because the knowledge base changes.
 
-**Verworfen:**
+**Rejected:**
 
-- Blockieren mit Bereinigungswerkzeug: Die Rücknahme wartete auf einen Menschen.
-- Nutzerverweise anpassen oder löschen: Datenverlust ohne Nutzen, da nur
-  Verweise betroffen sind.
-- Reine Tombstones auch für Inhalt: Die Rücknahme wäre nur logisch, der Text
-  bliebe in Datenbank und Sicherungen lesbar.
-- Bezeichner und Titel als Teil des Tombstones: Sie kollidieren bei einer
-  Neulieferung mit den natürlichen Eindeutigkeitsschlüsseln (Befund im Review);
-  das Dokument behält Herausgeber, Nummer, Ausgabe und Teil als Kennung.
+- Blocking with a cleanup tool: the withdrawal would wait for a human.
+- Adjusting or deleting user references: data loss without benefit, since only
+  references are affected.
+- Pure tombstones for content too: the withdrawal would only be logical; the text
+  would remain readable in the database and backups.
+- Designation and title as part of the tombstone: they collide on a
+  re-delivery with the natural unique keys (finding in review);
+  the document keeps publisher, number, edition and part as its ID.
 
-**Rollback und Sicherung (Erweiterung 2):** `normly-deploy rollback` (ADR-024)
-baut die Datenbank neu auf und importiert die ältere Dump-Version. Tombstones
-stehen in keinem Dump; Nutzerzeilen, die auf sie zeigen, verletzten beim
-Einspielen den Fremdschlüssel. Deshalb enthält jede Sicherung eine zweite,
-`age`-verschlüsselte Datei `<base>.tombstones.age`:
+**Rollback and backup (extension 2):** `normly-deploy rollback` (ADR-024)
+rebuilds the database and imports the older dump version. Tombstones
+are in no dump; user rows that point to them would violate the foreign key on
+restore. Therefore every backup contains a second,
+`age`-encrypted file `<base>.tombstones.age`:
 
-- *Inhalt:* JSON (`format` 1, `created_at`, `rows` je Tabelle in
-  Fremdschlüssel-Reihenfolge) mit allen Zeilen aus `work`, `document` und
-  `edge`, deren `retired_at` gesetzt ist, plus dem Abschluss über die
-  Fremdschlüssel-Eltern innerhalb von `source`, `delivery`, `work`, `document`,
-  `edge`. Der Abschluss wird aus den ORM-Fremdschlüsseln berechnet, nicht
-  hartverdrahtet, und nimmt nur Eltern auf, nie Kinder. Alle Spalten, auch
-  `retired_at` und `revoked_at`. Nie Inhalt, Rechte oder Nutzerdaten.
-  `source.responsible_person` kann enthalten sein; in Produktion ist es die
-  veröffentlichte Rollenbezeichnung (Importe überschreiben es), ein Klarname
-  nur in einer Datei aus einer Ingestion-Datenbank. Er liegt nur in der
-  verschlüsselten Sicherung.
-- *Erzeugung und Prüfung:* im Container (`exchange export-tombstones`, stdout),
-  auf dem Host vor dem Verschlüsseln geprüft (JSON-Objekt, `format` 1, `rows`
-  mit genau den fünf Tabellen, je eine Liste). Eine ungültige Ausgabe bricht
-  die Sicherung ab.
-- *Einspielen:* im Rollback nach dem Wissensbestand-Import und **vor**
-  `pg_restore` (`exchange import-tombstones`, JSON auf stdin, im Image des
-  vorherigen Release). Einfügen in Fremdschlüssel-Reihenfolge mit
-  `ON CONFLICT DO NOTHING`; vorhandene Zeilen bleiben unverändert;
-  `work.merged_into_work_id` wird aufgeschoben. Eingefügte Zeilen aus `work`,
-  `document`, `edge` erhalten `retired_at` (gesicherter Wert, bei lebenden
-  Eltern `created_at` der Datei) und gelten damit als zurückgezogen. Sie haben
-  keine Klassifikation, jede tor-gebundene Lesestelle schließt sie aus. Ein
-  späterer normaler Import, der die Zeile enthält, setzt `retired_at` wieder
-  auf `NULL`.
-- *Vorabprüfung:* Der Rollback lädt, entschlüsselt und prüft die
-  Tombstone-Datei vor dem Banner, den Dump nach der Bestätigung und vor dem
-  Stopp; vor dem Löschen ist beides vorhanden und entschlüsselt. Sagt
-  `meta.json` `"tombstones": true`, fehlt aber die Datei, gilt die Sicherung als
-  beschädigt (Abbruch). Eine ältere Sicherung ohne Zusage bleibt nutzbar: Der
-  Rollback warnt deutlich (ein Fremdschlüsselfehler ist möglich, wenn
-  Nutzerdaten auf zurückgezogene Dokumente zeigen) und läuft weiter.
-- *Nicht wiederhergestellt:* Inhalt und Rechte zurückgezogener Dokumente; nur
-  Kennungen. Das ist gewollt, die Rücknahme bleibt wirksam.
-- *`revoked_at`:* An einer zurückgezogenen Kante ist `revoked_at` der
-  **Importzeitpunkt**, nicht der Zeitpunkt des Widerrufs beim Produzenten. Es
-  ist kein Ereignisdatum und so nicht zu lesen.
+- *Content:* JSON (`format` 1, `created_at`, `rows` per table in
+  foreign-key order) with all rows from `work`, `document` and
+  `edge` whose `retired_at` is set, plus the closure over the
+  foreign-key parents within `source`, `delivery`, `work`, `document`,
+  `edge`. The closure is computed from the ORM foreign keys, not
+  hard-wired, and takes in only parents, never children. All columns, including
+  `retired_at` and `revoked_at`. Never content, rights or user data.
+  `source.responsible_person` may be included; in production it is the
+  published role name (imports overwrite it), a real name
+  only in a file from an ingestion database. It lives only in the
+  encrypted backup.
+- *Creation and check:* in the container (`exchange export-tombstones`, stdout),
+  checked on the host before encryption (JSON object, `format` 1, `rows`
+  with exactly the five tables, each a list). An invalid output aborts
+  the backup.
+- *Restore:* in the rollback after the knowledge base import and **before**
+  `pg_restore` (`exchange import-tombstones`, JSON on stdin, in the image of the
+  previous release). Inserting in foreign-key order with
+  `ON CONFLICT DO NOTHING`; existing rows remain unchanged;
+  `work.merged_into_work_id` is deferred. Inserted rows from `work`,
+  `document`, `edge` receive `retired_at` (the backed-up value; for living
+  parents the file's `created_at`) and thus count as retired. They have
+  no classification; every gate-bound read site excludes them. A
+  later normal import that contains the row sets `retired_at` back
+  to `NULL`.
+- *Pre-check:* The rollback downloads, decrypts and checks the
+  tombstone file before the banner, the dump after the confirmation and before the
+  stop; before the deletion both are present and decrypted. If
+  `meta.json` says `"tombstones": true` but the file is missing, the backup counts as
+  damaged (abort). An older backup without such a promise remains usable: the
+  rollback warns clearly (a foreign-key error is possible if
+  user data points to retired documents) and continues.
+- *Not restored:* content and rights of retired documents; only
+  IDs. That is intended; the withdrawal remains effective.
+- *`revoked_at`:* On a retired edge, `revoked_at` is the
+  **import time**, not the time of the revocation at the producer. It
+  is not an event date and must not be read as one.
 
-**Folgen / offen:**
+**Consequences / open:**
 
-- Ein Tombstone behält nur `origin_issuer`, `origin_number`, `edition` und
-  `part`. Jede Oberfläche, die Tombstones auflistet, muss darauf zurückfallen.
-- Die Ingestion legt bei Neulieferung nach einem Widerruf einen **neuen**
-  Dokumentknoten an (Bezeichner sind gelöscht, `find_by_designation` findet
-  nichts). Beobachtungen und Meldungen bleiben am Tombstone und gehen nicht auf
-  den neuen Knoten über. Produkt- und Identitätsentscheidung, offen.
-- Das Export-Gate des Produzenten lässt ein Dokument aus, dessen erzeugende
-  Lieferung widerrufen wurde, auch nach einer Neulieferung. Offen.
-- Dumps müssen aus einer Abstammungslinie mit stabilen IDs stammen. Eine neu
-  aufgebaute Produzenten-Datenbank mit neuen IDs kann mit stehengebliebenen
-  Tombstones kollidieren (partieller Index aktiver Kanten u. a.) und endet in
+- A tombstone keeps only `origin_issuer`, `origin_number`, `edition` and
+  `part`. Every interface that lists tombstones must fall back on these.
+- On re-delivery after a revocation, ingestion creates a **new**
+  document node (designations are deleted, `find_by_designation` finds
+  nothing). Watches and notifications stay with the tombstone and do not carry over to
+  the new node. Product and identity decision, open.
+- The producer's export gate leaves out a document whose originating
+  delivery was revoked, even after a re-delivery. Open.
+- Dumps must come from one lineage with stable IDs. A newly
+  built producer database with new IDs can collide with leftover
+  tombstones (partial index of active edges, among others) and ends in
   `ImportBlockedError`.
-- Aufbewahrung und Alterung von Tombstones sind offen (auch nach ADR-027).
-- Die Rechteänderungs-Meldung (`RIGHTS_CHANGE`) für reine Änderungen von
-  Rechtewerten, ohne dass das Dokument verschwindet, entsteht weiter beim
-  Produzenten, nicht in Produktion.
-- Der Schutz vor leerem Dump vertraut den Zeilenzahlen des Manifests; das
-  Manifest ist signiert.
+- Retention and expiry of tombstones are open (also after ADR-027).
+- The rights-change notification (`RIGHTS_CHANGE`) for pure changes of
+  rights values, without the document disappearing, continues to arise at the
+  producer, not in production.
+- The protection against an empty dump trusts the manifest's row counts; the
+  manifest is signed.
 
 Details: `docs/superpowers/specs/2026-10-09-user-data-on-kb-import-design.md`.
 
 ---
 
-## ADR-027 — Lebenszyklus der Nutzerdaten
+## ADR-027 — Lifecycle of user data
 
-**Status:** beschlossen (2026-10-10); baut auf ADR-014, ADR-017, ADR-024 und
+**Status:** accepted (2026-10-10); builds on ADR-014, ADR-017, ADR-024 and
 ADR-026
 
-**Kontext:** Personenbezogene Daten sollen nur gespeichert werden, wenn ein
-Konto sie braucht, und nur so lange, wie der Zweck besteht; Betroffene sollen
-ihre Daten einsehen und löschen können, und eine Löschung soll eine
-Wiederherstellung aus Sicherungen überstehen. Die Bestandsaufnahme vom
-2026-10-10 zeigte Lücken:
+**Context:** Personal data should be stored only if an
+account needs it, and only for as long as the purpose exists; data subjects should be able to
+view and delete their data, and a deletion should survive a
+restore from backups. The inventory of
+2026-10-10 showed gaps:
 
-- Anonyme Chats wurden gespeichert (`chat_session`/`chat_message`, Cookie
-  `normly_session` mit 90 Tagen Laufzeit) und nie gelöscht, obwohl der Server
-  sie zum Antworten nicht braucht: Jede Frage wird einzeln beantwortet.
-- `account_session` und `account_token` wurden nie gelöscht (die Ablaufzeit
-  wurde nur geprüft); verlassene Registrierungen blieben ewig; ungelesene
-  Benachrichtigungen ebenso.
-- Es gab keinen Weg, einzelne Chat-Verläufe zu löschen.
-- Der Rollback (ADR-024) stellt Nutzerdaten vom Sicherungszeitpunkt wieder her:
-  zwischenzeitlich gelöschte Konten und Verläufe tauchten wieder auf.
-- Der Export (`GET /v1/accounts/export`) war unvollständig: Die
-  Beobachtungsliste nannte nur `work_id`, Zitate fehlten, und der
-  Chat-Sitzungs-Token (ein Geheimnis) stand im Export.
+- Anonymous chats were stored (`chat_session`/`chat_message`, cookie
+  `normly_session` with a 90-day lifetime) and never deleted, although the server
+  does not need them to answer: every question is answered on its own.
+- `account_session` and `account_token` were never deleted (the expiry time
+  was only checked); abandoned registrations stayed forever; unread
+  notifications likewise.
+- There was no way to delete individual chat histories.
+- The rollback (ADR-024) restores user data from the backup time:
+  accounts and histories deleted in the meantime reappeared.
+- The export (`GET /v1/accounts/export`) was incomplete: the
+  watchlist named only `work_id`, citations were missing, and the
+  chat session token (a secret) was in the export.
 
-**Entscheidung:**
+**Decision:**
 
-*Grundsatz.* Gespeichert wird nur, was ein Konto braucht. Fristen stehen als
-benannte Konstanten an einer Stelle (`core/src/normly_core/retention.py`) und
-werden von einem idempotenten Aufräumbefehl durchgesetzt.
+*Principle.* Only what an account needs is stored. Periods are
+named constants in one place (`core/src/normly_core/retention.py`) and
+are enforced by an idempotent cleanup command.
 
-*Anonymer Chat ohne Speicherung.* `POST /v1/chat` ohne gültige Konto-Identität
-schreibt nichts in die Datenbank und antwortet mit `session_token: null`. Ein
-Chat-Token ohne gültiges Konto wird ignoriert. Das Frontend setzt für anonyme
-Nutzung kein Chat-Cookie und entfernt ein vorhandenes; die Unterhaltung lebt
-nur im Browser-Tab. Die Verknüpfung „anonyme Sitzung beim Anmelden ans Konto
-hängen“ entfällt bewusst. Das Kontingent bleibt davon unberührt: Es wird
-serverseitig über die Ratenbegrenzung gezählt (Cookie `normly_anon_id` plus
-Herkunftsadresse, `rate_limit_bucket`), nicht über Chat-Sitzungen
-(REQ-ACC-003). Vorhandene anonyme Verläufe (`account_id` leer) löscht der
-Aufräumbefehl.
+*Anonymous chat without storage.* `POST /v1/chat` without a valid account identity
+writes nothing to the database and answers with `session_token: null`. A
+chat token without a valid account is ignored. For anonymous
+use the frontend sets no chat cookie and removes an existing one; the conversation lives
+only in the browser tab. The linking "attach the anonymous session to the account on
+sign-in" is deliberately dropped. The quota is unaffected by this: it is
+counted server-side via the rate limiting (cookie `normly_anon_id` plus
+client IP address, `rate_limit_bucket`), not via chat sessions
+(REQ-ACC-003). Existing anonymous histories (`account_id` empty) are deleted by the
+cleanup command.
 
-*Chats mit Konto* bleiben bis zur Löschung durch die Person oder durch die
-Kontolöschung. `DELETE /v1/chat/sessions/{id}` löscht einen eigenen Verlauf
-(204; 404 bei fremder oder unbekannter ID; 401 ohne Anmeldung),
-`DELETE /v1/chat/sessions` alle eigenen (`{"deleted": n}`); die Seitenleiste
-bietet beides mit Bestätigung.
+*Chats with an account* remain until deleted by the person or by
+account deletion. `DELETE /v1/chat/sessions/{id}` deletes one of the person's own histories
+(204; 404 for someone else's or an unknown ID; 401 without sign-in),
+`DELETE /v1/chat/sessions` all of their own (`{"deleted": n}`); the sidebar
+offers both with confirmation.
 
-*Datenverzeichnis.* Alle Tabellen der Nutzerdaten-Gruppe (`USER_TABLES`):
+*Data inventory.* All tables of the user data group (`USER_TABLES`):
 
-| Tabelle | Zweck | Personenbezug | Frist | Löschweg |
+| Table | Purpose | Personal data | Period | Deletion path |
 |---|---|---|---|---|
-| `account` | Konto, Anmeldung | E-Mail, Name, Passwort-Hash, Avatar | bis zur Kontolöschung; **verlassene Registrierung** (E-Mail nie bestätigt, älter als 30 Tage, ohne Google-Verknüpfung, ohne irgendeine Konto-Sitzung) 14 Tage nach zugestellter Vorwarn-E-Mail, nie ohne diese | Kontolöschung durch die Person (kaskadiert auf alle Tabellen mit Kontobezug); Aufräumbefehl |
-| `account_session` | angemeldete Sitzung | Kontobezug, Sitzungs-Token; keine IP, kein User-Agent | 7 Tage nach Ablauf | Aufräumbefehl; Kontolöschung |
-| `account_google_identity` | Verknüpfung mit Google-Anmeldung | Google-Kennung, Kontobezug | bis zur Kontolöschung | Kontolöschung |
-| `account_token` | Einmal-Token (Bestätigung, Zurücksetzen, Magic Link) | Kontobezug | 24 Stunden nach Ablauf oder Verwendung | Aufräumbefehl; Kontolöschung |
-| `oauth_state` | CSRF-Schutz der Google-Anmeldung | keiner (Zufallswert) | unverändert (1 Stunde) | bestehende Bereinigung |
-| `watchlist` | Beobachtungsliste | Kontobezug, Interessen | bis zur Kontolöschung oder Entfernen durch die Person | Person; Kontolöschung |
-| `notification` | Meldungen | Kontobezug, beobachtetes Werk | gelesen 60 Tage, ungelesen 365 Tage nach Anlage | Aufräumbefehl; Kontolöschung |
-| `notified_edge`, `notified_retirement`, `rights_notification_baseline` | Buchführung gegen Doppelmeldungen | Kontobezug | bis zur Kontolöschung | Kontolöschung |
-| `chat_session`, `chat_message`, `chat_message_citation` | Chat-Verläufe mit Konto | Fragen und Antworten der Person | keine Frist; anonyme Altzeilen (`account_id` leer) werden gelöscht | Person (pro Verlauf oder alle); Kontolöschung; Aufräumbefehl für Altbestand |
-| `rate_limit_bucket` | Ratenbegrenzung und Kontingent | pseudonymer Schlüssel aus Browser-Kennung und Herkunftsadresse | unverändert (10 Minuten) | bestehende Bereinigung |
-| `deletion_log` | Löschprotokoll (siehe unten) | keine: nur Art, Kennung, Zeitpunkt | 90 Tage | Aufräumbefehl |
+| `account` | account, sign-in | e-mail, name, password hash, avatar | until account deletion; **abandoned registration** (e-mail never verified, older than 30 days, without a Google link, without any account session) 14 days after a delivered advance warning e-mail, never without it | account deletion by the person (cascades to all tables with an account reference); cleanup command |
+| `account_session` | signed-in session | account reference, session token; no IP, no user agent | 7 days after expiry | cleanup command; account deletion |
+| `account_google_identity` | link to Google sign-in | Google ID, account reference | until account deletion | account deletion |
+| `account_token` | one-time token (verification, reset, magic link) | account reference | 24 hours after expiry or use | cleanup command; account deletion |
+| `oauth_state` | CSRF protection of the Google sign-in | none (random value) | unchanged (1 hour) | existing cleanup |
+| `watchlist` | watchlist | account reference, interests | until account deletion or removal by the person | person; account deletion |
+| `notification` | notifications | account reference, watched work | read 60 days, unread 365 days after creation | cleanup command; account deletion |
+| `notified_edge`, `notified_retirement`, `rights_notification_baseline` | bookkeeping against duplicate notifications | account reference | until account deletion | account deletion |
+| `chat_session`, `chat_message`, `chat_message_citation` | chat histories with an account | the person's questions and answers | no period; anonymous legacy rows (`account_id` empty) are deleted | person (per history or all); account deletion; cleanup command for legacy data |
+| `rate_limit_bucket` | rate limiting and quota | pseudonymous key from browser ID and client IP address | unchanged (10 minutes) | existing cleanup |
+| `deletion_log` | deletion log (see below) | none: only kind, ID, time | 90 days | cleanup command |
 
-Der Avatar liegt in `account` und verschwindet mit dem Konto oder beim
-Entfernen. Das Datenverzeichnis ist neu zu bewerten, sobald `account_session`
-IP-Adressen oder User-Agent speichert (heute nicht der Fall).
+The avatar lives in `account` and disappears with the account or on
+removal. The data inventory is to be reassessed as soon as `account_session`
+stores IP addresses or user agent (not the case today).
 
-*Verlassene Registrierungen.* Die Regel ist bewusst enger als „unbestätigt“:
-Google-Konten werden nie als bestätigt markiert (`email_verified_at` bleibt
-leer), und Konten mit Passwort können sich auch ohne Bestätigung anmelden. Ein
-Konto in Benutzung hat daher eine Google-Verknüpfung oder mindestens eine
-`account_session`-Zeile (auch eine abgelaufene, solange sie nicht gelöscht
-ist; die Löschfrist der Sitzung beginnt erst 7 Tage nach Ablauf) oder eine
-Anmeldung innerhalb der letzten 30 Tage: `account.last_login_at` wird bei jeder
-Sitzungsanlage gesetzt und überlebt im Gegensatz zur Sitzungszeile die
-Abmeldung. Nur ein Konto ohne all das, nie bestätigt und älter als 30 Tage,
-gilt als verlassen. Das
-trifft auch ein Passwort-Konto, das benutzt und dann lange pausiert wurde,
-sobald seine Sitzungen entfernt sind; deshalb wird kein Konto still gelöscht:
-Der Aufräumbefehl schickt zuerst eine zweisprachige Vorwarn-E-Mail (Datum der
-Löschung, Anmelde-URL aus `NORMLY_PUBLIC_BASE_URL`, kein Token) und setzt
-erst nach erfolgreichem Versand `account.deletion_warned_at`. Gelöscht wird
-frühestens 14 Tage danach (strikt), und nur wenn das Konto dann noch alle
-Bedingungen erfüllt. Anmeldung, Bestätigung oder Google-Verknüpfung machen das
-Konto wieder „nicht verlassen“; der nächste Lauf setzt die Warnung zurück.
-Voraussetzung ist ein SMTP-Relay (`NORMLY_SMTP_*`): Ohne Relay oder bei
-fehlgeschlagenem Versand wird nie gewarnt und damit nie gelöscht; der Versand
-wird im nächsten Lauf erneut versucht. Ein Konto wird nie im selben Lauf
-gewarnt und gelöscht (Reihenfolge: zurücksetzen, löschen, warnen). Der
-Löschlauf sperrt die Kandidaten und prüft die Bedingung samt Warnzeitpunkt
-erneut, damit eine gleichzeitige Bestätigung, Anmeldung oder
-Google-Verknüpfung nicht verloren geht. `deletion_warned_at` und
-`last_login_at` werden nicht exportiert. Die Mail nennt das Datum als
-„frühestens am“, weil der tägliche Lauf den Zeitpunkt um bis zu einen Tag
-verschieben kann.
+*Abandoned registrations.* The rule is deliberately narrower than "unverified":
+Google accounts are never marked as verified (`email_verified_at` stays
+empty), and accounts with a password can sign in even without verification. An
+account in use therefore has a Google link or at least one
+`account_session` row (even an expired one, as long as it has not been deleted;
+the session's deletion period begins only 7 days after expiry) or a
+sign-in within the last 30 days: `account.last_login_at` is set on every
+session creation and, unlike the session row, survives
+sign-out. Only an account without all of that, never verified and older than 30 days,
+counts as abandoned. This
+also hits a password account that was used and then paused for a long time,
+as soon as its sessions are removed; therefore no account is deleted silently:
+the cleanup command first sends a bilingual advance warning e-mail (date of
+deletion, sign-in URL from `NORMLY_PUBLIC_BASE_URL`, no token) and sets
+`account.deletion_warned_at` only after successful sending. Deletion happens
+14 days after that at the earliest (strictly), and only if the account then still meets all
+conditions. Sign-in, verification or a Google link make the
+account "not abandoned" again; the next run resets the warning.
+Prerequisite is an SMTP relay (`NORMLY_SMTP_*`): without a relay or if
+sending fails, no warning is ever sent and thus no account is ever deleted; the sending
+is retried in the next run. An account is never
+warned and deleted in the same run (order: reset, delete, warn). The
+deletion run locks the candidates and re-checks the condition together with the warning time,
+so that a concurrent verification, sign-in or
+Google link is not lost. `deletion_warned_at` and
+`last_login_at` are not exported. The mail names the date as
+"at the earliest on", because the daily run can shift the time by up to one
+day.
 
-*Aufräumbefehl.* `python -m normly_core.pipeline cleanup-user-data` setzt alle
-Fristen der Tabelle durch (Sitzungen, Tokens, verlassene Registrierungen,
-gelesene und ungelesene Benachrichtigungen, anonyme Chat-Altbestände,
-Löschprotokoll), ist idempotent und gibt nur Zähler aus. Der systemd-Timer
-`normly-cleanup` (täglich 04:00 UTC) startet über `scripts/normly-cleanup`; das
-Skript überspringt den Lauf mit Exitcode 0, solange `state/deploy.lock`
-existiert. `cleanup-notifications` bleibt als Befehl bestehen.
+*Cleanup command.* `python -m normly_core.pipeline cleanup-user-data` enforces all
+periods of the table (sessions, tokens, abandoned registrations,
+read and unread notifications, anonymous legacy chats,
+deletion log), is idempotent and prints only counters. The systemd timer
+`normly-cleanup` (daily 04:00 UTC) starts via `scripts/normly-cleanup`; the
+script skips the run with exit code 0 as long as `state/deploy.lock`
+exists. `cleanup-notifications` remains as a command.
 
-*Export (Auskunft).* `GET /v1/accounts/export` liefert synchron als JSON:
-Profil, Avatar (Data-URL), Beobachtungsliste mit lesbaren Dokumentkennungen
-(alle Dokumente des Werks, auch zurückgezogene), Benachrichtigungen und Chats
-mit Antworttyp und Zitaten (lesbare Dokumentkennung und Segment-ID). Nicht
-enthalten: `session_token` (stattdessen die Sitzungs-ID), Passwort-Hash,
-Tokens und Buchführung.
+*Export (access request).* `GET /v1/accounts/export` delivers synchronously as JSON:
+profile, avatar (data URL), watchlist with readable document IDs
+(all documents of the work, including retired ones), notifications, and chats
+with answer type and citations (readable document ID and segment ID). Not
+included: `session_token` (instead the session ID), password hash,
+tokens and bookkeeping.
 
-*Löschprotokoll und Wiederholung.* Tabelle `deletion_log(kind, entity_id,
-deleted_at)` (`kind` ist `account` oder `chat_session`; Migration 0035). Der
-Eintrag entsteht in derselben Transaktion wie jede Löschung (Kontolöschung,
-Verlauf löschen, Aufräumen verlassener Registrierungen), enthält keine
-personenbezogenen Daten, ist Teil der Nutzerdaten-Sicherung und wird nach
-90 Tagen bereinigt (siehe Folgen). Der Kern bietet
-`python -m normly_core.exchange export-deletions --since <ISO-8601>` (JSON auf
-stdout) und `replay-deletions` (JSON auf stdin; wendet die Löschungen über die
-normalen Löschfunktionen erneut an, idempotent, schon fehlende Einträge werden
-trotzdem ins Protokoll geschrieben); `replay-deletions --check` meldet ohne
-Datenbank, ob das Image den Befehl kennt.
+*Deletion log and replay.* Table `deletion_log(kind, entity_id,
+deleted_at)` (`kind` is `account` or `chat_session`; migration 0035). The
+entry is created in the same transaction as every deletion (account deletion,
+deleting a history, cleanup of abandoned registrations), contains no
+personal data, is part of the user data backup and is pruned after
+90 days (see Consequences). The core offers
+`python -m normly_core.exchange export-deletions --since <ISO-8601>` (JSON on
+stdout) and `replay-deletions` (JSON on stdin; applies the deletions again via the
+normal deletion functions, idempotent; entries already missing are
+still written to the log); `replay-deletions --check` reports without a
+database whether the image knows the command.
 
-Im Rollback (ADR-024): Das Skript liest die Löschungen seit dem
-Sicherungszeitpunkt **minus eine Stunde** direkt aus der Datenbank (Host-`psql`
-und `python3`, kein startbares Release-Image nötig; der Kernbefehl bleibt für den
-manuellen Gebrauch) (Sicherheitsrand im Skript; eine doppelt angewendete Löschung
-ist harmlos, weil UUIDs nie wiederverwendet werden). Dieser erste Export speist
-Banner und die Entscheidung über `replay-deletions --check` im Image des
-**vorherigen** Release (Exitcode 2 heißt „nicht unterstützt“, jeder andere
-Fehler bricht ab). Nach dem Stopp der Dienste und vor dem DROP folgt ein zweiter
-Export; dieses Dokument wird nach `pg_restore` und der Tombstone-Wiederherstellung
-vom vorherigen Image angewendet. Schlägt der zweite Export fehl, bricht der
-Rollback vor dem DROP ab (Datenbank unverändert, Hinweis zum Neustart). Vor dem
-DROP wird die Liste nach `$STATE/rollback-deletions.json` (0600) geschrieben; ein
-erneuter Lauf nach einem Fehler nach dem DROP führt sie mit dem frischen Export
-zusammen (Vereinigung nach Art und Kennung, frühester Zeitpunkt) und löscht die
-Datei erst, wenn das vorherige Release gesund läuft. `normly-cleanup` und
-`normly-backup` laufen mit dem Tag aus `state/current_tag`, nie mit dem
-Compose-Standard `edge`.
-Eine fehlende Tabelle `deletion_log` (Release vor diesem Feature) gilt als leere
-Liste. Kennt das vorherige Image den Befehl nicht, nennt das Banner Anzahl und
-die ersten 20 `kind:id`; die vollständige Liste liegt in
-`$STATE/rollback-pending-deletions.json` (0600) und muss von Hand erneut gelöscht
-werden.
+In the rollback (ADR-024): The script reads the deletions since the
+backup time **minus one hour** directly from the database (host `psql`
+and `python3`, no startable release image needed; the core command remains for
+manual use) (safety margin in the script; a deletion applied twice
+is harmless because UUIDs are never reused). This first export feeds the
+banner and the decision on `replay-deletions --check` in the image of the
+**previous** release (exit code 2 means "not supported", any other
+error aborts). After the services are stopped and before the DROP, a second
+export follows; this document is applied after `pg_restore` and the tombstone restore
+by the previous image. If the second export fails, the
+rollback aborts before the DROP (database unchanged, hint about restarting). Before the
+DROP the list is written to `$STATE/rollback-deletions.json` (0600); a
+renewed run after an error after the DROP merges it with the fresh export
+(union by kind and ID, earliest time) and deletes the
+file only once the previous release is running healthy. `normly-cleanup` and
+`normly-backup` run with the tag from `state/current_tag`, never with the
+Compose default `edge`.
+A missing table `deletion_log` (release before this feature) counts as an empty
+list. If the previous image does not know the command, the banner names the count and
+the first 20 `kind:id`; the complete list lies in
+`$STATE/rollback-pending-deletions.json` (0600) and must be deleted again
+by hand.
 
-**Begründung:**
+**Rationale:**
 
-- Datensparsamkeit: Was der Server zum Antworten nicht braucht, wird nicht
-  gespeichert. Das passt zu ADR-017 („ohne Konto entstehen keine
-  personenbezogenen Daten“): Anonyme Nutzung bleibt vollständig, ohne dass der
-  Verlauf anfällt.
-- Kurze, benannte Fristen für technische Daten (Sitzungen, Tokens,
-  Benachrichtigungen), keine Frist für Inhalte, die die Person selbst anlegt
-  und jederzeit selbst löschen kann.
-- Die Regel für verlassene Registrierungen löscht nie still: Ohne zugestellte
-  Vorwarnung und 14 Tage Frist bleibt jedes Konto; ein falsch gelöschtes Konto
-  wäre ein Datenverlust, ein zu spät gelöschtes nur ein gespeicherter
-  Datensatz. Der Preis ist die Abhängigkeit von SMTP.
-- Das Löschprotokoll enthält nur Kennungen. Es ist deshalb selbst keine
-  Kopie der gelöschten Daten und kann als Teil der Nutzerdaten-Sicherung
-  mitlaufen; ohne Kennung bliebe eine Löschung nach Rollback oder Restore
-  unwirksam.
-- Der Export bleibt synchron und lesbar (Kennungen statt interner IDs, wo
-  möglich); ein Geheimnis wie der Chat-Token ist kein Datum der Person.
+- Data minimization: What the server does not need to answer is not
+  stored. This fits ADR-017 ("without an account, no
+  personal data arises"): anonymous use remains complete without the
+  history accruing.
+- Short, named periods for technical data (sessions, tokens,
+  notifications), no period for content that the person creates themselves
+  and can delete themselves at any time.
+- The rule for abandoned registrations never deletes silently: without a delivered
+  advance warning and a 14-day period, every account stays; a wrongly deleted account
+  would be data loss, one deleted too late only a stored
+  record. The price is the dependency on SMTP.
+- The deletion log contains only IDs. It is therefore not itself a
+  copy of the deleted data and can run along as part of the user data backup;
+  without the ID, a deletion would remain ineffective after a rollback or restore.
+- The export remains synchronous and readable (readable document IDs instead of internal IDs, where
+  possible); a secret such as the chat token is not the person's data.
 
-**Verworfen:**
+**Rejected:**
 
-- *Frist auch für Chats mit Konto:* Die Person legt sie selbst an, kann sie
-  selbst löschen, und sie sind der Zweck des Kontos („Verläufe“, REQ-ACC-004).
-  Eine stille Löschung wäre ein Funktionsverlust ohne Datenschutzgewinn.
-- *Kurzfristige Speicherung anonymer Sitzungen:* Der Server braucht sie nicht;
-  jede Speicherung wäre Daten ohne Zweck, und das Cookie bliebe nötig.
-- *Kryptographisches Löschen je Konto in Sicherungen:* Ein Schlüssel je Konto
-  im Sicherungsformat wäre eine große Änderung an Sicherung und Restore; das
-  Löschprotokoll mit Replay erreicht für diesen Zweck dasselbe Ergebnis nach
-  Wiederherstellung, und die Nachwirkung ist zeitlich begrenzt. (Für
-  lizenzierte Bestände bleibt ADR-014 maßgeblich.)
-- *Asynchroner Export per E-Mail-Link:* Mehr Infrastruktur (Warteschlange,
-  Ablage, Link-Ablauf) und mehr gespeicherte Kopien, ohne dass der Umfang es
-  verlangt.
-- *Löschen aller unbestätigten Konten:* Google-Konten sind nie „bestätigt“ und
-  Passwort-Konten können sich unbestätigt anmelden; die Regel würde
-  Konten in Benutzung löschen.
+- *A period for chats with an account too:* The person creates them, can
+  delete them themselves, and they are the purpose of the account ("histories", REQ-ACC-004).
+  A silent deletion would be a loss of function without a data protection gain.
+- *Short-term storage of anonymous sessions:* The server does not need them;
+  any storage would be data without purpose, and the cookie would remain necessary.
+- *Cryptographic erasure per account in backups:* A key per account
+  in the backup format would be a large change to backup and restore; the
+  deletion log with replay achieves the same result for this purpose after
+  restore, and the after-effect is limited in time. (For
+  licensed collections, ADR-014 remains authoritative.)
+- *Asynchronous export via e-mail link:* More infrastructure (queue,
+  storage, link expiry) and more stored copies, without the scope
+  requiring it.
+- *Deleting all unverified accounts:* Google accounts are never "verified" and
+  password accounts can sign in unverified; the rule would
+  delete accounts in use.
 
-**Folgen / offen:**
+**Consequences / open:**
 
-- *Nachwirkung in Sicherungen.* Eine Löschung wirkt in der Datenbank sofort, in
-  Sicherungen erst, wenn sie auslaufen: Flex 30 Tage; eigene, `age`-verschlüsselte
-  Sicherungen bis zu rund zwei Monate (7 tägliche, 2 monatliche Anker,
-  3 Pre-Rollout-Sicherungen). Das Löschprotokoll sorgt dafür, dass Löschungen
-  einen Rollback oder Restore überstehen. Es wird nach 90 Tagen bereinigt, länger als
-  tägliche und monatliche Sicherungen halten. Eine Pre-Rollout-Sicherung kann
-  älter werden, wenn lange kein Rollout folgt; wird aus einer Sicherung
-  wiederhergestellt, die älter als 90 Tage ist, kann das Löschprotokoll die
-  Löschungen aus der Zwischenzeit nicht mehr nachziehen.
-- *Fachliche Prüfung.* Die Fristen sind Entscheidungen des Projekts und sollten
-  von einer Fachperson für Datenschutz geprüft werden; dieses Dokument ist keine
-  Rechtsberatung.
-- Datenschutzerklärung und Verzeichnis der Verarbeitungstätigkeiten (Art. 30
-  DSGVO) sind eigene Rechtstexte und nicht Teil dieser Arbeit.
-- *Tombstones* (ADR-026): Aufbewahrung und Alterung bleiben offen.
-- Ein vorheriges Release ohne `replay-deletions` braucht manuelles Nachlöschen
-  (siehe oben); das gilt auch für den Restore-Test und die
-  Notfall-Wiederherstellung aus Flex (Betriebsguide).
-- Der Aufräum-Timer prüft `state/deploy.lock`, nimmt die Sperre aber nicht
-  selbst. Bleibt eine verwaiste Sperre stehen, überspringt er täglich still.
-- Löschen inaktiver Konten nach Frist mit Vorwarnung per E-Mail ist nicht
-  umgesetzt.
-- `account_session` speichert weder IP noch User-Agent; ändert sich das, sind
-  Datenverzeichnis und Frist neu zu bewerten.
-- Die Verknüpfung „anonym → Konto beim Anmelden“ entfällt; wer anonym gechattet
-  hat, behält den Verlauf nur im geöffneten Tab.
+- *After-effect in backups.* A deletion takes effect in the database immediately, in
+  backups only when they expire: Flex 30 days; own `age`-encrypted
+  backups up to roughly two months (7 daily, 2 monthly anchors,
+  3 pre-rollout backups). The deletion log ensures that deletions
+  survive a rollback or restore. It is pruned after 90 days, longer than
+  daily and monthly backups are kept. A pre-rollout backup can become
+  older if no rollout follows for a long time; if a restore is made from a backup
+  that is older than 90 days, the deletion log can no longer re-apply the
+  deletions from the time in between.
+- *Expert review.* The periods are decisions of the project and should
+  be reviewed by a data-protection professional; this document is not
+  legal advice.
+- Privacy policy and record of processing activities (Art. 30
+  DSGVO, the EU General Data Protection Regulation) are separate legal texts and not part of this work.
+- *Tombstones* (ADR-026): retention and expiry remain open.
+- A previous release without `replay-deletions` needs manual re-deletion
+  (see above); this also applies to the restore test and the
+  emergency restore from Flex (operations guide).
+- The cleanup timer checks `state/deploy.lock` but does not take the lock
+  itself. If an orphaned lock is left behind, it skips silently every day.
+- Deleting inactive accounts after a period with advance warning by e-mail is not
+  implemented.
+- `account_session` stores neither IP nor user agent; if that changes,
+  the data inventory and period are to be reassessed.
+- The linking "anonymous → account on sign-in" is dropped; whoever chatted anonymously
+  keeps the history only in the open tab.
 
 Details: `docs/superpowers/specs/2026-10-10-user-data-lifecycle-design.md`,
-Betrieb in `docs/guide/operations.md`.
+operations in `docs/guide/operations.md`.
 
 ---
 
-## Offene Punkte
+## Open items
 
-| Thema | Status | Nächster Schritt |
+| Topic | Status | Next step |
 |---|---|---|
-| Ausgründung GmbH | favorisiert, nicht beschlossen | Steuer- und vereinsrechtliche Prüfung vor Gründung |
-| Rechtsform Trägerorganisation (e.V. / eG / Alternative) | offen | eG könnte Normungsorganisationen als Mitglieder statt Gegner einbinden |
-| Rechteinhaber im Copyright-Header | offen | vor erstem externen Beitrag klären |
-| Lizenzvertrag Trägerorganisation → GmbH | offen | muss zu marktüblichen Konditionen erfolgen, sonst Risiko für die Gemeinnützigkeit |
-| RDF-/JSON-LD-Export mit SKOS | vorgeschlagen | Speicherformat und Veröffentlichungsformat sind trennbar |
-| Gewichtungsmodell Attribution bei Graph-Antworten | offen | Steht einem Herausgeber etwas zu, wenn ohne Volltext geantwortet wurde? Als eigene Kategorie erfasst, vertraglich zu klären |
-| Nutzungsvorbehalte je Quelle (§ 44b Abs. 3 UrhG) | laufende Aufgabe | Prüfung datiert und belegt im Quellenregister, mit Wiedervorlage |
-| Rechtliche Bewertung je Rechtsraum | laufende Aufgabe | Braucht mittelfristig eine zuständige Rolle, keine einmalige Klärung |
-| Apple-Provision bei digitalen Abos | offen | In der EU inzwischen Alternativen über externe Zahlungswege — vor Store-Release prüfen |
-| Aufbewahrungsfristen der Sicherungskopien | offen | (Nutzerdaten: Höchstfristen in ADR-027 festgehalten.) Bestimmt, wie lange ein vernichteter Schlüssel vorgehalten werden muss, bevor Backups auslaufen |
-| STACKIT-Repository `jwokittel/normly-webapp` | entschieden (2026-10-09): löschen | Der Betreiber löscht es im STACKIT-Portal (Nachtrag zu ADR-021); danach den Eintrag streichen |
-| Personennamen im öffentlichen Wissensbestand-Dump | entschieden (2026-10-09): Rolle `normly maintainers` | Umgesetzt im Export (ADR-025); Eintrag nach dem ersten öffentlichen Dump streichen |
-| Aufbewahrung und Alterung von Tombstones | offen | Ob Kennungen zurückgezogener Dokumente zeitlich begrenzt werden; ADR-027 hat es nicht entschieden (ADR-026) |
-| Identität bei Neulieferung nach Widerruf | offen | Neue Dokumentknoten übernehmen Beobachtungen der Tombstones nicht; Produkt- und Identitätsentscheidung (ADR-026) |
-| Signaturschlüssel des Wissensbestand-Dumps | offen | Schlüsselzeremonie, öffentlichen Schlüssel ins Repository einchecken (ADR-025) |
-| Fachliche Prüfung der Aufbewahrungsfristen für Nutzerdaten | offen | Durch eine Fachperson für Datenschutz; dazu Datenschutzerklärung und Verzeichnis der Verarbeitungstätigkeiten als eigene Rechtstexte (ADR-027) |
-| Löschen inaktiver Konten mit Vorwarnung | offen | Nicht umgesetzt; Frist und Warn-E-Mail entscheiden (ADR-027) |
-| Sicherungen bei lizenzierten Beständen | offen | Kryptographisches Löschen (ADR-014) für die kommerzielle Schicht; Flex-PITR klären; Objektsperre vorerst bewusst nicht (ADR-024) |
+| Spin-off GmbH | preferred, not accepted | Review under tax law and association law before founding |
+| Legal form of the Trägerorganisation (e.V. / eG / alternative) | open | An eG could bring standardization bodies in as members instead of opponents |
+| Rights holder in the copyright header | open | Clarify before the first external contribution |
+| License agreement Trägerorganisation → GmbH | open | Must be on customary market terms, otherwise a risk to non-profit status |
+| RDF/JSON-LD export with SKOS | proposed | Storage format and publication format are separable |
+| Attribution weighting model for graph answers | open | Is a publisher owed anything when an answer was given without full text? Recorded as a category of its own, to be clarified contractually |
+| Rights reservations per source (§ 44b Abs. 3 UrhG) | ongoing task | Review dated and documented in the source register, with a follow-up date |
+| Legal assessment per jurisdiction | ongoing task | Needs a responsible role in the medium term, not a one-off clarification |
+| Apple commission on digital subscriptions | open | In the EU there are now alternatives via external payment routes — check before the store release |
+| Retention periods of the backup copies | open | (User data: maximum periods recorded in ADR-027.) Determines how long a destroyed key must be kept on hand before backups expire |
+| STACKIT repository `jwokittel/normly-webapp` | decided (2026-10-09): delete | The operator deletes it in the STACKIT portal (addendum to ADR-021); then remove the entry |
+| Personal names in the public knowledge base dump | decided (2026-10-09): role `normly maintainers` | Implemented in the export (ADR-025); remove the entry after the first public dump |
+| Retention and expiry of tombstones | open | Whether retired IDs are limited in time; ADR-027 did not decide it (ADR-026) |
+| Identity on re-delivery after revocation | open | New document nodes do not take over the tombstones' watches; product and identity decision (ADR-026) |
+| Signing key of the knowledge base dump | open | Key ceremony, check the public key into the repository (ADR-025) |
+| Expert review of the retention periods for user data | open | By a data-protection professional; in addition, privacy policy and record of processing activities as separate legal texts (ADR-027) |
+| Deleting inactive accounts with advance warning | open | Not implemented; decide period and warning e-mail (ADR-027) |
+| Backups for licensed collections | open | Cryptographic erasure (ADR-014) for the commercial layer; clarify Flex PITR; deliberately no object lock for now (ADR-024) |
 
-**Hinweis:** Die rechtlichen Einschätzungen in diesem Dokument sind
-Arbeitsgrundlage, keine Rechtsberatung. Insbesondere die Konstruktion
-Trägerorganisation/GmbH, die Lizenzvertragsgestaltung und die
-Urheberrechtsbewertung je Rechtsraum gehören vor eine fachkundige Prüfung.
+**Note:** The legal assessments in this document are a
+working basis, not legal advice. In particular, the construction
+Trägerorganisation/GmbH, the design of the license agreement and the
+copyright assessment per jurisdiction belong before an expert review.
