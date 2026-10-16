@@ -1006,511 +1006,510 @@ operations: `docs/guide/operations.md`.
 
 ---
 
-## ADR-025 — Wissensbestand-Dump als Austauschformat
+## ADR-025 — Knowledge base dump as exchange format
 
-**Status:** beschlossen (2026-10-09); ergänzt ADR-010, ändert die Aussage zur
-Wissensbasis in ADR-021 (siehe Nachtrag dort)
+**Status:** accepted (2026-10-09); amends ADR-010, changes the statement on the
+knowledge base in ADR-021 (see the addendum there)
 
-**Kontext:** ADR-010 trennt Code und Daten, REQ-DIST-004 verlangt einen
-eigenständig versionierten Dump, der beim ersten Start bezogen wird. Bisher
-entsteht der Wissensbestand per Ingestion auf der VM; weder Selbsthoster noch
-ein Rollback können ihn reproduzieren.
+**Context:** ADR-010 separates code and data; REQ-DIST-004 requires a
+separately versioned dump that is obtained on first start. So far the
+knowledge base is created by ingestion on the VM; neither self-hosters nor
+a rollback can reproduce it.
 
-**Entscheidung:**
+**Decision:**
 
-1. **Format:** Parquet je Tabelle plus `manifest.json` und die Ed25519-Signatur
-   `manifest.json.sig`. Das Manifest führt Austauschschema-Version
-   (unabhängig von Alembic), Dump-Version und Zeitpunkt, Einbettungsmodell mit
-   Name und gepinnter Revision, Vektordimension (1024), Quelllieferungen und
-   Prüfsumme samt Zeilenzahl je Datei.
-2. **Zugriff:** Export und Import laufen über die Repository-Schicht
-   (`KnowledgeExchangeRepository`), nicht über Postgres-Werkzeuge.
-3. **Signatur:** Ed25519 in Python (`cryptography`), im Kern geprüft. Der
-   öffentliche Schlüssel liegt im Repository. Die Schlüsselzeremonie steht noch
-   aus; bis dahin muss der Schlüssel angegeben werden. Er wird in dieser
-   Reihenfolge aufgelöst: `--public-key`, Umgebungsvariable
-   `NORMLY_KB_PUBLIC_KEY_FILE`, mitgepackter Schlüssel.
-4. **Verteilung:** öffentlich lesbarer STACKIT-Object-Storage-Bucket mit
-   Kalenderversion `kb/<version>/` und `kb/latest`. Eine Version ist
-   unveränderlich. `fetch` lädt nur von `NORMLY_KB_BASE_URL` (https, für
-   localhost auch http) und prüft Version und Pfade.
-5. **Import:** atomar und idempotent; der Aufrufer committet, die
-   importierte Version wird in der Datenbank festgehalten. Was die neue Version
-   nicht mehr enthält, wird nach ADR-026 behandelt, nie blockiert durch
-   Nutzerdaten: Zitate lösen, Inhalt löschen, Tombstones setzen, Lieferungen
-   zurückziehen, dann einfügen oder aktualisieren. Ein Dump ohne Dokumente
-   wird abgelehnt, solange die Datenbank Dokumente hält, es sei denn
-   `--allow-empty` ist gesetzt.
-6. **Prüfungen beim Import:** Signatur, Austauschschema-Version, Modellname
-   **und** Modellrevision (`NORMLY_EMBEDDING_MODEL_REVISION`), Dimension,
-   Prüfsummen. Bei Abweichung Abbruch, keine stillen falschen Einbettungen.
-   Dieselben Prüfungen laufen ohne Datenbank als Unterbefehl `verify
-   (--from DIR | --fetch VERSION)`; der Rollback ruft ihn vor dem ersten
-   destruktiven Schritt auf, damit ein nicht prüfbarer Dump nicht erst nach
-   dem Verwerfen der Tabellen auffällt.
-7. **Export-Gate:** die Rechteklassifikation als einziges Tor, über alle
-   Rechtsräume hinweg ausgewertet. Exportiert wird, was eine nicht
-   widerrufene Klassifikation mit `may_process` und `may_export_free` hat,
-   dessen Lieferung nicht zurückgezogen ist und dessen Quelle Kategorie A, B
-   oder D hat und kein kommerziell verwerteter Katalog ist. Fehlende
-   Klassifikation heißt nicht exportieren. Zusammengeführte Werke werden samt
-   Ziel exportiert, damit die Weiterleitung erhalten bleibt. Nutzerdaten und
-   lizenzierte Bestände sind nie enthalten.
-8. **Erster Start:** der Compose-Dienst `kb-import` (Profil `tools`) führt
-   `import --fetch latest` aus.
+1. **Format:** Parquet per table plus `manifest.json` and the Ed25519 signature
+   `manifest.json.sig`. The manifest records the exchange schema version
+   (independent of Alembic), dump version and timestamp, embedding model with
+   name and pinned revision, vector dimension (1024), source deliveries, and
+   checksum together with row count per file.
+2. **Access:** Export and import run through the repository layer
+   (`KnowledgeExchangeRepository`), not through Postgres tools.
+3. **Signature:** Ed25519 in Python (`cryptography`), verified in the core. The
+   public key lives in the repository. The key ceremony is still
+   pending; until then the key must be specified. It is resolved in this
+   order: `--public-key`, environment variable
+   `NORMLY_KB_PUBLIC_KEY_FILE`, bundled key.
+4. **Distribution:** publicly readable STACKIT Object Storage bucket with
+   calendar version `kb/<version>/` and `kb/latest`. A version is
+   immutable. `fetch` downloads only from `NORMLY_KB_BASE_URL` (https, for
+   localhost also http) and checks version and paths.
+5. **Import:** atomic and idempotent; the caller commits, the
+   imported version is recorded in the database. What the new version
+   no longer contains is handled according to ADR-026, never blocked by
+   user data: detach citations, delete content, set tombstones, withdraw
+   deliveries, then insert or update. A dump without documents
+   is rejected as long as the database holds documents, unless
+   `--allow-empty` is set.
+6. **Checks on import:** signature, exchange schema version, model name
+   **and** model revision (`NORMLY_EMBEDDING_MODEL_REVISION`), dimension,
+   checksums. On a mismatch, abort; no silently wrong embeddings.
+   The same checks run without a database as the subcommand `verify
+   (--from DIR | --fetch VERSION)`; the rollback calls it before the first
+   destructive step so that an unverifiable dump is not noticed only after
+   the tables have been dropped.
+7. **Export gate:** the rights classification as the single gate, evaluated
+   across all jurisdictions. Exported is what has a non-revoked
+   classification with `may_process` and `may_export_free`,
+   whose delivery is not withdrawn, and whose source has category A, B
+   or D and is not a commercially exploited catalog. Missing
+   classification means do not export. Merged works are exported together
+   with their target so that the redirect is preserved. User data and
+   licensed collections are never included.
+8. **First start:** the Compose service `kb-import` (profile `tools`) runs
+   `import --fetch latest`.
 
-**Begründung:**
+**Rationale:**
 
-- *Parquet statt `pg_dump` (Nutzerentscheidung, gegen die ursprüngliche
-  Empfehlung):* ADR-006 und CLAUDE.md verlangen Datenbankzugriff nur über die
-  Repository-Schicht, damit die Speichertechnologie austauschbar bleibt;
-  `pg_dump` ist ein Postgres-Artefakt und umgeht sie.
-- *Öffentliches Produkt (REQ-DIST-004):* Ein Format ohne Bindung an unsere
-  Alembic-Revision überlebt Schemaänderungen. Bei `pg_dump` müsste jeder
-  Selbsthoster die passende Anwendungsversion finden.
-- *Abstammung:* Ein tabellenweiser Export mit Quelllieferung je Zeile hält die
-  Rücknahme einer Lieferung auch im Dump nachvollziehbar.
-- *Parquet statt NDJSON:* Einbettungen (1024 Floats, etwa 4 KB je Abschnitt)
-  wären sonst unhandlich.
-- *Preis:* mehr Code (Export, Import, Austauschschema), langsamerer Import,
-  Idempotenz selbst herzustellen. Das nehmen wir in Kauf.
-- *Ed25519 im Kern statt cosign/minisign:* Der Import läuft im
-  `pipeline`-Image und beim Selbsthoster; ein zusätzliches Binary vergrößerte
-  das Image und schüfe eine zweite Installationshürde. Keyless-Signatur geht
-  nicht, weil der Dump lokal entsteht, nicht in der CI.
-- *Object Storage statt Git:* große Binärdateien und anonymer Zugriff sind in
-  einem Git-Repository unhandlich; die Wissensbasis bleibt damit auf STACKIT
+- *Parquet instead of `pg_dump` (user decision, against the original
+  recommendation):* ADR-006 and CLAUDE.md require database access only through the
+  repository layer so that the storage technology stays interchangeable;
+  `pg_dump` is a Postgres artifact and bypasses it.
+- *Public product (REQ-DIST-004):* A format not bound to our
+  Alembic revision survives schema changes. With `pg_dump`, every
+  self-hoster would have to find the matching application version.
+- *Lineage:* A table-by-table export with the source delivery per row keeps the
+  withdrawal of a delivery traceable in the dump as well.
+- *Parquet instead of NDJSON:* Embeddings (1024 floats, about 4 KB per section)
+  would otherwise be unwieldy.
+- *Price:* more code (export, import, exchange schema), slower import,
+  idempotency to be established ourselves. We accept that.
+- *Ed25519 in the core instead of cosign/minisign:* The import runs in the
+  `pipeline` image and at the self-hoster's; an additional binary would enlarge
+  the image and create a second installation hurdle. Keyless signing does
+  not work because the dump is created locally, not in CI.
+- *Object Storage instead of Git:* large binary files and anonymous access are
+  unwieldy in a Git repository; the knowledge base thus stays on STACKIT
   (CLAUDE.md).
-- *Import mit Tombstones statt Blockieren:* siehe ADR-026.
+- *Import with tombstones instead of blocking:* see ADR-026.
 
-**Verworfen:** `pg_dump` des Wissensbestands; Delta-Dumps (das Format lässt
-sie offen, gebaut werden sie nicht); STACKIT Git als Ablage; ein zusätzliches
-Git-Manifest als Verlauf (zweites System); NDJSON.
+**Rejected:** `pg_dump` of the knowledge base; delta dumps (the format leaves
+them open, they are not built); STACKIT Git as storage; an additional
+Git manifest as history (second system); NDJSON.
 
-**Folgen:**
+**Consequences:**
 
-- ADR-021 erhält einen Nachtrag; CLAUDE.md und REQ-GIT-005 sind angepasst.
-- `docs/guide/self-hosting.md` beschreibt den Import, `docs/guide/operations.md`
-  Export, Signatur und Veröffentlichung.
-- Das Export-Gate liest die Rechteklassifikation und führt keinen zweiten
-  Prüfpfad ein.
+- ADR-021 receives an addendum; CLAUDE.md and REQ-GIT-005 have been adjusted.
+- `docs/guide/self-hosting.md` describes the import, `docs/guide/operations.md`
+  export, signature and publication.
+- The export gate reads the rights classification and introduces no second
+  check path.
 
-**Personennamen (entschieden 2026-10-09):** Der Export ersetzt Personennamen
-durch die Rolle `normly maintainers`. Betroffen sind
-`source.responsible_person` und `rights_classification.classified_by`; beide
-Spalten tragen in jeder exportierten Zeile die Konstante `PUBLISHED_ROLE`. Die
-Ersetzung geschieht im Export-Statement der Repository-Schicht, also an der
-Stelle des Export-Gates, und ändert weder Manifest noch Austauschschema (keine
-Versionserhöhung). Der Dump trägt nie einen Namen; die Quellenregistrierung im Code enthält nur
-einen Platzhalter, und Namen, die ein Ingestion-Betreiber einträgt, liegen nur
-in dessen eigener Datenbank. Ein Import überschreibt die beiden Spalten mit dem
-Rollenlabel: Produktion, die den öffentlichen Dump einspielt, trägt daher das
-Label, nie Namen; ein erneuter Export eines importierten Stands ist zeilengleich.
-Einen Dump nie in die Ingestion-Datenbank importieren: der Upsert überschreibt
-dort die Namen unwiderruflich. Maskiert wird auch
-`classified_by="pipeline:automatic"`; der öffentliche Dump unterscheidet damit
-nicht zwischen automatischer und menschlicher Klassifikation (bewusster
-Kompromiss, das Label ist eine Rolle und keine Aussage über menschliche
-Prüfung).
-Ein Test sucht einen eindeutigen Namen in allen Zeilen, allen Parquet-Dateien
-und im Manifest.
+**Personal names (decided 2026-10-09):** The export replaces personal names
+with the role `normly maintainers`. Affected are
+`source.responsible_person` and `rights_classification.classified_by`; both
+columns carry the constant `PUBLISHED_ROLE` in every exported row. The
+replacement happens in the export statement of the repository layer, that is, at the
+location of the export gate, and changes neither the manifest nor the exchange schema (no
+version increment). The dump never carries a name; the source registration in the code contains only
+a placeholder, and names that an ingestion operator enters live only
+in that operator's own database. An import overwrites the two columns with the
+role label: production, which loads the public dump, therefore carries the
+label, never names; a re-export of an imported state is row-identical.
+Never import a dump into the ingestion database: the upsert there overwrites
+the names irrevocably. Also masked is
+`classified_by="pipeline:automatic"`; the public dump thus does not distinguish
+between automatic and human classification (deliberate
+compromise; the label is a role and not a statement about human
+review).
+A test searches for a unique name in all rows, all Parquet files
+and the manifest.
 
-**Offene Punkte:**
+**Open items:**
 
-- **Delta-Dumps** sind nicht gebaut.
-- **Schlüsselzeremonie:** Erzeugung, Verwahrung und Veröffentlichung des
-  Signaturschlüssels stehen aus.
+- **Delta dumps** are not built.
+- **Key ceremony:** generation, safekeeping and publication of the
+  signing key are pending.
 
 Details: `docs/superpowers/specs/2026-10-09-tp4-deployment-automation-design.md`.
 
 ---
 
-## ADR-026 — Umgang mit Nutzerdaten beim Wissensbestand-Import
+## ADR-026 — Handling user data on knowledge base import
 
-**Status:** beschlossen (2026-10-09); ersetzt die Blockierregel des Imports
-aus ADR-025
+**Status:** accepted (2026-10-09); replaces the import's blocking rule
+from ADR-025
 
-**Kontext:** Der Import eines Wissensbestand-Dumps brach mit
-`ImportBlockedError` ab, sobald Nutzerdaten (`watchlist`, `notification`,
-`notified_edge`, `chat_message_citation`) auf eine Zeile verwiesen, die der neue
-Dump nicht mehr enthält. Für eine rechtlich gebotene Rücknahme (Lieferung
-zurückgezogen, Klassifikation widerrufen) ist das falsch: Sie darf nicht an
-Nutzerdaten scheitern (CLAUDE.md, „Abstammung mitführen“). Befund aus dem Code:
-Keine Nutzerdaten-Tabelle speichert urheberrechtlich geschützten Inhalt, es
-sind nur Verweise (`work_id`, `edge_id`, `document_id`, `segment_id`); der Text
-eines Zitats wird erst beim Lesen aus `segment` geholt.
+**Context:** The import of a knowledge base dump aborted with
+`ImportBlockedError` as soon as user data (`watchlist`, `notification`,
+`notified_edge`, `chat_message_citation`) referenced a row that the new
+dump no longer contains. For a legally required withdrawal (delivery
+withdrawn, classification revoked) that is wrong: it must not fail because of
+user data (CLAUDE.md, "Carry lineage along"). Finding from the code:
+no user data table stores copyrighted content; they
+are only references (`work_id`, `edge_id`, `document_id`, `segment_id`); the text
+of a citation is fetched from `segment` only when it is read.
 
-**Entscheidung:** Eine Rücknahme gewinnt immer; ein Nutzerverweis blockiert nie
-einen Import. Was der Dump nicht mehr enthält, wird nach Klasse behandelt:
+**Decision:** A withdrawal always wins; a user reference never blocks
+an import. What the dump no longer contains is handled by class:
 
-| Klasse | Tabellen | Behandlung |
+| Class | Tables | Handling |
 |---|---|---|
-| Tombstone (Kennung, kein Inhalt) | `work`, `document`, `edge` | Zeile bleibt, `retired_at` wird gesetzt; Kanten werden zusätzlich widerrufen (`revoked_at`). Nutzerverweise bleiben gültig. |
-| Herkunft | `source`, `delivery` | Werden nie gelöscht; eine fehlende Lieferung erhält `withdrawn_at`. |
-| Inhalt/Ableitung | `document_designation`, `document_title`, `rights_classification`, `segment`, `embedding`, `document_embedding` | Werden physisch gelöscht. |
+| Tombstone (ID, no content) | `work`, `document`, `edge` | Row stays, `retired_at` is set; edges are additionally revoked (`revoked_at`). User references remain valid. |
+| Provenance | `source`, `delivery` | Are never deleted; a missing delivery receives `withdrawn_at`. |
+| Content/derivation | `document_designation`, `document_title`, `rights_classification`, `segment`, `embedding`, `document_embedding` | Are physically deleted. |
 
-Ablauf in `replace_knowledge_base`, in dieser Reihenfolge: Schlüssel des Dumps
-laden; Zitate lösen (`chat_message_citation.segment_id` wird `NULL` für Segmente,
-die der Dump nicht enthält); fehlenden Inhalt in umgekehrter
-Fremdschlüssel-Reihenfolge löschen; fehlende Tombstones zurückziehen; fehlende
-Lieferungen mit `withdrawn_at` versehen; den Dump einfügen oder aktualisieren
-(Zeilen der Tombstone-Klassen aus dem Dump erhalten `retired_at = NULL`:
-Wiederkehr); Importvermerk schreiben. Löschen und Zurückziehen laufen **vor**
-dem Einfügen, damit eine Neulieferung mit neuen IDs nicht an natürlichen
-Eindeutigkeitsschlüsseln kollidiert (Bezeichner, Titel, partieller Index aktiver
-Kanten). `ImportBlockedError` (mit `.step`) bleibt nur als letzte Sicherung für
-einen unerwarteten Fremdschlüssel.
+Procedure in `replace_knowledge_base`, in this order: load the dump's
+keys; detach citations (`chat_message_citation.segment_id` becomes `NULL` for segments
+that the dump does not contain); delete missing content in reverse
+foreign-key order; retire missing tombstones; mark missing
+deliveries with `withdrawn_at`; insert or update the dump
+(rows of the tombstone classes from the dump receive `retired_at = NULL`:
+return); write the import record. Deleting and retiring run **before**
+inserting, so that a re-delivery with new IDs does not collide with natural
+unique keys (designation, title, partial index of active
+edges). `ImportBlockedError` (with `.step`) remains only as a last safeguard for
+an unexpected foreign key.
 
-- `retired_at` (Migration 0033; `work`, `document`, `edge`) ist keine
-  Austauschspalte: Dumpformat und `EXCHANGE_SCHEMA_VERSION` bleiben unverändert.
-- `retired_at` ist keine Filterpflicht. Ein zurückgezogenes Dokument hat keine
-  Rechteklassifikation mehr; jede tor-gebundene Lesestelle (das einzige Tor)
-  schließt es damit aus. Es entsteht kein zweiter Prüfpfad.
-- Schutz vor leerem Dump: Ein Dump ohne Dokumente wird abgelehnt, solange die
-  Datenbank Dokumente hält (`allow_empty` bzw. `--allow-empty` hebt das auf).
-- Ein Test geht alle Fremdschlüssel jeder Tabelle außerhalb des Wissensbestands
-  auf den Wissensbestand durch (fail-closed), nicht nur die der
-  Nutzerdaten-Tabellen, also auch `identity_resolution_case`: Jedes Ziel muss
-  zu einer Klasse gehören oder eine ausdrückliche Löseregel haben.
-- Meldung: Ein Widerruf löscht in Produktion die Klassifikation, der
-  Rechteänderungs-Pfad von `notify-watchers` sähe also nichts. Neuer
-  Benachrichtigungstyp `no_longer_available` (Migration 0034, Tabelle
-  `notified_retirement`, `trigger_type` auf VARCHAR(19)): `notify-watchers`
-  erzeugt eine Meldung je zurückgezogenem Dokument eines beobachteten Werks, nur
-  für Rücknahmen nach Beginn der Beobachtung; Dedup-Schlüssel enthält
-  `retired_at` (eine erneute Rücknahme nach Wiederkehr wird neu gemeldet). Kein
-  Link; E-Mail-Betreff „Ein beobachtetes Regelwerk ist nicht mehr verfügbar“;
-  Glocke „Nicht mehr verfügbar“ / „No longer available“. `delete_account`
-  entfernt die `notified_retirement`-Zeilen des Kontos.
+- `retired_at` (migration 0033; `work`, `document`, `edge`) is not an
+  exchange column: dump format and `EXCHANGE_SCHEMA_VERSION` remain unchanged.
+- `retired_at` is not a mandatory filter. A retired document no longer has a
+  rights classification; every gate-bound read site (the single gate)
+  thereby excludes it. No second check path arises.
+- Protection against an empty dump: A dump without documents is rejected as long as the
+  database holds documents (`allow_empty` respectively `--allow-empty` lifts this).
+- A test walks through all foreign keys of every table outside the knowledge base
+  that point to the knowledge base (fail-closed), not only those of the
+  user data tables, so also `identity_resolution_case`: every target must
+  belong to a class or have an explicit resolution rule.
+- Notification: In production a revocation deletes the classification, so the
+  rights-change path of `notify-watchers` would see nothing. New
+  notification type `no_longer_available` (migration 0034, table
+  `notified_retirement`, `trigger_type` to VARCHAR(19)): `notify-watchers`
+  creates one notification per retired document of a watched work, only
+  for withdrawals after watching began; the dedup key contains
+  `retired_at` (a renewed withdrawal after a return is notified again). No
+  link; e-mail subject "Ein beobachtetes Regelwerk ist nicht mehr verfügbar";
+  bell "Nicht mehr verfügbar" / "No longer available". `delete_account`
+  removes the account's `notified_retirement` rows.
 
-**Begründung:** Die zugesagte Rücknahme darf nie von einem Menschen oder von
-Nutzerdaten abhängen. Gelöschter Inhalt ist auch in Produktion und nach Ablauf
-der Sicherungen nicht mehr lesbar; Tombstones tragen nur Kennungen. Kein
-Nutzerverweis geht verloren, weil sich der Wissensbestand ändert.
+**Rationale:** The promised withdrawal must never depend on a human or on
+user data. Deleted content is no longer readable, in production as well as after the
+backups expire; tombstones carry only IDs. No
+user reference is lost because the knowledge base changes.
 
-**Verworfen:**
+**Rejected:**
 
-- Blockieren mit Bereinigungswerkzeug: Die Rücknahme wartete auf einen Menschen.
-- Nutzerverweise anpassen oder löschen: Datenverlust ohne Nutzen, da nur
-  Verweise betroffen sind.
-- Reine Tombstones auch für Inhalt: Die Rücknahme wäre nur logisch, der Text
-  bliebe in Datenbank und Sicherungen lesbar.
-- Bezeichner und Titel als Teil des Tombstones: Sie kollidieren bei einer
-  Neulieferung mit den natürlichen Eindeutigkeitsschlüsseln (Befund im Review);
-  das Dokument behält Herausgeber, Nummer, Ausgabe und Teil als Kennung.
+- Blocking with a cleanup tool: the withdrawal would wait for a human.
+- Adjusting or deleting user references: data loss without benefit, since only
+  references are affected.
+- Pure tombstones for content too: the withdrawal would only be logical; the text
+  would remain readable in the database and backups.
+- Designation and title as part of the tombstone: they collide on a
+  re-delivery with the natural unique keys (finding in review);
+  the document keeps publisher, number, edition and part as its ID.
 
-**Rollback und Sicherung (Erweiterung 2):** `normly-deploy rollback` (ADR-024)
-baut die Datenbank neu auf und importiert die ältere Dump-Version. Tombstones
-stehen in keinem Dump; Nutzerzeilen, die auf sie zeigen, verletzten beim
-Einspielen den Fremdschlüssel. Deshalb enthält jede Sicherung eine zweite,
-`age`-verschlüsselte Datei `<base>.tombstones.age`:
+**Rollback and backup (extension 2):** `normly-deploy rollback` (ADR-024)
+rebuilds the database and imports the older dump version. Tombstones
+are in no dump; user rows that point to them would violate the foreign key on
+restore. Therefore every backup contains a second,
+`age`-encrypted file `<base>.tombstones.age`:
 
-- *Inhalt:* JSON (`format` 1, `created_at`, `rows` je Tabelle in
-  Fremdschlüssel-Reihenfolge) mit allen Zeilen aus `work`, `document` und
-  `edge`, deren `retired_at` gesetzt ist, plus dem Abschluss über die
-  Fremdschlüssel-Eltern innerhalb von `source`, `delivery`, `work`, `document`,
-  `edge`. Der Abschluss wird aus den ORM-Fremdschlüsseln berechnet, nicht
-  hartverdrahtet, und nimmt nur Eltern auf, nie Kinder. Alle Spalten, auch
-  `retired_at` und `revoked_at`. Nie Inhalt, Rechte oder Nutzerdaten.
-  `source.responsible_person` kann enthalten sein; in Produktion ist es die
-  veröffentlichte Rollenbezeichnung (Importe überschreiben es), ein Klarname
-  nur in einer Datei aus einer Ingestion-Datenbank. Er liegt nur in der
-  verschlüsselten Sicherung.
-- *Erzeugung und Prüfung:* im Container (`exchange export-tombstones`, stdout),
-  auf dem Host vor dem Verschlüsseln geprüft (JSON-Objekt, `format` 1, `rows`
-  mit genau den fünf Tabellen, je eine Liste). Eine ungültige Ausgabe bricht
-  die Sicherung ab.
-- *Einspielen:* im Rollback nach dem Wissensbestand-Import und **vor**
-  `pg_restore` (`exchange import-tombstones`, JSON auf stdin, im Image des
-  vorherigen Release). Einfügen in Fremdschlüssel-Reihenfolge mit
-  `ON CONFLICT DO NOTHING`; vorhandene Zeilen bleiben unverändert;
-  `work.merged_into_work_id` wird aufgeschoben. Eingefügte Zeilen aus `work`,
-  `document`, `edge` erhalten `retired_at` (gesicherter Wert, bei lebenden
-  Eltern `created_at` der Datei) und gelten damit als zurückgezogen. Sie haben
-  keine Klassifikation, jede tor-gebundene Lesestelle schließt sie aus. Ein
-  späterer normaler Import, der die Zeile enthält, setzt `retired_at` wieder
-  auf `NULL`.
-- *Vorabprüfung:* Der Rollback lädt, entschlüsselt und prüft die
-  Tombstone-Datei vor dem Banner, den Dump nach der Bestätigung und vor dem
-  Stopp; vor dem Löschen ist beides vorhanden und entschlüsselt. Sagt
-  `meta.json` `"tombstones": true`, fehlt aber die Datei, gilt die Sicherung als
-  beschädigt (Abbruch). Eine ältere Sicherung ohne Zusage bleibt nutzbar: Der
-  Rollback warnt deutlich (ein Fremdschlüsselfehler ist möglich, wenn
-  Nutzerdaten auf zurückgezogene Dokumente zeigen) und läuft weiter.
-- *Nicht wiederhergestellt:* Inhalt und Rechte zurückgezogener Dokumente; nur
-  Kennungen. Das ist gewollt, die Rücknahme bleibt wirksam.
-- *`revoked_at`:* An einer zurückgezogenen Kante ist `revoked_at` der
-  **Importzeitpunkt**, nicht der Zeitpunkt des Widerrufs beim Produzenten. Es
-  ist kein Ereignisdatum und so nicht zu lesen.
+- *Content:* JSON (`format` 1, `created_at`, `rows` per table in
+  foreign-key order) with all rows from `work`, `document` and
+  `edge` whose `retired_at` is set, plus the closure over the
+  foreign-key parents within `source`, `delivery`, `work`, `document`,
+  `edge`. The closure is computed from the ORM foreign keys, not
+  hard-wired, and takes in only parents, never children. All columns, including
+  `retired_at` and `revoked_at`. Never content, rights or user data.
+  `source.responsible_person` may be included; in production it is the
+  published role name (imports overwrite it), a real name
+  only in a file from an ingestion database. It lives only in the
+  encrypted backup.
+- *Creation and check:* in the container (`exchange export-tombstones`, stdout),
+  checked on the host before encryption (JSON object, `format` 1, `rows`
+  with exactly the five tables, each a list). An invalid output aborts
+  the backup.
+- *Restore:* in the rollback after the knowledge base import and **before**
+  `pg_restore` (`exchange import-tombstones`, JSON on stdin, in the image of the
+  previous release). Inserting in foreign-key order with
+  `ON CONFLICT DO NOTHING`; existing rows remain unchanged;
+  `work.merged_into_work_id` is deferred. Inserted rows from `work`,
+  `document`, `edge` receive `retired_at` (the backed-up value; for living
+  parents the file's `created_at`) and thus count as retired. They have
+  no classification; every gate-bound read site excludes them. A
+  later normal import that contains the row sets `retired_at` back
+  to `NULL`.
+- *Pre-check:* The rollback downloads, decrypts and checks the
+  tombstone file before the banner, the dump after the confirmation and before the
+  stop; before the deletion both are present and decrypted. If
+  `meta.json` says `"tombstones": true` but the file is missing, the backup counts as
+  damaged (abort). An older backup without such a promise remains usable: the
+  rollback warns clearly (a foreign-key error is possible if
+  user data points to retired documents) and continues.
+- *Not restored:* content and rights of retired documents; only
+  IDs. That is intended; the withdrawal remains effective.
+- *`revoked_at`:* On a retired edge, `revoked_at` is the
+  **import time**, not the time of the revocation at the producer. It
+  is not an event date and must not be read as one.
 
-**Folgen / offen:**
+**Consequences / open:**
 
-- Ein Tombstone behält nur `origin_issuer`, `origin_number`, `edition` und
-  `part`. Jede Oberfläche, die Tombstones auflistet, muss darauf zurückfallen.
-- Die Ingestion legt bei Neulieferung nach einem Widerruf einen **neuen**
-  Dokumentknoten an (Bezeichner sind gelöscht, `find_by_designation` findet
-  nichts). Beobachtungen und Meldungen bleiben am Tombstone und gehen nicht auf
-  den neuen Knoten über. Produkt- und Identitätsentscheidung, offen.
-- Das Export-Gate des Produzenten lässt ein Dokument aus, dessen erzeugende
-  Lieferung widerrufen wurde, auch nach einer Neulieferung. Offen.
-- Dumps müssen aus einer Abstammungslinie mit stabilen IDs stammen. Eine neu
-  aufgebaute Produzenten-Datenbank mit neuen IDs kann mit stehengebliebenen
-  Tombstones kollidieren (partieller Index aktiver Kanten u. a.) und endet in
+- A tombstone keeps only `origin_issuer`, `origin_number`, `edition` and
+  `part`. Every interface that lists tombstones must fall back on these.
+- On re-delivery after a revocation, ingestion creates a **new**
+  document node (designations are deleted, `find_by_designation` finds
+  nothing). Watches and notifications stay with the tombstone and do not carry over to
+  the new node. Product and identity decision, open.
+- The producer's export gate leaves out a document whose originating
+  delivery was revoked, even after a re-delivery. Open.
+- Dumps must come from one lineage with stable IDs. A newly
+  built producer database with new IDs can collide with leftover
+  tombstones (partial index of active edges, among others) and ends in
   `ImportBlockedError`.
-- Aufbewahrung und Alterung von Tombstones sind offen (auch nach ADR-027).
-- Die Rechteänderungs-Meldung (`RIGHTS_CHANGE`) für reine Änderungen von
-  Rechtewerten, ohne dass das Dokument verschwindet, entsteht weiter beim
-  Produzenten, nicht in Produktion.
-- Der Schutz vor leerem Dump vertraut den Zeilenzahlen des Manifests; das
-  Manifest ist signiert.
+- Retention and expiry of tombstones are open (also after ADR-027).
+- The rights-change notification (`RIGHTS_CHANGE`) for pure changes of
+  rights values, without the document disappearing, continues to arise at the
+  producer, not in production.
+- The protection against an empty dump trusts the manifest's row counts; the
+  manifest is signed.
 
 Details: `docs/superpowers/specs/2026-10-09-user-data-on-kb-import-design.md`.
 
 ---
 
-## ADR-027 — Lebenszyklus der Nutzerdaten
+## ADR-027 — Lifecycle of user data
 
-**Status:** beschlossen (2026-10-10); baut auf ADR-014, ADR-017, ADR-024 und
+**Status:** accepted (2026-10-10); builds on ADR-014, ADR-017, ADR-024 and
 ADR-026
 
-**Kontext:** Personenbezogene Daten sollen nur gespeichert werden, wenn ein
-Konto sie braucht, und nur so lange, wie der Zweck besteht; Betroffene sollen
-ihre Daten einsehen und löschen können, und eine Löschung soll eine
-Wiederherstellung aus Sicherungen überstehen. Die Bestandsaufnahme vom
-2026-10-10 zeigte Lücken:
+**Context:** Personal data should be stored only if an
+account needs it, and only for as long as the purpose exists; data subjects should be able to
+view and delete their data, and a deletion should survive a
+restore from backups. The inventory of
+2026-10-10 showed gaps:
 
-- Anonyme Chats wurden gespeichert (`chat_session`/`chat_message`, Cookie
-  `normly_session` mit 90 Tagen Laufzeit) und nie gelöscht, obwohl der Server
-  sie zum Antworten nicht braucht: Jede Frage wird einzeln beantwortet.
-- `account_session` und `account_token` wurden nie gelöscht (die Ablaufzeit
-  wurde nur geprüft); verlassene Registrierungen blieben ewig; ungelesene
-  Benachrichtigungen ebenso.
-- Es gab keinen Weg, einzelne Chat-Verläufe zu löschen.
-- Der Rollback (ADR-024) stellt Nutzerdaten vom Sicherungszeitpunkt wieder her:
-  zwischenzeitlich gelöschte Konten und Verläufe tauchten wieder auf.
-- Der Export (`GET /v1/accounts/export`) war unvollständig: Die
-  Beobachtungsliste nannte nur `work_id`, Zitate fehlten, und der
-  Chat-Sitzungs-Token (ein Geheimnis) stand im Export.
+- Anonymous chats were stored (`chat_session`/`chat_message`, cookie
+  `normly_session` with a 90-day lifetime) and never deleted, although the server
+  does not need them to answer: every question is answered on its own.
+- `account_session` and `account_token` were never deleted (the expiry time
+  was only checked); abandoned registrations stayed forever; unread
+  notifications likewise.
+- There was no way to delete individual chat histories.
+- The rollback (ADR-024) restores user data from the backup time:
+  accounts and histories deleted in the meantime reappeared.
+- The export (`GET /v1/accounts/export`) was incomplete: the
+  watchlist named only `work_id`, citations were missing, and the
+  chat session token (a secret) was in the export.
 
-**Entscheidung:**
+**Decision:**
 
-*Grundsatz.* Gespeichert wird nur, was ein Konto braucht. Fristen stehen als
-benannte Konstanten an einer Stelle (`core/src/normly_core/retention.py`) und
-werden von einem idempotenten Aufräumbefehl durchgesetzt.
+*Principle.* Only what an account needs is stored. Periods are
+named constants in one place (`core/src/normly_core/retention.py`) and
+are enforced by an idempotent cleanup command.
 
-*Anonymer Chat ohne Speicherung.* `POST /v1/chat` ohne gültige Konto-Identität
-schreibt nichts in die Datenbank und antwortet mit `session_token: null`. Ein
-Chat-Token ohne gültiges Konto wird ignoriert. Das Frontend setzt für anonyme
-Nutzung kein Chat-Cookie und entfernt ein vorhandenes; die Unterhaltung lebt
-nur im Browser-Tab. Die Verknüpfung „anonyme Sitzung beim Anmelden ans Konto
-hängen“ entfällt bewusst. Das Kontingent bleibt davon unberührt: Es wird
-serverseitig über die Ratenbegrenzung gezählt (Cookie `normly_anon_id` plus
-Herkunftsadresse, `rate_limit_bucket`), nicht über Chat-Sitzungen
-(REQ-ACC-003). Vorhandene anonyme Verläufe (`account_id` leer) löscht der
-Aufräumbefehl.
+*Anonymous chat without storage.* `POST /v1/chat` without a valid account identity
+writes nothing to the database and answers with `session_token: null`. A
+chat token without a valid account is ignored. For anonymous
+use the frontend sets no chat cookie and removes an existing one; the conversation lives
+only in the browser tab. The linking "attach the anonymous session to the account on
+sign-in" is deliberately dropped. The quota is unaffected by this: it is
+counted server-side via the rate limiting (cookie `normly_anon_id` plus
+client IP address, `rate_limit_bucket`), not via chat sessions
+(REQ-ACC-003). Existing anonymous histories (`account_id` empty) are deleted by the
+cleanup command.
 
-*Chats mit Konto* bleiben bis zur Löschung durch die Person oder durch die
-Kontolöschung. `DELETE /v1/chat/sessions/{id}` löscht einen eigenen Verlauf
-(204; 404 bei fremder oder unbekannter ID; 401 ohne Anmeldung),
-`DELETE /v1/chat/sessions` alle eigenen (`{"deleted": n}`); die Seitenleiste
-bietet beides mit Bestätigung.
+*Chats with an account* remain until deleted by the person or by
+account deletion. `DELETE /v1/chat/sessions/{id}` deletes one of the person's own histories
+(204; 404 for someone else's or an unknown ID; 401 without sign-in),
+`DELETE /v1/chat/sessions` all of their own (`{"deleted": n}`); the sidebar
+offers both with confirmation.
 
-*Datenverzeichnis.* Alle Tabellen der Nutzerdaten-Gruppe (`USER_TABLES`):
+*Data inventory.* All tables of the user data group (`USER_TABLES`):
 
-| Tabelle | Zweck | Personenbezug | Frist | Löschweg |
+| Table | Purpose | Personal data | Period | Deletion path |
 |---|---|---|---|---|
-| `account` | Konto, Anmeldung | E-Mail, Name, Passwort-Hash, Avatar | bis zur Kontolöschung; **verlassene Registrierung** (E-Mail nie bestätigt, älter als 30 Tage, ohne Google-Verknüpfung, ohne irgendeine Konto-Sitzung) 14 Tage nach zugestellter Vorwarn-E-Mail, nie ohne diese | Kontolöschung durch die Person (kaskadiert auf alle Tabellen mit Kontobezug); Aufräumbefehl |
-| `account_session` | angemeldete Sitzung | Kontobezug, Sitzungs-Token; keine IP, kein User-Agent | 7 Tage nach Ablauf | Aufräumbefehl; Kontolöschung |
-| `account_google_identity` | Verknüpfung mit Google-Anmeldung | Google-Kennung, Kontobezug | bis zur Kontolöschung | Kontolöschung |
-| `account_token` | Einmal-Token (Bestätigung, Zurücksetzen, Magic Link) | Kontobezug | 24 Stunden nach Ablauf oder Verwendung | Aufräumbefehl; Kontolöschung |
-| `oauth_state` | CSRF-Schutz der Google-Anmeldung | keiner (Zufallswert) | unverändert (1 Stunde) | bestehende Bereinigung |
-| `watchlist` | Beobachtungsliste | Kontobezug, Interessen | bis zur Kontolöschung oder Entfernen durch die Person | Person; Kontolöschung |
-| `notification` | Meldungen | Kontobezug, beobachtetes Werk | gelesen 60 Tage, ungelesen 365 Tage nach Anlage | Aufräumbefehl; Kontolöschung |
-| `notified_edge`, `notified_retirement`, `rights_notification_baseline` | Buchführung gegen Doppelmeldungen | Kontobezug | bis zur Kontolöschung | Kontolöschung |
-| `chat_session`, `chat_message`, `chat_message_citation` | Chat-Verläufe mit Konto | Fragen und Antworten der Person | keine Frist; anonyme Altzeilen (`account_id` leer) werden gelöscht | Person (pro Verlauf oder alle); Kontolöschung; Aufräumbefehl für Altbestand |
-| `rate_limit_bucket` | Ratenbegrenzung und Kontingent | pseudonymer Schlüssel aus Browser-Kennung und Herkunftsadresse | unverändert (10 Minuten) | bestehende Bereinigung |
-| `deletion_log` | Löschprotokoll (siehe unten) | keine: nur Art, Kennung, Zeitpunkt | 90 Tage | Aufräumbefehl |
+| `account` | account, sign-in | e-mail, name, password hash, avatar | until account deletion; **abandoned registration** (e-mail never verified, older than 30 days, without a Google link, without any account session) 14 days after a delivered advance warning e-mail, never without it | account deletion by the person (cascades to all tables with an account reference); cleanup command |
+| `account_session` | signed-in session | account reference, session token; no IP, no user agent | 7 days after expiry | cleanup command; account deletion |
+| `account_google_identity` | link to Google sign-in | Google ID, account reference | until account deletion | account deletion |
+| `account_token` | one-time token (verification, reset, magic link) | account reference | 24 hours after expiry or use | cleanup command; account deletion |
+| `oauth_state` | CSRF protection of the Google sign-in | none (random value) | unchanged (1 hour) | existing cleanup |
+| `watchlist` | watchlist | account reference, interests | until account deletion or removal by the person | person; account deletion |
+| `notification` | notifications | account reference, watched work | read 60 days, unread 365 days after creation | cleanup command; account deletion |
+| `notified_edge`, `notified_retirement`, `rights_notification_baseline` | bookkeeping against duplicate notifications | account reference | until account deletion | account deletion |
+| `chat_session`, `chat_message`, `chat_message_citation` | chat histories with an account | the person's questions and answers | no period; anonymous legacy rows (`account_id` empty) are deleted | person (per history or all); account deletion; cleanup command for legacy data |
+| `rate_limit_bucket` | rate limiting and quota | pseudonymous key from browser ID and client IP address | unchanged (10 minutes) | existing cleanup |
+| `deletion_log` | deletion log (see below) | none: only kind, ID, time | 90 days | cleanup command |
 
-Der Avatar liegt in `account` und verschwindet mit dem Konto oder beim
-Entfernen. Das Datenverzeichnis ist neu zu bewerten, sobald `account_session`
-IP-Adressen oder User-Agent speichert (heute nicht der Fall).
+The avatar lives in `account` and disappears with the account or on
+removal. The data inventory is to be reassessed as soon as `account_session`
+stores IP addresses or user agent (not the case today).
 
-*Verlassene Registrierungen.* Die Regel ist bewusst enger als „unbestätigt“:
-Google-Konten werden nie als bestätigt markiert (`email_verified_at` bleibt
-leer), und Konten mit Passwort können sich auch ohne Bestätigung anmelden. Ein
-Konto in Benutzung hat daher eine Google-Verknüpfung oder mindestens eine
-`account_session`-Zeile (auch eine abgelaufene, solange sie nicht gelöscht
-ist; die Löschfrist der Sitzung beginnt erst 7 Tage nach Ablauf) oder eine
-Anmeldung innerhalb der letzten 30 Tage: `account.last_login_at` wird bei jeder
-Sitzungsanlage gesetzt und überlebt im Gegensatz zur Sitzungszeile die
-Abmeldung. Nur ein Konto ohne all das, nie bestätigt und älter als 30 Tage,
-gilt als verlassen. Das
-trifft auch ein Passwort-Konto, das benutzt und dann lange pausiert wurde,
-sobald seine Sitzungen entfernt sind; deshalb wird kein Konto still gelöscht:
-Der Aufräumbefehl schickt zuerst eine zweisprachige Vorwarn-E-Mail (Datum der
-Löschung, Anmelde-URL aus `NORMLY_PUBLIC_BASE_URL`, kein Token) und setzt
-erst nach erfolgreichem Versand `account.deletion_warned_at`. Gelöscht wird
-frühestens 14 Tage danach (strikt), und nur wenn das Konto dann noch alle
-Bedingungen erfüllt. Anmeldung, Bestätigung oder Google-Verknüpfung machen das
-Konto wieder „nicht verlassen“; der nächste Lauf setzt die Warnung zurück.
-Voraussetzung ist ein SMTP-Relay (`NORMLY_SMTP_*`): Ohne Relay oder bei
-fehlgeschlagenem Versand wird nie gewarnt und damit nie gelöscht; der Versand
-wird im nächsten Lauf erneut versucht. Ein Konto wird nie im selben Lauf
-gewarnt und gelöscht (Reihenfolge: zurücksetzen, löschen, warnen). Der
-Löschlauf sperrt die Kandidaten und prüft die Bedingung samt Warnzeitpunkt
-erneut, damit eine gleichzeitige Bestätigung, Anmeldung oder
-Google-Verknüpfung nicht verloren geht. `deletion_warned_at` und
-`last_login_at` werden nicht exportiert. Die Mail nennt das Datum als
-„frühestens am“, weil der tägliche Lauf den Zeitpunkt um bis zu einen Tag
-verschieben kann.
+*Abandoned registrations.* The rule is deliberately narrower than "unverified":
+Google accounts are never marked as verified (`email_verified_at` stays
+empty), and accounts with a password can sign in even without verification. An
+account in use therefore has a Google link or at least one
+`account_session` row (even an expired one, as long as it has not been deleted;
+the session's deletion period begins only 7 days after expiry) or a
+sign-in within the last 30 days: `account.last_login_at` is set on every
+session creation and, unlike the session row, survives
+sign-out. Only an account without all of that, never verified and older than 30 days,
+counts as abandoned. This
+also hits a password account that was used and then paused for a long time,
+as soon as its sessions are removed; therefore no account is deleted silently:
+the cleanup command first sends a bilingual advance warning e-mail (date of
+deletion, sign-in URL from `NORMLY_PUBLIC_BASE_URL`, no token) and sets
+`account.deletion_warned_at` only after successful sending. Deletion happens
+14 days after that at the earliest (strictly), and only if the account then still meets all
+conditions. Sign-in, verification or a Google link make the
+account "not abandoned" again; the next run resets the warning.
+Prerequisite is an SMTP relay (`NORMLY_SMTP_*`): without a relay or if
+sending fails, nobody is ever warned and thus never deleted; the sending
+is retried in the next run. An account is never
+warned and deleted in the same run (order: reset, delete, warn). The
+deletion run locks the candidates and re-checks the condition together with the warning time,
+so that a concurrent verification, sign-in or
+Google link is not lost. `deletion_warned_at` and
+`last_login_at` are not exported. The mail names the date as
+"at the earliest on", because the daily run can shift the time by up to one
+day.
 
-*Aufräumbefehl.* `python -m normly_core.pipeline cleanup-user-data` setzt alle
-Fristen der Tabelle durch (Sitzungen, Tokens, verlassene Registrierungen,
-gelesene und ungelesene Benachrichtigungen, anonyme Chat-Altbestände,
-Löschprotokoll), ist idempotent und gibt nur Zähler aus. Der systemd-Timer
-`normly-cleanup` (täglich 04:00 UTC) startet über `scripts/normly-cleanup`; das
-Skript überspringt den Lauf mit Exitcode 0, solange `state/deploy.lock`
-existiert. `cleanup-notifications` bleibt als Befehl bestehen.
+*Cleanup command.* `python -m normly_core.pipeline cleanup-user-data` enforces all
+periods of the table (sessions, tokens, abandoned registrations,
+read and unread notifications, anonymous legacy chats,
+deletion log), is idempotent and prints only counters. The systemd timer
+`normly-cleanup` (daily 04:00 UTC) starts via `scripts/normly-cleanup`; the
+script skips the run with exit code 0 as long as `state/deploy.lock`
+exists. `cleanup-notifications` remains as a command.
 
-*Export (Auskunft).* `GET /v1/accounts/export` liefert synchron als JSON:
-Profil, Avatar (Data-URL), Beobachtungsliste mit lesbaren Dokumentkennungen
-(alle Dokumente des Werks, auch zurückgezogene), Benachrichtigungen und Chats
-mit Antworttyp und Zitaten (lesbare Dokumentkennung und Segment-ID). Nicht
-enthalten: `session_token` (stattdessen die Sitzungs-ID), Passwort-Hash,
-Tokens und Buchführung.
+*Export (access request).* `GET /v1/accounts/export` delivers synchronously as JSON:
+profile, avatar (data URL), watchlist with readable document IDs
+(all documents of the work, including retired ones), notifications, and chats
+with answer type and citations (readable document ID and segment ID). Not
+included: `session_token` (instead the session ID), password hash,
+tokens and bookkeeping.
 
-*Löschprotokoll und Wiederholung.* Tabelle `deletion_log(kind, entity_id,
-deleted_at)` (`kind` ist `account` oder `chat_session`; Migration 0035). Der
-Eintrag entsteht in derselben Transaktion wie jede Löschung (Kontolöschung,
-Verlauf löschen, Aufräumen verlassener Registrierungen), enthält keine
-personenbezogenen Daten, ist Teil der Nutzerdaten-Sicherung und wird nach
-90 Tagen bereinigt (siehe Folgen). Der Kern bietet
-`python -m normly_core.exchange export-deletions --since <ISO-8601>` (JSON auf
-stdout) und `replay-deletions` (JSON auf stdin; wendet die Löschungen über die
-normalen Löschfunktionen erneut an, idempotent, schon fehlende Einträge werden
-trotzdem ins Protokoll geschrieben); `replay-deletions --check` meldet ohne
-Datenbank, ob das Image den Befehl kennt.
+*Deletion log and replay.* Table `deletion_log(kind, entity_id,
+deleted_at)` (`kind` is `account` or `chat_session`; migration 0035). The
+entry is created in the same transaction as every deletion (account deletion,
+deleting a history, cleanup of abandoned registrations), contains no
+personal data, is part of the user data backup and is pruned after
+90 days (see Consequences). The core offers
+`python -m normly_core.exchange export-deletions --since <ISO-8601>` (JSON on
+stdout) and `replay-deletions` (JSON on stdin; applies the deletions again via the
+normal deletion functions, idempotent; entries already missing are
+still written to the log); `replay-deletions --check` reports without a
+database whether the image knows the command.
 
-Im Rollback (ADR-024): Das Skript liest die Löschungen seit dem
-Sicherungszeitpunkt **minus eine Stunde** direkt aus der Datenbank (Host-`psql`
-und `python3`, kein startbares Release-Image nötig; der Kernbefehl bleibt für den
-manuellen Gebrauch) (Sicherheitsrand im Skript; eine doppelt angewendete Löschung
-ist harmlos, weil UUIDs nie wiederverwendet werden). Dieser erste Export speist
-Banner und die Entscheidung über `replay-deletions --check` im Image des
-**vorherigen** Release (Exitcode 2 heißt „nicht unterstützt“, jeder andere
-Fehler bricht ab). Nach dem Stopp der Dienste und vor dem DROP folgt ein zweiter
-Export; dieses Dokument wird nach `pg_restore` und der Tombstone-Wiederherstellung
-vom vorherigen Image angewendet. Schlägt der zweite Export fehl, bricht der
-Rollback vor dem DROP ab (Datenbank unverändert, Hinweis zum Neustart). Vor dem
-DROP wird die Liste nach `$STATE/rollback-deletions.json` (0600) geschrieben; ein
-erneuter Lauf nach einem Fehler nach dem DROP führt sie mit dem frischen Export
-zusammen (Vereinigung nach Art und Kennung, frühester Zeitpunkt) und löscht die
-Datei erst, wenn das vorherige Release gesund läuft. `normly-cleanup` und
-`normly-backup` laufen mit dem Tag aus `state/current_tag`, nie mit dem
-Compose-Standard `edge`.
-Eine fehlende Tabelle `deletion_log` (Release vor diesem Feature) gilt als leere
-Liste. Kennt das vorherige Image den Befehl nicht, nennt das Banner Anzahl und
-die ersten 20 `kind:id`; die vollständige Liste liegt in
-`$STATE/rollback-pending-deletions.json` (0600) und muss von Hand erneut gelöscht
-werden.
+In the rollback (ADR-024): The script reads the deletions since the
+backup time **minus one hour** directly from the database (host `psql`
+and `python3`, no startable release image needed; the core command remains for
+manual use) (safety margin in the script; a deletion applied twice
+is harmless because UUIDs are never reused). This first export feeds the
+banner and the decision on `replay-deletions --check` in the image of the
+**previous** release (exit code 2 means "not supported", any other
+error aborts). After the services are stopped and before the DROP, a second
+export follows; this document is applied after `pg_restore` and the tombstone restore
+by the previous image. If the second export fails, the
+rollback aborts before the DROP (database unchanged, hint about restarting). Before the
+DROP the list is written to `$STATE/rollback-deletions.json` (0600); a
+renewed run after an error after the DROP merges it with the fresh export
+(union by kind and ID, earliest time) and deletes the
+file only once the previous release is running healthy. `normly-cleanup` and
+`normly-backup` run with the tag from `state/current_tag`, never with the
+Compose default `edge`.
+A missing table `deletion_log` (release before this feature) counts as an empty
+list. If the previous image does not know the command, the banner names the count and
+the first 20 `kind:id`; the complete list lies in
+`$STATE/rollback-pending-deletions.json` (0600) and must be deleted again
+by hand.
 
-**Begründung:**
+**Rationale:**
 
-- Datensparsamkeit: Was der Server zum Antworten nicht braucht, wird nicht
-  gespeichert. Das passt zu ADR-017 („ohne Konto entstehen keine
-  personenbezogenen Daten“): Anonyme Nutzung bleibt vollständig, ohne dass der
-  Verlauf anfällt.
-- Kurze, benannte Fristen für technische Daten (Sitzungen, Tokens,
-  Benachrichtigungen), keine Frist für Inhalte, die die Person selbst anlegt
-  und jederzeit selbst löschen kann.
-- Die Regel für verlassene Registrierungen löscht nie still: Ohne zugestellte
-  Vorwarnung und 14 Tage Frist bleibt jedes Konto; ein falsch gelöschtes Konto
-  wäre ein Datenverlust, ein zu spät gelöschtes nur ein gespeicherter
-  Datensatz. Der Preis ist die Abhängigkeit von SMTP.
-- Das Löschprotokoll enthält nur Kennungen. Es ist deshalb selbst keine
-  Kopie der gelöschten Daten und kann als Teil der Nutzerdaten-Sicherung
-  mitlaufen; ohne Kennung bliebe eine Löschung nach Rollback oder Restore
-  unwirksam.
-- Der Export bleibt synchron und lesbar (Kennungen statt interner IDs, wo
-  möglich); ein Geheimnis wie der Chat-Token ist kein Datum der Person.
+- Data minimization: What the server does not need to answer is not
+  stored. This fits ADR-017 ("without an account, no
+  personal data arises"): anonymous use remains complete without the
+  history accruing.
+- Short, named periods for technical data (sessions, tokens,
+  notifications), no period for content that the person creates themselves
+  and can delete themselves at any time.
+- The rule for abandoned registrations never deletes silently: without a delivered
+  advance warning and a 14-day period, every account stays; a wrongly deleted account
+  would be data loss, one deleted too late only a stored
+  record. The price is the dependency on SMTP.
+- The deletion log contains only IDs. It is therefore not itself a
+  copy of the deleted data and can run along as part of the user data backup;
+  without the ID, a deletion would remain ineffective after a rollback or restore.
+- The export remains synchronous and readable (designations instead of internal IDs, where
+  possible); a secret such as the chat token is not a datum of the person.
 
-**Verworfen:**
+**Rejected:**
 
-- *Frist auch für Chats mit Konto:* Die Person legt sie selbst an, kann sie
-  selbst löschen, und sie sind der Zweck des Kontos („Verläufe“, REQ-ACC-004).
-  Eine stille Löschung wäre ein Funktionsverlust ohne Datenschutzgewinn.
-- *Kurzfristige Speicherung anonymer Sitzungen:* Der Server braucht sie nicht;
-  jede Speicherung wäre Daten ohne Zweck, und das Cookie bliebe nötig.
-- *Kryptographisches Löschen je Konto in Sicherungen:* Ein Schlüssel je Konto
-  im Sicherungsformat wäre eine große Änderung an Sicherung und Restore; das
-  Löschprotokoll mit Replay erreicht für diesen Zweck dasselbe Ergebnis nach
-  Wiederherstellung, und die Nachwirkung ist zeitlich begrenzt. (Für
-  lizenzierte Bestände bleibt ADR-014 maßgeblich.)
-- *Asynchroner Export per E-Mail-Link:* Mehr Infrastruktur (Warteschlange,
-  Ablage, Link-Ablauf) und mehr gespeicherte Kopien, ohne dass der Umfang es
-  verlangt.
-- *Löschen aller unbestätigten Konten:* Google-Konten sind nie „bestätigt“ und
-  Passwort-Konten können sich unbestätigt anmelden; die Regel würde
-  Konten in Benutzung löschen.
+- *A period for chats with an account too:* The person creates them, can
+  delete them themselves, and they are the purpose of the account ("histories", REQ-ACC-004).
+  A silent deletion would be a loss of function without a data protection gain.
+- *Short-term storage of anonymous sessions:* The server does not need them;
+  any storage would be data without purpose, and the cookie would remain necessary.
+- *Cryptographic erasure per account in backups:* A key per account
+  in the backup format would be a large change to backup and restore; the
+  deletion log with replay achieves the same result for this purpose after
+  restore, and the after-effect is limited in time. (For
+  licensed collections, ADR-014 remains authoritative.)
+- *Asynchronous export via e-mail link:* More infrastructure (queue,
+  storage, link expiry) and more stored copies, without the scope
+  requiring it.
+- *Deleting all unverified accounts:* Google accounts are never "verified" and
+  password accounts can sign in unverified; the rule would
+  delete accounts in use.
 
-**Folgen / offen:**
+**Consequences / open:**
 
-- *Nachwirkung in Sicherungen.* Eine Löschung wirkt in der Datenbank sofort, in
-  Sicherungen erst, wenn sie auslaufen: Flex 30 Tage; eigene, `age`-verschlüsselte
-  Sicherungen bis zu rund zwei Monate (7 tägliche, 2 monatliche Anker,
-  3 Pre-Rollout-Sicherungen). Das Löschprotokoll sorgt dafür, dass Löschungen
-  einen Rollback oder Restore überstehen. Es wird nach 90 Tagen bereinigt, länger als
-  tägliche und monatliche Sicherungen halten. Eine Pre-Rollout-Sicherung kann
-  älter werden, wenn lange kein Rollout folgt; wird aus einer Sicherung
-  wiederhergestellt, die älter als 90 Tage ist, kann das Löschprotokoll die
-  Löschungen aus der Zwischenzeit nicht mehr nachziehen.
-- *Fachliche Prüfung.* Die Fristen sind Entscheidungen des Projekts und sollten
-  von einer Fachperson für Datenschutz geprüft werden; dieses Dokument ist keine
-  Rechtsberatung.
-- Datenschutzerklärung und Verzeichnis der Verarbeitungstätigkeiten (Art. 30
-  DSGVO) sind eigene Rechtstexte und nicht Teil dieser Arbeit.
-- *Tombstones* (ADR-026): Aufbewahrung und Alterung bleiben offen.
-- Ein vorheriges Release ohne `replay-deletions` braucht manuelles Nachlöschen
-  (siehe oben); das gilt auch für den Restore-Test und die
-  Notfall-Wiederherstellung aus Flex (Betriebsguide).
-- Der Aufräum-Timer prüft `state/deploy.lock`, nimmt die Sperre aber nicht
-  selbst. Bleibt eine verwaiste Sperre stehen, überspringt er täglich still.
-- Löschen inaktiver Konten nach Frist mit Vorwarnung per E-Mail ist nicht
-  umgesetzt.
-- `account_session` speichert weder IP noch User-Agent; ändert sich das, sind
-  Datenverzeichnis und Frist neu zu bewerten.
-- Die Verknüpfung „anonym → Konto beim Anmelden“ entfällt; wer anonym gechattet
-  hat, behält den Verlauf nur im geöffneten Tab.
+- *After-effect in backups.* A deletion takes effect in the database immediately, in
+  backups only when they expire: Flex 30 days; own `age`-encrypted
+  backups up to roughly two months (7 daily, 2 monthly anchors,
+  3 pre-rollout backups). The deletion log ensures that deletions
+  survive a rollback or restore. It is pruned after 90 days, longer than
+  daily and monthly backups are kept. A pre-rollout backup can become
+  older if no rollout follows for a long time; if a restore is made from a backup
+  that is older than 90 days, the deletion log can no longer re-apply the
+  deletions from the time in between.
+- *Expert review.* The periods are decisions of the project and should
+  be reviewed by a data-protection professional; this document is not
+  legal advice.
+- Privacy policy and record of processing activities (Art. 30
+  DSGVO, the EU General Data Protection Regulation) are separate legal texts and not part of this work.
+- *Tombstones* (ADR-026): retention and expiry remain open.
+- A previous release without `replay-deletions` needs manual re-deletion
+  (see above); this also applies to the restore test and the
+  emergency restore from Flex (operations guide).
+- The cleanup timer checks `state/deploy.lock` but does not take the lock
+  itself. If an orphaned lock is left behind, it skips silently every day.
+- Deleting inactive accounts after a period with advance warning by e-mail is not
+  implemented.
+- `account_session` stores neither IP nor user agent; if that changes,
+  the data inventory and period are to be reassessed.
+- The linking "anonymous → account on sign-in" is dropped; whoever chatted anonymously
+  keeps the history only in the open tab.
 
 Details: `docs/superpowers/specs/2026-10-10-user-data-lifecycle-design.md`,
-Betrieb in `docs/guide/operations.md`.
+operations in `docs/guide/operations.md`.
 
 ---
 
-## Offene Punkte
+## Open items
 
-| Thema | Status | Nächster Schritt |
+| Topic | Status | Next step |
 |---|---|---|
-| Ausgründung GmbH | favorisiert, nicht beschlossen | Steuer- und vereinsrechtliche Prüfung vor Gründung |
-| Rechtsform Trägerorganisation (e.V. / eG / Alternative) | offen | eG könnte Normungsorganisationen als Mitglieder statt Gegner einbinden |
-| Rechteinhaber im Copyright-Header | offen | vor erstem externen Beitrag klären |
-| Lizenzvertrag Trägerorganisation → GmbH | offen | muss zu marktüblichen Konditionen erfolgen, sonst Risiko für die Gemeinnützigkeit |
-| RDF-/JSON-LD-Export mit SKOS | vorgeschlagen | Speicherformat und Veröffentlichungsformat sind trennbar |
-| Gewichtungsmodell Attribution bei Graph-Antworten | offen | Steht einem Herausgeber etwas zu, wenn ohne Volltext geantwortet wurde? Als eigene Kategorie erfasst, vertraglich zu klären |
-| Nutzungsvorbehalte je Quelle (§ 44b Abs. 3 UrhG) | laufende Aufgabe | Prüfung datiert und belegt im Quellenregister, mit Wiedervorlage |
-| Rechtliche Bewertung je Rechtsraum | laufende Aufgabe | Braucht mittelfristig eine zuständige Rolle, keine einmalige Klärung |
-| Apple-Provision bei digitalen Abos | offen | In der EU inzwischen Alternativen über externe Zahlungswege — vor Store-Release prüfen |
-| Aufbewahrungsfristen der Sicherungskopien | offen | (Nutzerdaten: Höchstfristen in ADR-027 festgehalten.) Bestimmt, wie lange ein vernichteter Schlüssel vorgehalten werden muss, bevor Backups auslaufen |
-| STACKIT-Repository `jwokittel/normly-webapp` | entschieden (2026-10-09): löschen | Der Betreiber löscht es im STACKIT-Portal (Nachtrag zu ADR-021); danach den Eintrag streichen |
-| Personennamen im öffentlichen Wissensbestand-Dump | entschieden (2026-10-09): Rolle `normly maintainers` | Umgesetzt im Export (ADR-025); Eintrag nach dem ersten öffentlichen Dump streichen |
-| Aufbewahrung und Alterung von Tombstones | offen | Ob Kennungen zurückgezogener Dokumente zeitlich begrenzt werden; ADR-027 hat es nicht entschieden (ADR-026) |
-| Identität bei Neulieferung nach Widerruf | offen | Neue Dokumentknoten übernehmen Beobachtungen der Tombstones nicht; Produkt- und Identitätsentscheidung (ADR-026) |
-| Signaturschlüssel des Wissensbestand-Dumps | offen | Schlüsselzeremonie, öffentlichen Schlüssel ins Repository einchecken (ADR-025) |
-| Fachliche Prüfung der Aufbewahrungsfristen für Nutzerdaten | offen | Durch eine Fachperson für Datenschutz; dazu Datenschutzerklärung und Verzeichnis der Verarbeitungstätigkeiten als eigene Rechtstexte (ADR-027) |
-| Löschen inaktiver Konten mit Vorwarnung | offen | Nicht umgesetzt; Frist und Warn-E-Mail entscheiden (ADR-027) |
-| Sicherungen bei lizenzierten Beständen | offen | Kryptographisches Löschen (ADR-014) für die kommerzielle Schicht; Flex-PITR klären; Objektsperre vorerst bewusst nicht (ADR-024) |
+| Spin-off GmbH | preferred, not accepted | Review under tax law and association law before founding |
+| Legal form of the Trägerorganisation (e.V. / eG / alternative) | open | An eG could bring standardization organizations in as members instead of opponents |
+| Rights holder in the copyright header | open | Clarify before the first external contribution |
+| License agreement Trägerorganisation → GmbH | open | Must be on customary market terms, otherwise a risk to non-profit status |
+| RDF/JSON-LD export with SKOS | proposed | Storage format and publication format are separable |
+| Attribution weighting model for graph answers | open | Is a publisher owed anything when an answer was given without full text? Recorded as a category of its own, to be clarified contractually |
+| Rights reservations per source (§ 44b Abs. 3 UrhG) | ongoing task | Review dated and documented in the source register, with a follow-up date |
+| Legal assessment per jurisdiction | ongoing task | Needs a responsible role in the medium term, not a one-off clarification |
+| Apple commission on digital subscriptions | open | In the EU there are now alternatives via external payment routes — check before the store release |
+| Retention periods of the backup copies | open | (User data: maximum periods recorded in ADR-027.) Determines how long a destroyed key must be kept on hand before backups expire |
+| STACKIT repository `jwokittel/normly-webapp` | decided (2026-10-09): delete | The operator deletes it in the STACKIT portal (addendum to ADR-021); then remove the entry |
+| Personal names in the public knowledge base dump | decided (2026-10-09): role `normly maintainers` | Implemented in the export (ADR-025); remove the entry after the first public dump |
+| Retention and expiry of tombstones | open | Whether retired IDs are limited in time; ADR-027 did not decide it (ADR-026) |
+| Identity on re-delivery after revocation | open | New document nodes do not take over the tombstones' watches; product and identity decision (ADR-026) |
+| Signing key of the knowledge base dump | open | Key ceremony, check the public key into the repository (ADR-025) |
+| Expert review of the retention periods for user data | open | By a data-protection professional; in addition, privacy policy and record of processing activities as separate legal texts (ADR-027) |
+| Deleting inactive accounts with advance warning | open | Not implemented; decide period and warning e-mail (ADR-027) |
+| Backups for licensed collections | open | Cryptographic erasure (ADR-014) for the commercial layer; clarify Flex PITR; deliberately no object lock for now (ADR-024) |
 
-**Hinweis:** Die rechtlichen Einschätzungen in diesem Dokument sind
-Arbeitsgrundlage, keine Rechtsberatung. Insbesondere die Konstruktion
-Trägerorganisation/GmbH, die Lizenzvertragsgestaltung und die
-Urheberrechtsbewertung je Rechtsraum gehören vor eine fachkundige Prüfung.
+**Note:** The legal assessments in this document are a
+working basis, not legal advice. In particular, the construction
+Trägerorganisation/GmbH, the design of the license agreement and the
+copyright assessment per jurisdiction belong before an expert review.
