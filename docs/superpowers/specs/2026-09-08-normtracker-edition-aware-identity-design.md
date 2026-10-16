@@ -1,190 +1,190 @@
-# Design: Editions-bewusste Identitätsauflösung
+# Design: Edition-aware identity resolution
 
-## Kontext
+## Context
 
-Das gerade gemergte Sub-project "Editionswechsel-Erkennung in Ingestion-
-Adaptern" (PR #14) hat EUR-Lex und DGUV beigebracht, echte `REPLACES`-
-Kanten aus Signalen in ihren jeweiligen Quelldaten zu erzeugen. Während
-dieser Arbeit wurde ein tieferliegender, vorher unerreichbarer Defekt in
-`core/src/normly_core/pipeline/identity.py` entdeckt und provisorisch
-über einen Guard in `references.py` entschärft (self-referenzielle Kante
-verhindert), aber die eigentliche Ursache blieb bewusst offen: **`identity.
-resolve()` ist editions-blind.**
+The just-merged sub-project "Edition change detection in ingestion
+adapters" (PR #14) taught EUR-Lex and DGUV to create real `REPLACES`
+edges from signals in their respective source data. During
+this work, a deeper, previously unreachable defect in
+`core/src/normly_core/pipeline/identity.py` was discovered and provisionally
+defused through a guard in `references.py` (self-referential edge
+prevented), but the actual cause was deliberately left open: **`identity.
+resolve()` is edition-blind.**
 
-Konkret: `resolve()` entscheidet rein über String-Gleichheit von
-`(issuer, raw_designation)`, ob ein eingehendes Dokument dasselbe wie ein
-bereits bekanntes ist. `record.content_hash` wird dabei nirgends gelesen —
-Content-Hash-Vergleich passiert eine Ebene höher in `runner.py`, aber nur
-um eine *byte-identische* Re-Lieferung derselben Datei zu überspringen.
-Sobald die Bytes auch nur geringfügig abweichen (eine echte neue Edition),
-entsteht eine neue `Delivery`, aber `resolve()` matched trotzdem auf
-dieselbe `(issuer, designation)` und behandelt die neue Edition als
-*Update* des bestehenden Dokuments — nicht als neues.
+Concretely: `resolve()` decides purely by string equality of
+`(issuer, raw_designation)` whether an incoming document is the same as an
+already known one. `record.content_hash` is not read anywhere in the process —
+the content hash comparison happens one level higher in `runner.py`, but only
+to skip a *byte-identical* re-delivery of the same file.
+As soon as the bytes differ even slightly (a real new edition),
+a new `Delivery` is created, but `resolve()` still matches on
+the same `(issuer, designation)` and treats the new edition as an
+*update* of the existing document — not as a new one.
 
-Das betrifft konkret DGUV: jede reale DGUV-Vorschrift trägt ein
-"vom `<Datum>`"-Ausgabedatum, das der Adapter bereits per Regex parst
-(`_ISSUE_DATE_PREFIX`) — aber nur, um es beim Titel-Zeilen-Heuristik-Check
-wegzuschneiden, nie um es als eigenständigen Wert zu erfassen. `RawRecord`
-hat aktuell kein `edition`-Feld, `runner.py` setzt
-`add_designation(..., edition=None, ...)` für jeden Adapter fest verdrahtet.
-Für Sub-project 4 (Watchlist/Notification) ist das ein echtes Problem: eine
-neue DGUV-Vorschrift-Auflage — der Hauptfall, für den DGUV's eigene
-Editionswechsel-Erkennung gebaut wurde — löst aktuell **keine** erkennbare
-neue Edition aus. Das System schreibt die neue Auflage einfach als
-zusätzliche, liefer-gebundene Segmentmenge auf dasselbe bestehende
+This concretely affects DGUV: every real DGUV Vorschrift carries a
+"vom `<date>`" issue date (i.e. "of <date>"), which the adapter already parses via regex
+(`_ISSUE_DATE_PREFIX`) — but only to cut it off during the title line heuristic check,
+never to capture it as a value of its own. `RawRecord`
+currently has no `edition` field; `runner.py` sets
+`add_designation(..., edition=None, ...)` hard-wired for every adapter.
+For sub-project 4 (watchlist/notification) this is a real problem: a
+new DGUV Vorschrift edition — the main case for which DGUV's own
+edition change detection was built — currently triggers **no** recognizable
+new edition. The system simply writes the new edition as an
+additional, delivery-bound set of segments onto the same existing
 `Document`.
 
-`find_by_designation(issuer, designation)` — genutzt sowohl von
-`identity.resolve()` als auch von `references.extract_references()` für
-Kantenziel-Lookups — filtert ebenfalls nur auf
+`find_by_designation(issuer, designation)` — used both by
+`identity.resolve()` and by `references.extract_references()` for
+edge target lookups — likewise filters only on
 `DocumentDesignationORM.issuer`/`.designation`; `DocumentDesignationORM.
-edition` und `DocumentORM.edition` werden komplett ignoriert. Ein
-DB-weiter Unique-Constraint `uq_designation_issuer_designation` auf
-`(issuer, designation)` (ohne Edition) würde zudem jeden Versuch, zwei
-Editionen als separate `DocumentDesignation`-Zeilen zu führen, mit einem
-`IntegrityError` verhindern, selbst wenn `resolve()` korrigiert würde.
+edition` and `DocumentORM.edition` are ignored completely. A
+database-wide unique constraint `uq_designation_issuer_designation` on
+`(issuer, designation)` (without edition) would moreover prevent every attempt to keep two
+editions as separate `DocumentDesignation` rows with an
+`IntegrityError`, even if `resolve()` were corrected.
 
-EUR-Lex ist von diesem Problem praktisch nicht betroffen: seine
-Designationen kodieren die Edition bereits in der Zeichenkette selbst
-(`"EN ISO 12100:2003"` vs. `"EN ISO 12100:2010"` sind unterschiedliche
-Strings, `(issuer, designation)`-Gleichheit unterscheidet sie also
-automatisch). BAuA hat aktuell keine Editionswechsel-Erkennung und bleibt
-hier bewusst außen vor.
+EUR-Lex is practically unaffected by this problem: its
+designations already encode the edition in the string itself
+(`"EN ISO 12100:2003"` vs. `"EN ISO 12100:2010"` are different
+strings, so `(issuer, designation)` equality tells them apart
+automatically). BAuA currently has no edition change detection and is
+deliberately left out here.
 
-## Ziel dieses Teilprojekts
+## Goal of this sub-project
 
-1. DGUV's bereits geparstes Ausgabedatum tatsächlich als Edition erfassen
-   und bis zur Datenbank durchreichen.
-2. `identity.resolve()` und `find_by_designation` editions-bewusst machen,
-   sodass zwei Editionen derselben Designation als zwei getrennte
-   `Document`s erkannt werden — ohne das bestehende Verhalten für
-   Adapter/Aufrufer ohne Edition-Konzept (EUR-Lex, BAuA, unqualifizierte
-   Vorgänger-Referenzen) zu verändern.
-3. Beim Erkennen einer neuen Edition automatisch die richtige `work_id`
-   übernehmen und eine `REPLACES`-Kante zur vorherigen Edition anlegen —
-   damit eine neue DGUV-Auflage sofort ein echter, auffindbarer
-   Editionswechsel ist, nicht nur ein neues, isoliertes Document.
+1. Actually capture DGUV's already parsed issue date as the edition
+   and pass it through to the database.
+2. Make `identity.resolve()` and `find_by_designation` edition-aware,
+   so that two editions of the same designation are recognized as two separate
+   `Document`s — without changing the existing behavior for
+   adapters/callers without an edition concept (EUR-Lex, BAuA, unqualified
+   predecessor references).
+3. When a new edition is recognized, automatically adopt the correct `work_id`
+   and create a `REPLACES` edge to the previous edition —
+   so that a new DGUV edition is immediately a real, discoverable
+   edition change, not just a new, isolated Document.
 
-## Nicht-Ziele
+## Non-goals
 
-- **Kein Backfill** für bereits ingestierte Daten — nur Dev/Test-
-  Datenbankstand, kein Produktivbestand zu berücksichtigen.
-- **Keine Edition-Befüllung für EUR-Lex/BAuA.** EUR-Lex braucht sie nicht
-  (Edition schon in der Designation kodiert); BAuA hat keine
-  Editionswechsel-Erkennung und bleibt unverändert.
-- **Kein genereller Fix für eine mögliche eigene Edition-Blindheit von
-  BAuA** — BAuA ist von der gesamten Editionswechsel-Erkennung
-  ausgeschlossen (siehe Vorprojekt-Spec), dieses Teilprojekt ändert daran
-  nichts.
-- **Keine Änderung an der bestehenden Inkrafttreten-Abschnitt-Erkennung**
-  (`_extract_predecessor_reference`) — die läuft unverändert weiter für
-  den Fall eines Vorgängers mit *anderer* Designation (Freitext-Alttitel
-  oder moderne Designation eines anderen Regelwerks). Der neue
-  Auto-REPLACES-Mechanismus in diesem Teilprojekt ist ein zusätzlicher,
-  unabhängiger Pfad für den Fall *gleicher* Designation, andere Edition.
+- **No backfill** for already ingested data — only a dev/test
+  database state, no production collection to take into account.
+- **No edition population for EUR-Lex/BAuA.** EUR-Lex does not need it
+  (edition already encoded in the designation); BAuA has no
+  edition change detection and stays unchanged.
+- **No general fix for a possible edition blindness of BAuA's own** —
+  BAuA is excluded from the entire edition change detection
+  (see the predecessor project's spec); this sub-project changes nothing about
+  that.
+- **No change to the existing Inkrafttreten section detection**
+  (`_extract_predecessor_reference`) — it keeps running unchanged for
+  the case of a predecessor with a *different* designation (free-text old title
+  or modern designation of a different standard). The new
+  auto-REPLACES mechanism in this sub-project is an additional,
+  independent path for the case of the *same* designation, different edition.
 
-## Architektur
+## Architecture
 
-### 1. `RawRecord` bekommt ein neues Feld
+### 1. `RawRecord` gets a new field
 
 `core/src/normly_core/pipeline/domain.py`, `RawRecord` (frozen dataclass):
-neues optionales Feld `edition: str | None = None`. Generischer Kanal —
-jeder Adapter kann ihn befüllen, nur DGUV tut es vorerst.
+new optional field `edition: str | None = None`. A generic channel —
+every adapter can populate it, only DGUV does so for now.
 
-### 2. DGUV erfasst das Ausgabedatum wirklich
+### 2. DGUV really captures the issue date
 
 `core/src/normly_core/pipeline/adapters/dguv.py`: `_ISSUE_DATE_PREFIX`
-bekommt eine Capture-Group um den Datumsteil. Diese wird in `_fetch_file`
-(nicht nur in der bestehenden `_is_publication_title_line`-Heuristik)
-angewendet, das gematchte Datum ISO-normalisiert (`"2013-11-01"`) und als
-`RawRecord.edition` gesetzt. Fehlt das "vom `<Datum>`"-Muster (z. B. eine
-Publikation ohne dieses Feld), bleibt `edition=None` — kein Fehler.
+gets a capture group around the date part. It is applied in `_fetch_file`
+(not just in the existing `_is_publication_title_line` heuristic);
+the matched date is ISO-normalized (`"2013-11-01"`) and set as
+`RawRecord.edition`. If the "vom `<date>`" pattern is missing (e.g. a
+publication without this field), `edition=None` remains — no error.
 
-### 3. `find_by_designation` wird editions-bewusst
+### 3. `find_by_designation` becomes edition-aware
 
-`DocumentRepository.find_by_designation` (Protocol in `domain.py`) bekommt
-einen neuen optionalen Parameter: `edition: str | None = None`.
+`DocumentRepository.find_by_designation` (Protocol in `domain.py`) gets
+a new optional parameter: `edition: str | None = None`.
 
-- Mit gesetzter `edition`: exaktes Matching auf
+- With `edition` set: exact matching on
   `(issuer, designation, edition)`.
-- Ohne `edition` (Default, deckt jeden bestehenden Aufrufer ab): liefert
-  weiterhin `Document | None`, aber jetzt deterministisch — bei mehreren
-  Editionen derselben Designation die **neueste** (nach `created_at`
-  absteigend sortiert, `LIMIT 1`), statt eines unspezifizierten Treffers.
-  Für Designationen mit nur einer Edition (der heutige Normalfall für
-  EUR-Lex/BAuA und für DGUV vor diesem Teilprojekt) ändert sich nichts am
-  Ergebnis.
+- Without `edition` (the default, covers every existing caller): still returns
+  `Document | None`, but now deterministically — with several
+  editions of the same designation, the **newest** one (sorted by `created_at`
+  descending, `LIMIT 1`), instead of an unspecified hit.
+  For designations with only one edition (today's normal case for
+  EUR-Lex/BAuA and for DGUV before this sub-project), nothing changes in the
+  result.
 
-Beide bestehenden Aufrufer (`identity.resolve()`, `references.
-extract_references()`) rufen weiterhin ohne `edition`-Argument auf, außer
-`identity.resolve()` selbst (siehe Punkt 4).
+Both existing callers (`identity.resolve()`, `references.
+extract_references()`) keep calling without an `edition` argument, except
+`identity.resolve()` itself (see item 4).
 
-### 4. `identity.resolve()` erkennt Editionswechsel
+### 4. `identity.resolve()` recognizes edition changes
 
-`core/src/normly_core/pipeline/identity.py`: wenn `record.edition` gesetzt
-ist, ruft `resolve()` zuerst `find_by_designation(issuer, designation,
-edition=record.edition)` auf:
+`core/src/normly_core/pipeline/identity.py`: if `record.edition` is set,
+`resolve()` first calls `find_by_designation(issuer, designation,
+edition=record.edition)`:
 
-- Treffer → wie heute, `is_new=False` (exakte Re-Ingestion derselben
-  Edition).
-- Kein Treffer, aber `find_by_designation(issuer, designation)` (ohne
-  Edition, liefert die neueste vorhandene Edition) findet trotzdem etwas
-  → **neue Edition erkannt**: `is_new=True`, plus ein neues Feld auf
+- Hit → as today, `is_new=False` (exact re-ingestion of the same
+  edition).
+- No hit, but `find_by_designation(issuer, designation)` (without
+  edition, returns the newest existing edition) still finds something
+  → **new edition recognized**: `is_new=True`, plus a new field on
   `IdentityResolution`: `previous_edition_document_id: uuid.UUID | None`,
-  gesetzt auf das gefundene (jetzt vorherige) Document.
-- Kein Treffer überhaupt → `is_new=True`,
-  `previous_edition_document_id=None` (echtes Erstauftreten dieser
-  Designation, wie heute).
+  set to the Document found (now the previous one).
+- No hit at all → `is_new=True`,
+  `previous_edition_document_id=None` (a genuine first occurrence of this
+  designation, as today).
 
-Ist `record.edition` nicht gesetzt (EUR-Lex, BAuA, DGUV-Publikationen
-ohne erkennbares Datum), verhält sich `resolve()` exakt wie heute —
-keine Verhaltensänderung für diese Fälle.
+If `record.edition` is not set (EUR-Lex, BAuA, DGUV publications
+without a recognizable date), `resolve()` behaves exactly as today —
+no behavior change for these cases.
 
-### 5. Runner: Work-Übernahme + Auto-REPLACES-Kante
+### 5. Runner: work adoption + auto-REPLACES edge
 
-`core/src/normly_core/pipeline/runner.py`: wenn
-`result.previous_edition_document_id` gesetzt ist,
+`core/src/normly_core/pipeline/runner.py`: if
+`result.previous_edition_document_id` is set,
 
-- wird das neue Document direkt mit `work_id` der vorherigen Edition
-  angelegt (nicht über die RawReference-basierte
-  `work_assignment.determine_work_assignment`-Maschinerie — die
-  Editionskette *ist* per Definition dasselbe Regelwerk, kein
-  Mehrdeutigkeitsfall),
-- wird zusätzlich eine echte `REPLACES`-Kante vom neuen zum vorherigen
-  Document über `edge_repo.create_edge(...)` angelegt (derselbe
-  Mechanismus, den `references.py` für RawReference-basierte Kanten
-  nutzt; `create_edge`s bestehende Dedup-Logik verhindert doppelte Kanten,
-  falls die Inkrafttreten-Erkennung dieselbe Verbindung zusätzlich findet).
+- the new Document is created directly with the `work_id` of the previous edition
+  (not via the RawReference-based
+  `work_assignment.determine_work_assignment` machinery — the
+  edition chain *is* by definition the same standard, not an
+  ambiguity case),
+- additionally a real `REPLACES` edge from the new to the previous
+  Document is created via `edge_repo.create_edge(...)` (the same
+  mechanism that `references.py` uses for RawReference-based edges;
+  `create_edge`'s existing dedup logic prevents duplicate edges
+  if the Inkrafttreten detection additionally finds the same connection).
 
-Dieser Pfad läuft unabhängig von, und zusätzlich zu, der bestehenden
-`_extract_predecessor_reference`/`references.extract_references`-Kette.
+This path runs independently of, and in addition to, the existing
+`_extract_predecessor_reference`/`references.extract_references` chain.
 
-### 6. DB-Migration
+### 6. Database migration
 
-Neue Alembic-Migration: Unique-Constraint
-`uq_designation_issuer_designation` auf `DocumentDesignationORM` von
-`(issuer, designation)` auf `(issuer, designation, edition)` erweitert.
-Reine Schema-Änderung ohne Backfill (nur Dev/Test-Stand, per
-Nutzerentscheidung bestätigt).
+New Alembic migration: unique constraint
+`uq_designation_issuer_designation` on `DocumentDesignationORM` extended from
+`(issuer, designation)` to `(issuer, designation, edition)`.
+A pure schema change without backfill (only a dev/test state, confirmed by
+owner decision).
 
 ## Tests
 
-- `identity.py`: neuer Test für "gleiche `(issuer, designation)`, andere
-  Edition, anderer `content_hash`" → `is_new=True`,
-  `previous_edition_document_id` korrekt gesetzt. Bestehender Test für
-  "keine Edition" bleibt unverändert grün (Regressionsschutz).
-- `find_by_designation`: neuer Test für "mehrere Editionen, kein
-  Edition-Parameter → liefert neueste"; bestehende edition-lose Aufrufe
-  bleiben unverändert grün.
-- DGUV-Adapter: neuer Test, dass das "vom `<Datum>`"-Datum korrekt als
-  ISO-normalisiertes `RawRecord.edition` ankommt; Grenzfall ohne
-  erkennbares Datum → `edition=None`, kein Fehler.
-- End-to-End: zwei DGUV-PDFs mit identischer Designation, unterschiedlicher
-  Edition, real durch die Pipeline — prüft neues Document, `work_id`
-  identisch zur vorherigen Edition, echte `REPLACES`-Kante zwischen
-  beiden.
-- Migrationstest: bestätigt, dass der erweiterte Constraint zwei
-  Editionen derselben Designation als getrennte `DocumentDesignation`-
-  Zeilen zulässt.
-- Kein Regressionsrisiko für EUR-Lex/BAuA-Tests — deren Aufrufe bleiben
-  edition-los, ihr beobachtbares Verhalten ändert sich nicht.
+- `identity.py`: new test for "same `(issuer, designation)`, different
+  edition, different `content_hash`" → `is_new=True`,
+  `previous_edition_document_id` set correctly. The existing test for
+  "no edition" stays green unchanged (regression protection).
+- `find_by_designation`: new test for "several editions, no
+  edition parameter → returns the newest"; existing edition-less calls
+  stay green unchanged.
+- DGUV adapter: new test that the "vom `<date>`" date arrives correctly as an
+  ISO-normalized `RawRecord.edition`; edge case without a
+  recognizable date → `edition=None`, no error.
+- End-to-end: two DGUV PDFs with an identical designation, different
+  edition, really run through the pipeline — checks the new Document, `work_id`
+  identical to the previous edition, a real `REPLACES` edge between
+  the two.
+- Migration test: confirms that the extended constraint allows two
+  editions of the same designation as separate `DocumentDesignation`
+  rows.
+- No regression risk for the EUR-Lex/BAuA tests — their calls stay
+  edition-less; their observable behavior does not change.

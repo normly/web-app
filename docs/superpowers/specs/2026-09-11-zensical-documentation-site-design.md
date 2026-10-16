@@ -1,78 +1,78 @@
-# Design: Dokumentations-Site mit Zensical
+# Design: Documentation site with Zensical
 
-## Kontext
+## Context
 
-Ein funktionierendes mkdocs + mkdocstrings + Material-Theme-Setup für die
-Code-Referenzdokumentation existiert bereits auf dem Branch
-`claude/normly-documentation-structure-3zs7i0` (Commit `7f8a1ea`,
-27.08.2026) — lokal und auf GitHub, aber bewusst nicht gemergt. Der Branch
-ist gegen aktuelles `main` ca. 27.9k Zeilen im Rückstand (er kennt z. B.
-`frontend/tests/` noch nicht) und war laut eigenem Commit selbst
-unvollständig (OpenAPI-Referenzgenerierung und STACKIT/Forgejo-
-Pipeline-Anbindung fehlten).
+A working mkdocs + mkdocstrings + Material theme setup for the
+code reference documentation already exists on the branch
+`claude/normly-documentation-structure-3zs7i0` (commit `7f8a1ea`,
+27.08.2026) — locally and on GitHub, but deliberately not merged. The branch
+is about 27.9k lines behind current `main` (for example, it does not yet know
+`frontend/tests/`) and, according to its own commit, was itself
+incomplete (OpenAPI reference generation and the STACKIT/Forgejo
+pipeline integration were missing).
 
-Zwischenzeitlich hat das mkdocs-material-Team [Zensical](https://zensical.org/)
-als Nachfolgeprojekt angekündigt; Material for MkDocs ist seit Anfang 2026
-im Wartungsmodus, neue Feature-Arbeit fließt in Zensical. Der
-mkdocstrings-Autor ist Teil des Zensical-Teams; Zensical unterstützt
-mkdocstrings bereits. Zensical hat zusätzlich eine Kompatibilitätsschicht,
-die bestehende `mkdocs.yml`-Konfigurationen einliest — die ist aber für die
-Migration *bestehender* mkdocs-Projekte gedacht. Da hier neu aufgebaut
-wird, nutzt dieses Projekt die native `zensical.toml`-Konfiguration statt
-der Kompatibilitätsschicht.
+In the meantime, the mkdocs-material team has announced [Zensical](https://zensical.org/)
+as a successor project; Material for MkDocs has been in maintenance mode
+since early 2026, and new feature work goes into Zensical. The
+mkdocstrings author is part of the Zensical team; Zensical already supports
+mkdocstrings. Zensical additionally has a compatibility layer
+that reads existing `mkdocs.yml` configurations — but it is meant for the
+migration of *existing* mkdocs projects. Since this is being built
+from scratch, this project uses the native `zensical.toml` configuration instead of
+the compatibility layer.
 
-**Entscheidung (bereits getroffen, 01.09.2026):** Der alte Branch wird
-nicht reaktiviert, gemergt oder rebased. Stattdessen wird die
-Dokumentations-Site frisch gegen aktuelles `main` mit Zensical aufgebaut.
-Der alte Branch dient nur als Ideen- und Textquelle.
+**Decision (already made, 01.09.2026):** The old branch is
+not reactivated, merged or rebased. Instead, the
+documentation site is built fresh against current `main` with Zensical.
+The old branch serves only as a source of ideas and text.
 
-Auf `docs/adr/` und `docs/srs/` liegen bereits aktuelle, gepflegte Inhalte
-(ein konsolidiertes ADR-Dokument statt nummerierter Einzeldateien wie im
-alten Branch; die SRS-Kapitel 01–06 einzeln). Diese müssen nicht neu
-geschrieben werden, nur in die Site-Navigation eingehängt werden.
+`docs/adr/` and `docs/srs/` already hold current, maintained content
+(one consolidated ADR document instead of numbered individual files as in the
+old branch; the SRS chapters 01–06 individually). These do not need to be
+rewritten, only hooked into the site navigation.
 
-Auf der Website (separates Repo `normly-website`) verweisen die
-"Dokumentation"/"API-Referenz"-Links auf der Startseite aktuell auf
-Platzhalter — dieses Projekt löst diese Platzhalter ein.
+On the website (separate repo `normly-website`), the
+"Documentation"/"API reference" links on the home page currently point to
+placeholders — this project redeems these placeholders.
 
-## Ziel dieses Projekts
+## Goal of this project
 
-1. Eine mit Zensical gebaute, statische Dokumentations-Site mit derselben
-   Struktur wie der alte Branch: Home, Guide, Concepts, Architecture
-   decisions, Requirements (SRS), Code-Referenz, Glossar.
-2. Guide- und Concepts-Texte aus dem alten Branch als Basis übernommen,
-   aber Zeile für Zeile gegen aktuelles `main` (README.md, CLAUDE.md,
-   `docs/adr/README.md`) geprüft und korrigiert.
-3. `docs/adr/` und `docs/srs/` unverändert in die Nav eingehängt.
-4. Code-Referenz per mkdocstrings aus den Docstrings von `core`, `api`,
-   `accounts`, `chat` generiert — eine Seite pro Package, wie im alten
-   Branch.
-5. Ein neuer CI-Job (`test-docs` in `.forgejo/workflows/ci.yml`), der die
-   Site baut. **Nachtrag aus der Umsetzung:** `--strict` musste wieder
-   verworfen werden — siehe „Warum kein `--strict`" weiter unten.
-6. Ein als Entwurf markierter, nicht in CI eingebundener Dockerfile-Vorschlag
-   als Anhang dieser Spec, für ein späteres eigenständiges
-   Container/Deployment-Teilprojekt.
+1. A static documentation site built with Zensical, with the same
+   structure as the old branch: Home, Guide, Concepts, Architecture
+   decisions, Requirements (SRS), code reference, glossary.
+2. Guide and Concepts texts taken over from the old branch as the basis,
+   but checked and corrected line by line against current `main` (README.md, CLAUDE.md,
+   `docs/adr/README.md`).
+3. `docs/adr/` and `docs/srs/` hooked into the nav unchanged.
+4. Code reference generated via mkdocstrings from the docstrings of `core`, `api`,
+   `accounts`, `chat` — one page per package, as in the old
+   branch.
+5. A new CI job (`test-docs` in `.forgejo/workflows/ci.yml`) that builds the
+   site. **Addendum from the implementation:** `--strict` had to be
+   dropped again — see "Why no `--strict`" further below.
+6. A Dockerfile proposal marked as a draft and not wired into CI,
+   as an appendix to this spec, for a later, standalone
+   container/deployment sub-project.
 
-## Nicht-Ziele
+## Non-goals
 
-- **Kein Container-Image, kein Registry-Push, keine Signierung.** Im Repo
-  existiert aktuell für keinen Service ein Dockerfile — das wäre
-  Infrastrukturarbeit, die über dieses Projekt hinausgeht und eigene
-  Entscheidungen braucht (Basis-Image, Signierung, Versionierung des
-  Doku-Standes analog ADR-010). Der CI-Job dieses Projekts baut die Site
-  nur und prüft sie; er veröffentlicht nichts.
-- **Keine Mehrsprachigkeit.** CLAUDE.md sieht sie langfristig vor, aber
-  die Site startet einsprachig Deutsch, wie der alte Branch.
-- **Kein OpenAPI-Referenz-Rendering.** War schon im alten Branch
-  Folgearbeit und bleibt es.
-- **Keine neuen ADR-/SRS-Inhalte.** Nur Verlinkung des Bestehenden.
+- **No container image, no registry push, no signing.** Currently no
+  Dockerfile exists in the repo for any service — that would be
+  infrastructure work that goes beyond this project and needs decisions of its own
+  (base image, signing, versioning of the
+  documentation state analogous to ADR-010). This project's CI job only builds
+  and checks the site; it publishes nothing.
+- **No multilingual support.** CLAUDE.md provides for it in the long term, but
+  the site starts out monolingual German, like the old branch.
+- **No OpenAPI reference rendering.** Was already follow-up work in the old branch
+  and remains so.
+- **No new ADR/SRS content.** Only linking of what exists.
 
-## Architektur
+## Architecture
 
-Root-level `zensical.toml` mit `docs_dir = "docs"`. Das ist bewusst
-derselbe Ordner, in dem `docs/adr/` und `docs/srs/` bereits liegen — kein
-Kopieren nötig.
+A root-level `zensical.toml` with `docs_dir = "docs"`. This is deliberately
+the same folder in which `docs/adr/` and `docs/srs/` already live — no
+copying needed.
 
 ```
 docs/
@@ -95,23 +95,23 @@ docs/
 zensical.toml                 # neu, root-level
 ```
 
-`docs/superpowers/` (interne Pläne/Specs, inkl. dieser Datei) wird nicht in
-`nav` eingetragen. Zensical hat aktuell **keine** Exclude-Option (laut
-eigener Kompatibilitätsliste sind `exclude_docs`, `not_in_nav` und
-`draft_docs` "not yet supported") — ob nicht in `nav` gelistete Dateien
-unter `docs_dir` trotzdem mitgebaut und unter ihrer Pfad-URL erreichbar
-sind, wird in der ersten Implementierungsaufgabe per Build-Probe geklärt.
-Falls ja: bewusst akzeptiert, kein Workaround (z. B. `docs_dir` auf einen
-Unterordner verengen und `adr/`/`srs/` dorthin duplizieren) — das gesamte
-Repository inklusive `docs/superpowers/` ist über STACKIT Git ohnehin
-öffentlich einsehbar, eine zusätzliche unverlinkte Seite auf der Doku-Site
-ist kein neues Datenschutz- oder Geheimhaltungsproblem, nur potenziell
-unaufgeräumt. Wird nur zum Thema, wenn es tatsächlich stört.
+`docs/superpowers/` (internal plans/specs, incl. this file) is not entered in
+`nav`. Zensical currently has **no** exclude option (according to
+its own compatibility list, `exclude_docs`, `not_in_nav` and
+`draft_docs` are "not yet supported") — whether files not listed in `nav`
+under `docs_dir` are built anyway and reachable under their path URL
+is clarified in the first implementation task via a build probe.
+If so: deliberately accepted, no workaround (e.g. narrowing `docs_dir` to a
+subfolder and duplicating `adr/`/`srs/` there) — the entire
+repository including `docs/superpowers/` is publicly viewable via STACKIT Git
+anyway; an additional unlinked page on the documentation site
+is no new data protection or confidentiality problem, only potentially
+untidy. Becomes an issue only if it actually gets in the way.
 
-### Code-Referenz
+### Code reference
 
-Eine Seite pro Package mit `show_submodules: true`, wie im alten Branch.
-Nach dem bekannten mkdocstrings-Zensical-Format:
+One page per package with `show_submodules: true`, as in the old branch.
+Following the known mkdocstrings Zensical format:
 
 ```toml
 [project.plugins.mkdocstrings.handlers.python]
@@ -123,44 +123,44 @@ show_source = true
 docstring_style = "google"
 ```
 
-Keine feinere Granularität (eine Seite pro Modul) — bei der aktuellen
-Package-Größe unnötige Komplexität (YAGNI). Kann nachgezogen werden, wenn
-einzelne Package-Seiten unübersichtlich werden.
+No finer granularity (one page per module) — unnecessary complexity at the current
+package size (YAGNI). Can be added later if
+individual package pages become hard to navigate.
 
-mkdocstrings' Python-Handler **importiert** die Module tatsächlich, um
-Docstrings zu extrahieren (reines Pfad-Referenzieren reicht nicht). Das
-heißt, alle vier Packages müssen zur Build-Zeit installiert sein, samt
-ihrer Laufzeitabhängigkeiten (SQLAlchemy, FastAPI, Docling,
+mkdocstrings' Python handler actually **imports** the modules in order to
+extract docstrings (merely referencing the path is not enough). This
+means all four packages must be installed at build time, together with
+their runtime dependencies (SQLAlchemy, FastAPI, Docling,
 sentence-transformers, …).
 
-### Fonts: kein Google Fonts
+### Fonts: no Google Fonts
 
-Das Material-Theme lädt standardmäßig Web-Fonts von Google Fonts — auch
-beim Build ein Aufruf an einen US-Dienst, verboten laut CLAUDE.md ("Keine
-US-Dienste für Betrieb, **Build**, Daten, Secrets oder Deployment"). Der
-genaue Theme-Schlüssel zum Abschalten ist zum Zeitpunkt dieser Spec nicht
-verifiziert; verbindlich ist das Ergebnis, nicht der Weg dahin: der
-gebaute `site/`-Ordner darf **keine** Referenz auf `fonts.googleapis.com`
-oder `fonts.gstatic.com` enthalten (per Grep geprüft, siehe Plan). System-
-Font-Stack verwenden — konsistent mit dem Frontend, das aus demselben
-Grund ebenfalls keine Google Fonts lädt.
+By default, the Material theme loads web fonts from Google Fonts — even
+at build time a call to a US service, forbidden by CLAUDE.md ("No
+US services for operations, **build**, data, secrets or deployment", wording at the time). The
+exact theme key for switching this off is not verified at the time of this spec;
+what is binding is the result, not the way there: the
+built `site/` folder must contain **no** reference to `fonts.googleapis.com`
+or `fonts.gstatic.com` (checked via grep, see the plan). Use a system
+font stack — consistent with the frontend, which for the same
+reason does not load Google Fonts either.
 
-## Inhalte im Detail
+## Content in detail
 
-| Seite | Vorgehen |
+| Page | Approach |
 |---|---|
-| `index.md` | Text aus altem Branch übernehmen, dann gegen `README.md` prüfen. **Muss korrigiert werden:** GitHub-Link (`github.com/sn4kez/normly-app`) raus — ADR-019 friert die GitHub-Fassade ein, keine neuen Verweise darauf. |
-| `guide/getting-started.md` | Text aus altem Branch übernehmen, gegen aktuellen Stand prüfen. Ehrlich bleiben: weiterhin keine lauffähige Version, kein Public-Access — Platzhalter-Charakter wo zutreffend beibehalten. |
-| `guide/self-hosting.md` | Text aus altem Branch übernehmen, gegen aktuelle Compose-/Deployment-Doku prüfen (`ADR-010`). |
-| `concepts/norm-graph.md` | Gegen ADR-008 ("Graph zuerst") in `docs/adr/README.md` prüfen. |
-| `concepts/license-model.md` | Gegen ADR-002/-011/-014 und die aktuelle Kategorien-Tabelle (A–D) aus CLAUDE.md prüfen. |
-| `glossary.md` | Text aus altem Branch übernehmen, auf neue Begriffe seit 27.08. prüfen (z. B. Normtracker-Begriffe). |
-| `adr/README.md`, `srs/*.md` | Unverändert, nur in `nav:` eintragen. |
+| `index.md` | Take over the text from the old branch, then check against `README.md`. **Must be corrected:** remove the GitHub link (`github.com/sn4kez/normly-app`) — ADR-019 freezes the GitHub facade, no new references to it. |
+| `guide/getting-started.md` | Take over the text from the old branch, check against the current state. Stay honest: still no runnable version, no public access — keep the placeholder character where applicable. |
+| `guide/self-hosting.md` | Take over the text from the old branch, check against the current Compose/deployment documentation (`ADR-010`). |
+| `concepts/norm-graph.md` | Check against ADR-008 ("graph first") in `docs/adr/README.md`. |
+| `concepts/license-model.md` | Check against ADR-002/-011/-014 and the current category table (A–D) from CLAUDE.md. |
+| `glossary.md` | Take over the text from the old branch, check for new terms since 27.08. (e.g. Normtracker terms). |
+| `adr/README.md`, `srs/*.md` | Unchanged, only enter them in `nav:`. |
 
 ## CI
 
-Neuer Job `test-docs` in `.forgejo/workflows/ci.yml`, analog zu den
-bestehenden Jobs:
+A new job `test-docs` in `.forgejo/workflows/ci.yml`, analogous to the
+existing jobs:
 
 ```yaml
 test-docs:
@@ -175,60 +175,60 @@ test-docs:
     - run: zensical build
 ```
 
-`libgl1` wird gebraucht, weil das Importieren von `normly_core` Docling
-mitzieht (siehe `test-core`-Job).
+`libgl1` is needed because importing `normly_core` pulls in Docling
+(see the `test-core` job).
 
-Paketname (`pip install zensical`) und Befehl (`zensical build`) sind
-recherchiert (siehe [zensical.org/docs/get-started](https://zensical.org/docs/get-started/)),
-aber nicht in diesem Repo getestet — die erste Implementierungsaufgabe
-verifiziert das gegen die dann aktuelle Zensical-Version, bevor der Rest
-des Projekts darauf aufbaut.
+The package name (`pip install zensical`) and command (`zensical build`) are
+researched (see [zensical.org/docs/get-started](https://zensical.org/docs/get-started/)),
+but not tested in this repo — the first implementation task
+verifies this against the then-current Zensical version before the rest
+of the project builds on it.
 
-### Warum kein `--strict`
+### Why no `--strict`
 
-Ursprünglich vorgesehen, damit kaputte interne Links und fehlende
-Docstring-Ziele den CI-Job fehlschlagen lassen statt unbemerkt zu bleiben.
-In der Umsetzung (Task 5/6) zeigte sich: `--strict` bricht mit einem
-unbehandelten Python-Traceback ab, sobald irgendeine Datei unter `docs_dir`
-eine Warnung erzeugt — auch Dateien, die nie in `nav` stehen (Zensical baut
-laut eigener Kompatibilitätsliste ohnehin alles unter `docs_dir`, siehe
-oben). Zwei Ursachen wurden gefunden und einzeln beurteilt:
+Originally planned, so that broken internal links and missing
+docstring targets make the CI job fail instead of going unnoticed.
+During implementation (Task 5/6) it turned out: `--strict` aborts with an
+unhandled Python traceback as soon as any file under `docs_dir`
+produces a warning — including files that are never in `nav` (according to its own
+compatibility list, Zensical builds everything under `docs_dir` anyway, see
+above). Two causes were found and assessed individually:
 
-- **32 echte, kaputte Anker in `docs/srs/README.md`** (deutsche Umlaute im
-  Anker-Fragment, die Zensicals Slugifizierung entfernt — z. B. erzeugt die
-  Überschrift „…WCAG-Konformität" die ID `...wcag-konformitat`, nicht
-  `...wcag-konformität`). Das war ein echter, vorbestehender Bug im
-  Requirements-Index, unabhängig von diesem Projekt — behoben in einem
-  eigenen Commit (`fix(srs): strip diacritics from requirement anchor
-  links`), 32 gezielte Ersetzungen, Titel/Text unangetastet.
-- **3 unlösbare Fehlalarme in `docs/superpowers/specs/*.md`** — diese
-  Dateien nutzen `[[repo/pfad.md]]`-Wikilink-Notation für lose Querverweise
-  zwischen Planungsdokumenten (dieselbe Konvention wie im Memory-System),
-  nie als echter Hyperlink gedacht. Die Zieldateien existieren; Zensical
-  versucht trotzdem, `[[...]]` als Link aufzulösen, und scheitert an der
-  Pfadauflösung. Das zu beheben hieße, eine projektweite, von diesem
-  Projekt unabhängige Konvention zu ändern — außerhalb des Scopes.
+- **32 real, broken anchors in `docs/srs/README.md`** (German umlauts in the
+  anchor fragment, which Zensical's slugification removes — e.g. the
+  heading „…WCAG-Konformität" (i.e. WCAG conformance) produces the ID `...wcag-konformitat`, not
+  `...wcag-konformität`). This was a real, pre-existing bug in the
+  requirements index, independent of this project — fixed in a
+  separate commit (`fix(srs): strip diacritics from requirement anchor
+  links`), 32 targeted replacements, titles/text untouched.
+- **3 unresolvable false alarms in `docs/superpowers/specs/*.md`** — these
+  files use `[[repo/pfad.md]]` wikilink notation for loose cross-references
+  between planning documents (the same convention as in the memory system),
+  never intended as a real hyperlink. The target files exist; Zensical
+  nevertheless tries to resolve `[[...]]` as a link and fails at the
+  path resolution. Fixing that would mean changing a project-wide convention
+  independent of this project — out of scope.
 
-Mit den 32 echten Fehlern behoben, aber den 3 Fehlalarmen weiterhin
-vorhanden, bleibt `--strict` dauerhaft rot. Menschliche Entscheidung: kein
-`--strict`, dafür gezielte Grep-/Anker-Prüfungen für die neuen Seiten
-(bereits Teil jeder einzelnen Content-Aufgabe im Plan).
+With the 32 real errors fixed, but the 3 false alarms still
+present, `--strict` stays permanently red. Human decision: no
+`--strict`; instead, targeted grep/anchor checks for the new pages
+(already part of every single content task in the plan).
 
-## Fehlerbehandlung
+## Error handling
 
-- Ein grüner `zensical build` (ohne `--strict`) in CI ist die Prüfung, dass
-  die Site überhaupt baut. Die einzelnen Content-Aufgaben im Plan prüfen
-  zusätzlich gezielt (Grep auf erwarteten Inhalt, Anker-Auflösung gegen die
-  tatsächlich gebauten Seiten) — das deckt kaputte Links in neuem Content
-  ab, ohne an den 3 vorbestehenden Fehlalarmen zu scheitern.
-- Kein Linting von Prosa-Inhalten (Rechtschreibung o. Ä.) — außerhalb des
-  Scopes.
+- A green `zensical build` (without `--strict`) in CI is the check that
+  the site builds at all. The individual content tasks in the plan additionally run
+  targeted checks (grep for expected content, anchor resolution against the
+  actually built pages) — this covers broken links in new content
+  without failing on the 3 pre-existing false alarms.
+- No linting of prose content (spelling or similar) — out of
+  scope.
 
-## Anhang: Dockerfile-Entwurf (nicht Teil dieses Projekts)
+## Appendix: Dockerfile draft (not part of this project)
 
-Unverifizierter Vorschlag für ein späteres, eigenständiges
-Container/Deployment-Teilprojekt. Nicht gebaut, nicht getestet, nicht in
-CI eingebunden — dient nur als Startpunkt für diese Folgearbeit.
+An unverified proposal for a later, standalone
+container/deployment sub-project. Not built, not tested, not wired into
+CI — serves only as a starting point for this follow-up work.
 
 ```dockerfile
 # ENTWURF -- nicht verifiziert, nicht in CI eingebunden.
@@ -246,11 +246,11 @@ FROM nginxinc/nginx-unprivileged:stable-alpine
 COPY --from=build /site/dist /usr/share/nginx/html
 ```
 
-ENTWURF-Hinweis: `--site-dir` existiert nicht in Zensical 0.0.60 —
-Ausgabeverzeichnis stattdessen über `site_dir` in zensical.toml setzen, oder
-die Standard-Ausgabe nach dem Build verschieben.
+DRAFT note: `--site-dir` does not exist in Zensical 0.0.60 —
+set the output directory via `site_dir` in zensical.toml instead, or
+move the default output after the build.
 
-Offene Fragen für den Folge-Task: Basis-Image über STACKIT-eigene
-Spiegelung statt Docker Hub beziehen (nginxinc-Image liegt auf Docker Hub
-— US-Dienst, gegen CLAUDE.md), Image-Signierung, Push-Ziel in der STACKIT
-Container Registry, Versionierung des Doku-Standes.
+Open questions for the follow-up task: obtain the base image via a STACKIT-owned
+mirror instead of Docker Hub (the nginxinc image lives on Docker Hub
+— a US service, against CLAUDE.md), image signing, push target in the STACKIT
+Container Registry, versioning of the documentation state.

@@ -1,124 +1,124 @@
-# Design: Sprachregel-Korrektur — Dokumentation auf Englisch
+# Design: Language rule correction — documentation in English
 
-## Kontext
+## Context
 
-CLAUDE.md schrieb bislang vor: „Dokumentation und Nutzeroberfläche auf
-Deutsch, Mehrsprachigkeit vorgesehen." Auf dieser Grundlage wurde die neue
-Zensical-Doku-Site (PR #30, siehe
+Until now, CLAUDE.md prescribed: "Documentation and user interface in
+German, multilingual support planned." (wording at the time). On this basis, the new
+Zensical documentation site (PR #30, see
 `docs/superpowers/plans/2026-09-11-zensical-documentation-site.md`)
-komplett auf Deutsch verfasst — inklusive einer finalen Review, die
-Nav-Beschriftungen sogar extra von Englisch auf Deutsch korrigierte, weil
-das damals die geltende Regel war.
+was written entirely in German — including a final review that
+even specifically corrected nav labels from English to German, because
+that was the rule in force at the time.
 
-Der Nutzer hat diese Regel korrigiert: Dokumentation muss zwingend
-Englisch sein. Das ist eine Umkehr der bisherigen Vorgabe, kein
-Missverständnis der alten Regel.
+The owner has corrected this rule: documentation must be in
+English, without exception. This is a reversal of the previous requirement, not a
+misunderstanding of the old rule.
 
-## Entscheidung
+## Decision
 
-**Ab sofort wird neue Dokumentation auf Englisch verfasst.** Betrifft
-`docs/`-Inhalte, Code-Referenz, Guides — nicht Code/Bezeichner/Commits
-(die waren schon vorher Englisch, CLAUDE.md änderte sich hier nicht) und
-nicht CLAUDE.md selbst (bleibt Deutsch als Arbeitsanweisung).
+**From now on, new documentation is written in English.** This concerns
+`docs/` content, code reference, guides — not code/identifiers/commits
+(those were already English before; CLAUDE.md did not change here) and
+not CLAUDE.md itself (stays German as working instructions).
 
-**Nur ab jetzt, nicht rückwirkend.** Bestehender deutscher Content wird in
-diesem Projekt nicht angefasst. Das betrifft insbesondere:
+**Only from now on, not retroactively.** Existing German content is not touched in
+this project. This concerns in particular:
 
 - `README.md`
-- `docs/adr/README.md` (ADR-001 bis ADR-019, komplett Deutsch)
-- `docs/srs/*.md` (78 Requirements, komplett Deutsch)
+- `docs/adr/README.md` (ADR-001 to ADR-019, entirely German)
+- `docs/srs/*.md` (78 requirements, entirely German)
 - `CONTRIBUTING.md`, `SECURITY.md`, `GOVERNANCE.md`, `TRADEMARK.md`,
   `CODE_OF_CONDUCT.md`
 
-Diese Migration ist ein eigenes, deutlich größeres Folgeprojekt und
-ausdrücklich **nicht** Teil dieser Spec.
+This migration is a separate, considerably larger follow-up project and
+expressly **not** part of this spec.
 
-**Die Fachbegriffs-Ausnahme bleibt bestehen, sprachunabhängig.** CLAUDE.md
-erlaubte schon vorher, deutsche Normenwesen-Begriffe zu behalten, wo es
-keine etablierte Entsprechung gibt (`Normenausschuss` als Beispiel). Das
-galt schon vorher unabhängig von der Sprache der umgebenden Doku und gilt
-jetzt genauso in englischsprachigem Fließtext (z. B. "the
-`Normenausschuss`" statt einer erfundenen Übersetzung).
+**The technical-term exception remains in place, independent of language.** CLAUDE.md
+already allowed keeping German terms from the standards domain where there is
+no established equivalent (`Normenausschuss` as an example). This
+already applied independently of the language of the surrounding documentation and now applies
+in exactly the same way in English running text (e.g. "the
+`Normenausschuss`" instead of an invented translation).
 
-**Die Nutzeroberfläche ist nicht betroffen.** Das Frontend hat bereits
-eine echte de/en-Sprachumschaltung (`LocaleProvider`,
-`frontend/src/lib/i18n/provider.tsx`) — die bleibt unverändert. Diese
-Entscheidung betrifft nur Fließtext-Dokumentation, nicht die App-UI.
+**The user interface is not affected.** The frontend already has
+a real de/en language switch (`LocaleProvider`,
+`frontend/src/lib/i18n/provider.tsx`) — it stays unchanged. This
+decision concerns only running-text documentation, not the app UI.
 
-## Nicht-Ziele
+## Non-goals
 
-- Keine rückwirkende Übersetzung von README/ADR/SRS/CONTRIBUTING/etc. —
-  eigenes Folgeprojekt.
-- Keine Änderung an CLAUDE.md's eigener Sprache (bleibt Deutsch).
-- Keine Änderung an der App-Sprachumschaltung (de/en bleibt wie sie ist).
+- No retroactive translation of README/ADR/SRS/CONTRIBUTING/etc. —
+  a separate follow-up project.
+- No change to CLAUDE.md's own language (stays German).
+- No change to the app language switch (de/en stays as it is).
 
-## Umsetzung
+## Implementation
 
-### 1. CLAUDE.md — Regeltext korrigieren
+### 1. CLAUDE.md — correct the rule text
 
-Im Abschnitt „Sprache" wird der Satz „Dokumentation und Nutzeroberfläche
-auf Deutsch, Mehrsprachigkeit vorgesehen" ersetzt durch eine Regel, die
-Dokumentation auf Englisch vorschreibt, die Fachbegriffs-Ausnahme
-unverändert übernimmt, und klarstellt, dass sich das nicht auf die
-bestehende App-Sprachumschaltung bezieht. CLAUDE.md selbst bleibt
-komplett Deutsch — nur dieser eine Regel-Absatz beschreibt jetzt eine
-andere Vorgabe als vorher.
+In the "Sprache" (Language) section, the sentence "Documentation and user interface
+in German, multilingual support planned" (wording at the time) is replaced by a rule that
+prescribes documentation in English, takes over the technical-term exception
+unchanged, and makes clear that this does not refer to the
+existing app language switch. CLAUDE.md itself stays
+entirely German — only this one rule paragraph now describes a
+different requirement than before.
 
-### 2. ADR-020 — Entscheidung dokumentieren
+### 2. ADR-020 — document the decision
 
-Neuer Eintrag in `docs/adr/README.md`, nach ADR-019, mit Status
-„beschlossen". **Auf Deutsch geschrieben**, übergangsweise — konsistent
-mit ADR-001 bis ADR-019, bis diese Datei im späteren Migrationsprojekt
-insgesamt übersetzt wird.
+A new entry in `docs/adr/README.md`, after ADR-019, with status
+"accepted". **Written in German**, as an interim measure — consistent
+with ADR-001 to ADR-019, until this file as a whole is translated in the later migration
+project.
 
-**Entscheidung:** Neue Dokumentation (docs/-Inhalte, Code-Referenz,
-Guides) wird ab sofort auf Englisch verfasst statt auf Deutsch. Nicht
-rückwirkend — bestehender deutscher Content wird nicht migriert, das ist
-ein eigenes Folgeprojekt.
+**Decision:** New documentation (docs/ content, code reference,
+guides) is written in English instead of German with immediate effect. Not
+retroactive — existing German content is not migrated; that is
+a separate follow-up project.
 
-**Begründung:** Englisch ist der De-facto-Standard für
-Open-Source-Dokumentation. Er ermöglicht internationalen Beitragenden
-Teilnahme, unabhängig vom deutschsprachigen Kernteam — passend zum
-Open-Core-Modell (ADR-001) und dem Anspruch, dass der freie Kern von
-außen mitgetragen werden kann. Die ursprüngliche Regel (Dokumentation auf
-Deutsch) stand dem im Weg.
+**Rationale:** English is the de facto standard for
+open-source documentation. It enables international contributors to
+participate, independently of the German-speaking core team — in line with the
+open-core model (ADR-001) and the aim that the free core can be
+co-sustained from outside. The original rule (documentation in
+German) stood in the way of this.
 
-**Nicht betroffen:** Code/Bezeichner/Commits waren schon vorher Englisch
-(unverändert). Die App-eigene de/en-Sprachumschaltung
-(`LocaleProvider`) ist eine Laufzeit-Funktion für Endnutzer, keine
-Projektdokumentation, und bleibt unverändert. Die Fachbegriffs-Ausnahme
-für Normenwesen-Begriffe ohne etablierte englische Entsprechung
-(z. B. `Normenausschuss`) gilt unabhängig von der Sprache weiter.
+**Not affected:** Code/identifiers/commits were already English before
+(unchanged). The app's own de/en language switch
+(`LocaleProvider`) is a runtime function for end users, not
+project documentation, and stays unchanged. The technical-term exception
+for terms from the standards domain without an established English equivalent
+(e.g. `Normenausschuss`) continues to apply regardless of the language.
 
-### 3. PR #30 — Bestehenden Doku-Site-Content auf Englisch umschreiben
+### 3. PR #30 — rewrite the existing documentation site content in English
 
-Der PR ist noch nicht gemerged — der komplette PR-Content zählt als „ab
-jetzt", nicht als Bestandsschutz. Betroffene Dateien (Branch
+The PR is not yet merged — the complete PR content counts as "from
+now on", not as protected existing content. Affected files (branch
 `docs/zensical-documentation-site`):
 
-| Datei | Vorgehen |
+| File | Approach |
 |---|---|
-| `zensical.toml` | `site_description` und alle `nav`-Beschriftungen von Deutsch auf Englisch (zurück — waren in der finalen Review kurz zuvor extra auf Deutsch korrigiert worden, das war zu dem Zeitpunkt richtig). |
-| `docs/index.md` | Übersetzen, Struktur/Links unverändert. |
-| `docs/guide/getting-started.md` | Übersetzen. |
-| `docs/guide/self-hosting.md` | Übersetzen, ADR-010-Link-Ziel bleibt unverändert (verlinkt weiterhin die deutsche ADR-Seite — das ist in Ordnung, ADR-Migration ist nicht Teil dieser Spec). |
-| `docs/concepts/norm-graph.md` | Übersetzen. |
-| `docs/concepts/license-model.md` | Übersetzen, inkl. der Kategorien-Tabelle (A–D) und des neuen ADR-014-Absatzes. |
-| `docs/glossary.md` | Übersetzen — der **Titel bleibt „Glossar"→"Glossary"**; Fachbegriffe ohne etablierte englische Entsprechung wie `Normenausschuss` folgen der Fachbegriffs-Ausnahme aus CLAUDE.md. `Referenzgraph` fällt **nicht** darunter — der Begriff hat mit „Reference graph" bereits eine etablierte englische Entsprechung, die auf den übrigen Seiten der Site (`index.md`, `norm-graph.md`, `license-model.md`) durchgängig verwendet wird, und wird entsprechend übersetzt statt als Terminus erhalten zu bleiben. |
-| `docs/reference/*.md` | **Keine Änderung** — bereits Englisch (`# normly-core`, `Reference graph data model...`, `::: normly_core`). |
+| `zensical.toml` | `site_description` and all `nav` labels from German to English (back again — they had been specifically corrected to German in the final review shortly before, which was right at that point). |
+| `docs/index.md` | Translate, structure/links unchanged. |
+| `docs/guide/getting-started.md` | Translate. |
+| `docs/guide/self-hosting.md` | Translate; the ADR-010 link target stays unchanged (still links to the German ADR page — that is fine, the ADR migration is not part of this spec). |
+| `docs/concepts/norm-graph.md` | Translate. |
+| `docs/concepts/license-model.md` | Translate, incl. the category table (A–D) and the new ADR-014 paragraph. |
+| `docs/glossary.md` | Translate — the **title goes from "Glossar" to "Glossary"**; technical terms without an established English equivalent such as `Normenausschuss` follow the technical-term exception from CLAUDE.md. `Referenzgraph` does **not** fall under it — the term already has an established English equivalent in "Reference graph", which is used consistently on the other pages of the site (`index.md`, `norm-graph.md`, `license-model.md`), and is translated accordingly instead of being kept as a term. |
+| `docs/reference/*.md` | **No change** — already English (`# normly-core`, `Reference graph data model...`, `::: normly_core`). |
 
-Nach der Übersetzung: Build erneut verifizieren (`zensical build`, die
-bekannten 3 Warnungen aus `docs/superpowers/specs/*.md` bleiben
-unverändert bestehen, keine neuen Warnungen durch die Übersetzung). Die
-zuvor verifizierten Anker-Links (ADR-008, ADR-006, ADR-002, ADR-007,
-ADR-012, ADR-011, ADR-014, ADR-010) ändern sich durch die Übersetzung
-nicht, da sie auf die (weiterhin deutsche) `docs/adr/README.md` zeigen —
-trotzdem nach der Übersetzung erneut prüfen, falls sich durch
-Textänderungen um die Links herum etwas verschoben hat.
+After the translation: verify the build again (`zensical build`; the
+known 3 warnings from `docs/superpowers/specs/*.md` remain
+unchanged, no new warnings caused by the translation). The
+previously verified anchor links (ADR-008, ADR-006, ADR-002, ADR-007,
+ADR-012, ADR-011, ADR-014, ADR-010) do not change through the translation,
+since they point to the (still German) `docs/adr/README.md` —
+check them again after the translation anyway, in case something has shifted because of
+text changes around the links.
 
-## Fehlerbehandlung
+## Error handling
 
-Kein neues Fehlerverhalten — dieselbe Verifikationsmethode wie beim
-ursprünglichen Aufbau (Build-Check + gezielte Grep-/Anker-Prüfungen pro
-Seite, siehe Originalplan). Kein `--strict` (unverändert aus dem
-Originalprojekt übernommen, dortige Begründung gilt weiter).
+No new error behavior — the same verification method as in the
+original build-out (build check + targeted grep/anchor checks per
+page, see the original plan). No `--strict` (taken over unchanged from the
+original project; the rationale given there still applies).
