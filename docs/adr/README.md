@@ -402,287 +402,285 @@ are not a secrets manager. Corrected.
 
 ---
 
-## ADR-015 — Kopierschutz: Nachverfolgbarkeit statt Verhinderung
+## ADR-015 — Copy protection: traceability instead of prevention
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Lizenzierte Volltexte werden nie als vollständige Datei
-ausgeliefert. Offline-Nutzung über verschlüsselte, an Nutzer und Gerät
-gebundene, befristete lokale Ablage. Nutzerbezogene Kennzeichnung jeder Anzeige.
-Alle drei Komponenten gehören zur **kommerziellen Schicht**, nicht zum Kern.
+**Decision:** Licensed full texts are never shipped as a complete file.
+Offline use via encrypted, time-limited local storage bound to user and
+device. User-specific marking of every display. All three components belong
+to the **commercial layer**, not to the core.
 → REQ-DRM-001…004
 
-**Begründung:** Absoluter Schutz ist bei Text nicht erreichbar — Bildschirmfoto
-plus Texterkennung liefert in Sekunden eine brauchbare Kopie. Wer das anders
-verspricht, verspricht Unhaltbares. Erreichbar und ausreichend sind:
+**Rationale:** Absolute protection is not achievable for text — a screenshot
+plus text recognition delivers a usable copy in seconds. Whoever promises
+otherwise promises the untenable. Achievable and sufficient are:
 
-1. *Keine Datei ausliefern.* Der Schaden entsteht durch weitergegebene PDFs,
-   nicht durch Lesen.
-2. *Offline trotzdem ermöglichen.* Ohne Offline-Fähigkeit bleibt die PDF-Kopie
-   für Leute auf der Baustelle praktischer — dann verfehlt der Ansatz seinen
-   Zweck.
-3. *Zurechenbarkeit.* Verhindert das Abfotografieren nicht, macht es aber
-   nachverfolgbar. Genau das ist der Mehrwert gegenüber heute, wo eine
-   kursierende PDF-Kopie keiner Quelle zuzuordnen ist.
+1. *Ship no file.* The damage arises from passed-on PDFs,
+   not from reading.
+2. *Enable offline use nonetheless.* Without offline capability, the PDF copy
+   remains more practical for people on the construction site — then the
+   approach misses its purpose.
+3. *Attributability.* Does not prevent photographing the screen, but makes it
+   traceable. That is exactly the added value compared to today, where a
+   circulating PDF copy cannot be attributed to any source.
 
-**Warum kommerzielle Schicht:** Ein Schutzmechanismus mit offenliegendem
-Quellcode ist kein Schutz — die Umgehung wäre direkt ablesbar. Das ist der
-einzige Punkt, an dem AGPL und Kopierschutz wirklich kollidieren; die Trennung
-löst ihn. Frei verfügbare Inhalte unterliegen den Beschränkungen ohnehin nicht.
+**Why the commercial layer:** A protection mechanism with exposed
+source code is no protection — the circumvention could be read off directly. That is the
+only point at which the AGPL and copy protection truly collide; the separation
+resolves it. Freely available content is not subject to the restrictions anyway.
 
-**Verhandlungsargument:** normly verdrängt illegale Kopien nicht durch besseren
-Schutz, sondern durch **besseren Zugang.** Eine durchsuchbare, verlinkte,
-offline verfügbare Norm ist nützlicher als ein herumgereichtes PDF — und
-zurückverfolgbar.
+**Negotiating argument:** normly does not displace illegal copies through better
+protection, but through **better access.** A searchable, linked norm
+available offline is more useful than a PDF passed around — and
+traceable.
 
 ---
 
-## ADR-016 — Mobil: PWA zuerst, nativ nur für lizenzierte Inhalte
+## ADR-016 — Mobile: PWA first, native only for licensed content
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Phase 0–1 ausschließlich **PWA** auf derselben Codebasis wie
-Desktop, Offline über Service Worker für freie Inhalte. **Native App ab Phase
-2/3**, ausschließlich für lizenzierte Offline-Volltexte, als Teil der
-kommerziellen Schicht. F-Droid später für den freien Client.
+**Decision:** Phases 0–1 exclusively a **PWA** on the same codebase as
+desktop, offline via service worker for free content. **Native app from phase
+2/3**, exclusively for licensed offline full texts, as part of the
+commercial layer. F-Droid later for the free client.
 → REQ-MOB-001…004
 
-**Begründung:** Der Treiber ist **nicht** das Sprachmodell, sondern der
-Kopierschutz. REQ-DRM-002 verlangt eine an Nutzer und Gerät gebundene,
-verschlüsselte lokale Ablage. Im Browser gibt es keinen Ort, an dem ein
-Schlüssel geschützt liegen könnte — IndexedDB ist einsehbar. Native Plattformen
-bieten Keychain bzw. Keystore, teils hardwaregestützt, dazu `FLAG_SECURE` gegen
-Screenshots unter Android.
+**Rationale:** The driver is **not** the language model but
+copy protection. REQ-DRM-002 requires encrypted local storage bound to
+user and device. In the browser there is no place where a
+key could be kept protected — IndexedDB is inspectable. Native platforms
+offer Keychain and Keystore respectively, partly hardware-backed, plus `FLAG_SECURE` against
+screenshots on Android.
 
-Damit fällt die Grenze PWA/nativ mit der Grenze frei/kommerziell zusammen.
+The PWA/native boundary thus coincides with the free/commercial boundary.
 
-**Lizenzkonflikt gelöst:** Die Nutzungsbedingungen des Apple App Store gelten
-als unvereinbar mit AGPL/GPL (vgl. VLC-Entfernung). Die kommerzielle App ist
-deshalb ein **eigenständiger Client**, der nur über die Apache-2.0-spezifizierte
-API mit dem Server spricht — ein getrenntes Programm, nicht AGPL-pflichtig.
+**License conflict resolved:** The terms of use of the Apple App Store are considered
+incompatible with AGPL/GPL (cf. the removal of VLC). The commercial app is
+therefore a **separate client** that talks to the server only via the API
+specified under Apache-2.0 — a separate program, not subject to the AGPL.
 
-**F-Droid** verlangt vollständig quelloffene, reproduzierbare Builds ohne
-proprietäre Bestandteile; die DRM-Komponenten schließen die kommerzielle App
-dort aus. Für den freien Client passend — als Positionierung, nicht als
-Reichweitenkanal.
+**F-Droid** requires fully open-source, reproducible builds without
+proprietary components; the DRM components exclude the commercial app
+there. Suitable for the free client — as positioning, not as a
+channel for reach.
 
-**Korrigiert:** Kapitel 3.5.6 koppelte die native App an die Verfügbarkeit eines
-eigenen normlyLLM. Diese Kopplung war sachlich falsch.
+**Corrected:** Chapter 3.5.6 tied the native app to the availability of a
+normlyLLM of its own. This coupling was factually wrong.
 
-**Jetzt schon beachten:** Offline-Schicht hinter einer Abstraktion (REQ-MOB-003)
-— später nur mit erheblichem Aufwand nachrüstbar.
+**Take into account already now:** offline layer behind an abstraction (REQ-MOB-003)
+— can only be retrofitted later with considerable effort.
 
-**Wichtige Abgrenzung — kommerzielle Schicht ≠ kostenpflichtiger Zugang:** Die
-Zuordnung der nativen App zur kommerziellen Schicht betrifft **Eigentum,
-Lizenzierung und Wartung**, nicht den Nutzerzugang. Die App ist kostenfrei in
-den Stores, frei verfügbare Inhalte sind darin ohne Konto und ohne Entgelt
-abrufbar. Entgelte fallen ausschließlich für lizenzierte Volltexte und deren
-geschützte Offline-Bereitstellung an.
+**Important distinction — commercial layer ≠ paid access:** The
+assignment of the native app to the commercial layer concerns **ownership,
+licensing and maintenance**, not user access. The app is free of charge in
+the stores; freely available content in it is accessible without an account and without a fee.
+Fees are charged exclusively for licensed full texts and their
+protected offline provision.
 
-Gründe: Eine App, die vor der ersten Nutzung Geld verlangt, wird nicht
-installiert und nicht ausprobiert. Und die kostenlose Nutzung ist der Kanal in
-die Zielgruppe — wer auf der Baustelle eine DGUV-Regel nachschlägt, ist später
-derjenige, der im Betrieb nach einem Zugang zu den DIN-Volltexten fragt.
+Reasons: An app that asks for money before its first use is not
+installed and not tried out. And free use is the channel into
+the target group — whoever looks up a DGUV rule on the construction site is later
+the one who asks at their company for access to the DIN full texts.
 
-**Abgrenzung PWA/App:** Beide zeigen dieselben freien Inhalte. Um doppelte
-Pflege für dieselbe Nutzergruppe zu vermeiden, bleibt die PWA der Standardweg
-für Gelegenheitsnutzer; die native App wird gezielt dort beworben, wo
-Offline-Nutzung gebraucht wird.
-
----
-
-## ADR-017 — Anonyme Basisnutzung mit Kontingent statt Kontopflicht
-
-**Status:** beschlossen
-
-**Entscheidung:** Suche, Referenzgraph und frei verfügbare Inhalte sind **ohne
-Konto** nutzbar, begrenzt durch ein serverseitig gezähltes Anfragekontingent.
-Konto erforderlich für: höhere Kontingente, Verläufe und Merklisten, eigene
-Uploads, lizenzierte Inhalte, Offline-Nutzung, kostenpflichtige Dienste — die
-Aufzählung ist **abschließend**. → REQ-ACC-001…004
-
-**Begründung gegen durchgehende Kontopflicht:**
-
-- Sie ist die höchste Hürde in der Nutzerreise; wer erst ein Konto anlegen soll,
-  geht zu Google zurück.
-- Sie widerspricht „offen für jeden" — und das fällt Fördergebern und
-  Normungspartnern auf.
-- Betreiber eigener Instanzen (z. B. eine Innung) müssten eine Nutzerverwaltung
-  betreiben, nur um freie Regelwerke anzuzeigen.
-- Ohne Konto entstehen keine personenbezogenen Daten — einfachste Form der
-  Datensparsamkeit.
-
-Praktisch entstehen dadurch **mehr** Konten, nicht weniger: Wer das Produkt erst
-erlebt, meldet sich freiwillig und mit erkennbarem Gegenwert an.
-
-**Zur Sorge vor Massenextraktion über anonyme Zugänge:** Die Trennlinie ist der
-**Inhalt**, nicht der Zugangsweg. Anonym erreichbar ist ausschließlich, was
-nach REQ-PIPE-004 frei lizenzierbar ist — und das darf ohnehin jeder abziehen.
-Lizenzierte Volltexte sind anonym **strukturell** nicht erreichbar
-(REQ-PART-004 Berechtigungsprüfung, REQ-DRM-001 keine Dateiauslieferung,
-REQ-DRM-003 Kennzeichnungspflicht). Das ist keine Einstellung, sondern folgt
-aus der Architektur.
-
-**Wichtig richtig einzuordnen:** Ein Konto ist **kein** Schutz vor
-Massenextraktion — es macht sie nur zurechenbar. Auch angemeldete Nutzer können
-systematisch abziehen, und zwar mit mehr Rechten. Der eigentliche Schutz ist
-REQ-SEC-004 (Ratenbegrenzung, Anomalieerkennung, Sperrung). Ebenso ist die
-adressbasierte Kontingentzählung durch Adresswechsel umgehbar; sie dient der
-Kostenbegrenzung, nicht der Sicherheit.
-
-**Umsetzung:** Zählung serverseitig über Sitzungsmerkmal plus Herkunftsadresse,
-nicht über Cookies oder Browser-Speicher (beides in zwei Klicks zurückgesetzt).
-Gemeinsame Infrastruktur mit REQ-SEC-004 — eine Stelle statt zwei.
-
-**Verworfen:** Künstliche Verzögerung anonymer Antworten. Schadet dem Eindruck
-mehr, als sie an Kosten spart.
+**PWA/app distinction:** Both show the same free content. To avoid duplicate
+maintenance for the same user group, the PWA remains the default route
+for occasional users; the native app is promoted specifically where
+offline use is needed.
 
 ---
 
-## ADR-018 — ML-gestützte Struktur-Erkennung in der Ingestion-Pipeline (Docling)
+## ADR-017 — Anonymous base use with a quota instead of an account requirement
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Die Ingestion-Pipeline nutzt ab sofort
-[Docling](https://github.com/docling-project/docling) statt pdfplumber zur
-PDF-Extraktion, einschließlich dessen ML-gestützter Layout- und
-Tabellenstruktur-Erkennung (Standard-Pipeline: Layout-Modell + TableFormer).
-Damit wird der bisher im Ingestion-Spec explizit festgehaltene Nicht-Ziel-
-Punkt "kein generisches Dokumentenverständnis" aufgehoben.
+**Decision:** Search, reference graph and freely available content are usable **without
+an account**, limited by a request quota counted on the server side.
+Account required for: higher quotas, histories and bookmark lists, own
+uploads, licensed content, offline use, paid services — the
+list is **exhaustive**. → REQ-ACC-001…004
 
-**Begründung:** Die ersten beiden Quellen (DGUV, EUR-Lex) kommen mit
-regelbasierter Extraktion zufriedenstellend aus, aber deutlich mehr Quellen
-mit unbekannten, teils komplexeren Layouts folgen. Docling liefert dafür in
-jedem Fall eine sauberere, layoutbewusste Textsegmentierung als
-pdfplumbers reine Zeilenausgabe, sowie eine nachweislich zuverlässige
-Tabellenstruktur-Erkennung (TableFormer, gegen die echte EUR-Lex-Fixture
-verifiziert).
+**Rationale against a blanket account requirement:**
 
-**Wichtig, empirisch korrigiert:** Die ursprüngliche Erwartung, Docling
-würde Überschriften/Abschnittsstruktur für *jede* künftige Quelle
-automatisch erkennen und damit quellenspezifische Regeln überflüssig
-machen, hält nicht für schlicht formatierte Dokumente ohne optische
-Überschriften-Merkmale — bei der DGUV-Fixture kommen `§ N`-Überschriften
-als `ListItem` zurück, nicht als `SectionHeaderItem` (siehe
-`docs/superpowers/specs/2026-08-30-docling-migration-design.md`). Für
-solche Quellen bleibt die Grenzerkennung musterbasiert, jetzt angewendet
-auf Doclings sauber segmentierte Elemente statt auf rohem Text. Der
-Gewinn ist real (bessere Segmentierung, zuverlässige Tabellen, künftig
-auch Nicht-PDF-Formate ohne Zusatzaufwand), aber kleiner als ursprünglich
-erhofft — jede neue Quelle muss weiterhin empirisch gegen eine echte
-Beispieldatei geprüft werden, ob Doclings native Klassifikation für sie
-zuverlässig funktioniert.
+- It is the highest hurdle in the user journey; whoever has to create an account first
+  goes back to Google.
+- It contradicts "open to everyone" — and funders and
+  standardization partners notice that.
+- Operators of their own instances (e.g. a craft guild) would have to run user
+  management just to display free standards.
+- Without an account, no personal data arises — the simplest form of
+  data minimization.
 
-**Abgrenzung zu ADR-008:** ADR-008 verbietet den Einsatz eines
-Sprachmodells zur **Anfragezeit** für Strukturfragen — aus Kosten-, Latenz-
-und Halluzinationsgründen bei jeder einzelnen Nutzeranfrage. Diese
-Entscheidung betrifft einen anderen Zeitpunkt und eine andere Modellart:
-Doclings Layout-/Tabellenmodell läuft **einmalig zur Ingestion-Zeit**, ist
-**diskriminativ** (erkennt Struktur in vorhandenem Inhalt), nicht
-**generativ** (erfindet keinen Inhalt, kein Halluzinationsrisiko im
-eigentlichen Sinn) und ist bei gleicher Eingabe deterministisch
-reproduzierbar. Das Ergebnis fließt als normaler, deterministischer Inhalt
-in den Referenzgraph ein — jede spätere Anfrage wird weiterhin ausschließlich
-graphbasiert beantwortet, ganz ohne Modellaufruf. ADR-008 bleibt in seinem
-eigentlichen Geltungsbereich unverändert.
+In practice, this produces **more** accounts, not fewer: whoever first
+experiences the product signs up voluntarily and with a recognizable benefit in return.
 
-**Umsetzung:** Modellgewichte werden einmalig beim Container-Image-Build
-bezogen und gebacken — kein Zugriff auf externe Modell-Repositories zur
-Laufzeit, passend zur STACKIT-only-Vorgabe für den Betrieb. Empirisch
-bestätigt: Doclings Standard-Pipeline führt automatisch OCR aus (auch ohne
-Bildinhalte) und lädt dafür bei aktivierter OCR zusätzliche Modelle von
-modelscope.cn nach — einer zweiten, ursprünglich nicht bedachten externen
-Quelle neben Hugging Face (dem Layout-/TableFormer-Modell). OCR wird daher
-explizit deaktiviert (`do_ocr=False`), wodurch dieser zweite Modellbezug
-vollständig entfällt, statt ihn ebenfalls ins Image backen zu müssen.
-Details siehe
+**On the concern about bulk extraction via anonymous access:** The dividing line is the
+**content**, not the access path. Anonymously reachable is exclusively what
+is freely licensable under REQ-PIPE-004 — and anyone may extract that anyway.
+Licensed full texts are **structurally** unreachable anonymously
+(REQ-PART-004 authorization check, REQ-DRM-001 no file shipping,
+REQ-DRM-003 mandatory marking). That is not a setting but follows
+from the architecture.
+
+**Important to put in perspective:** An account is **no** protection against
+bulk extraction — it only makes it attributable. Signed-in users can also
+extract systematically, and with more rights at that. The actual protection is
+REQ-SEC-004 (rate limiting, anomaly detection, blocking). Likewise,
+address-based quota counting can be circumvented by changing addresses; it serves
+cost limitation, not security.
+
+**Implementation:** Counting on the server side via a session attribute plus client IP address,
+not via cookies or browser storage (both reset in two clicks).
+Shared infrastructure with REQ-SEC-004 — one place instead of two.
+
+**Rejected:** Artificial delay of anonymous answers. Harms the impression
+more than it saves in costs.
+
+---
+
+## ADR-018 — ML-based structure detection in the ingestion pipeline (Docling)
+
+**Status:** accepted
+
+**Decision:** The ingestion pipeline uses
+[Docling](https://github.com/docling-project/docling) instead of pdfplumber for
+PDF extraction with immediate effect, including its ML-based layout and
+table structure detection (standard pipeline: layout model + TableFormer).
+This lifts the non-goal item "no generic document understanding"
+previously recorded explicitly in the ingestion spec.
+
+**Rationale:** The first two sources (DGUV, EUR-Lex) get by satisfactorily with
+rule-based extraction, but considerably more sources
+with unknown, partly more complex layouts will follow. For these, Docling in
+any case delivers a cleaner, layout-aware text segmentation than
+pdfplumber's plain line output, as well as demonstrably reliable
+table structure detection (TableFormer, verified against the real EUR-Lex fixture).
+
+**Important, corrected empirically:** The original expectation that Docling
+would automatically detect headings/section structure for *every* future source
+and thereby make source-specific rules
+superfluous does not hold for plainly formatted documents without visual
+heading features — with the DGUV fixture, `§ N` headings come back
+as `ListItem`, not as `SectionHeaderItem` (see
+`docs/superpowers/specs/2026-08-30-docling-migration-design.md`). For
+such sources, boundary detection remains pattern-based, now applied
+to Docling's cleanly segmented elements instead of to raw text. The
+gain is real (better segmentation, reliable tables, in future
+also non-PDF formats without extra effort), but smaller than originally
+hoped — every new source must still be checked empirically against a real
+sample file to see whether Docling's native classification works
+reliably for it.
+
+**Distinction from ADR-008:** ADR-008 forbids the use of a
+language model at **query time** for structural questions — for reasons of cost, latency
+and hallucination with every single user query. This
+decision concerns a different point in time and a different kind of model:
+Docling's layout/table model runs **once at ingestion time**, is
+**discriminative** (detects structure in existing content), not
+**generative** (invents no content, no hallucination risk in the
+actual sense) and is deterministically reproducible for the same input.
+The result flows into the reference graph as normal, deterministic content
+— every later query is still answered exclusively
+on the basis of the graph, entirely without a model call. ADR-008 remains unchanged in its
+actual scope.
+
+**Implementation:** Model weights are obtained once during the container image build
+and baked in — no access to external model repositories at
+runtime, in line with the STACKIT-only requirement for operations. Empirically
+confirmed: Docling's standard pipeline automatically runs OCR (even without
+image content) and, with OCR enabled, downloads additional models from
+modelscope.cn for it — a second external source not originally considered,
+alongside Hugging Face (the layout/TableFormer model). OCR is therefore
+explicitly disabled (`do_ocr=False`), which drops this second model download
+entirely instead of also having to bake it into the image.
+For details see
 `docs/superpowers/specs/2026-08-30-docling-migration-design.md`.
 
-**Verworfen:** Doclings VLM-Pipeline (generatives Vision-Language-Modell)
-als Standard-Extraktionsweg — deutlich schwereres Abhängigkeits- und
-Betriebsprofil ohne aktuellen Bedarf; das diskriminative Standard-Layout-
-Modell reicht für die heutigen Anforderungen.
+**Rejected:** Docling's VLM pipeline (generative vision-language model)
+as the standard extraction path — considerably heavier dependency and
+operational profile without current need; the discriminative standard layout
+model is sufficient for today's requirements.
 
 ---
 
-## ADR-019 — Kein GitHub mehr als Beitragsfassade
+## ADR-019 — No more GitHub as contribution facade
 
-**Status:** abgelöst durch ADR-021 (2026-09-14) — Quellcode, CI und
-Registry liegen wieder auf GitHub. Eintrag bleibt als Begründungshistorie
-stehen.
+**Status:** superseded by ADR-021 (2026-09-14) — source code, CI and
+registry are on GitHub again. The entry remains in place as a history of the
+rationale.
 
-**Entscheidung:** GitHub entfällt als Ziel für jede künftige Automatisierung.
-Es wird kein Push-Mirror von STACKIT Git nach GitHub eingerichtet und keine
-Beitragsannahme (Issues, Pull Requests) dort mehr vorgesehen. STACKIT Git
-ist von Anfang an die alleinige Plattform für Quellcode, Beiträge, Build und
-Betrieb — nicht nur führend neben einer öffentlichen Fassade. Der
-bestehende GitHub-Spiegel (`Sn4kez/normly-app`, Remote `origin`) bleibt als
-historischer Schnappschuss stehen, wird aber nicht mehr aktiv bespielt.
+**Decision:** GitHub is dropped as a target for any future automation.
+No push mirror from STACKIT Git to GitHub is set up, and no
+acceptance of contributions (issues, pull requests) is planned there any longer. STACKIT Git
+is from the start the sole platform for source code, contributions, build and
+operations — not merely leading alongside a public facade. The
+existing GitHub mirror (`Sn4kez/normly-app`, remote `origin`) remains in place as a
+historical snapshot but is no longer actively pushed to.
 
-**Begründung:** Zwei Plattformen parallel zu pflegen — Push-Mirror,
-doppelte Issue-Tracker-Disziplin, Sync-Aufwand — steht in keinem Verhältnis
-zum bislang ausgebliebenen externen Beitragsvolumen über GitHub. Eine
-Plattform ist einfacher und passt besser zur ohnehin STACKIT-zentrierten
-Betriebsrealität.
+**Rationale:** Maintaining two platforms in parallel — push mirror,
+duplicate issue-tracker discipline, sync effort — is out of all proportion
+to the external contribution volume via GitHub, which has so far failed to materialize. One
+platform is simpler and fits better with the operational reality, which is
+STACKIT-centered anyway.
 
-**Konsequenz:** Löst ADR-004 teilweise ab (STACKIT-Git-Teil bleibt
-unverändert bestehen, der GitHub-Beitragsfassade-Teil entfällt). REQ-GIT-002
-(„Öffentliche Beitragsfassade") ist damit hinfällig und in
-`docs/srs/03-requirements.md` entsprechend markiert. Der in
+**Consequence:** Partially supersedes ADR-004 (the STACKIT Git part remains
+unchanged in place, the GitHub contribution facade part is dropped). REQ-GIT-002
+("Public contribution facade") is thereby obsolete and marked accordingly in
+`docs/srs/03-requirements.md`. The push mirror step documented in
 `docs/superpowers/specs/2026-09-02-ci-pipeline-design.md` /
-`docs/superpowers/plans/2026-09-02-ci-pipeline.md` dokumentierte
-Push-Mirror-Schritt wird nicht umgesetzt.
+`docs/superpowers/plans/2026-09-02-ci-pipeline.md`
+is not implemented.
 
-**Verworfen:** Beibehaltung von GitHub als reine, weiterhin manuell
-gepflegte Beitragsfassade ohne Automatisierung (löst das
-Pflegeaufwand-Problem nicht, verzögert die Entscheidung nur).
+**Rejected:** Keeping GitHub as a pure contribution facade, still maintained
+manually, without automation (does not solve the
+maintenance-effort problem, only delays the decision).
 
 ---
 
-## ADR-020 — Dokumentation auf Englisch statt Deutsch
+## ADR-020 — Documentation in English instead of German
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Neue Dokumentation (`docs/`-Inhalte, Code-Referenz,
-Guides) wird ab sofort auf Englisch verfasst statt auf Deutsch. Ursprünglich
-nicht rückwirkend gedacht; die Migration des bestehenden deutschen Contents
-ist inzwischen teilweise erfolgt (siehe Nachtrag 2026-09-14 unten).
-`docs/superpowers/` fällt nicht unter diese Regel — die Specs, Pläne und
-Ledger dort sind Arbeitsdokumente des KI-gestützten Entwicklungsprozesses,
-keine Dokumentation für Leser von außen, und bleiben wie CLAUDE.md auf
-Deutsch.
+**Decision:** New documentation (`docs/` content, code reference,
+guides) is written in English instead of German with immediate effect. Originally
+not intended to be retroactive; the migration of the existing German content
+has meanwhile partially taken place (see Addendum 2026-09-14 below).
+`docs/superpowers/` does not fall under this rule — the specs, plans and
+ledgers there are working documents of the AI-assisted development process,
+not documentation for outside readers, and remain in German like CLAUDE.md.
 
-**Begründung:** Englisch ist der De-facto-Standard für
-Open-Source-Dokumentation. Er ermöglicht internationalen Beitragenden
-Teilnahme, unabhängig vom deutschsprachigen Kernteam — passend zum
-Open-Core-Modell (ADR-001) und dem Anspruch, dass der freie Kern von
-außen mitgetragen werden kann. Die ursprüngliche Regel (Dokumentation auf
-Deutsch) stand dem im Weg.
+**Rationale:** English is the de facto standard for
+open-source documentation. It enables international contributors to
+participate, independently of the German-speaking core team — in line with the
+open-core model (ADR-001) and the aim that the free core can be
+co-sustained from outside. The original rule (documentation in
+German) stood in the way of this.
 
-**Nicht betroffen:** Code, Bezeichner und Commits waren schon vorher
-Englisch (unverändert). Die App-eigene Sprachumschaltung
-(`LocaleProvider`, Deutsch/Englisch für Endnutzer) ist eine
-Laufzeit-Funktion, keine Projektdokumentation, und bleibt unverändert.
-Die Fachbegriffs-Ausnahme für Normenwesen-Begriffe ohne etablierte
-englische Entsprechung (z. B. `Normenausschuss`) gilt unabhängig von der
-Sprache weiter.
+**Not affected:** Code, identifiers and commits were already in
+English before (unchanged). The app's own language switch
+(`LocaleProvider`, German/English for end users) is a
+runtime function, not project documentation, and remains unchanged.
+The technical-term exception for terms from the standards domain without an established
+English equivalent (e.g. `Normenausschuss`) continues to apply regardless of the
+language.
 
-**Konsequenz:** CLAUDE.md's Abschnitt „Sprache" ist entsprechend
-angepasst. Der bereits offene, noch nicht gemergte Merge Request für die
-Zensical-Dokumentations-Site
+**Consequence:** CLAUDE.md's "Language" section has been adjusted
+accordingly. The merge request for the
+Zensical documentation site that is already open but not yet merged
 (`docs/superpowers/plans/2026-09-11-zensical-documentation-site.md`)
-wird vor dem Merge auf Englisch umgeschrieben, da er als „ab jetzt"
-zählt.
+is rewritten in English before the merge, since it counts as "from now
+on".
 
-**Nachtrag 2026-09-14 — Migration teilweise begonnen:** Auf Nutzerwunsch ins
-Englische übersetzt: `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
-`CODE_OF_CONDUCT.md`. Die ursprüngliche „nicht rückwirkend"-Regel gilt damit
-nicht mehr uneingeschränkt für alle acht ursprünglich genannten Dateien,
-sondern nur noch für die verbliebenen: `docs/adr/` (dieses Dokument),
-`docs/srs/`, `GOVERNANCE.md`, `TRADEMARK.md` — deren Migration bleibt ein
-eigenes, späteres Projekt, insbesondere `docs/adr/` und `docs/srs/` wegen
-ihres Umfangs. Keine inhaltliche Änderung an den vier übersetzten Dateien,
-nur Sprachwechsel.
+**Addendum 2026-09-14 — migration partially started:** At the user's request,
+translated into English: `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
+`CODE_OF_CONDUCT.md`. The original "not retroactive" rule thus no longer
+applies without restriction to all eight originally named files,
+but only to the remaining ones: `docs/adr/` (this document),
+`docs/srs/`, `GOVERNANCE.md`, `TRADEMARK.md` — their migration remains a
+separate, later project, in particular `docs/adr/` and `docs/srs/` because of
+their size. No change in content to the four translated files,
+only a change of language.
 
 ---
 
