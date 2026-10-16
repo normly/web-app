@@ -1080,9 +1080,9 @@ This section supplements the general security requirements from section 3.3.2 wi
 
 **Statement:** Accesses to licensed collections are protected by rate limiting, quotas and anomaly detection. Conspicuous access patterns that indicate systematic extraction lead to throttling or blocking and are logged. Access logs can be evaluated per publisher.
 
-**Rationale:** Publishers are less concerned about unauthorized access from outside than about authorized users systematically draining the collection. Without effective protection against bulk extraction, the promise from REQ-PART-004 is not robust and providing full texts is not negotiable.
+**Rationale:** Publishers are less concerned about unauthorized access from outside than about authorized users systematically draining the collection. Without effective protection against bulk extraction, the promise from REQ-PART-004 is not robust and providing full texts cannot be negotiated.
 
-**Acceptance criteria:** Rate limiting and quotas active per access; anomaly detection with defined thresholds; evaluation per publisher possible.
+**Acceptance criteria:** Rate limiting and quotas active per user access; anomaly detection with defined thresholds; evaluation per publisher possible.
 
 **Acceptance test:** A simulated extraction attempt is detected, throttled and logged.
 
@@ -1094,7 +1094,7 @@ This section defines requirements for the display of licensed full texts. The go
 
 **Statement:** Licensed full texts are displayed exclusively within the application. No complete, independently usable document file is handed out to the end user. The display takes place section by section and on demand; an export as PDF or an equivalent format is not provided for licensed content. Likewise, selecting text in the full texts is not possible, in order to prevent copy and paste.
 
-**Rationale:** The economic damage for the publishers does not arise from reading, but from passing on complete files. Whoever receives no file cannot pass one on. This is at the same time the argument with which normly helps the publishers to push back the spread of unlicensed PDF copies: convenient legal access is more effective than any legal prosecution.
+**Rationale:** The economic damage for the publishers does not arise from reading, but from passing on complete files. Whoever receives no file cannot pass one on. This is at the same time the argument with which normly helps the publishers to push back the spread of unlicensed PDF copies: convenient legal access is more effective than any legal enforcement.
 
 **Acceptance criteria:** No endpoint hands out licensed content as a complete file; the display takes place in partial retrievals; retrievals are logged.
 
@@ -1112,13 +1112,13 @@ This section defines requirements for the display of licensed full texts. The go
 
 ### REQ-DRM-003 — User-specific marking
 
-**Statement:** Displayed licensed content carries a user-specific marking, visible and in a form that cannot easily be removed. From a copy that is found, it must be possible to determine the access through which it was created.
+**Statement:** Displayed licensed content carries a user-specific marking, visible and in a form that cannot easily be removed. From a copy that is found, it must be possible to determine the user access through which it was created.
 
-**Rationale:** Screenshots, photographing the screen and text recognition cannot be prevented technically. What is achievable is traceability: whoever knows that passing on content will fall back on them passes it on less often. For publishers, precisely this is the added value compared to today's situation, in which a circulating PDF copy cannot be attributed to any source.
+**Rationale:** Screenshots, photographing the screen and text recognition cannot be prevented technically. What is achievable is traceability: whoever knows that passing on content will be traced back to them passes it on less often. For publishers, precisely this is the added value compared to today's situation, in which a circulating PDF copy cannot be attributed to any source.
 
-**Acceptance criteria:** Marking unique per access; cannot be switched off in the display; attribution from a copy reproducible.
+**Acceptance criteria:** Marking unique per user access; cannot be switched off in the display; attribution from a copy reproducible.
 
-**Acceptance test:** From a screenshot of a display, the associated access can be determined unambiguously.
+**Acceptance test:** From a screenshot of a display, the associated user access can be determined unambiguously.
 
 ### REQ-DRM-004 — Assignment of the protection components to the commercial layer
 
@@ -1126,7 +1126,7 @@ This section defines requirements for the display of licensed full texts. The go
 
 **Rationale:** A protection mechanism whose source code is fully exposed offers no effective protection — the circumvention could be derived directly from the source code. The assignment to the commercial layer resolves this contradiction without restricting the open-source nature of the core. At the same time, it ensures that the free core is not burdened by restrictions that are not even necessary for its content.
 **Acceptance criteria:** The core is fully runnable without the protection components; freely available content can be retrieved and exported without restriction.
-**Acceptance test:** An instance of the free core runs without the protection components and delivers freely available content without restriction.
+**Acceptance test:** An instance of the free core runs without the protection components and serves freely available content without restriction.
 
 ## 3.15 Mobile provision
 
@@ -1174,7 +1174,7 @@ This section defines the channels through which normly is provided on mobile dev
 
 ## 3.16 Access and account requirement
 
-This section governs which functions are usable without an account and from when a sign-in becomes necessary. The decisive factor is not the access path, but the license classification of the content.
+This section governs which functions are usable without an account and when a sign-in becomes necessary. The decisive factor is not the access path, but the license classification of the content.
 
 ### REQ-ACC-001 — Anonymous base use
 
@@ -1200,7 +1200,7 @@ This section governs which functions are usable without an account and from when
 
 **Statement:** Anonymous access is subject to a limited request quota per time window. Counting takes place server-side based on an assigned session attribute in combination with the client IP address, not via values stored on the client side. When the quota is reached, the user is referred to sign-in.
 
-**Rationale:** The quota limits the inference costs of anonymous use and creates a factual reason to register, without enforcing it. Client-side counting would be ineffective because the browser can be reset. Since address-based limiting remains circumventable by changing addresses, it is not a protection mechanism against bulk extraction; that task is fulfilled by REQ-SEC-004.
+**Rationale:** The quota limits the inference costs of anonymous use and creates an objective reason to register, without enforcing it. Client-side counting would be ineffective because the browser can be reset. Since address-based limiting remains circumventable by changing addresses, it is not a protection mechanism against bulk extraction; that task is fulfilled by REQ-SEC-004.
 
 **Acceptance criteria:** Quota configurable; counting server-side; resetting client-side data does not lift the limit; shared infrastructure with REQ-SEC-004.
 
