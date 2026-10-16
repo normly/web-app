@@ -41,7 +41,7 @@ edition changes:
 - **DGUV — yes, confirmed (with a limitation, see below).** Every real
   DGUV Vorschrift ends with its own § section "Inkrafttreten/
   Außerkrafttreten" (entry into force/expiry) that explicitly names the predecessor. Verified on the
-  real PDF of DGUV Vorschrift 38 ("Bauarbeiten" (construction work), Nov. 2019):
+  real PDF of DGUV Vorschrift 38 ("Bauarbeiten", i.e. construction work, Nov. 2019):
   > "Diese Unfallverhütungsvorschrift tritt am ersten Tag des auf die
   > Veröffentlichung folgenden Monats in Kraft. Gleichzeitig tritt die
   > Unfallverhütungsvorschrift „Bauarbeiten" vom September 1976 in der
@@ -49,7 +49,7 @@ edition changes:
 
   (In English: "This accident prevention regulation enters into force on the
   first day of the month following its publication. At the same time, the
-  accident prevention regulation "Bauarbeiten" of September 1976, in the
+  accident prevention regulation 'Bauarbeiten' of September 1976, in the
   version of January 1997, ceases to have effect.")
 
   `dguv.py` already splits the running text into §-numbered sections

@@ -5,7 +5,7 @@
 With "Search & document detail" (so far Plan 6 of the
 shadcn frontend redesign, see
 `docs/superpowers/specs/2026-09-05-frontend-shadcn-redesign-design.md`),
-the user plans to actually build the first foundation of the Normtracker — not just a
+the owner plans to actually build the first foundation of the Normtracker — not just a
 re-theming. Before the frontend is touched, the backend data model
 should be in place. This spec is the first of five planned sub-projects:
 
@@ -36,7 +36,7 @@ jurisdiction-dependent license classification (contradicts REQ-GRAPH-006), a
 single `successor_norm_id` field instead of the typed reference graph
 (contradicts REQ-GRAPH-001, ADR-007), no lineage chain down to individual
 fields (contradicts the non-negotiable `CLAUDE.md` rule
-"Carry lineage"), and no multilingualism per node (contradicts
+"Carry lineage along"), and no multilingualism per node (contradicts
 REQ-GRAPH-005). Two ideas from this draft are good on their own, however, and
 flow into later sub-projects: a change summary per
 edition (sub-project 3) and watchlist/notification (sub-project 4).
@@ -77,7 +77,7 @@ Document (bestehend, erweitert)
 
 `Work` deliberately carries **no** title, designation or other
 metadata fields. Display data (title, current status) are derived at runtime
-from the primary designation/title of the most recent, non-retired
+from the primary designation/title of the most recent, non-withdrawn
 `Document` of the work — no data duplication, no
 sync problem between the work and the underlying documents.
 `RightsClassification` remains unchanged at the `Document` level, because
@@ -148,9 +148,9 @@ needed.
 
 - `work_id` is `NOT NULL` — a document without a resolvable work must never
   be committed. The ingestion must have assigned a work before the commit
-  (newly created or existing), analogous to the existing rule
-  "missing classification means do not process, not provisionally
-  permitted".
+  (newly created or existing), analogous to the existing rule:
+  missing classification means "do not process", not
+  "provisionally allowed".
 - Access to a document whose work has `status=merged` is
   transparently redirected to `merged_into_work_id` (never a dead link).
 - A `work_merge` case with contradictory/cyclic targets (A merge→B,
@@ -177,7 +177,7 @@ needed.
 | REQ-GRAPH-005 | The acceptance test ("one node with assigned adoptions") is fulfilled for the first time by `Work` — previously unfulfilled, since `Document` did not represent this aggregation. The SRS is extended with a reference to `Work`. |
 | ADR-011 | "One standard = one node" is extended with an addendum that documents the concrete implementation (work entity as a logical identity across several document rows, not a single DB row in the literal sense). |
 | REQ-GRAPH-001/002/006 | Unchanged — reference graph edge types, free/commercial layering and jurisdiction classification remain at the `Document`/`Edge` level as before. |
-| CLAUDE.md "Carry lineage" | `Work` itself has no lineage of its own (carries no content); every `Document` keeps its existing `created_via_delivery_id`. `merged` works are kept instead of deleted for traceability reasons. |
+| CLAUDE.md "Carry lineage along" | `Work` itself has no lineage of its own (carries no content); every `Document` keeps its existing `created_via_delivery_id`. `merged` works are kept instead of deleted for traceability reasons. |
 
 ## Open items / follow-up work
 

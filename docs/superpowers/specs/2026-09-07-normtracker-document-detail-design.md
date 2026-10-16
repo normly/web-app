@@ -47,8 +47,8 @@ repository level.
   new UI concept that occurs nowhere else.
 - **No new/changed `/edges` endpoint.** It remains unchanged — after the
   lesson from sub-project 2 (a changed response shape broke an
-  existing page whose own test did not notice it), no existing endpoint in
-  productive use is deliberately changed here when a
+  existing page whose own test did not notice it), deliberately, no existing endpoint in
+  productive use is changed here when a
   purely client-side regrouping suffices.
 
 ## Architecture

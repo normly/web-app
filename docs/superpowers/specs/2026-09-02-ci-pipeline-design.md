@@ -70,7 +70,7 @@ is deliberately *not* done along with it is listed under Non-goals.
 - **No contribution facade automation and no DCO check on the
   GitHub side** (part of REQ-GIT-002, but not its mirror
   acceptance criterion). The path "external pull request on GitHub → lands
-  checked in the STACKIT pipeline" (REQ-GIT-002 acceptance test) remains
+  checked in the STACKIT pipeline" (REQ-GIT-002 acceptance test, wording at the time) remains
   open — this sub-project only builds the *outgoing* mirroring
   STACKIT→GitHub, not the return path for incoming external contributions.
   A separate, later task.
@@ -173,7 +173,7 @@ touching the architecture decision "no marketplace actions".)
 ### STACKIT Git as the primary platform: push mirror to GitHub
 
 REQ-GIT-002's acceptance criterion "automated push mirror after every
-merge" needs **no** Forgejo Actions job. Forgejo offers a
+merge" (wording at the time) needs **no** Forgejo Actions job. Forgejo offers a
 built-in repo feature for this: under Settings → Repository → Mirror Settings →
 Push Mirror, a target repository (the GitHub URL) can be stored together with
 credentials (a GitHub personal access token with write permission only on
