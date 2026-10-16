@@ -241,6 +241,29 @@ Covers every file under `docs/superpowers/` whose fenced blocks contain German t
 
 ---
 
+### Task 14c: Translate German comments and docstrings in the real code (owner decision 2026-10-16)
+
+The audit in MR 1 missed German comments/docstrings in the code (e.g. `core/src/normly_core/pipeline/adapters/baua.py`, `api/src/normly_api/rate_limit.py`, `core/src/normly_core/exchange/tables.py`, `scripts/normly-backup`, `scripts/normly-deploy`, `frontend/public/service-worker.js`, `frontend/src/app/globals.css`, several tests and migrations). Translate them. Two batches: (a) Python packages `core/`, `api/`, `accounts/`, `chat/` incl. tests and Alembic migrations; (b) `frontend/` (src, tests, public), `scripts/`, `docker/`, `deploy/`, `.github/`, root config files.
+
+**Out of scope (must stay byte-identical):** UI strings and `de.json`; test literals and fixtures; regex patterns and German source text the adapters match; German product output strings (e.g. chat answer/prompt strings in `chat/`, e-mail subjects/bodies); identifiers; log/error messages if tests assert them (check). Migration files: only comments/docstrings (Alembic revision IDs and messages unchanged).
+
+- [ ] **Step 1:** Find German comments/docstrings by reading (the umlaut/marker heuristic misses many); list every file and line changed.
+- [ ] **Step 2: Mechanical safety checks** (scratch scripts in Task 14c brief):
+  - Python: `$S/py_same_ast.py OLD NEW` — AST equal after stripping docstrings (proves only comments/docstrings changed).
+  - TS/JS/CSS/shell/YAML/TOML/Dockerfile: `$S/code_same_nocomments.py OLD NEW` — content equal after removing comments.
+- [ ] **Step 3: Tests:** batch (a): `python -m py_compile` on changed files, `uv run ruff check` if configured, and the unit tests of the touched packages that run without a database; batch (b): `cd frontend && npx vitest run && npx tsc --noEmit`; `shellcheck` 0.9.0-compatible on changed scripts (via `docker run --rm -v "$PWD":/mnt -w /mnt koalaman/shellcheck:v0.9.0 <files>` if available, else report); `python -m pytest scripts/tests -q`.
+- [ ] **Step 4: Commit per batch** — `chore: translate German code comments to English (<batch>)`.
+
+### Task 14d: Sync plan copies of translated code comments
+
+Plans under `docs/superpowers/plans/` contain verbatim copies of code comments (kept German in 14b(b) / Task 13 because they matched the code). For every comment line changed in Task 14c, replace its identical German copy inside fenced blocks of the plans with the new English line, byte for byte. Lines translated in 14b(b) that copy a code comment are aligned to the code's final English wording.
+
+- [ ] **Step 1:** Build an old→new line map from the Task 14c diffs; apply it to fenced blocks under `docs/superpowers/plans/` (exact-line replacement only).
+- [ ] **Step 2: Check:** `fences_german_only.py` per changed plan vs `$S/orig14b`; every replaced line appears in the map; build check `1`.
+- [ ] **Step 3: Commit** — `docs: sync plan copies of translated code comments`.
+
+---
+
 ### Task 15: Close the migration
 
 **Files:**
