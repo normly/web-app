@@ -1,68 +1,68 @@
-# Nutzerdaten beim Wissensbestand-Import — Implementierungsplan
+# User data on knowledge base import — implementation plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Der Import eines Wissensbestand-Dumps blockiert nie mehr an Nutzerverweisen: Kennungen (`work`, `document`, `edge`) werden zu Tombstones (`retired_at`), Inhalt und Ableitungen (`segment`, `embedding`, `document_embedding`, `rights_classification`) werden physisch gelöscht, Herkunft (`delivery`, `source`) bleibt. Beobachter erfahren per neuem Benachrichtigungstyp `no_longer_available`, dass ein beobachtetes Dokument zurückgezogen wurde (Tasks 4–5).
+**Goal:** The import of a knowledge base dump never again blocks on user references: IDs (`work`, `document`, `edge`) become tombstones (`retired_at`), content and derivations (`segment`, `embedding`, `document_embedding`, `rights_classification`) are physically deleted, provenance (`delivery`, `source`) stays. Watchers learn through a new notification type `no_longer_available` that a watched document has been retired (Tasks 4–5).
 
-**Ausführungsreihenfolge:** Task 1, 2, 4, 5, dann Task 3 (Dokumentation zuletzt, weil ADR-026 die Meldung beschreibt).
+**Execution order:** Tasks 1, 2, 4, 5, then Task 3 (documentation last, because ADR-026 describes the notification).
 
-**Architecture:** Klassen-Konstanten in `normly_core/exchange/tables.py` (reine Daten, mit Fail-closed-Test gegen die ORM-Fremdschlüssel); Migration 0033 und ORM-Spalte `retired_at` auf drei Tabellen, die aus dem Austauschformat ausgeschlossen bleibt; `replace_knowledge_base` wird von drei Lösch-/Einfügedurchläufen auf einen Ablauf „Zitate lösen → Inhalt löschen → Tombstones setzen → einfügen“ umgestellt. Spec: `docs/superpowers/specs/2026-10-09-user-data-on-kb-import-design.md`.
+**Architecture:** Class constants in `normly_core/exchange/tables.py` (pure data, with a fail-closed test against the ORM foreign keys); migration 0033 and ORM column `retired_at` on three tables, which stays excluded from the exchange format; `replace_knowledge_base` is switched from three delete/insert passes to a single procedure "detach citations → delete content → set tombstones → insert". Spec: `docs/superpowers/specs/2026-10-09-user-data-on-kb-import-design.md`.
 
 **Tech Stack:** Python 3.11+, SQLAlchemy 2 Core, Alembic, pytest + testcontainers (Postgres/pgvector).
 
 ## Global Constraints
 
-- Quelldateien tragen Lizenzheader `SPDX-License-Identifier: AGPL-3.0-or-later` / `Copyright (C) 2026 normly contributors` (Migrationen wie die Nachbarn).
-- Commits: Englisch, Conventional Commits, `-s` (DCO, Signed-off-by des Menschen), Trailer `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`; **nie** `git config`; kein Push und kein PR ohne Rückfrage.
-- Datenbankzugriff nur in der Repository-Schicht (ADR-006); `normly_core/exchange/` und `graph/domain.py` enthalten kein SQL und kein SQLAlchemy.
-- Rechteklassifikation ist das einzige Tor: `retired_at` ist **keine** Filterpflicht für Lesezugriffe; zurückgezogene Dokumente verschwinden, weil ihre Klassifikation gelöscht ist. Keine zweite Prüfung einführen.
-- `retired_at` ist keine Austauschspalte: Der Dump, `exchange_columns` und `iter_exportable_rows` enthalten sie nicht; `EXCHANGE_SCHEMA_VERSION` und das Dump-Layout bleiben unverändert.
-- Verarbeitungsschritte idempotent: ein zweiter Import derselben Version ändert nichts (auch nicht `retired_at`/`withdrawn_at`).
-- Abstammung: `delivery_id` bleibt in jeder Zeile; `delivery`/`source` werden nie gelöscht.
-- Klassen (verbindlich): Tombstone = `work`, `document`, `edge` (eine zurückgezogene Kante wird zusätzlich widerrufen: `revoked_at = COALESCE(revoked_at, Importzeit)`); Herkunft = `source`, `delivery` (fehlende Lieferung erhält `withdrawn_at`, falls leer); Inhalt/Ableitung = `document_designation`, `document_title`, `rights_classification`, `segment`, `embedding`, `document_embedding` (werden gelöscht). Ablauf: Schlüssel laden → Zitate lösen → Inhalt löschen (rückwärts) → Tombstones setzen → Lieferungen → Einfügen → Importvermerk. Ein leerer Dump (keine Dokumente) wird bei gefüllter Datenbank verweigert, außer mit `allow_empty`/`--allow-empty`.
-- Löseregeln für Nutzerverweise (verbindlich): `chat_message_citation.segment_id` → `NULL` für Segmente, die der Dump nicht mehr enthält. Alle anderen Verweise von Nutzerdaten/Pipeline-Zustand zeigen auf Tombstone- oder Herkunftsklassen und brauchen keine Regel.
-- Tests: `cd core && ../.venv/bin/pytest <pfad>`; Skript-Tests separat (`.venv/bin/pytest scripts/tests` im Repo-Root), die beiden conftest-Module dürfen nicht in einem Lauf gemischt werden.
-- Dokumentation: ADRs, Spec, Plan, SRS, CLAUDE.md auf Deutsch; `docs/guide/*` auf Englisch.
-- ShellCheck wird in diesem Plan nicht berührt; falls doch, mit `koalaman/shellcheck:v0.9.0` prüfen (CI-Version).
+- Source files carry the license header `SPDX-License-Identifier: AGPL-3.0-or-later` / `Copyright (C) 2026 normly contributors` (migrations like their neighbors).
+- Commits: English, Conventional Commits, `-s` (DCO, the human's Signed-off-by), trailer `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`; **never** `git config`; no push and no PR without asking first.
+- Database access only in the repository layer (ADR-006); `normly_core/exchange/` and `graph/domain.py` contain no SQL and no SQLAlchemy.
+- Rights classification is the only gate: `retired_at` is **not** a mandatory filter for reads; retired documents disappear because their classification is deleted. Do not introduce a second check.
+- `retired_at` is not an exchange column: the dump, `exchange_columns` and `iter_exportable_rows` do not contain it; `EXCHANGE_SCHEMA_VERSION` and the dump layout remain unchanged.
+- Processing steps idempotent: a second import of the same version changes nothing (not even `retired_at`/`withdrawn_at`).
+- Lineage: `delivery_id` stays in every row; `delivery`/`source` are never deleted.
+- Classes (binding): tombstone = `work`, `document`, `edge` (a retired edge is additionally revoked: `revoked_at = COALESCE(revoked_at, import time)`); provenance = `source`, `delivery` (a missing delivery receives `withdrawn_at`, if empty); content/derivation = `document_designation`, `document_title`, `rights_classification`, `segment`, `embedding`, `document_embedding` (are deleted). Procedure: load keys → detach citations → delete content (in reverse) → set tombstones → deliveries → insert → import record. An empty dump (no documents) is refused when the database is populated, except with `allow_empty`/`--allow-empty`.
+- Detach rules for user references (binding): `chat_message_citation.segment_id` → `NULL` for segments that the dump no longer contains. All other references from user data/pipeline state point to tombstone or provenance classes and need no rule.
+- Tests: `cd core && ../.venv/bin/pytest <path>`; script tests separately (`.venv/bin/pytest scripts/tests` in the repo root), the two conftest modules must not be mixed in one run.
+- Documentation: ADRs, spec, plan, SRS, CLAUDE.md in German; `docs/guide/*` in English.
+- ShellCheck is not touched by this plan; if it is after all, check with `koalaman/shellcheck:v0.9.0` (CI version).
 
-## Dateiübersicht
+## File overview
 
-| Datei | Änderung |
+| File | Change |
 |---|---|
 | `core/src/normly_core/exchange/tables.py` | + `TOMBSTONE_TABLES`, `RETAINED_TABLES`, `PURGE_TABLES`, `DETACHED_REFERENCES`, `EXCLUDED_EXCHANGE_COLUMNS` |
-| `core/tests/exchange/test_tables.py` | + Klassen-Vollständigkeit, Fail-closed-Fremdschlüsseltest |
-| `core/migrations/versions/0033_add_retired_at.py` | `retired_at` auf `work`, `document`, `edge` |
+| `core/tests/exchange/test_tables.py` | + class completeness, fail-closed foreign-key test |
+| `core/migrations/versions/0033_add_retired_at.py` | `retired_at` on `work`, `document`, `edge` |
 | `core/src/normly_core/graph/postgres/orm.py` | `retired_at` in `WorkORM`, `DocumentORM`, `EdgeORM` |
-| `core/src/normly_core/graph/postgres/exchange.py` | Export ohne `retired_at`; neuer `replace_knowledge_base` |
+| `core/src/normly_core/graph/postgres/exchange.py` | Export without `retired_at`; new `replace_knowledge_base` |
 | `core/src/normly_core/graph/domain.py` | Docstrings (`ImportBlockedError`, Protocol) |
-| `core/src/normly_core/exchange/importer.py` | Docstring (Import blockiert nicht mehr an Nutzerdaten) |
-| `core/tests/exchange/test_exchange_repository.py` | alte Blockier-/Lösch-Tests ersetzen, neue Tests |
-| `core/tests/exchange/test_takedown.py` | neu: Rücknahme, Wiederkehr, Gate-Abfragen, Nutzerdaten bleiben |
-| `docs/adr/README.md`, `docs/superpowers/specs/2026-10-09-tp4-deployment-automation-design.md`, `docs/guide/operations.md` | ADR-026, ADR-025 angepasst, Importverhalten |
+| `core/src/normly_core/exchange/importer.py` | Docstring (import no longer blocks on user data) |
+| `core/tests/exchange/test_exchange_repository.py` | replace old blocking/deletion tests, new tests |
+| `core/tests/exchange/test_takedown.py` | new: withdrawal, return, gate queries, user data stays |
+| `docs/adr/README.md`, `docs/superpowers/specs/2026-10-09-tp4-deployment-automation-design.md`, `docs/guide/operations.md` | ADR-026, ADR-025 adjusted, import behavior |
 
 ---
 
-### Task 1: Klassen, Migration, `retired_at`, Export ohne `retired_at`
+### Task 1: Classes, migration, `retired_at`, export without `retired_at`
 
 **Files:**
 - Modify: `core/src/normly_core/exchange/tables.py`, `core/tests/exchange/test_tables.py`
 - Create: `core/migrations/versions/0033_add_retired_at.py`
 - Modify: `core/src/normly_core/graph/postgres/orm.py` (`WorkORM`, `DocumentORM`, `EdgeORM`)
 - Modify: `core/src/normly_core/graph/postgres/exchange.py` (`exchange_columns`, `iter_exportable_rows`)
-- Test: `core/tests/exchange/test_published_role.py` (bestehend, muss grün bleiben), neu: `core/tests/exchange/test_retired_at_not_exported.py`
+- Test: `core/tests/exchange/test_published_role.py` (existing, must stay green), new: `core/tests/exchange/test_retired_at_not_exported.py`
 
 **Interfaces:**
 - Produces in `tables.py`:
   - `TOMBSTONE_TABLES: tuple[str, ...] = ("work", "document", "edge")`
   - `RETAINED_TABLES: tuple[str, ...] = ("source", "delivery")`
-  - `PURGE_TABLES: tuple[str, ...] = ("document_designation", "document_title", "rights_classification", "segment", "embedding", "document_embedding")` — in der Reihenfolge von `KNOWLEDGE_TABLES` (Eltern zuerst); Löschen läuft rückwärts.
-  - `DETACHED_REFERENCES: dict[tuple[str, str], str] = {("chat_message_citation", "segment_id"): "segment"}` (Kindtabelle, Spalte → Elterntabelle)
+  - `PURGE_TABLES: tuple[str, ...] = ("document_designation", "document_title", "rights_classification", "segment", "embedding", "document_embedding")` — in the order of `KNOWLEDGE_TABLES` (parents first); deletion runs in reverse.
+  - `DETACHED_REFERENCES: dict[tuple[str, str], str] = {("chat_message_citation", "segment_id"): "segment"}` (child table, column → parent table)
   - `EXCLUDED_EXCHANGE_COLUMNS: dict[str, tuple[str, ...]] = {"work": ("retired_at",), "document": ("retired_at",), "edge": ("retired_at",)}`
-- Produces: ORM-Attribut `retired_at: Mapped[datetime | None]` auf den drei Tabellen; `exchange_columns(table)` und `iter_exportable_rows(table)` liefern `retired_at` nicht.
+- Produces: ORM attribute `retired_at: Mapped[datetime | None]` on the three tables; `exchange_columns(table)` and `iter_exportable_rows(table)` do not return `retired_at`.
 
-- [ ] **Step 1: Failing tests schreiben**
+- [ ] **Step 1: Write failing tests**
 
-An `core/tests/exchange/test_tables.py` anhängen:
+Append to `core/tests/exchange/test_tables.py`:
 
 ```python
 def test_every_knowledge_table_has_exactly_one_import_class():
@@ -114,7 +114,7 @@ def test_detached_references_point_at_purge_tables():
         assert column in Base.metadata.tables[child].columns
 ```
 
-Neue Datei `core/tests/exchange/test_retired_at_not_exported.py`:
+New file `core/tests/exchange/test_retired_at_not_exported.py`:
 
 ```python
 # SPDX-License-Identifier: AGPL-3.0-or-later
@@ -147,13 +147,13 @@ def test_exported_rows_do_not_carry_retired_at(db_session, table):
     assert all("retired_at" not in row for row in rows)
 ```
 
-(`.helpers` wie in den bestehenden Tests dieses Ordners; falls dort ein anderer Importstil verwendet wird, diesen übernehmen.)
+(`.helpers` as in the existing tests of this folder; if a different import style is used there, adopt it.)
 
 - [ ] **Step 2:** `cd core && ../.venv/bin/pytest tests/exchange/test_tables.py tests/exchange/test_retired_at_not_exported.py -v` — Expected: FAIL (`AttributeError: module 'normly_core.exchange.tables' has no attribute 'TOMBSTONE_TABLES'`).
 
-- [ ] **Step 3: `tables.py` ergänzen**
+- [ ] **Step 3: Extend `tables.py`**
 
-Am Ende von `core/src/normly_core/exchange/tables.py` (vor `group_tables` oder danach) einfügen:
+Insert at the end of `core/src/normly_core/exchange/tables.py` (before or after `group_tables`):
 
 ```python
 # --- Import classes (ADR-026) -------------------------------------------------
@@ -197,9 +197,9 @@ EXCLUDED_EXCHANGE_COLUMNS: dict[str, tuple[str, ...]] = {
 }
 ```
 
-- [ ] **Step 4: Migration und ORM**
+- [ ] **Step 4: Migration and ORM**
 
-Nachbarmigration lesen (`core/migrations/versions/0032_create_knowledge_base_import.py`: `revision = "0032"`, `down_revision = "0031"`, Lizenzheader). `0033_add_retired_at.py`:
+Read the neighboring migration (`core/migrations/versions/0032_create_knowledge_base_import.py`: `revision = "0032"`, `down_revision = "0031"`, license header). `0033_add_retired_at.py`:
 
 ```python
 # SPDX-License-Identifier: AGPL-3.0-or-later
@@ -232,7 +232,7 @@ def downgrade() -> None:
         op.drop_column(table, "retired_at")
 ```
 
-In `orm.py` jeweils in `WorkORM`, `DocumentORM`, `EdgeORM` ergänzen:
+In `orm.py`, add to each of `WorkORM`, `DocumentORM`, `EdgeORM`:
 
 ```python
     #: Set when an import no longer finds this row in the dump (takedown). The
@@ -241,11 +241,11 @@ In `orm.py` jeweils in `WorkORM`, `DocumentORM`, `EdgeORM` ergänzen:
     retired_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
 ```
 
-- [ ] **Step 5: Export schließt `retired_at` aus**
+- [ ] **Step 5: Export excludes `retired_at`**
 
 In `core/src/normly_core/graph/postgres/exchange.py`:
-- Importiere `EXCLUDED_EXCHANGE_COLUMNS` aus `normly_core.exchange.tables`.
-- Hilfsfunktion:
+- Import `EXCLUDED_EXCHANGE_COLUMNS` from `normly_core.exchange.tables`.
+- Helper function:
 
 ```python
 def _exchange_columns(sa_table: sa.Table) -> list[sa.Column]:
@@ -254,12 +254,12 @@ def _exchange_columns(sa_table: sa.Table) -> list[sa.Column]:
 ```
 
 - `exchange_columns`: `return [ExchangeColumn(c.name, _kind(c)) for c in _exchange_columns(Base.metadata.tables[table])]`.
-- `iter_exportable_rows`: Das Statement immer auf die Austauschspalten beschränken (nicht nur bei der Namensmaskierung): `statement = statement.with_only_columns(*[<Maskierungsliteral oder Spalte> for column in _exchange_columns(sa_table)])`. Die bestehende Fail-closed-Maskierung (`sa_table.c[masked_name]`, `PUBLISHED_ROLE`) bleibt unverändert und wird in diese Liste integriert; `order_by(*_primary_key(sa_table))` bleibt.
-- Der Import (`_upsert`) wird in Task 2 angepasst; in diesem Task bricht der Import mit den neuen Spalten nicht, solange `_upsert` weiter `sa_table.columns` verwendet — das wäre ein `KeyError` für `retired_at` (die Zeilen aus dem Dump enthalten sie nicht). Deshalb in diesem Task `_upsert` und `_load_keys` bereits so ändern, dass sie `_exchange_columns(sa_table)` statt `sa_table.columns` für die Zeilen benutzen (reiner Spaltenfilter, kein Verhaltenswechsel; `retired_at` wird dann beim Upsert nicht angefasst).
+- `iter_exportable_rows`: Always restrict the statement to the exchange columns (not only when masking names): `statement = statement.with_only_columns(*[<masking literal or column> for column in _exchange_columns(sa_table)])`. The existing fail-closed masking (`sa_table.c[masked_name]`, `PUBLISHED_ROLE`) stays unchanged and is integrated into this list; `order_by(*_primary_key(sa_table))` stays.
+- The import (`_upsert`) is adjusted in Task 2; in this task the import does not break with the new columns as long as `_upsert` keeps using `sa_table.columns` — that would be a `KeyError` for `retired_at` (the rows from the dump do not contain it). Therefore, already in this task, change `_upsert` and `_load_keys` so that they use `_exchange_columns(sa_table)` instead of `sa_table.columns` for the rows (pure column filter, no change in behavior; `retired_at` is then not touched by the upsert).
 
 - [ ] **Step 6: Tests**
 
-Run: `cd core && ../.venv/bin/pytest tests/exchange tests/graph/test_orm_migration_consistency.py tests/graph/test_migration_determinism.py tests/graph/test_architecture.py -q` — Expected: PASS (die ORM↔Migrations-Konsistenztests verlangen, dass ORM und Migration 0033 übereinstimmen).
+Run: `cd core && ../.venv/bin/pytest tests/exchange tests/graph/test_orm_migration_consistency.py tests/graph/test_migration_determinism.py tests/graph/test_architecture.py -q` — Expected: PASS (the ORM↔migration consistency tests require ORM and migration 0033 to match).
 
 - [ ] **Step 7: Commit**
 
@@ -272,40 +272,40 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 
 ---
 
-### Task 2: Neuer `replace_knowledge_base` und Tests
+### Task 2: New `replace_knowledge_base` and tests
 
 **Files:**
-- Modify: `core/src/normly_core/graph/postgres/exchange.py` (`replace_knowledge_base`, neue Hilfsmethoden, `_delete_missing`/Defer-Logik entfällt)
-- Modify: `core/src/normly_core/graph/domain.py`, `core/src/normly_core/exchange/importer.py` (nur Docstrings)
+- Modify: `core/src/normly_core/graph/postgres/exchange.py` (`replace_knowledge_base`, new helper methods, `_delete_missing`/defer logic is dropped)
+- Modify: `core/src/normly_core/graph/domain.py`, `core/src/normly_core/exchange/importer.py` (docstrings only)
 - Modify: `core/tests/exchange/test_exchange_repository.py`
 - Create: `core/tests/exchange/test_takedown.py`
 
 **Interfaces:**
-- Consumes: Konstanten aus Task 1; `_load_keys` (temporäre Schlüsseltabellen `_kb_keep_<table>` je Wissensbestand-Tabelle), `_upsert`, `_write_record`.
-- Produces: unveränderte öffentliche Signatur `replace_knowledge_base(tables, *, record)`; neues Verhalten (siehe unten).
+- Consumes: constants from Task 1; `_load_keys` (temporary key tables `_kb_keep_<table>` per knowledge base table), `_upsert`, `_write_record`.
+- Produces: unchanged public signature `replace_knowledge_base(tables, *, record)`; new behavior (see below).
 
-**Ablauf (verbindlich, in dieser Reihenfolge):**
-1. `_load_keys` (Schlüssel aus dem Dump in temporäre Tabellen).
-2. `_detach_missing_references`: für jeden Eintrag in `DETACHED_REFERENCES`: `UPDATE child SET column = NULL WHERE column IS NOT NULL AND NOT EXISTS (Schlüssel in keep_parent)`.
-3. Inhalt löschen, rückwärts durch `PURGE_TABLES`: `DELETE ... WHERE NOT EXISTS (Schlüssel in keep)` — **vor** dem Einfügen, damit natürliche Eindeutigkeitsschlüssel (`segment(document_id, sequence_number)`, `embedding(segment_id, model_name)`, Bezeichnung/Titel) nicht mit alten, ausgedienten Zeilen kollidieren.
-4. Tombstones **vor dem Einfügen**: für jede Tabelle in `TOMBSTONE_TABLES`: `UPDATE t SET retired_at = :now WHERE retired_at IS NULL AND NOT EXISTS (Schlüssel in keep)`; `now = record.imported_at`. Für `edge` zusätzlich `revoked_at = COALESCE(revoked_at, :now)` (einziges Lesetor der Kanten; gibt den partiellen Eindeutigkeitsindex aktiver Kanten für eine neu gelieferte Kante frei).
-5. Fehlende Lieferungen: `UPDATE delivery SET withdrawn_at = :now WHERE withdrawn_at IS NULL AND NOT EXISTS (Schlüssel in keep)`.
-6. Einfügen/Aktualisieren in `KNOWLEDGE_TABLES`-Reihenfolge (`_upsert`); für `TOMBSTONE_TABLES` wird `retired_at = NULL` mitgeschrieben (Wiederkehr); eine wiederkehrende Kante erhält `revoked_at` aus dem Dump (`NULL`).
-7. `_write_record(record)`; temporäre Tabellen droppen. Der Aufrufer committet.
+**Procedure (binding, in this order):**
+1. `_load_keys` (keys from the dump into temporary tables).
+2. `_detach_missing_references`: for every entry in `DETACHED_REFERENCES`: `UPDATE child SET column = NULL WHERE column IS NOT NULL AND NOT EXISTS (key in keep_parent)`.
+3. Delete content, in reverse through `PURGE_TABLES`: `DELETE ... WHERE NOT EXISTS (key in keep)` — **before** inserting, so that natural unique keys (`segment(document_id, sequence_number)`, `embedding(segment_id, model_name)`, designation/title) do not collide with old, obsolete rows.
+4. Tombstones **before inserting**: for every table in `TOMBSTONE_TABLES`: `UPDATE t SET retired_at = :now WHERE retired_at IS NULL AND NOT EXISTS (key in keep)`; `now = record.imported_at`. For `edge` additionally `revoked_at = COALESCE(revoked_at, :now)` (the only read gate of edges; frees the partial unique index of active edges for a newly delivered edge).
+5. Missing deliveries: `UPDATE delivery SET withdrawn_at = :now WHERE withdrawn_at IS NULL AND NOT EXISTS (key in keep)`.
+6. Insert/update in `KNOWLEDGE_TABLES` order (`_upsert`); for `TOMBSTONE_TABLES`, `retired_at = NULL` is written as well (return); a returning edge receives `revoked_at` from the dump (`NULL`).
+7. `_write_record(record)`; drop the temporary tables. The caller commits.
 
-Zusätzlich: `import_dump(..., allow_empty=False)` verweigert (`ImportRefused`) einen Dump ohne `document`-Zeilen, wenn `repository.has_documents()`; CLI-Flag `--allow-empty` auf `import`.
+Additionally: `import_dump(..., allow_empty=False)` refuses (`ImportRefused`) a dump without `document` rows if `repository.has_documents()`; CLI flag `--allow-empty` on `import`.
 
-Jeder `IntegrityError` in den Schritten 2–6 wird zu `ImportBlockedError(<Tabelle>, <erste Zeile der Fehlermeldung>)` (letzte Sicherung für unerwartete Fremdschlüssel, im Regelbetrieb nicht ausgelöst).
+Every `IntegrityError` in steps 2–6 becomes `ImportBlockedError(<table>, <first line of the error message>)` (last safeguard for unexpected foreign keys, not raised in regular operation).
 
-- [ ] **Step 1: Alte Tests anpassen / neue Tests schreiben (RED)**
+- [ ] **Step 1: Adjust old tests / write new tests (RED)**
 
 In `core/tests/exchange/test_exchange_repository.py`:
 
-1. `test_replace_is_idempotent_and_removes_missing_rows`: Die Aussage `str(drop.id) not in _ids(first, "document")` wird zu: das Dokument ist **noch da** (Tombstone) und die `rights_classification` der Dokuments ist **weg**; der Test heißt jetzt `test_replace_is_idempotent_and_retires_missing_rows`. Idempotenz-Assertion (zweiter Import ändert den Snapshot nicht) bleibt; `_snapshot` muss `retired_at` für `work`/`document`/`edge` enthalten, damit „zweiter Import ändert `retired_at` nicht“ geprüft wird.
-2. `test_replace_blocks_when_user_data_still_references_a_row`: **ersetzen** durch `test_user_data_never_blocks_an_import` (watchlist auf einen Work, dessen Dokumente nicht mehr im Dump stehen → Import läuft durch, Watchlist-Zeile unverändert, Work mit `retired_at` gesetzt, `imported_version()` gesetzt).
-3. Die übrigen Tests (Work-Merge zwischen zwei Importen, Klassifikation wechselt Lieferung, Un-Merge, `begin_nested`-Rollback) auf das neue Verhalten prüfen: Sie müssen **ihre Absicht behalten** (kein falscher Block, Idempotenz, Rollback ohne Änderung bei Fehler); wo sie vorher auf „Zeile gelöscht“ geprüft haben, auf „Tombstone/Inhalt gelöscht“ umstellen. Ein Test, der nur den früheren Drei-Durchläufe-Mechanismus beschrieben hat und kein Verhalten mehr trägt, wird entfernt (mit Begründung im Bericht).
+1. `test_replace_is_idempotent_and_removes_missing_rows`: The assertion `str(drop.id) not in _ids(first, "document")` becomes: the document is **still there** (tombstone) and the document's `rights_classification` is **gone**; the test is now called `test_replace_is_idempotent_and_retires_missing_rows`. The idempotency assertion (a second import does not change the snapshot) stays; `_snapshot` must contain `retired_at` for `work`/`document`/`edge`, so that "a second import does not change `retired_at`" is checked.
+2. `test_replace_blocks_when_user_data_still_references_a_row`: **replace** with `test_user_data_never_blocks_an_import` (watchlist on a work whose documents are no longer in the dump → import goes through, watchlist row unchanged, work with `retired_at` set, `imported_version()` set).
+3. Check the remaining tests (work merge between two imports, classification changes delivery, un-merge, `begin_nested` rollback) against the new behavior: they must **keep their intent** (no false block, idempotency, rollback without change on error); where they previously checked for "row deleted", switch to "tombstone/content deleted". A test that only described the former three-pass mechanism and no longer carries any behavior is removed (with a rationale in the report).
 
-Neue Datei `core/tests/exchange/test_takedown.py` (Fixtures aus `.helpers`; Konten über `PostgresAccountRepository.create_account(email=..., password_hash=...)`, Beobachtung über `PostgresWatchlistRepository.add_watch(account_id=..., work_id=...)`, Segmente über `PostgresSegmentRepository.add_segment(...)`, Einbettungen wie in `test_embedding_roundtrip.py`; Chat-Zitat über die vorhandenen Chat-Repositories — Signaturen vor dem Schreiben mit `grep -n "def create_session\|def add_message\|def add_citation\|def create_message" core/src/normly_core/graph/postgres/repositories.py` prüfen und die Tests an die echten Parameter anpassen, nicht ihre Aussage):
+New file `core/tests/exchange/test_takedown.py` (fixtures from `.helpers`; accounts via `PostgresAccountRepository.create_account(email=..., password_hash=...)`, watch via `PostgresWatchlistRepository.add_watch(account_id=..., work_id=...)`, segments via `PostgresSegmentRepository.add_segment(...)`, embeddings as in `test_embedding_roundtrip.py`; chat citation via the existing chat repositories — check the signatures before writing with `grep -n "def create_session\|def add_message\|def add_citation\|def create_message" core/src/normly_core/graph/postgres/repositories.py` and adapt the tests to the real parameters, not their assertion):
 
 ```python
 # SPDX-License-Identifier: AGPL-3.0-or-later
@@ -356,22 +356,22 @@ def _without_document(dump, document_id):
     return out
 ```
 
-Tests (jeder legt ein Szenario mit Quelle, Lieferung, zwei Dokumenten `KEEP`/`DROP`, je einem Segment, einer Klassifikation, einer Kante `KEEP→DROP`, einem Konto, einer Beobachtung auf den Work von `DROP`, einer Benachrichtigung mit `trigger_document_id=DROP`/`trigger_edge_id`, einem `notified_edge`- und `rights_notification_baseline`-Eintrag und einem Chat-Zitat auf das Segment von `DROP` an, importiert zuerst den vollständigen Dump, dann den Dump ohne `DROP`):
+Tests (each sets up a scenario with source, delivery, two documents `KEEP`/`DROP`, one segment each, a classification, an edge `KEEP→DROP`, an account, a watch on the work of `DROP`, a notification with `trigger_document_id=DROP`/`trigger_edge_id`, a `notified_edge` and a `rights_notification_baseline` entry and a chat citation on the segment of `DROP`, first imports the complete dump, then the dump without `DROP`):
 
-- `test_takedown_deletes_content_and_keeps_identifiers`: nach dem zweiten Import existieren für `DROP` **keine** Zeilen in `segment`, `embedding`, `document_embedding`, `rights_classification`; das `document` und sein `work` existieren mit `retired_at IS NOT NULL`; `retired_at` von `KEEP` und dessen Work ist `NULL`; die Kante `KEEP→DROP` existiert mit `retired_at` gesetzt; `delivery` bleibt; `source` bleibt.
-- `test_takedown_keeps_user_data_and_only_clears_the_citation_segment`: Beobachtung, Benachrichtigung (inkl. `trigger_*_id`), `notified_edge`, `rights_notification_baseline`, Chat-Nachricht sind **unverändert vorhanden**; das Zitat existiert noch mit `document_id` von `DROP` und `segment_id IS NULL`.
-- `test_takedown_removes_the_document_from_every_gated_read`: Nach dem Import erscheint `DROP` weder in `PostgresDocumentRepository(db_session).list_documents_for_jurisdiction("DE")` noch in `search_documents_for_jurisdiction(...)` (passende Signatur prüfen) noch in `list_exportable_documents_for_jurisdiction("DE")` noch in `iter_exportable_rows("document")`; `KEEP` erscheint weiter.
-- `test_returning_document_clears_retired_at_and_restores_content`: Dritter Import mit dem vollständigen Dump → `retired_at` wieder `NULL` für `DROP`, Work und Kante; `segment`/`embedding`/`document_embedding`/`rights_classification` wieder da; Beobachtung etc. unverändert; das frühere Zitat hat weiterhin `segment_id IS NULL` (Verweis ist unwiderruflich gelöst).
-- `test_withdrawn_delivery_gets_withdrawn_at`: Dump ohne eine ganze Lieferung (alle ihre Zeilen) → `delivery.withdrawn_at IS NOT NULL`; ein zweiter Import ändert den Zeitstempel nicht.
-- `test_second_import_changes_nothing`: Nach dem zweiten Import (Dump ohne `DROP`) erzeugt ein dritter Import desselben Dumps einen identischen Snapshot einschließlich `retired_at`-Werten (Zeitstempel bleibt der des ersten Rücknahme-Imports).
-- `test_import_inside_a_savepoint_rolls_back_cleanly`: Ein bewusst scheiternder Import (z. B. ein künstlich hinzugefügter Fremdschlüssel von einer Testtabelle auf `segment` ist zu aufwendig — stattdessen: Import in `db_session.begin_nested()`, dann `rollback()`; Snapshot gleich dem vorherigen).
-- `test_natural_key_collision_with_a_purged_row_does_not_block`: Ein Segment `(document_id, sequence_number)` fehlt im Dump und ein anderes Segment (neue ID) mit demselben natürlichen Schlüssel kommt im Dump vor → der Import läuft durch (Löschen der Inhaltsklasse vor dem Einfügen).
+- `test_takedown_deletes_content_and_keeps_identifiers`: after the second import there are **no** rows for `DROP` in `segment`, `embedding`, `document_embedding`, `rights_classification`; the `document` and its `work` exist with `retired_at IS NOT NULL`; `retired_at` of `KEEP` and its work is `NULL`; the edge `KEEP→DROP` exists with `retired_at` set; `delivery` stays; `source` stays.
+- `test_takedown_keeps_user_data_and_only_clears_the_citation_segment`: watch, notification (incl. `trigger_*_id`), `notified_edge`, `rights_notification_baseline`, chat message are **present unchanged**; the citation still exists with `document_id` of `DROP` and `segment_id IS NULL`.
+- `test_takedown_removes_the_document_from_every_gated_read`: After the import, `DROP` appears neither in `PostgresDocumentRepository(db_session).list_documents_for_jurisdiction("DE")` nor in `search_documents_for_jurisdiction(...)` (check the matching signature) nor in `list_exportable_documents_for_jurisdiction("DE")` nor in `iter_exportable_rows("document")`; `KEEP` still appears.
+- `test_returning_document_clears_retired_at_and_restores_content`: Third import with the complete dump → `retired_at` `NULL` again for `DROP`, its work and the edge; `segment`/`embedding`/`document_embedding`/`rights_classification` back again; watch etc. unchanged; the earlier citation still has `segment_id IS NULL` (the reference is irrevocably detached).
+- `test_withdrawn_delivery_gets_withdrawn_at`: Dump without an entire delivery (all its rows) → `delivery.withdrawn_at IS NOT NULL`; a second import does not change the timestamp.
+- `test_second_import_changes_nothing`: After the second import (dump without `DROP`), a third import of the same dump produces an identical snapshot including the `retired_at` values (the timestamp stays that of the first withdrawal import).
+- `test_import_inside_a_savepoint_rolls_back_cleanly`: A deliberately failing import (e.g. an artificially added foreign key from a test table to `segment` is too elaborate — instead: import in `db_session.begin_nested()`, then `rollback()`; snapshot equal to the previous one).
+- `test_natural_key_collision_with_a_purged_row_does_not_block`: A segment `(document_id, sequence_number)` is missing from the dump and another segment (new ID) with the same natural key appears in the dump → the import goes through (the content class is deleted before inserting).
 
-- [ ] **Step 2:** `cd core && ../.venv/bin/pytest tests/exchange/test_exchange_repository.py tests/exchange/test_takedown.py -v` — Expected: FAIL (alter Algorithmus löscht Tombstone-Klassen bzw. blockiert).
+- [ ] **Step 2:** `cd core && ../.venv/bin/pytest tests/exchange/test_exchange_repository.py tests/exchange/test_takedown.py -v` — Expected: FAIL (the old algorithm deletes tombstone classes or blocks).
 
-- [ ] **Step 3: `replace_knowledge_base` umbauen**
+- [ ] **Step 3: Rebuild `replace_knowledge_base`**
 
-Ersetze in `graph/postgres/exchange.py` den Rumpf von `replace_knowledge_base` und entferne `_delete_missing` (samt Defer-Logik). Gerüst:
+In `graph/postgres/exchange.py`, replace the body of `replace_knowledge_base` and remove `_delete_missing` (together with the defer logic). Skeleton:
 
 ```python
     def replace_knowledge_base(
@@ -419,7 +419,7 @@ Ersetze in `graph/postgres/exchange.py` den Rumpf von `replace_knowledge_base` u
             keep.drop(connection)
 ```
 
-Hilfsmethoden (alle nutzen `_primary_key`, `keep.c[...]`-Vergleiche wie bisher):
+Helper methods (all use `_primary_key`, `keep.c[...]` comparisons as before):
 
 ```python
     def _missing(self, sa_table, keep):
@@ -463,13 +463,13 @@ Hilfsmethoden (alle nutzen `_primary_key`, `keep.c[...]`-Vergleiche wie bisher):
         )
 ```
 
-`_upsert` ändern: Für `name in TOMBSTONE_TABLES` jede Zeile um `"retired_at": None` ergänzen und `retired_at` in `value_columns`/`set_` aufnehmen (`value_columns = [c for c in sa_table.columns if c.name not in key_names]` enthält die Spalte bereits; die Zeilen aus dem Dump müssen den Schlüssel `retired_at` mitbringen: `row.setdefault`-artig beim Aufbau der Rows). Der Selbstverweis-Aufschub (`merged_into_work_id`) bleibt. `_from_exchange` ignoriert `None` und braucht für `retired_at` keine Sonderbehandlung.
+Change `_upsert`: for `name in TOMBSTONE_TABLES`, extend every row with `"retired_at": None` and include `retired_at` in `value_columns`/`set_` (`value_columns = [c for c in sa_table.columns if c.name not in key_names]` already contains the column; the rows from the dump must bring the key `retired_at` along: `row.setdefault`-style when building the rows). The self-reference deferral (`merged_into_work_id`) stays. `_from_exchange` ignores `None` and needs no special handling for `retired_at`.
 
-Entferne ungenutzte Imports (`ImportBlockedError` bleibt). Importiere `PURGE_TABLES`, `TOMBSTONE_TABLES`, `DETACHED_REFERENCES` aus `normly_core.exchange.tables`. Docstring in `graph/domain.py` (`ImportBlockedError`, Protocol `replace_knowledge_base`) und `exchange/importer.py` an das neue Verhalten anpassen („blockiert nicht mehr an Nutzerdaten, nur noch an einem unerwarteten Fremdschlüssel“).
+Remove unused imports (`ImportBlockedError` stays). Import `PURGE_TABLES`, `TOMBSTONE_TABLES`, `DETACHED_REFERENCES` from `normly_core.exchange.tables`. Adapt the docstrings in `graph/domain.py` (`ImportBlockedError`, Protocol `replace_knowledge_base`) and `exchange/importer.py` to the new behavior ("no longer blocks on user data, only on an unexpected foreign key").
 
-- [ ] **Step 4: Tests grün**
+- [ ] **Step 4: Tests green**
 
-Run: `cd core && ../.venv/bin/pytest tests/exchange tests/graph -q` — Expected: PASS. Dann `cd core && ../.venv/bin/pytest tests -q` (komplette Core-Suite, ca. 4 Minuten) — Expected: PASS.
+Run: `cd core && ../.venv/bin/pytest tests/exchange tests/graph -q` — Expected: PASS. Then `cd core && ../.venv/bin/pytest tests -q` (complete core suite, about 4 minutes) — Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -482,25 +482,25 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 
 ---
 
-### Task 3: ADR-026 und Dokumentation
+### Task 3: ADR-026 and documentation
 
 **Files:**
-- Modify: `docs/adr/README.md` (ADR-026 anfügen; ADR-025: Blockierregel, der drei Durchläufe und den offenen Punkt zu Nutzerverweisen anpassen; Register-Zeilen prüfen)
-- Modify: `docs/superpowers/specs/2026-10-09-tp4-deployment-automation-design.md` (Teil 3, Schritt 4 „Idempotent …“)
-- Modify: `docs/guide/operations.md` (Importverhalten)
-- Modify: `docs/superpowers/specs/2026-10-09-user-data-on-kb-import-design.md` (Status: umgesetzt)
+- Modify: `docs/adr/README.md` (append ADR-026; ADR-025: adjust the blocking rule, the three passes and the open item on user references; check the register rows)
+- Modify: `docs/superpowers/specs/2026-10-09-tp4-deployment-automation-design.md` (Part 3, step 4 "Idempotent …")
+- Modify: `docs/guide/operations.md` (import behavior)
+- Modify: `docs/superpowers/specs/2026-10-09-user-data-on-kb-import-design.md` (status: implemented)
 
-- [ ] **Step 1: ADR-026 schreiben** (Format der Nachbar-ADRs: `## ADR-026 — …`, Status/Datum, Kontext, Entscheidung, Begründung, Verworfen, Folgen). Inhalt:
-  - **Titel:** „Umgang mit Nutzerdaten beim Wissensbestand-Import“; Status angenommen 2026-10-09.
-  - **Kontext:** `ImportBlockedError` blockierte Importe an Nutzerverweisen; eine rechtlich gebotene Rücknahme darf nicht an Nutzerdaten scheitern (CLAUDE.md „Abstammung mitführen“). Befund: keine Nutzerdaten-Tabelle speichert urheberrechtlich geschützten Inhalt, nur Verweise.
-  - **Entscheidung:** Klassen (Tombstone: `work`, `document`, `edge`, Kanten zusätzlich widerrufen; Herkunft: `source`, `delivery`; Inhalt/Ableitung: `document_designation`, `document_title`, `rights_classification`, `segment`, `embedding`, `document_embedding` → gelöscht); Schutz vor leerem Dump (`allow_empty`/`--allow-empty`); `retired_at` (nicht im Austauschformat); Wiederkehr; Zitate verlieren `segment_id`; Fail-closed-Test für Fremdschlüssel; `retired_at` ist keine Filterpflicht, weil das Rechtetor (gelöschte Klassifikation) die Dokumente aus allen tor-gebundenen Abfragen nimmt; Reihenfolge Löschen und Zurückziehen vor Einfügen wegen natürlicher Schlüssel (Neulieferung mit neuen IDs).
-  - **Begründung:** Rücknahme gewinnt immer; keine Textreste in Produktion und Sicherungen nach Ablauf; keine Nutzerdaten gehen verloren.
-  - **Verworfen:** Blockieren mit Bereinigungswerkzeug (Rücknahme wartet auf einen Menschen); Nutzerverweise anpassen/löschen (Datenverlust ohne Nutzen, da nur Verweise); reine Tombstones auch für Inhalt (Rücknahme nur logisch, Text bliebe lesbar in DB/Sicherungen).
-  - **Folgen / offen:** (1) In Produktion verschwindet bei einem Widerruf die Klassifikation; `notify-watchers` (RIGHTS_CHANGE) sieht dann nichts mehr — eine Meldung „nicht mehr verfügbar“ auf Basis von `retired_at` ist Folgearbeit (Produktentscheidung); (2) Aufbewahrung/Alterung von Tombstones offen (Teil B); (3) Dumps müssen aus einer Abstammungslinie mit stabilen IDs stammen: Ein Neuaufbau der Produzenten-Datenbank mit neuen IDs kollidiert mit stehengebliebenen Tombstones (partielle Eindeutigkeit von Kanten, Bezeichner) und bricht mit `ImportBlockedError` ab; (4) Tombstones bleiben in der Datenbank sichtbar für Pipeline-Lesewege ohne Rechtetor (`*_unchecked`); diese dürfen sie nicht als Inhalt ausliefern.
-  Folge (1) lautet nach Task 4/5 nicht mehr „offen“: Der Widerruf wird in Produktion als Benachrichtigung `no_longer_available` gemeldet (Erkennung aus `retired_at`, Dedup über `notified_retirement`); offen bleibt nur die RIGHTS_CHANGE-Meldung im engeren Sinn (Rechtewerte ändern sich, ohne dass das Dokument verschwindet) — die entsteht weiter beim Produzenten. Dokumentiere das so.
-  Übertrage in ADR-025 den Verweis auf ADR-026 (Import: „Zitate lösen → Inhalt löschen → Tombstones setzen → einfügen“; Blockierregel und der offene Punkt „Nutzerdaten, die auf ersetzte Segmente/Kanten verweisen, können Importe blockieren“ entfallen).
-- [ ] **Step 2: TP4-Spec Teil 3 Schritt 4, `docs/guide/operations.md`:** Importverhalten (Tombstones, Wiederkehr, was nach einer Rücknahme in den Nutzerdaten passiert) in zwei bis vier Sätzen beschreiben (Guide Englisch); Spec-Status der neuen Spec auf „umgesetzt“ setzen.
-- [ ] **Step 3: Docs-Build wie in CI** (docker `python:3.12` mit `pip install "zensical==0.0.60" "mkdocstrings==1.0.6" "mkdocstrings-python==2.0.8" "griffelib==2.3.0"`, dann `zensical build`; Ausgabe muss eine Zeile `3 issues found` enthalten; mit `--user "$(id -u):$(id -g)"` und beschreibbarem HOME laufen lassen und danach `site/` und `.cache/` entfernen, damit keine root-eigenen Dateien bleiben).
+- [ ] **Step 1: Write ADR-026** (format of the neighboring ADRs: `## ADR-026 — …`, status/date, context, decision, rationale, rejected, consequences). Content:
+  - **Title:** "Handling user data on knowledge base import"; status accepted 2026-10-09.
+  - **Context:** `ImportBlockedError` blocked imports on user references; a legally required withdrawal must not fail because of user data (CLAUDE.md "Carry lineage along"). Finding: no user data table stores copyrighted content, only references.
+  - **Decision:** Classes (tombstone: `work`, `document`, `edge`, edges additionally revoked; provenance: `source`, `delivery`; content/derivation: `document_designation`, `document_title`, `rights_classification`, `segment`, `embedding`, `document_embedding` → deleted); protection against an empty dump (`allow_empty`/`--allow-empty`); `retired_at` (not in the exchange format); return; citations lose `segment_id`; fail-closed test for foreign keys; `retired_at` is not a mandatory filter, because the rights gate (deleted classification) takes the documents out of all gate-bound queries; deleting and retiring run before inserting because of natural keys (re-delivery with new IDs).
+  - **Rationale:** A withdrawal always wins; no text remnants in production and in backups after they expire; no user data is lost.
+  - **Rejected:** Blocking with a cleanup tool (the withdrawal waits for a human); adjusting/deleting user references (data loss without benefit, since they are only references); pure tombstones for content too (withdrawal only logical, the text would remain readable in the DB/backups).
+  - **Consequences / open:** (1) In production a revocation makes the classification disappear; `notify-watchers` (RIGHTS_CHANGE) then sees nothing any more — a "no longer available" notification based on `retired_at` is follow-up work (product decision); (2) retention/expiry of tombstones open (Part B); (3) dumps must come from one lineage with stable IDs: a rebuild of the producer database with new IDs collides with leftover tombstones (partial uniqueness of edges, designations) and aborts with `ImportBlockedError`; (4) tombstones stay visible in the database to pipeline read paths without the rights gate (`*_unchecked`); these must not serve them as content.
+  After Task 4/5, consequence (1) is no longer "open": in production the revocation is reported as a `no_longer_available` notification (detection from `retired_at`, dedup via `notified_retirement`); only the RIGHTS_CHANGE notification in the narrower sense remains open (rights values change without the document disappearing) — it continues to arise at the producer. Document it that way.
+  Carry the reference to ADR-026 into ADR-025 (import: "detach citations → delete content → set tombstones → insert"; the blocking rule and the open item "user data that points to replaced segments/edges can block imports" are dropped).
+- [ ] **Step 2: TP4 spec Part 3 step 4, `docs/guide/operations.md`:** Describe the import behavior (tombstones, return, what happens in the user data after a withdrawal) in two to four sentences (guide in English); set the status of the new spec to "implemented".
+- [ ] **Step 3: Docs build as in CI** (docker `python:3.12` with `pip install "zensical==0.0.60" "mkdocstrings==1.0.6" "mkdocstrings-python==2.0.8" "griffelib==2.3.0"`, then `zensical build`; the output must contain a line `3 issues found`; run with `--user "$(id -u):$(id -g)"` and a writable HOME, and afterwards remove `site/` and `.cache/`, so that no root-owned files remain).
 - [ ] **Step 4: Commit**
 
 ```bash
@@ -512,167 +512,167 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 
 ---
 
-## Selbstprüfung gegen die Spec
+## Self-review against the spec
 
-| Spec-Abschnitt | Task |
+| Spec section | Task |
 |---|---|
-| Entscheidungsklassen (Tombstone / Herkunft / Inhalt) | Task 1 (Konstanten + Test), Task 2 (Verhalten) |
-| `retired_at` (Migration, ORM, nicht im Austauschformat) | Task 1 |
-| Importablauf (Zitate lösen, Inhalt löschen, einfügen, Tombstones, Lieferungen) | Task 2 |
-| Wiederkehr, Idempotenz | Task 2 (`test_returning_document…`, `test_second_import…`) |
-| `retired_at` ist keine Filterpflicht (Rechtetor) | Task 2 (`test_takedown_removes_the_document_from_every_gated_read`) |
-| Fail-closed-Fremdschlüsseltest | Task 1 |
-| Nutzerdaten bleiben / blockieren nicht | Task 2 |
-| ADR-026, ADR-025, Spec, Guide | Task 3 |
+| Decision classes (tombstone / provenance / content) | Task 1 (constants + test), Task 2 (behavior) |
+| `retired_at` (migration, ORM, not in the exchange format) | Task 1 |
+| Import procedure (detach citations, delete content, insert, tombstones, deliveries) | Task 2 |
+| Return, idempotency | Task 2 (`test_returning_document…`, `test_second_import…`) |
+| `retired_at` is not a mandatory filter (rights gate) | Task 2 (`test_takedown_removes_the_document_from_every_gated_read`) |
+| Fail-closed foreign-key test | Task 1 |
+| User data stays / does not block | Task 2 |
+| ADR-026, ADR-025, spec, guide | Task 3 |
 
-**Bekannte Lücken, bewusst nicht in diesem Plan:** Alterung/Aufräumen von Tombstones, Anzeige „nicht mehr verfügbar“ und RIGHTS_CHANGE-Meldung bei Widerruf in Produktion (Produktentscheidung, als offene Punkte in ADR-026), Lebenszyklus der Nutzerdaten insgesamt (Teil B). **Risiken beim Bau:** Eindeutigkeitsschlüssel von Tombstone-Klassen können bei neuen IDs kollidieren (ADR-026, Folge 3); Chat-Repositories für das Zitat im Test (Signaturen prüfen); die komplette Core-Suite muss nach der Umstellung grün bleiben (insbesondere die alten Work-Merge-/Lieferungswechsel-Tests).
+**Known gaps, deliberately not in this plan:** Expiry/cleanup of tombstones, the "no longer available" display and the RIGHTS_CHANGE notification on revocation in production (product decision, as open items in ADR-026), lifecycle of user data as a whole (Part B). **Risks during the build:** Unique keys of tombstone classes can collide with new IDs (ADR-026, consequence 3); chat repositories for the citation in the test (check signatures); the complete core suite must stay green after the switch (in particular the old work-merge/delivery-change tests).
 
 ---
 
-## Erweiterung: Meldung „nicht mehr verfügbar“
+## Extension: "No longer available" notification
 
-Spec-Ergänzung: `docs/superpowers/specs/2026-10-09-user-data-on-kb-import-design.md`, Abschnitt „Meldung ‚nicht mehr verfügbar‘“. Entscheidungen des Nutzers: **eine Meldung pro zurückgezogenem Dokument**; nur Rücknahmen **nach** dem Beginn der Beobachtung; kein Link; Dedup-Gedächtnis in eigener Tabelle.
+Spec addition: `docs/superpowers/specs/2026-10-09-user-data-on-kb-import-design.md`, section on the "No longer available" notification. Owner decisions: **one notification per retired document**; only withdrawals **after** watching began; no link; dedup memory in its own table.
 
-### Task 4: Kern — Typ, Tabelle, Erkennung, E-Mail
+### Task 4: Core — type, table, detection, e-mail
 
 **Files:**
-- Modify: `core/src/normly_core/graph/domain.py` (`NotificationTriggerType.NO_LONGER_AVAILABLE = "no_longer_available"`; `Document.retired_at: datetime | None = None` als **letztes** Feld mit Default; neues Protocol `NotifiedRetirementRepository`)
-- Modify: `core/src/normly_core/graph/postgres/orm.py` (`NotifiedRetirementORM`; die ORM-`Enum` von `NotificationTriggerType` nimmt den neuen Wert automatisch auf)
+- Modify: `core/src/normly_core/graph/domain.py` (`NotificationTriggerType.NO_LONGER_AVAILABLE = "no_longer_available"`; `Document.retired_at: datetime | None = None` as the **last** field with a default; new Protocol `NotifiedRetirementRepository`)
+- Modify: `core/src/normly_core/graph/postgres/orm.py` (`NotifiedRetirementORM`; the ORM `Enum` of `NotificationTriggerType` picks up the new value automatically)
 - Create: `core/migrations/versions/0034_add_no_longer_available.py`
-- Modify: `core/src/normly_core/graph/postgres/repositories.py` (`_document_to_domain` setzt `retired_at`; `PostgresNotifiedRetirementRepository`)
-- Modify: `core/src/normly_core/notifications/detection.py` (Schleife, `_EMAIL_SUBJECTS`)
-- Modify: `core/src/normly_core/exchange/tables.py` (`USER_TABLES` um `notified_retirement`, nach `notified_edge`)
-- Test: `core/tests/notifications/test_no_longer_available.py` (neu), bestehende Tests für Tabellen/Migration/Architektur müssen grün bleiben
+- Modify: `core/src/normly_core/graph/postgres/repositories.py` (`_document_to_domain` sets `retired_at`; `PostgresNotifiedRetirementRepository`)
+- Modify: `core/src/normly_core/notifications/detection.py` (loop, `_EMAIL_SUBJECTS`)
+- Modify: `core/src/normly_core/exchange/tables.py` (`USER_TABLES` extended by `notified_retirement`, after `notified_edge`)
+- Test: `core/tests/notifications/test_no_longer_available.py` (new), existing tests for tables/migration/architecture must stay green
 
 **Interfaces:**
 - Produces:
-  - `NotifiedRetirementRepository` mit `has_been_notified(*, account_id, work_id, document_id, retired_at) -> bool` und `mark_notified(*, account_id, work_id, document_id, retired_at) -> None` (keine `get_`/`list_`-Namen, wegen des Jurisdiktions-Guards in `test_architecture.py`).
-  - Tabelle `notified_retirement(account_id UUID FK account, work_id UUID FK work, document_id UUID FK document, retired_at timestamptz, notified_at timestamptz DEFAULT now(), PRIMARY KEY (account_id, work_id, document_id, retired_at))`.
-  - `run_notify_watchers` erzeugt `NO_LONGER_AVAILABLE`-Benachrichtigungen (`trigger_document_id` = Dokument, `trigger_edge_id=None`, `trigger_jurisdiction=None`, Rechtefelder `None`) und zählt sie in `notifications_created`/`emails_sent`.
+  - `NotifiedRetirementRepository` with `has_been_notified(*, account_id, work_id, document_id, retired_at) -> bool` and `mark_notified(*, account_id, work_id, document_id, retired_at) -> None` (no `get_`/`list_` names, because of the jurisdiction guard in `test_architecture.py`).
+  - Table `notified_retirement(account_id UUID FK account, work_id UUID FK work, document_id UUID FK document, retired_at timestamptz, notified_at timestamptz DEFAULT now(), PRIMARY KEY (account_id, work_id, document_id, retired_at))`.
+  - `run_notify_watchers` creates `NO_LONGER_AVAILABLE` notifications (`trigger_document_id` = document, `trigger_edge_id=None`, `trigger_jurisdiction=None`, rights fields `None`) and counts them in `notifications_created`/`emails_sent`.
 
-**Verhalten (verbindlich):** Pro Beobachtung und pro Dokument des beobachteten Works aus `list_documents_for_work_unchecked` mit `retired_at is not None` und `retired_at > watch.created_at` und nicht `has_been_notified(...)`: Benachrichtigung anlegen (E-Mail nach Kontoeinstellung wie bei den anderen Typen), dann `mark_notified`. Das Dedup-Schlüsselfeld `retired_at` macht eine spätere erneute Rücknahme nach einer Rückkehr zu einer neuen Meldung. Konten mit `NotificationPreference.NONE` werden wie bisher übersprungen. E-Mail-Betreff: `"Ein beobachtetes Regelwerk ist nicht mehr verfügbar"` (in `_EMAIL_SUBJECTS`), Rumpf wie bei den anderen Typen.
+**Behavior (binding):** Per watch and per document of the watched work from `list_documents_for_work_unchecked` with `retired_at is not None` and `retired_at > watch.created_at` and not `has_been_notified(...)`: create a notification (e-mail according to the account setting, as for the other types), then `mark_notified`. The dedup key field `retired_at` turns a later renewed withdrawal after a return into a new notification. Accounts with `NotificationPreference.NONE` are skipped as before. E-mail subject: `"Ein beobachtetes Regelwerk ist nicht mehr verfügbar"` (In English: A watched standard is no longer available; in `_EMAIL_SUBJECTS`), body as for the other types.
 
-- [ ] **Step 1: Failing tests** in `core/tests/notifications/test_no_longer_available.py`. Szenarien (Fixtures über die vorhandenen Test-Helfer in `core/tests/notifications/` bzw. `core/tests/exchange/helpers.py`; die genauen Konstruktoren der Repositories vor dem Schreiben aus den bestehenden Notification-Tests übernehmen):
-  1. Konto + Beobachtung eines Works; danach wird das Dokument zurückgezogen (`UPDATE document SET retired_at = now()` über die ORM-Session im Test, oder über `replace_knowledge_base` mit einem Dump ohne das Dokument — Letzteres ist der Ende-zu-Ende-Test) → `run_notify_watchers` erzeugt **genau eine** `NO_LONGER_AVAILABLE`-Benachrichtigung mit `trigger_document_id`.
-  2. Rücknahme **vor** dem Beobachten (`retired_at <= watch.created_at`) → keine Meldung.
-  3. Zweiter Lauf → keine zweite Meldung (Idempotenz).
-  4. Gelesene Benachrichtigung wird per `delete_read_before(...)` aufgeräumt → nächster Lauf meldet **nicht** erneut.
-  5. Dokument kehrt zurück (`retired_at = NULL`) und wird später erneut zurückgezogen (neuer Zeitstempel) → eine **neue** Meldung.
-  6. Zwei zurückgezogene Dokumente desselben Works → zwei Meldungen (pro Dokument).
-  7. Konto mit `NotificationPreference.NONE` → keine Meldung; Konto mit `EMAIL`/`BOTH` → E-Mail mit dem neuen Betreff an den Fake-`EmailSender`, `emailed_at` gesetzt; `NotifyWatchersSummary` zählt Meldungen und E-Mails.
-  8. Ein zurückgezogenes Dokument stört den bestehenden Rechteänderungs-Pfad nicht (kein Fehler, keine Rechteänderungs-Meldung).
-  Ferner (in vorhandenen Test-Dateien ergänzen): `PostgresNotifiedRetirementRepository` Roundtrip; ORM↔Migration-Konsistenz (`test_orm_migration_consistency.py`, `test_migration_determinism.py`) bleibt grün; `test_tables.py` kennt `notified_retirement` in `USER_TABLES` in FK-sicherer Reihenfolge.
+- [ ] **Step 1: Failing tests** in `core/tests/notifications/test_no_longer_available.py`. Scenarios (fixtures via the existing test helpers in `core/tests/notifications/` or `core/tests/exchange/helpers.py`; take the exact repository constructors from the existing notification tests before writing):
+  1. Account + watch on a work; afterwards the document is retired (`UPDATE document SET retired_at = now()` via the ORM session in the test, or via `replace_knowledge_base` with a dump without the document — the latter is the end-to-end test) → `run_notify_watchers` creates **exactly one** `NO_LONGER_AVAILABLE` notification with `trigger_document_id`.
+  2. Withdrawal **before** watching began (`retired_at <= watch.created_at`) → no notification.
+  3. Second run → no second notification (idempotency).
+  4. A read notification is cleaned up via `delete_read_before(...)` → the next run does **not** notify again.
+  5. The document returns (`retired_at = NULL`) and is later retired again (new timestamp) → a **new** notification.
+  6. Two retired documents of the same work → two notifications (per document).
+  7. Account with `NotificationPreference.NONE` → no notification; account with `EMAIL`/`BOTH` → e-mail with the new subject to the fake `EmailSender`, `emailed_at` set; `NotifyWatchersSummary` counts notifications and e-mails.
+  8. A retired document does not disturb the existing rights-change path (no error, no rights-change notification).
+  Furthermore (add to existing test files): `PostgresNotifiedRetirementRepository` round trip; ORM↔migration consistency (`test_orm_migration_consistency.py`, `test_migration_determinism.py`) stays green; `test_tables.py` knows `notified_retirement` in `USER_TABLES` in FK-safe order.
 - [ ] **Step 2:** `cd core && ../.venv/bin/pytest tests/notifications/test_no_longer_available.py -v` — Expected: FAIL (`AttributeError: ... NO_LONGER_AVAILABLE`).
-- [ ] **Step 3: Implementierung.** Migration `0034` (Nachbar `0033` für Stil und IDs; `revision = "0034"`, `down_revision = "0033"`): (a) Tabelle `notified_retirement` anlegen (Spalten und Primärschlüssel wie oben); (b) die CHECK-Beschränkung des Enum-Typs `notification_trigger_type` auf `notification` **und** `notified_edge` um `'no_longer_available'` erweitern — dazu den tatsächlichen Constraint-Namen in `0027_create_watchlist_and_notification.py` und `0030_create_notified_edge.py` nachlesen (SQLAlchemy benennt ihn nach dem `name=`-Argument; bei `op.create_table` ist er `notification_trigger_type`; prüfe mit `\d notification` im Testcontainer oder `inspect(...).get_check_constraints`), `op.drop_constraint` + `op.create_check_constraint` mit der erweiterten Wertliste; `downgrade` stellt die alte Liste her (zuvor Zeilen mit dem neuen Wert löschen, sonst scheitert die Beschränkung). Detection: nach der Schleife über Kanten, vor der Rechte-Schleife, eine Schleife über `documents` mit `document.retired_at`; `NotifiedRetirementRepository` im Kopf von `run_notify_watchers` anlegen. Importiere `PostgresNotifiedRetirementRepository`. `Document` in `domain.py` bekommt `retired_at: datetime | None = None` am Ende (keine bestehenden Aufrufer brechen).
-- [ ] **Step 4:** `cd core && ../.venv/bin/pytest tests/notifications tests/exchange tests/graph -q` — Expected: PASS. Danach die komplette Core-Suite `cd core && ../.venv/bin/pytest tests -q`.
-- [ ] **Step 5: Commit** `feat(notifications): notify watchers when a watched document is no longer available` (mit `-s` und Trailer).
+- [ ] **Step 3: Implementation.** Migration `0034` (neighbor `0033` for style and IDs; `revision = "0034"`, `down_revision = "0033"`): (a) create the table `notified_retirement` (columns and primary key as above); (b) extend the CHECK constraint of the enum type `notification_trigger_type` on `notification` **and** `notified_edge` by `'no_longer_available'` — to do so, look up the actual constraint name in `0027_create_watchlist_and_notification.py` and `0030_create_notified_edge.py` (SQLAlchemy names it after the `name=` argument; with `op.create_table` it is `notification_trigger_type`; check with `\d notification` in the test container or `inspect(...).get_check_constraints`), `op.drop_constraint` + `op.create_check_constraint` with the extended value list; `downgrade` restores the old list (delete rows with the new value first, otherwise the constraint fails). Detection: after the loop over edges, before the rights loop, a loop over `documents` with `document.retired_at`; create the `NotifiedRetirementRepository` at the top of `run_notify_watchers`. Import `PostgresNotifiedRetirementRepository`. `Document` in `domain.py` gets `retired_at: datetime | None = None` at the end (no existing callers break).
+- [ ] **Step 4:** `cd core && ../.venv/bin/pytest tests/notifications tests/exchange tests/graph -q` — Expected: PASS. Then the complete core suite `cd core && ../.venv/bin/pytest tests -q`.
+- [ ] **Step 5: Commit** `feat(notifications): notify watchers when a watched document is no longer available` (with `-s` and trailer).
 
-### Task 5: Frontend — Eintrag in der Glocke
+### Task 5: Frontend — entry in the bell
 
 **Files:**
 - Modify: `frontend/src/components/page-header.tsx` (`TRIGGER_TYPE_KEYS`, `TRIGGER_TYPE_ICONS`)
-- Modify: `frontend/src/lib/i18n/de.json`, `frontend/src/lib/i18n/en.json`, `frontend/src/lib/i18n/dictionary-keys.ts` (falls der Schlüssel dort aufgelistet werden muss; Mechanismus vor dem Ändern lesen)
+- Modify: `frontend/src/lib/i18n/de.json`, `frontend/src/lib/i18n/en.json`, `frontend/src/lib/i18n/dictionary-keys.ts` (if the key has to be listed there; read the mechanism before changing it)
 - Test: `frontend/tests/unit/page-header.test.tsx`
 
 **Interfaces:**
-- Consumes: API liefert `triggerType: "no_longer_available"` unverändert (Accounts-API gibt den Typ als String durch; keine Änderung dort nötig).
-- Produces: i18n-Schlüssel `nav.notificationNoLongerAvailable` mit `de: "Nicht mehr verfügbar"`, `en: "No longer available"`; Icon `FileX` (lucide-react); Mapping `no_longer_available` in beiden Tabellen. Kein Link.
+- Consumes: the API returns `triggerType: "no_longer_available"` unchanged (the accounts API passes the type through as a string; no change needed there).
+- Produces: i18n key `nav.notificationNoLongerAvailable` with `de: "Nicht mehr verfügbar"`, `en: "No longer available"`; icon `FileX` (lucide-react); mapping `no_longer_available` in both tables. No link.
 
-- [ ] **Step 1: Failing test** in `page-header.test.tsx` (bestehendes Muster der Datei übernehmen): Eine Benachrichtigung mit `triggerType: "no_longer_available"` wird mit dem Label „Nicht mehr verfügbar“ (de) bzw. „No longer available“ (en) und ohne Fallback „Benachrichtigungen“ dargestellt; das Icon-Element ist nicht das Standard-`Bell`.
-- [ ] **Step 2:** `cd frontend && npx vitest run tests/unit/page-header.test.tsx` — Expected: FAIL (Fallback-Label statt neuem Label). Falls `node_modules` fehlt: `cd frontend && npm ci` (kann dauern; Netz nötig).
-- [ ] **Step 3: Implementierung** wie unter Interfaces. Danach `cd frontend && npx vitest run` (komplette Frontend-Testsuite) und, falls im Projekt vorhanden, `npx tsc --noEmit` — Expected: PASS. Falls ein Parity-Test zwischen `de.json` und `en.json` existiert, muss er grün sein.
-- [ ] **Step 4: Commit** `feat(frontend): show the no-longer-available notification` (mit `-s` und Trailer).
+- [ ] **Step 1: Failing test** in `page-header.test.tsx` (adopt the existing pattern of the file): A notification with `triggerType: "no_longer_available"` is shown with the label "Nicht mehr verfügbar" (de) or "No longer available" (en) and without the fallback "Benachrichtigungen" (i.e. Notifications); the icon element is not the default `Bell`.
+- [ ] **Step 2:** `cd frontend && npx vitest run tests/unit/page-header.test.tsx` — Expected: FAIL (fallback label instead of the new label). If `node_modules` is missing: `cd frontend && npm ci` (may take a while; network needed).
+- [ ] **Step 3: Implementation** as under Interfaces. Then `cd frontend && npx vitest run` (complete frontend test suite) and, if present in the project, `npx tsc --noEmit` — Expected: PASS. If a parity test between `de.json` and `en.json` exists, it must be green.
+- [ ] **Step 4: Commit** `feat(frontend): show the no-longer-available notification` (with `-s` and trailer).
 
-### Task 6: Dokumentation der Meldung (in Task 3 enthalten)
+### Task 6: Documentation of the notification (included in Task 3)
 
-Der ADR-026-Text (Task 3, Schritt 1) beschreibt die Meldung bereits; zusätzlich in `docs/guide/operations.md` (Englisch) im Abschnitt zum Import einen Satz: Watchers of a withdrawn document receive a "no longer available" notification the next time `notify-watchers` runs. Und im ADR-Register den Eintrag für ADR-026 anlegen, falls das Register Einträge pro ADR führt. Keine eigene Commit-Runde nötig; Teil von Task 3.
+The ADR-026 text (Task 3, step 1) already describes the notification; additionally, in `docs/guide/operations.md` (English), in the section on the import, one sentence: Watchers of a withdrawn document receive a "no longer available" notification the next time `notify-watchers` runs. And create the entry for ADR-026 in the ADR register, if the register keeps entries per ADR. No separate commit round needed; part of Task 3.
 
-## Selbstprüfung der Erweiterung
+## Self-review of the extension
 
-| Spec-Ergänzung | Task |
+| Spec addition | Task |
 |---|---|
-| Typ `no_longer_available`, Erkennung nach Beobachtungsbeginn, eine Meldung pro Dokument | Task 4 |
-| Gedächtnis `notified_retirement` (inkl. `retired_at` im Schlüssel), Aufräumen löst keine zweite Meldung aus | Task 4 (Tests 3, 4, 5) |
-| Migration `0034` (Tabelle, CHECK-Erweiterung) | Task 4 |
-| E-Mail-Betreff, Zusammenfassung | Task 4 (Test 7) |
-| Glocke: Label de/en, Icon, kein Link | Task 5 |
-| ADR-026-Folge 1 gelöst | Task 3 (zuletzt) |
+| Type `no_longer_available`, detection after watching began, one notification per document | Task 4 |
+| Memory `notified_retirement` (incl. `retired_at` in the key), cleanup does not trigger a second notification | Task 4 (tests 3, 4, 5) |
+| Migration `0034` (table, CHECK extension) | Task 4 |
+| E-mail subject, summary | Task 4 (test 7) |
+| Bell: label de/en, icon, no link | Task 5 |
+| ADR-026 consequence 1 resolved | Task 3 (last) |
 
-**Risiken:** Der Name der CHECK-Beschränkung und das `downgrade` (Zeilen mit neuem Wert vor dem Wiederherstellen löschen); die Frontend-Dictionary-Mechanik (Schlüssel eventuell generiert/typisiert); `Document` ist ein eingefrorenes Dataclass-Objekt mit Positionsaufrufen in Tests — der neue Wert hat einen Default und steht am Ende.
+**Risks:** The name of the CHECK constraint and the `downgrade` (delete rows with the new value before restoring); the frontend dictionary mechanics (key possibly generated/typed); `Document` is a frozen dataclass object with positional calls in tests — the new value has a default and comes last.
 
 ---
 
-## Erweiterung 2: Tombstone-Kennungen mitsichern (Rollback-Fix)
+## Extension 2: Back up tombstone IDs too (rollback fix)
 
-**Anlass (Abschlussprüfung, I-1):** `normly-deploy rollback` baut die Datenbank neu auf, importiert die ältere Dump-Version und spielt dann die Nutzerdaten ein (`pg_restore --data-only`). Tombstones (`retired_at`) stehen in keinem Dump; Nutzerzeilen, die auf sie zeigen (`watchlist`, `notification`, `notified_*`, `rights_notification_baseline`, `chat_message_citation`), verletzen beim Einspielen den Fremdschlüssel, nach dem Löschen der Tabellen. Entscheidung des Nutzers: **vollständig lösen**. Entwurf (bestätigt): Die Sicherung nimmt die zurückgezogenen Kennungen samt Fremdschlüssel-Eltern als eigene kleine, `age`-verschlüsselte JSON-Datei mit; der Rollback spielt sie nach dem Wissensbestand-Import und vor den Nutzerdaten ein.
+**Occasion (final review, I-1):** `normly-deploy rollback` rebuilds the database, imports the older dump version and then restores the user data (`pg_restore --data-only`). Tombstones (`retired_at`) are in no dump; user rows that point to them (`watchlist`, `notification`, `notified_*`, `rights_notification_baseline`, `chat_message_citation`) violate the foreign key on restore, after the tables have been dropped. Owner decision: **solve it completely**. Draft (confirmed): the backup includes the retired IDs together with their foreign-key parents as a separate small, `age`-encrypted JSON file; the rollback restores it after the knowledge base import and before the user data.
 
-**Ausführungsreihenfolge dieser Erweiterung:** Task 7 (Kern), Task 8 (Skripte), Task 9 (Dokumentation und Befunde der Abschlussprüfung). Alle auf dem Branch `feat/user-data-on-import`.
+**Execution order of this extension:** Task 7 (core), Task 8 (scripts), Task 9 (documentation and findings of the final review). All on the branch `feat/user-data-on-import`.
 
-**Global Constraints (zusätzlich):**
-- Format der Datei (verbindlich): JSON, UTF-8, `{"format": 1, "created_at": "<ISO-8601 UTC>", "rows": {"source": [...], "delivery": [...], "work": [...], "document": [...], "edge": [...]}}`; die Tabellen in dieser FK-Reihenfolge (entspricht der Reihenfolge von `KNOWLEDGE_TABLES` eingeschränkt auf diese fünf), Zeilen je Tabelle nach Primärschlüssel sortiert; Werte in Austauschtypen (UUID und Enum als String, Zeitstempel/Datum ISO-8601, bool/int/str unverändert); **alle** Spalten der Tabelle einschließlich `retired_at` und `revoked_at` (anders als der öffentliche Dump).
-- Inhalt: alle Zeilen mit `retired_at IS NOT NULL` in `work`, `document`, `edge` plus der **Abschluss über Fremdschlüssel-Eltern innerhalb dieser fünf Tabellen** (Work des Dokuments und die `merged_into_work_id`-Kette, `from`/`to`-Dokumente einer Kante samt deren Work, `delivery` und `source` jeder eingeschlossenen Zeile). Der Abschluss wird aus den Fremdschlüsseln der ORM-Metadaten berechnet, nicht hart verdrahtet. Nie Inhalt (kein `segment`, `embedding`, `rights_classification`), keine Nutzerdaten.
-- Einspielen (`import-tombstones`): Einfügen in FK-Reihenfolge mit `ON CONFLICT DO NOTHING` (bereits vorhandene Zeilen, z. B. aus dem Dump, werden nie verändert); `work.merged_into_work_id` wird wie im Import aufgeschoben (zuerst NULL, danach setzen). Eingefügte Zeilen der Tombstone-Tabellen bekommen `retired_at = gesicherter Wert`, bei Eltern ohne `retired_at` (lebende Zeilen, die der Rollback-Dump nicht kennt) `retired_at = created_at` der Datei, damit sie als zurückgezogen gelten. Diese Zeilen haben keine Klassifikation, das Rechtetor lässt sie nicht durch. Ein späterer Import, der die Zeile im Dump enthält, setzt `retired_at` wieder auf NULL.
-- Kein SQL in `normly_core/exchange/` und `graph/domain.py`; neue Protocol-Methoden ohne `get_`/`list_`-Präfix (`test_architecture.py`); `import-tombstones` und `export-tombstones` committen nicht im Repository, die CLI committet.
-- Abwärtskompatibilität: Eine ältere Sicherung ohne `<base>.tombstones.age` ist weiter nutzbar; der Rollback warnt deutlich (Fremdschlüsselfehler beim Einspielen möglich) und läuft weiter.
-- Skripte: `.sha256` bleibt Abschlussmarker, die neue Datei wird **vor** ihm hochgeladen; `prune` löscht die neue Datei mit; ShellCheck mit `koalaman/shellcheck:v0.9.0` (CI-Version) prüfen; keine Klartextdatei bleibt zurück; Tests mit den Fake-Binaries aus `scripts/tests/conftest.py`.
+**Global Constraints (additional):**
+- Format of the file (binding): JSON, UTF-8, `{"format": 1, "created_at": "<ISO-8601 UTC>", "rows": {"source": [...], "delivery": [...], "work": [...], "document": [...], "edge": [...]}}`; the tables in this FK order (corresponds to the order of `KNOWLEDGE_TABLES` restricted to these five), rows per table sorted by primary key; values in exchange types (UUID and enum as string, timestamp/date ISO-8601, bool/int/str unchanged); **all** columns of the table including `retired_at` and `revoked_at` (unlike the public dump).
+- Content: all rows with `retired_at IS NOT NULL` in `work`, `document`, `edge` plus the **closure over foreign-key parents within these five tables** (the document's work and the `merged_into_work_id` chain, the `from`/`to` documents of an edge together with their works, `delivery` and `source` of every included row). The closure is computed from the foreign keys of the ORM metadata, not hard-wired. Never content (no `segment`, `embedding`, `rights_classification`), no user data.
+- Restore (`import-tombstones`): insert in FK order with `ON CONFLICT DO NOTHING` (rows already present, e.g. from the dump, are never changed); `work.merged_into_work_id` is deferred as in the import (first NULL, set afterwards). Inserted rows of the tombstone tables get `retired_at = backed-up value`; for parents without `retired_at` (living rows that the rollback dump does not know) `retired_at = created_at` of the file, so that they count as retired. These rows have no classification; the rights gate does not let them through. A later import that contains the row in the dump sets `retired_at` back to NULL.
+- No SQL in `normly_core/exchange/` and `graph/domain.py`; new Protocol methods without a `get_`/`list_` prefix (`test_architecture.py`); `import-tombstones` and `export-tombstones` do not commit in the repository, the CLI commits.
+- Backward compatibility: an older backup without `<base>.tombstones.age` remains usable; the rollback warns clearly (foreign-key error possible on restore) and continues.
+- Scripts: `.sha256` stays the completion marker, the new file is uploaded **before** it; `prune` deletes the new file too; check ShellCheck with `koalaman/shellcheck:v0.9.0` (CI version); no plaintext file remains; tests with the fake binaries from `scripts/tests/conftest.py`.
 
-### Task 7: Kern — `export-tombstones` und `import-tombstones`
+### Task 7: Core — `export-tombstones` and `import-tombstones`
 
 **Files:**
-- Create: `core/src/normly_core/exchange/tombstones.py` (Format, (De-)Serialisierung, Orchestrierung ohne SQL)
+- Create: `core/src/normly_core/exchange/tombstones.py` (format, (de)serialization, orchestration without SQL)
 - Modify: `core/src/normly_core/graph/domain.py` (Protocol `KnowledgeExchangeRepository`: `export_tombstone_support() -> dict[str, list[dict[str, Any]]]`, `restore_tombstone_support(rows: Mapping[str, list[dict[str, Any]]], *, restored_at: datetime) -> None`)
-- Modify: `core/src/normly_core/graph/postgres/exchange.py` (Implementierung: Abschluss über Fremdschlüssel, Einfügen mit `ON CONFLICT DO NOTHING`)
-- Modify: `core/src/normly_core/exchange/__main__.py` (Subcommands `export-tombstones`, `import-tombstones`)
-- Test: `core/tests/exchange/test_tombstones.py`, `core/tests/exchange/test_cli.py` (ergänzen)
+- Modify: `core/src/normly_core/graph/postgres/exchange.py` (implementation: closure over foreign keys, insert with `ON CONFLICT DO NOTHING`)
+- Modify: `core/src/normly_core/exchange/__main__.py` (subcommands `export-tombstones`, `import-tombstones`)
+- Test: `core/tests/exchange/test_tombstones.py`, `core/tests/exchange/test_cli.py` (extend)
 
 **Interfaces:**
 - Produces:
-  - `tombstones.build_document(rows: Mapping[str, list[dict]], *, created_at: datetime) -> str` und `tombstones.parse_document(text: str) -> tuple[dict[str, list[dict]], datetime]` (wirft `ValueError` bei falschem `format`/Struktur); Konstante `TOMBSTONE_FORMAT = 1`; `TOMBSTONE_SUPPORT_TABLES = ("source", "delivery", "work", "document", "edge")`.
-  - CLI: `python -m normly_core.exchange export-tombstones` → JSON auf stdout, Exit 0; `python -m normly_core.exchange import-tombstones` liest JSON von stdin, spielt ein, committet, gibt `restored tombstone support: <n> rows` aus; bei ungültigem Dokument Exit 1 mit klarer Meldung auf stderr, nichts geändert (Rollback der Session).
-  - Beide Befehle brauchen `NORMLY_DATABASE_URL` (kein `NORMLY_EMBEDDING_MODEL_REVISION`).
-- Details zur Umsetzung: Serialisierung nutzt die Spaltenarten aus `exchange_columns`-Logik (`_kind`), aber über **alle** Spalten der Tabelle; Zeitstempel/Datum ISO-8601 (mit Zeitzone) hin und zurück; keine Vektorspalten in diesen fünf Tabellen (Test, der das absichert: keine Spalte der Art `vector`).
+  - `tombstones.build_document(rows: Mapping[str, list[dict]], *, created_at: datetime) -> str` and `tombstones.parse_document(text: str) -> tuple[dict[str, list[dict]], datetime]` (raises `ValueError` on a wrong `format`/structure); constant `TOMBSTONE_FORMAT = 1`; `TOMBSTONE_SUPPORT_TABLES = ("source", "delivery", "work", "document", "edge")`.
+  - CLI: `python -m normly_core.exchange export-tombstones` → JSON on stdout, exit 0; `python -m normly_core.exchange import-tombstones` reads JSON from stdin, restores it, commits, prints `restored tombstone support: <n> rows`; on an invalid document exit 1 with a clear message on stderr, nothing changed (rollback of the session).
+  - Both commands need `NORMLY_DATABASE_URL` (no `NORMLY_EMBEDDING_MODEL_REVISION`).
+- Implementation details: serialization uses the column kinds from the `exchange_columns` logic (`_kind`), but over **all** columns of the table; timestamp/date ISO-8601 (with time zone) there and back; no vector columns in these five tables (a test that guarantees this: no column of kind `vector`).
 
-- [ ] **Step 1: Failing tests** (`core/tests/exchange/test_tombstones.py`, Fixtures aus `.helpers` und dem Szenario aus `core/tests/exchange/test_takedown.py`, ggf. die Helfer in `helpers.py` verschieben, wie bei der bisherigen Mehrfachnutzung): (1) Abschluss: nach einer Rücknahme (Import ohne Dokument `DROP`) enthält `export_tombstone_support()` das zurückgezogene `document`, dessen `work`, seine `delivery` und `source`, bei einer zurückgezogenen Kante beide Dokumente samt Works; keine Zeilen ohne Bezug; Werte in Austauschtypen; (2) Inhalt: kein Segment/keine Klassifikation, `retired_at`/`revoked_at` sind enthalten; (3) Round-Trip von `build_document`/`parse_document` (Gleichheit, Zeitzone), Ablehnung falscher `format`-Version und kaputter Struktur; (4) `restore_tombstone_support` in eine leere Wissensbestand-Umgebung: Fremdschlüssel-Reihenfolge, `merged_into_work_id`-Aufschub (Work mit `merged_into` auf Work, der erst danach eingefügt wird), `ON CONFLICT DO NOTHING` (eine vorhandene Zeile mit anderem Inhalt bleibt unverändert), Idempotenz (zweimal einspielen ändert nichts), `retired_at` gesetzt für eingefügte Zeilen (bei lebenden Eltern `restored_at`), eingefügte Zeilen haben keine Klassifikation und erscheinen in keiner rechtegebundenen Abfrage; (5) **Ende-zu-Ende des Rollbacks**: Szenario mit Rücknahme und Nutzerverweisen (Beobachtung, Benachrichtigung mit `trigger_document_id`/`trigger_edge_id`, `notified_*`, Baseline, Chat-Zitat) → `export_tombstone_support()` und die Nutzerzeilen per SQL in Python-Strukturen sichern → alle Nutzerzeilen und den gesamten Wissensbestand in der Testtransaktion löschen → den älteren Dump (vor der Rücknahme exportiert **ohne** das spätere Tombstone? nein: den Dump der Version VOR dem Rollout; er enthält das zurückgezogene Dokument nicht) per `replace_knowledge_base` einspielen → `restore_tombstone_support` → Nutzerzeilen wieder einfügen: **kein** Fremdschlüsselfehler, Zeilenanzahlen gleich; (6) CLI: `export-tombstones` druckt gültiges JSON (mit der Test-DB über die vorhandene CLI-Testmethodik), `import-tombstones` mit Datei über stdin, Ablehnung kaputter Eingabe mit Exit 1 und unveränderter DB, fehlende `NORMLY_DATABASE_URL`; (7) `test_architecture.py` bleibt grün (Methodennamen).
-- [ ] **Step 2:** `cd core && ../.venv/bin/pytest tests/exchange/test_tombstones.py -v` — Expected: FAIL (fehlende Module/Methoden). Befehle einzeln, die Maschine ist speicherbegrenzt.
-- [ ] **Step 3: Implementierung** wie oben; Abschluss in `PostgresKnowledgeExchangeRepository.export_tombstone_support`: Ausgangsmenge = Primärschlüssel aller Zeilen mit `retired_at IS NOT NULL` in `work`, `document`, `edge`; wiederholt: für jede Tabelle der fünf und jeden Fremdschlüssel einer Spalte auf eine andere dieser Tabellen (oder `work.merged_into_work_id` auf `work`) die Eltern-Schlüssel der eingeschlossenen Kindzeilen hinzufügen, bis sich nichts mehr ändert; danach je Tabelle alle Spalten der eingeschlossenen Zeilen sortiert nach Primärschlüssel lesen. `restore_tombstone_support`: für Tabellen in FK-Reihenfolge `pg_insert(...).on_conflict_do_nothing()` in Blöcken (`_WRITE_BATCH`); Zeilen von `work` mit gesetztem `merged_into_work_id` zuerst mit NULL einfügen und danach per `UPDATE ... WHERE id = :id AND merged_into_work_id IS NULL` nachtragen (nur für Zeilen, die wirklich neu eingefügt wurden — der Aufschub darf vorhandene Zeilen nicht verändern); `retired_at` für eingefügte `work`/`document`/`edge`-Zeilen auf den gesicherten Wert oder `restored_at` setzen (nur beim Einfügen; Bestandszeilen bleiben unverändert).
-- [ ] **Step 4:** Fokussiert (`cd core && ../.venv/bin/pytest tests/exchange tests/graph/test_architecture.py -q`), danach die komplette Core-Suite genau einmal (`cd core && ../.venv/bin/pytest tests -q`, ca. 4 Minuten, nichts anderes Schweres parallel).
-- [ ] **Step 5: Commit** `feat(exchange): export and restore tombstone support rows` (mit `-s` und Trailer).
+- [ ] **Step 1: Failing tests** (`core/tests/exchange/test_tombstones.py`, fixtures from `.helpers` and the scenario from `core/tests/exchange/test_takedown.py`, if necessary move the helpers into `helpers.py`, as with earlier shared use): (1) closure: after a withdrawal (import without document `DROP`), `export_tombstone_support()` contains the retired `document`, its `work`, its `delivery` and `source`, for a retired edge both documents together with their works; no unrelated rows; values in exchange types; (2) content: no segment/no classification, `retired_at`/`revoked_at` are included; (3) round trip of `build_document`/`parse_document` (equality, time zone), rejection of a wrong `format` version and of a broken structure; (4) `restore_tombstone_support` into an empty knowledge base environment: foreign-key order, `merged_into_work_id` deferral (a work with `merged_into` pointing to a work that is inserted only afterwards), `ON CONFLICT DO NOTHING` (an existing row with different content stays unchanged), idempotency (restoring twice changes nothing), `retired_at` set for inserted rows (`restored_at` for living parents), inserted rows have no classification and appear in no rights-bound query; (5) **end to end of the rollback**: scenario with a withdrawal and user references (watch, notification with `trigger_document_id`/`trigger_edge_id`, `notified_*`, baseline, chat citation) → back up `export_tombstone_support()` and the user rows via SQL into Python structures → delete all user rows and the entire knowledge base in the test transaction → restore the older dump (exported before the withdrawal **without** the later tombstone? no: the dump of the version BEFORE the rollout; it does not contain the retired document) via `replace_knowledge_base` → `restore_tombstone_support` → re-insert the user rows: **no** foreign-key error, row counts equal; (6) CLI: `export-tombstones` prints valid JSON (with the test DB via the existing CLI test methodology), `import-tombstones` with a file via stdin, rejection of broken input with exit 1 and an unchanged DB, missing `NORMLY_DATABASE_URL`; (7) `test_architecture.py` stays green (method names).
+- [ ] **Step 2:** `cd core && ../.venv/bin/pytest tests/exchange/test_tombstones.py -v` — Expected: FAIL (missing modules/methods). Run commands one at a time, the machine is memory-limited.
+- [ ] **Step 3: Implementation** as above; closure in `PostgresKnowledgeExchangeRepository.export_tombstone_support`: starting set = primary keys of all rows with `retired_at IS NOT NULL` in `work`, `document`, `edge`; repeatedly: for every table of the five and every foreign key of a column onto another of these tables (or `work.merged_into_work_id` onto `work`), add the parent keys of the included child rows, until nothing changes any more; then, per table, read all columns of the included rows sorted by primary key. `restore_tombstone_support`: for the tables in FK order, `pg_insert(...).on_conflict_do_nothing()` in batches (`_WRITE_BATCH`); insert rows of `work` with `merged_into_work_id` set first with NULL and fill the value in afterwards via `UPDATE ... WHERE id = :id AND merged_into_work_id IS NULL` (only for rows that were actually newly inserted — the deferral must not change existing rows); set `retired_at` for inserted `work`/`document`/`edge` rows to the backed-up value or `restored_at` (only on insert; existing rows stay unchanged).
+- [ ] **Step 4:** Focused (`cd core && ../.venv/bin/pytest tests/exchange tests/graph/test_architecture.py -q`), then the complete core suite exactly once (`cd core && ../.venv/bin/pytest tests -q`, about 4 minutes, nothing else heavy in parallel).
+- [ ] **Step 5: Commit** `feat(exchange): export and restore tombstone support rows` (with `-s` and trailer).
 
-### Task 8: Skripte — Sicherung und Rollback
+### Task 8: Scripts — backup and rollback
 
 **Files:**
-- Modify: `scripts/normly-backup` (Erzeugen, Verschlüsseln, Hochladen von `<base>.tombstones.age`; Upload-Reihenfolge: `meta.json`, `dump.age`, `tombstones.age`, `.sha256` zuletzt; `prune` löscht die neue Datei mit und behandelt Waisen auch dafür)
-- Modify: `scripts/normly-deploy` (Rollback: Datei laden und entschlüsseln, nach dem Wissensbestand-Import und vor `pg_restore` einspielen; Warnung bei fehlender Datei)
-- Modify: `scripts/tests/conftest.py` (additiv: Fake-Verhalten für `exchange export-tombstones` auf stdout, falls nötig), `scripts/tests/test_backup.py`, `scripts/tests/test_deploy*.py`
+- Modify: `scripts/normly-backup` (creating, encrypting and uploading `<base>.tombstones.age`; upload order: `meta.json`, `dump.age`, `tombstones.age`, `.sha256` last; `prune` deletes the new file too and handles orphans for it as well)
+- Modify: `scripts/normly-deploy` (rollback: load and decrypt the file, restore it after the knowledge base import and before `pg_restore`; warning if the file is missing)
+- Modify: `scripts/tests/conftest.py` (additive: fake behavior for `exchange export-tombstones` on stdout, if needed), `scripts/tests/test_backup.py`, `scripts/tests/test_deploy*.py`
 
-**Verhalten (verbindlich):**
-- `normly-backup run`: nach `pg_dump`/`age` die Datei im Container erzeugen: `$COMPOSE run --rm --no-deps -T --entrypoint python pipeline -m normly_core.exchange export-tombstones > "$work/$base.tombstones.json"` (stdout, kein Mount; Fehler bricht den Lauf ab, nichts hochgeladen, keine Ausgabe), mit `age -r "$NORMLY_BACKUP_AGE_RECIPIENT"` zu `$base.tombstones.age` verschlüsseln, Klartext sofort löschen. Hochgeladen wird in der Reihenfolge `meta.json`, `dump.age`, `tombstones.age`, `.sha256`. Die Prüfsummendatei deckt beide Dateien ab (`sha256sum "$base.dump.age" "$base.tombstones.age"`). `meta.json` bekommt ein Feld `"tombstones": true`.
-- `prune`: Löschreihenfolge `.sha256` zuerst, dann `meta.json`, `tombstones.age`, `dump.age`; Waisenerkennung und „committed“-Logik bleiben (nur Basen mit `.sha256` zählen); `tombstones.age` ist in der Suffix-Liste.
-- `normly-deploy rollback`: wenn `<backup>.tombstones.age` im Bucket existiert (Prüfung per `rclone lsf`/`rclone copyto`-Erfolg), herunterladen und mit `--age-identity` in `$work` entschlüsseln (0700-Verzeichnis, Aufräumen im bestehenden Trap); nach dem Wissensbestand-Import und **vor** `pg_restore`: `compose "$previous" run --rm --no-deps -T --entrypoint python pipeline -m normly_core.exchange import-tombstones < "$work/tombstones.json"`. Fehlt die Datei: deutliche Warnung auf stderr („backup has no tombstone file; a foreign-key error is possible while restoring user data that points at withdrawn documents“), der Rollback läuft weiter. Ein Fehler beim Einspielen der Tombstones zählt nach `DESTRUCTIVE=1` wie jeder andere Fehler (Wiederherstellungshinweis).
-- Die Wiederherstellungshinweise im Fehlerfall bleiben unverändert korrekt.
+**Behavior (binding):**
+- `normly-backup run`: after `pg_dump`/`age`, create the file in the container: `$COMPOSE run --rm --no-deps -T --entrypoint python pipeline -m normly_core.exchange export-tombstones > "$work/$base.tombstones.json"` (stdout, no mount; an error aborts the run, nothing uploaded, no output), encrypt it with `age -r "$NORMLY_BACKUP_AGE_RECIPIENT"` to `$base.tombstones.age`, delete the plaintext immediately. The upload order is `meta.json`, `dump.age`, `tombstones.age`, `.sha256`. The checksum file covers both files (`sha256sum "$base.dump.age" "$base.tombstones.age"`). `meta.json` gets a field `"tombstones": true`.
+- `prune`: deletion order `.sha256` first, then `meta.json`, `tombstones.age`, `dump.age`; the orphan detection and "committed" logic stay (only bases with `.sha256` count); `tombstones.age` is in the suffix list.
+- `normly-deploy rollback`: if `<backup>.tombstones.age` exists in the bucket (checked via `rclone lsf`/`rclone copyto` success), download it and decrypt it with `--age-identity` in `$work` (0700 directory, cleanup in the existing trap); after the knowledge base import and **before** `pg_restore`: `compose "$previous" run --rm --no-deps -T --entrypoint python pipeline -m normly_core.exchange import-tombstones < "$work/tombstones.json"`. If the file is missing: a clear warning on stderr ("backup has no tombstone file; a foreign-key error is possible while restoring user data that points at withdrawn documents"), the rollback continues. An error while restoring the tombstones counts, after `DESTRUCTIVE=1`, like any other error (recovery hint).
+- The recovery hints in the error case remain correct without change.
 
-- [ ] **Step 1: Failing tests** (Fake-Harness): Backup: Aufrufreihenfolge (Tombstone-Export im Container nach `pg_dump`/`age` des Dumps, `age` für die Tombstone-Datei, Uploads in der geforderten Reihenfolge mit `.sha256` zuletzt), Fehler beim Tombstone-Export (`FAKE_DOCKER_FAIL_ON=export-tombstones`) → Abbruch, kein Upload, keine Ausgabe, kein Klartext; `meta.json` enthält `tombstones: true`; `prune` löscht die neue Datei mit und behandelt Waisen. Rollback: Reihenfolge `psql DROP` < `migrate` < `import --fetch` < `import-tombstones` < `pg_restore`; Datei fehlt → Warnung, Rollback läuft weiter; Datei vorhanden → `import-tombstones` bekommt den entschlüsselten Inhalt über stdin; Fehler in `import-tombstones` → Wiederherstellungshinweis, Zustand unverändert, Lock frei. Bestehende Tests bleiben grün (Harness nur additiv).
-- [ ] **Step 2:** `.venv/bin/pytest scripts/tests -q` im Repo-Root — Expected: neue Tests FAIL.
-- [ ] **Step 3: Implementierung**, dann `docker run --rm -v "$PWD":/mnt -w /mnt koalaman/shellcheck:v0.9.0 scripts/normly-deploy scripts/normly-backup scripts/normly-env.sh` (clean) und `.venv/bin/pytest scripts/tests -q`.
-- [ ] **Step 4: Commit** `feat(backup): back up tombstone support rows and restore them before user data on rollback` (mit `-s` und Trailer).
+- [ ] **Step 1: Failing tests** (fake harness): Backup: call order (tombstone export in the container after `pg_dump`/`age` of the dump, `age` for the tombstone file, uploads in the required order with `.sha256` last), error in the tombstone export (`FAKE_DOCKER_FAIL_ON=export-tombstones`) → abort, no upload, no output, no plaintext; `meta.json` contains `tombstones: true`; `prune` deletes the new file too and handles orphans. Rollback: order `psql DROP` < `migrate` < `import --fetch` < `import-tombstones` < `pg_restore`; file missing → warning, the rollback continues; file present → `import-tombstones` receives the decrypted content via stdin; error in `import-tombstones` → recovery hint, state unchanged, lock released. Existing tests stay green (harness only additive).
+- [ ] **Step 2:** `.venv/bin/pytest scripts/tests -q` in the repo root — Expected: new tests FAIL.
+- [ ] **Step 3: Implementation**, then `docker run --rm -v "$PWD":/mnt -w /mnt koalaman/shellcheck:v0.9.0 scripts/normly-deploy scripts/normly-backup scripts/normly-env.sh` (clean) and `.venv/bin/pytest scripts/tests -q`.
+- [ ] **Step 4: Commit** `feat(backup): back up tombstone support rows and restore them before user data on rollback` (with `-s` and trailer).
 
-### Task 9: Dokumentation und Befunde der Abschlussprüfung
+### Task 9: Documentation and findings of the final review
 
-**Files:** `docs/adr/README.md` (ADR-026 Folgen/Offen, ADR-024, Register), `docs/guide/operations.md`, `docs/superpowers/specs/2026-10-09-user-data-on-kb-import-design.md`, `docs/superpowers/specs/2026-10-09-tp4-deployment-automation-design.md`, `core/src/normly_core/exchange/tables.py` (nur Kommentar), `core/src/normly_core/graph/postgres/exchange.py` (nur Docstring)
+**Files:** `docs/adr/README.md` (ADR-026 consequences/open, ADR-024, register), `docs/guide/operations.md`, `docs/superpowers/specs/2026-10-09-user-data-on-kb-import-design.md`, `docs/superpowers/specs/2026-10-09-tp4-deployment-automation-design.md`, `core/src/normly_core/exchange/tables.py` (comment only), `core/src/normly_core/graph/postgres/exchange.py` (docstring only)
 
-- [ ] **Step 1: ADR-026 / ADR-024:** Die Einschränkung „Rollback scheitert nach einer Rücknahme“ entfällt; stattdessen die Lösung beschreiben (Tombstone-Datei: Inhalt, Abschluss über Fremdschlüssel, Einspielen vor den Nutzerdaten, `ON CONFLICT DO NOTHING`, Abwärtskompatibilität mit älteren Sicherungen) und was **nicht** wiederhergestellt wird (Inhalt, Rechte; nur Kennungen). Hinweis, dass `revoked_at` an einer zurückgezogenen Kante der Importzeitpunkt ist und kein Ereignisdatum (M-9). ADR-024: Sicherung enthält jetzt eine zweite Datei; Aufbewahrung gilt für beide.
-- [ ] **Step 2: `docs/guide/operations.md` (Englisch):** Backup (neue Datei, Reihenfolge, Wiederherstellung), Rollback (Schritt „restore tombstone support“ vor den Nutzerdaten, Verhalten bei fehlender Datei), Restore-Test (zusätzlicher nummerierter Schritt `import-tombstones` zwischen Wissensbestand-Import und `pg_restore`), M-4 (Benachrichtigung „no longer available“ gilt nur für Beobachtungen, die älter als die Rücknahme sind, und für Konten mit eingeschalteter Benachrichtigung).
-- [ ] **Step 3: Befunde der Abschlussprüfung:** (M-1) Spec `2026-10-09-user-data-on-kb-import-design.md`: „Nicht-Ziele“ und „Offene Punkte“ passen zur ausgelieferten Glocke (Anzeige ist enthalten; nur Link/Detailseite bleiben ausgenommen); (M-2) TP4-Spec: Nutzerdaten-Gruppe nennt `notified_retirement`; (M-3) ADR-026: der Fail-closed-Test läuft über jede Tabelle außerhalb des Wissensbestands (inklusive `identity_resolution_case`), nicht nur Nutzerdaten-Tabellen; (M-5) Kommentar in `exchange/tables.py` (RETAINED = nur Herkunft) und Docstring von `replace_knowledge_base` (Kante wird beim Zurückziehen auch widerrufen; Zurückziehen läuft vor dem Einfügen) korrigieren.
-- [ ] **Step 4:** Docs-Build wie in CI (docker `python:3.12`, `pip install "zensical==0.0.60" "mkdocstrings==1.0.6" "mkdocstrings-python==2.0.8" "griffelib==2.3.0"`, `zensical build`, Zeile `3 issues found`; mit `--user "$(id -u):$(id -g)"`, beschreibbarem HOME und venv unter /tmp; danach `site/` und `.cache/` entfernen). Falls die Docstring-/Kommentar-Änderung Tests berührt: `cd core && ../.venv/bin/pytest tests/exchange -q`.
-- [ ] **Step 5: Commit** `docs: tombstone support in backup and rollback; align spec and ADR wording` (mit `-s` und Trailer).
+- [ ] **Step 1: ADR-026 / ADR-024:** The limitation "rollback fails after a withdrawal" is dropped; instead describe the solution (tombstone file: content, closure over foreign keys, restore before the user data, `ON CONFLICT DO NOTHING`, backward compatibility with older backups) and what is **not** restored (content, rights; only IDs). Note that `revoked_at` on a retired edge is the import time and not an event date (M-9). ADR-024: the backup now contains a second file; retention applies to both.
+- [ ] **Step 2: `docs/guide/operations.md` (English):** Backup (new file, order, recovery), rollback (step "restore tombstone support" before the user data, behavior when the file is missing), restore test (additional numbered step `import-tombstones` between the knowledge base import and `pg_restore`), M-4 (the "no longer available" notification applies only to watches older than the withdrawal and to accounts with notifications enabled).
+- [ ] **Step 3: Findings of the final review:** (M-1) spec `2026-10-09-user-data-on-kb-import-design.md`: "Non-goals" and "Open items" match the shipped bell (the display is included; only link/detail page stay excluded); (M-2) TP4 spec: the user data group names `notified_retirement`; (M-3) ADR-026: the fail-closed test runs over every table outside the knowledge base (including `identity_resolution_case`), not only user data tables; (M-5) correct the comment in `exchange/tables.py` (RETAINED = provenance only) and the docstring of `replace_knowledge_base` (an edge is also revoked when it is retired; retiring runs before inserting).
+- [ ] **Step 4:** Docs build as in CI (docker `python:3.12`, `pip install "zensical==0.0.60" "mkdocstrings==1.0.6" "mkdocstrings-python==2.0.8" "griffelib==2.3.0"`, `zensical build`, line `3 issues found`; with `--user "$(id -u):$(id -g)"`, a writable HOME and the venv under /tmp; afterwards remove `site/` and `.cache/`). If the docstring/comment change touches tests: `cd core && ../.venv/bin/pytest tests/exchange -q`.
+- [ ] **Step 5: Commit** `docs: tombstone support in backup and rollback; align spec and ADR wording` (with `-s` and trailer).
 
-## Selbstprüfung der Erweiterung 2
+## Self-review of extension 2
 
-| Anforderung (I-1) | Task |
+| Requirement (I-1) | Task |
 |---|---|
-| Tombstone-Kennungen samt FK-Eltern als eigene verschlüsselte Datei sichern | Task 7 (Kern), Task 8 (Skript) |
-| Rollback spielt sie nach dem Wissensbestand und vor den Nutzerdaten ein | Task 8 (Reihenfolgetest), Task 7 (Ende-zu-Ende ohne FK-Fehler) |
-| Abwärtskompatibilität mit älteren Sicherungen | Task 8 (Test „Datei fehlt“) |
-| Doku: ADR, Guide, Restore-Test, Befunde M-1..M-5, M-9 | Task 9 |
+| Back up tombstone IDs together with their FK parents as a separate encrypted file | Task 7 (core), Task 8 (script) |
+| Rollback restores them after the knowledge base and before the user data | Task 8 (order test), Task 7 (end to end without FK error) |
+| Backward compatibility with older backups | Task 8 (test "file missing") |
+| Docs: ADR, guide, restore test, findings M-1..M-5, M-9 | Task 9 |
 
-**Risiken:** Der Abschluss über Fremdschlüssel darf nicht zu klein sein (Kante → Dokumente → Works → Lieferungen → Quellen; Test mit Kante) und nicht explodieren (nur Eltern, nie Kinder); `ON CONFLICT DO NOTHING` mit dem Self-FK `merged_into_work_id`; `docker compose run -T` mit stdin-Umleitung im echten Compose (nur gegen Fakes getestet; Live-Abnahme); die Sicherung wird um die Laufzeit des Containerstarts länger (Sekunden).
+**Risks:** The closure over foreign keys must not be too small (edge → documents → works → deliveries → sources; test with an edge) and must not explode (only parents, never children); `ON CONFLICT DO NOTHING` with the self-FK `merged_into_work_id`; `docker compose run -T` with stdin redirection in the real Compose (only tested against fakes; live acceptance); the backup takes longer by the start-up time of the container (seconds).

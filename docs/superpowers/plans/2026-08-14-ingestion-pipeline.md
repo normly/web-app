@@ -2521,7 +2521,7 @@ git commit -s -m "feat: add pipeline orchestration runner"
 
 ---
 
-### Task 13: EUR-Lex adapter — real „Summary list" PDF fixture and table parser
+### Task 13: EUR-Lex adapter — real "Summary list" PDF fixture and table parser
 
 **Files:**
 - Create: `core/tests/fixtures/eur_lex_machinery_summary.pdf`
@@ -3280,38 +3280,38 @@ git commit -s -m "test: verify end-to-end pipeline run and idempotent re-run"
 
 **Spec coverage:**
 
-| Spec-Abschnitt | Task |
+| Spec section | Task |
 |---|---|
-| Adapter-Abstraktion (`SourceAdapter`, `RawRecord`) | Task 8 |
-| EUR-Lex-Quellformat („Summary list") | Task 13 |
-| Modullayout | Tasks 8–15 (files land exactly where the spec's tree shows) |
+| Adapter abstraction (`SourceAdapter`, `RawRecord`) | Task 8 |
+| EUR-Lex source format ("Summary list") | Task 13 |
+| Module layout | Tasks 8–15 (files land exactly where the spec's tree shows) |
 | `segment` | Tasks 2–3 |
-| `embedding` (inkl. `ON DELETE CASCADE`) | Task 4 |
-| `find_delivery` / nicht-brechende Erweiterung | Task 6 |
+| `embedding` (incl. `ON DELETE CASCADE`) | Task 4 |
+| `find_delivery` / non-breaking extension | Task 6 |
 | `identity_resolution_case` | Task 5 |
-| Identitätsauflösung | Task 9 |
-| Rechteklassifikation (quellenspezifisch) | Tasks 13–14 (`classify_rights`) |
-| Strukturextraktion (nur DGUV) | Task 14 |
-| Verweisextraktion | Task 10 |
-| Segmentierung und Einbettung (nur DGUV) | Tasks 11–12 |
-| Datenfluss (volle Orchestrierung) | Task 12 |
-| Fehlerbehandlung (alle sechs Fälle) | Tasks 6 (Skip), 9–10 (Warteschlange), 4 (Embedding-Fehlschlag idempotent nachholbar), 7 (`WithdrawnDeliveryError` bereits vorhanden) |
-| Testkonzept (pgvector, echte Fixtures, echtes Modell, E2E, Rücknahme) | Task 1 (pgvector), 13–14 (echte Fixtures), 11 (echtes Modell), 16 (E2E), 7 (Rücknahme) |
+| Identity resolution | Task 9 |
+| Rights classification (source-specific) | Tasks 13–14 (`classify_rights`) |
+| Structure extraction (DGUV only) | Task 14 |
+| Reference extraction | Task 10 |
+| Segmentation and embedding (DGUV only) | Tasks 11–12 |
+| Data flow (full orchestration) | Task 12 |
+| Error handling (all six cases) | Tasks 6 (skip), 9–10 (queue), 4 (embedding failure, idempotently caught up later), 7 (`WithdrawnDeliveryError` already exists) |
+| Test concept (pgvector, real fixtures, real model, E2E, withdrawal) | Task 1 (pgvector), 13–14 (real fixtures), 11 (real model), 16 (E2E), 7 (withdrawal) |
 
-Keine Lücke gefunden.
+No gap found.
 
-**Placeholder-Scan:** Mehrere Codeblöcke enthalten absichtlich einen inline `__import__(...)`-
-oder Walrus-Platzhalter mit der expliziten Anweisung, ihn durch einen sauberen Import/eine saubere
-Zuweisung zu ersetzen, bevor der Schritt abgeschlossen wird — das ist eine bewusste
-Übergangsdarstellung, keine unvollständige Spezifikation; jede betroffene Stelle nennt exakt den
-Zielwert und die zu schreibende saubere Form. Ansonsten kein „TBD"/„TODO"/„similar to Task N"
-gefunden.
+**Placeholder scan:** Several code blocks deliberately contain an inline `__import__(...)`
+or walrus placeholder with the explicit instruction to replace it with a clean import/a clean
+assignment before the step is completed — this is a deliberate
+transitional representation, not an incomplete specification; every affected place names exactly the
+target value and the clean form to write. Otherwise no "TBD"/"TODO"/"similar to Task N"
+found.
 
-**Typkonsistenz:** Repository-/Domänen-Namen aus Task 2–6 (`Segment`, `Embedding`,
-`IdentityResolutionCase`, `find_delivery`, `find_by_designation`) stimmen mit ihrer Verwendung in
-Tasks 9–16 überein — geprüft gegen jede Verwendungsstelle. `RawReference.target_issuer` (Task 8)
-wird in Task 10 (`extract_references`) und Task 13 (`EurLexAdapter`) konsistent verwendet.
-`EmbeddingModel.embed`/`MODEL_NAME` (Task 11) stimmt mit der Verwendung in Task 12 überein.
+**Type consistency:** Repository/domain names from Tasks 2–6 (`Segment`, `Embedding`,
+`IdentityResolutionCase`, `find_delivery`, `find_by_designation`) match their use in
+Tasks 9–16 — checked against every place of use. `RawReference.target_issuer` (Task 8)
+is used consistently in Task 10 (`extract_references`) and Task 13 (`EurLexAdapter`).
+`EmbeddingModel.embed`/`MODEL_NAME` (Task 11) matches its use in Task 12.
 
 ---
 
