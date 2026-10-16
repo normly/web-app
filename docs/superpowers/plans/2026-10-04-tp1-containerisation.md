@@ -1332,7 +1332,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 10: Documentation — ADR-022, CLAUDE.md, SRS, self-hosting guide
 
 **Files:**
-- Modify: `docs/adr/README.md` (ADR-022 before `## Offene Punkte`, line 745; remove the open-items row "Public read access to STACKIT Container Registry" (wording at the time))
+- Modify: `docs/adr/README.md` (ADR-022 before `## Open items`, line 745; remove the open-items row "Public read access to STACKIT Container Registry" (wording at the time))
 - Modify: `CLAUDE.md:33-35`
 - Modify: `docs/srs/03-requirements.md` (REQ-DIST-001 "Further information"; section 3.5.9)
 - Modify: `docs/guide/self-hosting.md`, `docs/guide/getting-started.md`
@@ -1340,94 +1340,94 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 - [ ] **Step 1: Insert ADR-022**
 
-Insert directly before `## Offene Punkte` in `docs/adr/README.md`:
+Insert directly before `## Open items` in `docs/adr/README.md`:
 
 ```markdown
-## ADR-022 — Betriebsumgebung Phase 1 und Modellherkunftsregel
+## ADR-022 — Operating environment phase 1 and model-origin rule
 
-**Status:** beschlossen (2026-09-23, ergänzt 2026-10-03)
+**Status:** accepted (2026-09-23, amended 2026-10-03)
 
-**Entscheidung:**
+**Decision:**
 
-1. **Zielumgebung:** eine STACKIT-VM (`g1a.4d`) mit Docker Compose, Caddy
-   für TLS, PostgreSQL Flex (Einzelinstanz, pgvector), Secrets Manager,
-   später Object Storage. Kein SKE, kein Load Balancer. Bestätigt ADR-005.
-2. **LLM-Inferenz:** STACKIT AI Model Serving (OpenAI-kompatible API,
-   Region eu01), Startmodell `google/gemma-4-31B-it`. Ollama bleibt für
-   lokale Entwicklung und Self-Hosting.
-3. **Modellherkunftsregel:** Produktiv eingesetzte Sprachmodelle sind
-   Open-Weight-Modelle unter OSI-anerkannter Lizenz, betrieben
-   ausschließlich auf STACKIT-Infrastruktur; keine Anfrage erreicht den
-   Modellhersteller. Europäische Herkunft ist Präferenz, nicht Pflicht.
-   Wiedervorlage: sobald STACKIT ein europäisches Modell in passender
-   Größe anbietet, wird der Wechsel geprüft.
-4. **DNS:** die Zone `normly.ai` liegt vollständig bei STACKIT DNS
-   (Registrar bleibt Strato); kein Cloudflare mehr. App unter
+1. **Target environment:** one STACKIT VM (`g1a.4d`) with Docker Compose, Caddy
+   for TLS, PostgreSQL Flex (single instance, pgvector), Secrets Manager,
+   later Object Storage. No SKE, no load balancer. Confirms ADR-005.
+2. **LLM inference:** STACKIT AI Model Serving (OpenAI-compatible API,
+   region eu01), initial model `google/gemma-4-31B-it`. Ollama remains for
+   local development and self-hosting.
+3. **Model-origin rule:** Language models used in production are
+   open-weight models under an OSI-approved license, operated
+   exclusively on STACKIT infrastructure; no request reaches the
+   model vendor. European origin is a preference, not a requirement.
+   Revisit: as soon as STACKIT offers a European model of suitable
+   size, the switch will be examined.
+4. **DNS:** the zone `normly.ai` is hosted entirely at STACKIT DNS
+   (registrar remains Strato); no more Cloudflare. App at
    `app.normly.ai`.
-5. **Mailversand:** SMTP aus dem bestehenden Strato-Mailpaket
-   (`noreply@normly.ai`), SPF und DKIM in der STACKIT-Zone.
-6. **Umgebungen:** zunächst nur eine Produktionsumgebung auf STACKIT; das
-   lokale Compose-Setup übernimmt die Rolle der Staging-Umgebung.
-   Bewusste, befristete Abweichung von REQ-DIST-001, aufzuheben, sobald es
-   Nutzer gibt, die ein fehlerhaftes Deployment treffen würde.
-7. **Images:** ein gemeinsames Python-Basis-Image mit allen
-   `core`-Abhängigkeiten und eingebackenen Embedding-Gewichten; keine
-   Aufteilung der Abhängigkeiten.
+5. **Mail sending:** SMTP from the existing Strato mail package
+   (`noreply@normly.ai`), SPF and DKIM in the STACKIT zone.
+6. **Environments:** initially only one production environment on STACKIT; the
+   local Compose setup takes on the role of the staging environment.
+   Deliberate, temporary deviation from REQ-DIST-001, to be lifted as soon as
+   there are users whom a faulty deployment would hit.
+7. **Images:** one shared Python base image with all
+   `core` dependencies and baked-in embedding weights; no
+   splitting of the dependencies.
 
-**Begründung:** Die VM mit Compose ist die günstigste Umgebung und zugleich
-das Self-Hosting-Artefakt aus ADR-010. AI Model Serving liefert
-GPU-Inferenz pro Token ohne Dauerkosten; die Daten gehen an STACKIT, nicht
-an den Modellhersteller — Gewichte sind eine Datei, kein Dienst. Die
-Herkunftsregel schließt die bisher ungeregelte Lücke, dass das
-Standardmodell (Llama, Meta-Lizenz) weder offen lizenziert noch
-geregelt war; europäische Pflicht hätte nur eine eigene GPU-VM übrig
-gelassen, da der STACKIT-Katalog kein europäisches Chat-Modell führt.
-Cloudflare als DNS wäre ein US-Dienst in der Betriebskette gewesen. Die
-Mail der Domain lag bereits bei Strato; ein zweiter Anbieter hätte einen
-MX-Wechsel bedeutet.
+**Rationale:** The VM with Compose is the cheapest environment and at the
+same time the self-hosting artifact from ADR-010. AI Model Serving delivers
+GPU inference per token without standing costs; the data goes to STACKIT, not
+to the model vendor — weights are a file, not a service. The
+origin rule closes the previously unregulated gap that the
+default model (Llama, Meta license) was neither openly licensed nor
+regulated; a European requirement would have left only a dedicated GPU VM,
+since the STACKIT catalog lists no European chat model.
+Cloudflare as DNS would have been a US service in the operations chain. The
+domain's mail was already at Strato; a second provider would have meant an
+MX change.
 
-**Verworfen:** Ollama auf CPU in Produktion (Antwortzeiten), eigene GPU-VM
-(Dauerkosten), europäische Modellherkunft als Pflicht (kein Angebot),
-Subzonen-Delegation nur für `app` (Cloudflare bliebe autoritativ), IONOS
-als zweiter Mailanbieter (MX-Konflikt), Aufteilung der
-`core`-Abhängigkeiten in Extras (Nutzerentscheidung zugunsten der
-Einfachheit).
+**Rejected:** Ollama on CPU in production (response times), dedicated GPU VM
+(standing costs), European model origin as a requirement (no offering),
+subzone delegation only for `app` (Cloudflare would remain authoritative), IONOS
+as a second mail provider (MX conflict), splitting the
+`core` dependencies into extras (owner decision in favor of
+simplicity).
 
-**Konsequenz:** CLAUDE.md erhält einen Satz zur Modellherkunft; REQ-DIST-001
-und Kapitel 3.5.9 der SRS verweisen hierher; `docs/guide/self-hosting.md`
-beschreibt den Compose-Weg. Folgearbeiten: Embedding-Modell nur einmal
-laden und VM auf `g1a.2d` verkleinern (TP1a), Image-Pipeline (TP2),
-Secrets-Bezug per AppRole (TP3), Rollout/Rollback/Datenstand (TP4). Details:
+**Consequence:** CLAUDE.md gets a sentence on model origin; REQ-DIST-001
+and chapter 3.5.9 of the SRS refer here; `docs/guide/self-hosting.md`
+describes the Compose route. Follow-up work: load the embedding model only once
+and downsize the VM to `g1a.2d` (TP1a), image pipeline (TP2),
+obtaining secrets via AppRole (TP3), rollout/rollback/data version (TP4). Details:
 `docs/superpowers/specs/2026-09-23-stackit-deployment-roadmap-design.md`.
 
 ---
 
 ```
 
-In addition, remove the row `| Öffentlicher Lesezugriff auf STACKIT Container Registry | offen | im Portal prüfen |` from the table under `## Offene Punkte` (moot because of ADR-021: the registry is GHCR).
+In addition, remove the row `| Public read access to STACKIT Container Registry | open | check in the portal |` (wording at the time) from the table under `## Open items` (moot because of ADR-021: the registry is GHCR).
 
 - [ ] **Step 2: Extend CLAUDE.md**
 
 After the item "The core must not depend on proprietary components." (lines 33–34), insert:
 
 ```markdown
-- **Sprachmodelle nur als Open-Weight-Modelle mit OSI-Lizenz, betrieben auf
-  STACKIT.** Keine Anfrage erreicht den Modellhersteller; europäische
-  Herkunft ist Präferenz, nicht Pflicht. → ADR-022
+- **Language models only as open-weight models with an OSI license,
+  operated on STACKIT.** No request reaches the model vendor; European
+  origin is a preference, not a requirement. → ADR-022
 ```
 
 - [ ] **Step 3: Adjust the SRS**
 
-In `docs/srs/03-requirements.md`, REQ-DIST-001, replace the line `**Weitere Informationen:** Gilt auch für ML-Daten und Logs.` with:
+In `docs/srs/03-requirements.md`, REQ-DIST-001, replace the line `**Further information:** Also applies to ML data and logs.` with:
 
 ```markdown
-**Weitere Informationen:** Gilt auch für ML-Daten und Logs. **Befristete Abweichung (ADR-022, 2026-09-23):** In Phase 1 existiert nur eine Produktionsumgebung auf STACKIT; das lokale Compose-Setup übernimmt die Rolle der Staging-Umgebung. Aufzuheben, sobald es Nutzer gibt, die ein fehlerhaftes Deployment treffen würde.
+**Further information:** Also applies to ML data and logs. **Temporary deviation (ADR-022, 2026-09-23):** In Phase 1, only one production environment exists on STACKIT; the local Compose setup takes on the role of the staging environment. To be lifted as soon as there are users whom a faulty deployment would affect.
 ```
 
-In section 3.5.9, replace the sentence `Als Quell- und Build-Plattform wird STACKIT Git (Forgejo) mit STACKIT Pipelines eingesetzt.` with:
+In section 3.5.9, replace the sentence `STACKIT Git (Forgejo) with STACKIT Pipelines is used as the source and build platform.` (wording at the time) with:
 
 ```markdown
-Quellcode, CI/CD und Container-Registry des freien Kerns liegen seit ADR-021 auf GitHub (REQ-GIT-001, REQ-BUILD-002). Für Sprachmodelle gilt ADR-022: ausschließlich Open-Weight-Modelle mit OSI-anerkannter Lizenz, betrieben auf STACKIT-Infrastruktur; keine Anfrage erreicht den Modellhersteller.
+Since ADR-021, source code, CI/CD and container registry of the free core reside on GitHub (REQ-GIT-001, REQ-BUILD-002). For language models, ADR-022 applies: exclusively open-weight models with an OSI-approved license, operated on STACKIT infrastructure; no request reaches the model vendor.
 ```
 
 - [ ] **Step 4: Write the self-hosting guide**
