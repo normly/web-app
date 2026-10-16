@@ -1,46 +1,46 @@
-# 1. Einführung
+# 1. Introduction
 
-## 1.1 Zweck des Dokuments
+## 1.1 Purpose of this document
 
-Dieses Dokument dient dazu, den Entwicklern bei *normly* einen möglichst genauen Überblick darüber zu verschaffen, was *normly* ist, wohin das Produkt sich entwickeln soll und welche Features angedacht sind.
+This document serves to give the developers at *normly* as precise an overview as possible of what *normly* is, where the product should develop and which features are envisaged.
 
-All das dient dazu, eine Kosten- und Aufwandsschätzung abgeben zu können.
+All of this serves to make it possible to provide a cost and effort estimate.
 
-Während die SRS definiert, was das System können muss, spezifiziert die SDD, wie das System gebaut werden soll.
+While the SRS defines what the system must be able to do, the SDD specifies how the system should be built.
 
-## 1.2 Produkt Scope und Vision
+## 1.2 Product scope and vision
 
-Das Produkt normly verfolgt folgende Vision:
+The product normly pursues the following vision:
 
 *EN: “AI-powered Norms and Standards. Open to everyone.”  
 DE: “KI-unterstützte Normen und Standards, offen für jeden.”*
 
-Der Zweck von normly besteht darin, Wissen über Normen und Regelwerke so weit frei zugänglich zu machen, wie es rechtlich zulässig ist. Der frei verfügbare Kern umfasst ausschließlich Inhalte, die weitergegeben werden dürfen (u. a. amtliche Werke nach § 5 UrhG, DGUV-Regeln, BAuA-Technische Regeln, EU-Richtlinien über EUR-Lex sowie offene Standards), ergänzt um einen offenen, maschinenlesbaren Referenzgraph, der abbildet, welche Regelwerke aufeinander verweisen, was ersetzt wurde und welche Rechtsvorschrift auf welche Norm verweist. Urheberrechtlich geschützte Volltexte werden nicht frei weitergegeben. Bisher müssen technische Normen und Regelwerke einzeln gekauft werden. Sie definieren den allgemein anerkannten Stand der Technik. Sie haben zwar nicht den gleichen Stand wie Gesetze, werden aber bei Unfällen, Verstößen oder anderen rechtlichen Auseinandersetzungen herangezogen. Sie genießen also einen Gesetzes-Charakter.  
-Durch das Aufkommen von LLM ändert sich das Nutzerverhalten zusehends: Wurden früher PDFs gekauft, um die Antwort auf eine technische Frage zu erhalten, **genießen und erwarten die Nutzer** immer die Möglichkeit über Chatbots mit den (teils sehr umfangreichen) Dokumenten arbeiten zu können. Auswertungen zeigen, dass immer mehr Nutzer auf Lösungen wie ChatGPT oder Perpelxity zurückgreifen, obwohl diese keinen Zugang zu den Normen-Dokumenten haben und daher nur beschränkte (oder nur bedingt korrekte) Angaben machen können.
+The purpose of normly is to make knowledge about norms and standards as freely accessible as is legally permissible. The freely available core comprises only content that may be passed on (among others official works under § 5 UrhG (German Copyright Act), DGUV Regeln, BAuA technical rules, EU directives via EUR-Lex and open standards), complemented by an open, machine-readable reference graph that maps which standards reference each other, what was superseded, and which legal provision references which norm. Copyrighted full texts are not freely passed on. Until now, technical norms and standards must be purchased individually. They define the generally recognized state of the art. Although they do not have the same status as laws, they are drawn on in accidents, violations or other legal disputes. They thus have a law-like character.  
+With the rise of LLMs, user behavior is changing noticeably: whereas PDFs used to be purchased to get the answer to a technical question, **users enjoy and expect** to always have the option of working with the (sometimes very extensive) documents via chatbots. Analyses show that more and more users turn to solutions such as ChatGPT or Perplexity, even though these have no access to the norm documents and can therefore only provide limited (or only partly correct) information.
 
-Um dieses Wissen jedem auf der Welt zur Verfügung zu stellen, soll normly, unter der Nutzung neuester LLM-Technologien, entwickelt werden.
+To make this knowledge available to everyone in the world, normly should be developed using the latest LLM technologies.
 
-Langfristiges Ziel ist es, Normen im Volltext auf Grundlage von Lizenzverträgen mit den herausgebenden Organisationen verarbeiten zu dürfen. Damit dies für die Herausgeber wirtschaftlich tragfähig ist, sieht normly eine umsatzabhängige Vergütung vor: Die Herausgeber werden an den Erlösen beteiligt, die auf Nutzung ihrer Inhalte zurückgehen. normly tritt damit nicht als Wettbewerber auf, der bestehende Verkaufserlöse verdrängt, sondern als Kanal, der neue Erlöse erschließt und nachvollziehbar zurückführt.
+The long-term goal is to be permitted to process norms in full text on the basis of license agreements with the publishing organizations. For this to be economically viable for the publishers, normly provides for revenue-dependent remuneration: the publishers share in the revenue attributable to the use of their content. normly thus does not appear as a competitor that displaces existing sales revenue, but as a channel that opens up new revenue and traceably passes it back.
 
-Die drei Schritte zur Erreichung der Produktvision sind folgende:
+The three steps towards achieving the product vision are the following:
 
-1.  **Aufbau eines quelloffenen normly-Kerns**  
-    Der Kern von normly wird als eigenständige, selbst hostbare Webanwendung unter der AGPL-3.0 entwickelt und öffentlich einsehbar bereitgestellt. Er umfasst die frei verfügbare Wissensbasis, den Referenzgraph, die Retrieval- und Antwortlogik sowie eine dokumentierte, öffentliche API. Client-SDKs und die API-Spezifikation stehen unter Apache-2.0, die Daten unter einer offenen Datenlizenz (z. B. ODbL oder CC-BY-SA).[.](https://notebooklm.google/)
+1.  **Building an open-source normly core**  
+    The core of normly is developed as a standalone, self-hostable web application under the AGPL-3.0 and made publicly viewable. It comprises the freely available knowledge base, the reference graph, the retrieval and answer logic, and a documented, public API. Client SDKs and the API specification are under Apache-2.0, the data under an open data license (e.g. ODbL or CC-BY-SA).[.](https://notebooklm.google/)
 
-2.  **Aufbau kommerzieller Zusatzdienste**  
-    Um die Weiterentwicklung von normly zu finanzieren, werden kommerzielle Zusatzdienste aufgebaut, die nicht den Zugang zum Wissen, sondern Prozess, Haftungssicherheit und Integration betreffen: Audit-Trails und nachweisfähige Antworten, SLA-gestützte APIs, On-Premises-Betrieb, Integrationen in Dritt- und CAD-Software sowie Auswertungsberichte für Normenanbieter. Diese Dienste sind nicht Bestandteil des freien Kerns.
+2.  **Building commercial add-on services**  
+    To finance the further development of normly, commercial add-on services are built that concern not access to knowledge but process, liability certainty and integration: audit trails and verifiable answers, SLA-backed APIs, on-premises operation, integrations into third-party and CAD software, and analytics reports for norm vendors. These services are not part of the free core.
 
-3.  **Entwicklung eines eigenen normlyLLM**  
-    Entwicklung eines eigenen Sprachmodells mit der Spezialisierung auf Normen und Richtlinien. Diese haben die Besonderheit, dass Zusammenhänge in Graphen und Tabellen korrekt erkannt werden müssen. Steht dieses Modell zur Verfügung, soll ein eigener Chatbot ein potenzielles Millionenpublikum erreichen, da es auf Basis weltweiter Normen und Standards trainiert worden ist. Eine entsprechende Vereinbarung mit den normengebenden Vereinen vorausgesetzt.
+3.  **Development of a dedicated normlyLLM**  
+    Development of a dedicated language model specialized in norms and guidelines. These have the particularity that relationships in graphs and tables must be recognized correctly. Once this model is available, a dedicated chatbot should reach a potential audience of millions, since it has been trained on the basis of norms and standards worldwide. Provided that a corresponding agreement with the norm-setting associations is in place.
 
-## 1.3 Definitionen, Akronyme und Abkürzungen
+## 1.3 Definitions, acronyms and abbreviations
 
-Im Folgenden werden in diesem Dokument verwendete Definitionen, Akronyme und Abkürzungen erklärt.
+The definitions, acronyms and abbreviations used in this document are explained below.
 
 |          |                                     |
 |----------|-------------------------------------|
 | **Term** | **Definition**                      |
-| AP       | Application Programming Interface   |
+| API      | Application Programming Interface   |
 | ARR      | Annual Recurring Revenue            |
 | LLM      | Large Language Model                |
 | ML       | Machine Learning                    |
