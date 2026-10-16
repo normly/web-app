@@ -1,357 +1,357 @@
-# Design: STACKIT-Deployment-Roadmap (Übersicht, 4 Teilprojekte)
+# Design: STACKIT deployment roadmap (overview, 4 sub-projects)
 
-Stand: 2026-09-23, ergänzt 2026-10-01 (E8, TP1-Vorentscheidungen) · Status: vom
-Nutzer freigegeben, Teilprojekte folgen je mit eigenem Spec und Plan.
+As of: 2026-09-23, amended 2026-10-01 (E8, TP1 preliminary decisions) · Status:
+approved by the owner, the sub-projects follow, each with its own spec and plan.
 
-## Kontext
+## Context
 
-Die Anwendung läuft heute nur lokal aus Entwicklungs-Venvs. Im Repository
-existiert kein Dockerfile, kein Compose-Setup und kein Deployment-Schritt;
-die GitHub-CI (`.github/workflows/ci.yml`) testet nur. ADR-005 und ADR-010
-verlangen signierte Container-Images plus ein lauffähiges Compose-Setup,
-REQ-INST-001 den Betrieb ausschließlich auf STACKIT, REQ-INST-002/004
-automatisiertes Deployment mit Rollback. Auf STACKIT existiert am
-2026-09-23 noch keine Ressource für den Betrieb.
+Today the application runs only locally from development venvs. The repository
+contains no Dockerfile, no Compose setup and no deployment step;
+the GitHub CI (`.github/workflows/ci.yml`) only tests. ADR-005 and ADR-010
+require signed container images plus a runnable Compose setup,
+REQ-INST-001 operation exclusively on STACKIT, REQ-INST-002/004
+automated deployment with rollback. On 2026-09-23 no resource for
+operation exists on STACKIT yet.
 
-Ein erstes Brainstorming am 2026-09-11 hatte die Zerlegung in vier
-Teilprojekte und „VM mit Compose, kein Kubernetes" festgehalten, brach aber
-bei der LLM-Frage ab. Dieses Dokument schließt die Grundsatzfragen ab und
-legt den Zuschnitt der Teilprojekte fest. Es ist bewusst eine Übersicht:
-Details (Dockerfile-Aufbau, Compose-Struktur, Secrets-Fluss, Rollout-Skript)
-entscheidet das jeweilige Teilprojekt in seinem eigenen Brainstorming.
+A first brainstorming on 2026-09-11 had recorded the split into four
+sub-projects and "VM with Compose, no Kubernetes", but broke off
+at the LLM question. This document settles the fundamental questions and
+fixes the scope of the sub-projects. It is deliberately an overview:
+details (Dockerfile structure, Compose structure, secrets flow, rollout script)
+are decided by each sub-project in its own brainstorming.
 
-## Laufzeitbedarf der Anwendung (aus dem Code abgelesen)
+## Runtime needs of the application (read from the code)
 
-- `frontend` (Next.js, `standalone`-Output, BFF): braucht
+- `frontend` (Next.js, `standalone` output, BFF): needs
   `NORMLY_API_BASE_URL`, `NORMLY_ACCOUNTS_BASE_URL`, `NORMLY_CHAT_BASE_URL`,
-  `NORMLY_PUBLIC_BASE_URL`; Konfiguration wird zur Laufzeit gelesen, ein
-  Image für alle Instanzen.
-- `api`, `chat`, `accounts` (je FastAPI/uvicorn): eine gemeinsame
-  PostgreSQL-Datenbank mit pgvector (`NORMLY_DATABASE_URL`).
-- `api` und `chat` laden das Embedding-Modell `intfloat/multilingual-e5-large`
-  lokal (`NORMLY_EMBEDDING_MODEL_PATH`); ohne gesetzten Pfad lädt
-  `sentence-transformers` von huggingface.co nach — in Produktion verboten,
-  siehe Docstring in `core/src/normly_core/pipeline/embeddings.py`.
-- `chat` spricht heute ausschließlich die Ollama-REST-API
+  `NORMLY_PUBLIC_BASE_URL`; configuration is read at runtime, one
+  image for all instances.
+- `api`, `chat`, `accounts` (each FastAPI/uvicorn): one shared
+  PostgreSQL database with pgvector (`NORMLY_DATABASE_URL`).
+- `api` and `chat` load the embedding model `intfloat/multilingual-e5-large`
+  locally (`NORMLY_EMBEDDING_MODEL_PATH`); without a path set,
+  `sentence-transformers` downloads from huggingface.co — forbidden in production,
+  see the docstring in `core/src/normly_core/pipeline/embeddings.py`.
+- `chat` today speaks exclusively the Ollama REST API
   (`chat/src/normly_chat/ollama_client.py`, `NORMLY_OLLAMA_BASE_URL`,
-  Standardmodell `llama3.1:8b-instruct-q4_0`).
-- `accounts` braucht SMTP (`NORMLY_SMTP_*`) für Magic Link, Verifizierung,
-  Passwort-Reset, E-Mail-Wechsel; optional Google OAuth
-  (`NORMLY_GOOGLE_CLIENT_ID/SECRET`, `NORMLY_GOOGLE_REDIRECT_URI` muss auf
-  die Frontend-Callback-Route zeigen, siehe `frontend/README.md`).
-- `core`: Alembic-Migrationen (`core/migrations`), Ingestion-CLI
-  (`python -m normly_core.pipeline`) mit Docling/Torch (~6 GB
-  Abhängigkeiten, `libgl1`), nur für den Datenimport, nicht im laufenden
-  Betrieb.
+  default model `llama3.1:8b-instruct-q4_0`).
+- `accounts` needs SMTP (`NORMLY_SMTP_*`) for magic link, verification,
+  password reset, email change; optionally Google OAuth
+  (`NORMLY_GOOGLE_CLIENT_ID/SECRET`, `NORMLY_GOOGLE_REDIRECT_URI` must point to
+  the frontend callback route, see `frontend/README.md`).
+- `core`: Alembic migrations (`core/migrations`), ingestion CLI
+  (`python -m normly_core.pipeline`) with Docling/Torch (~6 GB of
+  dependencies, `libgl1`), only for the data import, not in running
+  operation.
 
-## Grundsatzentscheidungen
+## Fundamental decisions
 
-Alle vom Nutzer in dieser Session bestätigt, sofern nicht anders datiert.
+All confirmed by the owner in this session, unless dated otherwise.
 
-### E1 — Zielumgebung: eine STACKIT-VM mit Docker Compose (2026-09-11)
+### E1 — Target environment: one STACKIT VM with Docker Compose (2026-09-11)
 
-Bestätigt ADR-005. Kein SKE, kein Load Balancer. TLS terminiert Caddy auf
-der VM per Let's Encrypt. Umzug auf SKE bleibt möglich, weil die Images
-identisch sind, und ist ein eigenes späteres Projekt.
+Confirms ADR-005. No SKE, no load balancer. Caddy terminates TLS on
+the VM via Let's Encrypt. A move to SKE remains possible because the images
+are identical, and is a separate later project.
 
-### E2 — LLM-Inferenz: STACKIT AI Model Serving, Startmodell Gemma 4 31B
+### E2 — LLM inference: STACKIT AI Model Serving, initial model Gemma 4 31B
 
-Managed, GPU-gestützt, Abrechnung pro Token, Region eu01, OpenAI-kompatible
-API unter `https://api.openai-compat.model-serving.eu01.onstackit.cloud/v1`.
-STACKIT betreibt ausschließlich Open-Weight-Modelle selbst; laut FAQ werden
-Anfragen weder gespeichert noch zum Training verwendet, kein Datenaustausch
-zwischen Kunden. Damit bleibt das Betriebsversprechen (CLAUDE.md,
-REQ-INST-001) eingehalten: die Daten gehen an STACKIT, nicht an den
-Modellhersteller.
+Managed, GPU-backed, billed per token, region eu01, OpenAI-compatible
+API at `https://api.openai-compat.model-serving.eu01.onstackit.cloud/v1`.
+STACKIT itself operates exclusively open-weight models; according to the FAQ,
+requests are neither stored nor used for training, no data exchange
+between customers. This keeps the operations promise (CLAUDE.md,
+REQ-INST-001): the data goes to STACKIT, not to the
+model vendor.
 
-Verworfen: Ollama auf der VM per CPU (Antwortzeiten von Sekunden bis
-Minuten bei 8B-Modellen, für Nutzer untragbar); eigene GPU-VM mit Ollama
-(laufend teuer ohne Last, kein Managed-Vorteil).
+Rejected: Ollama on the VM via CPU (response times of seconds to
+minutes with 8B models, unacceptable for users); dedicated GPU VM with Ollama
+(ongoing costs without load, no managed advantage).
 
-Das Produktionsmodell ist per Konfiguration wählbar; Standardwert
-`google/gemma-4-31B-it` (Apache-2.0). Ollama bleibt für lokale Entwicklung
-und Self-Hosting, dort ebenfalls mit einem Gemma-Modell derselben Familie,
-damit Prompts sich nicht unterschiedlich verhalten.
+The production model is selectable via configuration; default value
+`google/gemma-4-31B-it` (Apache-2.0). Ollama remains for local development
+and self-hosting, there also with a Gemma model of the same family,
+so that prompts do not behave differently.
 
-### E3 — Modellherkunftsregel (neu, wird ADR-022 und CLAUDE.md-Satz)
+### E3 — Model-origin rule (new, becomes ADR-022 and a CLAUDE.md sentence)
 
-Bisher ungeregelt; der heutige Llama-Standard ist selbst ein Meta-Modell.
-Festgelegt:
+Previously unregulated; today's Llama default is itself a Meta model.
+Decided:
 
-- Nur Open-Weight-Modelle unter OSI-anerkannter Lizenz (Apache-2.0, MIT,
-  …). Damit zulässig im STACKIT-Katalog vom 2026-09-23: Gemma 4 31B
-  (Apache-2.0), gpt-oss 20B/120B (MIT), Qwen3-VL-235B (Apache-2.0). Nicht
-  zulässig: Llama 3.3 (Llama-Lizenz), Qwen3.8 (Qwen-Lizenz).
-- Betrieb ausschließlich auf STACKIT-Infrastruktur; keine Anfrage erreicht
-  den Modellhersteller.
-- Europäische Herkunft ist Präferenz, nicht Pflicht — im aktuellen Katalog
-  gibt es kein europäisches Chat-Modell (Mistral nur als englisches
-  Embedding-Modell). Wiedervorlage im ADR: sobald STACKIT ein europäisches
-  Modell in passender Größe anbietet, wird der Wechsel geprüft.
+- Only open-weight models under an OSI-approved license (Apache-2.0, MIT,
+  …). Thus permitted in the STACKIT catalog of 2026-09-23: Gemma 4 31B
+  (Apache-2.0), gpt-oss 20B/120B (MIT), Qwen3-VL-235B (Apache-2.0). Not
+  permitted: Llama 3.3 (Llama license), Qwen3.8 (Qwen license).
+- Operation exclusively on STACKIT infrastructure; no request reaches
+  the model vendor.
+- European origin is a preference, not a requirement — the current catalog
+  has no European chat model (Mistral only as an English
+  embedding model). Revisit in the ADR: as soon as STACKIT offers a European
+  model of suitable size, the switch will be examined.
 
-Verworfen: europäische Herkunft als Pflicht (hätte nur die eigene GPU-VM
-übrig gelassen, kauft ein Marketingargument ohne Datenschutzgewinn).
+Rejected: European origin as a requirement (would have left only the dedicated GPU VM,
+buys a marketing argument without any data protection gain).
 
-### E4 — DNS: gesamte Zone `normly.ai` zu STACKIT DNS
+### E4 — DNS: entire zone `normly.ai` to STACKIT DNS
 
-Registrar bleibt Strato (deutsches Unternehmen, sieht keinen Verkehr). Die
-Nameserver werden bei Strato auf `ns1.stackit.cloud` und `ns2.stackit.zone`
-umgestellt; vorher werden alle Records — inklusive der Website-Einträge —
-in der STACKIT-Zone angelegt. Cloudflare (US) entfällt vollständig, damit
-auch Proxy/CDN für die Website; für eine statische Website ohne
-Lastspitzen ist das verschmerzbar. App-Hostname: `app.normly.ai`.
+The registrar remains Strato (a German company, sees no traffic). The
+nameservers are switched at Strato to `ns1.stackit.cloud` and `ns2.stackit.zone`;
+beforehand all records — including the website entries — are created
+in the STACKIT zone. Cloudflare (US) is dropped completely, and with it
+proxy/CDN for the website; for a static website without
+load peaks this is bearable. App hostname: `app.normly.ai`.
 
-Verworfen: nur `app.normly.ai` als Subzone delegieren (Cloudflare bliebe
-autoritativ für die Apex-Zone und damit in der Auflösungskette); alles bei
-Cloudflare lassen (Bruch der Regel, die das Verkaufsargument ist).
+Rejected: delegating only `app.normly.ai` as a subzone (Cloudflare would remain
+authoritative for the apex zone and thus in the resolution chain); leaving everything at
+Cloudflare (breaks the rule that is the selling point).
 
-### E5 — Mailversand: Strato-SMTP aus dem bestehenden Mailpaket (geändert 2026-10-03)
+### E5 — Mail sending: Strato SMTP from the existing mail package (changed 2026-10-03)
 
-Ursprünglich (2026-09-23) IONOS Business. Beim DNS-Umzug zeigte sich, dass
-die Mail der Domain bereits bei Strato liegt (MX `smtpin.rzone.de`,
-Autoconfig, DKIM-Richtlinie, aktives Postfach `mail@normly.ai`). Eine
-Domain hat nur einen Mail-Empfänger; IONOS daneben hätte einen MX-Wechsel
-und die Migration des bestehenden Postfachs bedeutet. Entscheidung:
-zusätzliches Postfach `noreply@normly.ai` im Strato-Paket, SMTP-Zugang
-daraus (`smtp.strato.de`, Port 587 STARTTLS), SPF-Record neu anlegen
-(fehlte bisher ganz), DKIM-Records aus dem Strato-Kundenbereich in die
-STACKIT-Zone übernehmen. Strato ist ein deutsches Unternehmen. Die
-Drosselung bei Strato wird erst bei mehreren hundert Mails am Tag relevant;
-dann ist ein Wechsel des gesamten Mail-Hostings ein eigenes Thema.
-Verworfen: IONOS Business (MX-Konflikt), eigener Postfix (Zustellbarkeit).
+Originally (2026-09-23) IONOS Business. During the DNS move it turned out that
+the domain's mail is already at Strato (MX `smtpin.rzone.de`,
+autoconfig, DKIM policy, active mailbox `mail@normly.ai`). A
+domain has only one mail recipient; IONOS alongside would have meant an MX change
+and the migration of the existing mailbox. Decision:
+additional mailbox `noreply@normly.ai` in the Strato package, SMTP access
+from it (`smtp.strato.de`, port 587 STARTTLS), create a new SPF record
+(was missing entirely so far), copy the DKIM records from the Strato customer area into the
+STACKIT zone. Strato is a German company. Strato's
+throttling only becomes relevant at several hundred mails per day;
+at that point a switch of the entire mail hosting is a topic of its own.
+Rejected: IONOS Business (MX conflict), own Postfix (deliverability).
 
-### E6 — Images: GHCR per GitHub Actions (ADR-021, bestätigt)
+### E6 — Images: GHCR via GitHub Actions (ADR-021, confirmed)
 
-Paket öffentlich lesbar (Nutzerentscheidung vom 2026-09-14). Signierung
-läuft in der GitHub-Pipeline und ist durch die ADR-021-Ausnahme gedeckt.
+Package publicly readable (owner decision of 2026-09-14). Signing
+runs in the GitHub pipeline and is covered by the ADR-021 exception.
 
-### E7 — Nur Produktion auf STACKIT, Staging lokal
+### E7 — Only production on STACKIT, staging locally
 
-REQ-DIST-001 verlangt getrennte Umgebungen mit eigener Datenbank. Bewusste
-Vereinfachung für Phase 1: eine Produktionsumgebung auf STACKIT; das lokale
-Compose-Setup aus Teilprojekt 1 übernimmt die Rolle der Staging-Umgebung.
-Eine echte Staging-Umgebung (zweite VM, zweite Datenbank) kommt, sobald es
-Nutzer gibt, die ein fehlerhaftes Deployment treffen würde. Wird im ADR-022
-als bewusste, befristete Abweichung festgehalten.
+REQ-DIST-001 requires separate environments with their own database. Deliberate
+simplification for phase 1: one production environment on STACKIT; the local
+Compose setup from sub-project 1 takes on the role of the staging environment.
+A real staging environment (second VM, second database) comes as soon as there are
+users whom a faulty deployment would hit. Recorded in ADR-022
+as a deliberate, temporary deviation.
 
-### E8 — Iteration direkt auf der STACKIT-VM statt lokal (2026-10-01)
+### E8 — Iteration directly on the STACKIT VM instead of locally (2026-10-01)
 
-Nutzerentscheidung gegen die Empfehlung, Teilprojekt 1 zuerst lokal zu
-verifizieren: VM und Postgres Flex werden sofort gebucht, das Repository
-wird auf der VM ausgecheckt und die Images werden dort gebaut (`docker
-compose build`), ohne Umweg über die GHCR. Vorteil: echte Umgebung von
-Anfang an. In Kauf genommen: rund 235 €/Monat laufen ab Buchung, und jede
-Iteration braucht einen Build auf der VM statt auf dem Entwicklungsrechner.
-Der GHCR-Pull-Weg ersetzt den VM-Build mit Teilprojekt 2/4. Die Dateien
-selbst (Dockerfiles, Compose) sind dieselben; das lokale Compose-Setup
-bleibt für Self-Hoster und als Staging-Ersatz (E7) Ergebnis von TP1.
+Owner decision against the recommendation to verify sub-project 1 locally
+first: VM and Postgres Flex are booked immediately, the repository
+is checked out on the VM and the images are built there (`docker
+compose build`), without the detour via the GHCR. Advantage: real environment from
+the start. Accepted: around €235/month accrue from booking, and every
+iteration needs a build on the VM instead of on the development machine.
+The GHCR pull route replaces the VM build with sub-project 2/4. The files
+themselves (Dockerfiles, Compose) are the same; the local Compose setup
+remains a result of TP1 for self-hosters and as a staging substitute (E7).
 
-## Zu buchende STACKIT-Produkte
+## STACKIT products to book
 
-Listenpreise aus der STACKIT-Preisliste (PDF, Version 18), Region EU01,
-netto pro Monat bei 720 h. Preise dienen der Einordnung, verbindlich ist
-das Portal.
+List prices from the STACKIT price list (PDF, version 18), region EU01,
+net per month at 720 h. Prices serve for orientation; the portal
+is binding.
 
-| Produkt | Ausprägung | ca. €/Monat | Zweck |
+| Product | Configuration | approx. €/month | Purpose |
 |---|---|---|---|
-| Projekt | eigenes Projekt für den Betrieb, getrennt vom Git-Projekt | 0 | Trennung Betrieb / Datenprojekt |
-| Compute Engine | `g1a.4d` (4 vCPU, 16 GB, AMD), Ubuntu LTS, Variante ohne Suffix `-m` | 142 | alle Container per Compose |
-| Block Storage (VM) | 80 GB Boot-Volume, Premium-Performance 1 (Klasse 2 wäre ~12 €/Monat teurer und bringt für eine Compose-VM nichts; Premium-Capacity ist für Docker-Builds zu langsam) | ca. 8 | OS, Images, Modellgewichte |
-| Public IP (IPv4) | eine | 3 | Eingang für Caddy |
-| PostgreSQL Flex | `2.4` Single (2 vCPU, 4 GB), 20 GB Premium-Capacity, neueste PG-Version; Extension `vector` | 92 | eine DB für alle Dienste |
-| DNS | Zone `normly.ai`, Tarif DNS-100 | 2 | siehe E4 |
-| Secrets Manager | eine Instanz, AppRole-Auth (Public Preview seit 2026-08-31) | < 1 | REQ-INST-003 |
-| Object Storage | ein Bucket, Standard, AES-256 at rest per Default | 0,03/GB | Datenstand-Dumps, DB-Sicherungen, Modellgewichte |
-| AI Model Serving | ein Token, Modell `google/gemma-4-31B-it` | pro Token | siehe E2 |
+| Project | own project for operations, separate from the Git project | 0 | Separation of operations / data project |
+| Compute Engine | `g1a.4d` (4 vCPU, 16 GB, AMD), Ubuntu LTS, variant without the suffix `-m` | 142 | all containers via Compose |
+| Block Storage (VM) | 80 GB boot volume, Premium Performance 1 (class 2 would be ~€12/month more expensive and brings nothing for a Compose VM; Premium Capacity is too slow for Docker builds) | approx. 8 | OS, images, model weights |
+| Public IP (IPv4) | one | 3 | Entry point for Caddy |
+| PostgreSQL Flex | `2.4` Single (2 vCPU, 4 GB), 20 GB Premium Capacity, newest PG version; extension `vector` | 92 | one DB for all services |
+| DNS | zone `normly.ai`, tariff DNS-100 | 2 | see E4 |
+| Secrets Manager | one instance, AppRole auth (public preview since 2026-08-31) | < 1 | REQ-INST-003 |
+| Object Storage | one bucket, Standard, AES-256 at rest by default | 0.03/GB | data version dumps, DB backups, model weights |
+| AI Model Serving | one token, model `google/gemma-4-31B-it` | per token | see E2 |
 
-Grundlast rund 250 €/Monat plus Tokens in der Iterationsphase; nach TP1a
-und Herunterstufung auf `g1a.2d` rund 180 €/Monat. LLM-Preisstufen laut Liste:
-Standard 0,15 € Eingabe / 0,25 € Ausgabe je Mio. Tokens, Plus 0,45 / 0,65,
-Premium 1,50 / 1,75. Die Zuordnung der Modelle zu Stufen zeigt nur das
-Portal.
+Base load around €250/month plus tokens in the iteration phase; after TP1a
+and downsizing to `g1a.2d` around €180/month. LLM price tiers according to the list:
+Standard €0.15 input / €0.25 output per million tokens, Plus 0.45 / 0.65,
+Premium 1.50 / 1.75. Only the portal shows which tier each model
+is assigned to.
 
-Begründung der VM-Größe: `api` und `chat` halten je ~3 GB RAM für das
-Embedding-Modell mit Torch, dazu Frontend, Accounts, Caddy; die Ingestion
-braucht bei Bedarf weitere 6–8 GB. Mit 8 GB (`g1a.2d`) wäre die Ingestion
-auf der VM nicht mehr möglich.
+Rationale for the VM size: `api` and `chat` each hold ~3 GB RAM for the
+embedding model with Torch, plus frontend, accounts, Caddy; the ingestion
+needs a further 6–8 GB when required. With 8 GB (`g1a.2d`) the ingestion
+would no longer be possible on the VM.
 
-Begründung Postgres Single: die 3-Knoten-Variante (142 €) bringt
-Hochverfügbarkeit, die vor dem ersten Nutzer nichts wert ist; Flavor-Wechsel
-geht laut Doku ohne Ausfall, Backups macht Flex selbst.
+Rationale for Postgres Single: the 3-node variant (€142) brings
+high availability, which is worth nothing before the first user; a flavor change
+works without downtime according to the docs, Flex does backups itself.
 
-Nicht gebucht: SKE, Load Balancer, STACKIT Container Registry.
+Not booked: SKE, load balancer, STACKIT Container Registry.
 
-**Buchungszeitpunkt:** ursprünglich VM, Public IP, Postgres Flex und Object
-Storage erst nach Abschluss von Teilprojekt 1 (um Kosten für leere
-Ressourcen zu vermeiden). Mit E8 (2026-10-01) werden Projekt, VM, Public IP
-und Postgres Flex sofort gebucht; DNS-Zone, AI-Token, Secrets Manager und
-Strato-Postfach `noreply@` parallel dazu, Object Storage mit Teilprojekt 4.
+**Booking time:** originally VM, Public IP, Postgres Flex and Object
+Storage only after completion of sub-project 1 (to avoid costs for empty
+resources). With E8 (2026-10-01), project, VM, Public IP
+and Postgres Flex are booked immediately; DNS zone, AI token, Secrets Manager and
+Strato mailbox `noreply@` in parallel, Object Storage with sub-project 4.
 
-## Teilprojekte
+## Sub-projects
 
-Reihenfolge strikt 1 → 4; jedes braucht das vorherige. Jedes Teilprojekt
-bekommt ein eigenes Brainstorming, einen eigenen Spec, Plan und PR. Mit E8
-zieht nur die Buchung von VM und Postgres aus TP3 vor TP1; der übrige
-Zuschnitt bleibt.
+Order strictly 1 → 4; each needs the previous one. Each sub-project
+gets its own brainstorming, its own spec, plan and PR. With E8
+only the booking of VM and Postgres moves from TP3 ahead of TP1; the rest of the
+scope stays.
 
-### TP1 — Containerisierung (verifiziert auf der STACKIT-VM, siehe E8)
+### TP1 — Containerisation (verified on the STACKIT VM, see E8)
 
-**Umfang:**
-- Dockerfiles für `frontend`, `api`, `chat`, `accounts` und ein
-  Pipeline-Image aus `core` (Migrationen und Ingestion, mit Docling).
-- Ein Compose-Setup, das mit einem Aufruf startet: PostgreSQL mit pgvector,
-  Ollama (lokale Entwicklung / Self-Hosting), ein Mail-Fänger, alle vier
-  Dienste; Migrationen laufen vor dem App-Start; das Embedding-Modell wird
-  ohne Laufzeit-Download bereitgestellt.
-- Die eine Codeänderung: ein OpenAI-kompatibler LLM-Client in `chat` hinter
-  derselben Schnittstelle wie `OllamaClient`, per Konfiguration wählbar;
-  Wechsel des Ollama-Standardmodells von Llama auf ein Gemma-Modell (E3).
-- Verankerung der Modellherkunftsregel: ADR-022, CLAUDE.md-Satz.
+**Scope:**
+- Dockerfiles for `frontend`, `api`, `chat`, `accounts` and a
+  pipeline image from `core` (migrations and ingestion, with Docling).
+- A Compose setup that starts with one invocation: PostgreSQL with pgvector,
+  Ollama (local development / self-hosting), a mail catcher, all four
+  services; migrations run before the app starts; the embedding model is
+  provided without a runtime download.
+- The one code change: an OpenAI-compatible LLM client in `chat` behind
+  the same interface as `OllamaClient`, selectable via configuration;
+  switch of the Ollama default model from Llama to a Gemma model (E3).
+- Anchoring the model-origin rule: ADR-022, CLAUDE.md sentence.
 
-**Ergebnis:** Self-Hosting-Zusage aus ADR-010 / REQ-DIST-004 eingelöst;
-`docs/guide/self-hosting.md` verliert den Platzhalter.
+**Result:** self-hosting promise from ADR-010 / REQ-DIST-004 fulfilled;
+`docs/guide/self-hosting.md` loses its placeholder.
 
-**Vorentschieden am 2026-10-01 (Nutzer):**
-- Abhängigkeiten von `core` bleiben ungeteilt (Docling und
-  sentence-transformers als Pflicht). Gegen die Empfehlung optionaler
-  Extras `[ingest]`/`[embeddings]`. Folge: ein gemeinsames Python-
-  Basis-Image (~5 GB) mit allen Abhängigkeiten, die vier Python-Images
-  legen darauf nur ihr eigenes Paket; Docker teilt die Basis-Schicht,
-  neu gezogen wird sie nur bei geänderten Abhängigkeiten.
-- Embedding-Gewichte (`multilingual-e5-large`, 2,2 GB) werden beim Build
-  in das Basis-Image eingebacken, Pfad fest über
-  `NORMLY_EMBEDDING_MODEL_PATH`. Kein Laufzeit-Download, kein Init-Schritt.
+**Decided in advance on 2026-10-01 (owner):**
+- The dependencies of `core` stay unsplit (Docling and
+  sentence-transformers as mandatory). Against the recommendation of optional
+  extras `[ingest]`/`[embeddings]`. Consequence: one shared Python
+  base image (~5 GB) with all dependencies; the four Python images
+  only add their own package on top; Docker shares the base layer,
+  it is pulled again only when dependencies change.
+- Embedding weights (`multilingual-e5-large`, 2.2 GB) are baked into the
+  base image at build time, path fixed via
+  `NORMLY_EMBEDDING_MODEL_PATH`. No runtime download, no init step.
 
-**Offen für das TP1-Brainstorming:** Aufteilung Compose-Basis vs. Overrides
-für Produktion; Migrationslauf (Init-Container vs. Entrypoint); Mail-Fänger;
-Ollama-Modell für die Entwicklung; Ingestion-Ort (lokal mit Dump-Export vs.
-auf der VM); wie die CI die Images baut, ohne die Testjobs zu verlangsamen.
+**Open for the TP1 brainstorming:** split of the Compose base vs. overrides
+for production; migration run (init container vs. entrypoint); mail catcher;
+Ollama model for development; place of ingestion (locally with dump export vs.
+on the VM); how the CI builds the images without slowing down the test jobs.
 
-### TP2 — Image-Pipeline
+### TP2 — Image pipeline
 
-**Umfang:** GitHub-Actions-Job, der die fünf Images baut, signiert und in
-die GHCR (`ghcr.io/normly/web-app/...`) schiebt — bei Merge auf `main` als
-Vorabversion, bei Git-Tag `vX.Y.Z` als Release. `permissions: packages:
-write` mit `GITHUB_TOKEN`, kein PAT. Paket beim ersten Push auf öffentlich
-stellen (manuell in den GitHub-Paketeinstellungen, nicht vergessen).
+**Scope:** GitHub Actions job that builds and signs the five images and pushes them to
+the GHCR (`ghcr.io/normly/web-app/...`) — on merge to `main` as a
+pre-release, on Git tag `vX.Y.Z` as a release. `permissions: packages:
+write` with `GITHUB_TOKEN`, no PAT. Set the package to public on the first push
+(manually in the GitHub package settings, do not forget).
 
-**Ergebnis:** Images sind öffentlich beziehbar und signiert
+**Result:** images are publicly obtainable and signed
 (REQ-DIST-004, REQ-GIT-005).
 
-**Offen:** Signaturverfahren (cosign keyless per GitHub-OIDC vs. eigener
-Schlüssel); Tagging-Schema; ob Multi-Arch nötig ist (VM ist x86_64).
+**Open:** signing method (cosign keyless via GitHub OIDC vs. own
+key); tagging scheme; whether multi-arch is needed (VM is x86_64).
 
-**Stand 2026-10-08:** Design in
+**As of 2026-10-08:** design in
 `docs/superpowers/specs/2026-10-08-tp2-image-pipeline-design.md`
-(Entscheidungen D1–D4: cosign keyless, eine Version je Tag, Build nur auf
-`main`/Tags, vollständige Reproduzierbarkeit mit uv-Lock und gepinnten
-Gewichten), umgesetzt nach `docs/superpowers/plans/2026-10-08-tp2-image-pipeline.md`.
-**Umgesetzt und live verifiziert 2026-10-08** (PR #14, Release `v0.1.0`;
-Messwerte im Abschnitt „Verifikation 2026-10-08“ der TP2-Spec).
+(decisions D1–D4: cosign keyless, one version per tag, build only on
+`main`/tags, full reproducibility with uv lock and pinned
+weights), implemented according to `docs/superpowers/plans/2026-10-08-tp2-image-pipeline.md`.
+**Implemented and verified live 2026-10-08** (PR #14, release `v0.1.0`;
+measurements in the section "Verification 2026-10-08" of the TP2 spec).
 
-### TP3 — Zielumgebung auf STACKIT
+### TP3 — Target environment on STACKIT
 
-**Umfang:**
-1. DNS-Umzug nach E4 als erster Schritt (Zone anlegen, Records
-   übernehmen, Nameserver bei Strato umstellen, Propagation abwarten).
-2. Buchungen laut Tabelle.
-3. VM-Einrichtung per cloud-init (Docker, Compose, Caddy, Firewall nur
-   80/443/SSH), Compose-Overrides für Produktion.
-4. Secrets-Fluss: Zugangsdaten liegen im Secrets Manager; die VM bezieht
-   sie per AppRole beim Start, nicht dauerhaft in Umgebungsvariablen
+**Scope:**
+1. DNS move according to E4 as the first step (create the zone, copy the
+   records, switch the nameservers at Strato, wait for propagation).
+2. Bookings according to the table.
+3. VM setup via cloud-init (Docker, Compose, Caddy, firewall only
+   80/443/SSH), Compose overrides for production.
+4. Secrets flow: credentials are kept in the Secrets Manager; the VM obtains
+   them via AppRole at start, not permanently in environment variables
    (REQ-INST-003).
-5. Strato-SMTP (E5) samt SPF-/DKIM-Records; AI-Model-Serving-Token (E2);
-   Google-OAuth-Redirect-URI auf `https://app.normly.ai/api/auth/google/callback`.
+5. Strato SMTP (E5) including SPF/DKIM records; AI Model Serving token (E2);
+   Google OAuth redirect URI to `https://app.normly.ai/api/auth/google/callback`.
 
-**Ergebnis:** `app.normly.ai` antwortet mit einem manuell gestarteten
-Stand; Datenbank läuft auf Postgres Flex; kein Secret im Repo oder auf
+**Result:** `app.normly.ai` responds with a manually started
+version; the database runs on Postgres Flex; no secret in the repo or on
 GitHub.
 
-**Offen:** Terraform (STACKIT-Provider) vs. Portal plus cloud-init für die
-VM; wie genau der AppRole-Secret-ID-Bootstrap auf die VM kommt; ob
-Postgres-Flex-ACL auf die VM-IP beschränkt wird (ja, Standardannahme).
+**Open:** Terraform (STACKIT provider) vs. portal plus cloud-init for the
+VM; exactly how the AppRole secret ID bootstrap gets onto the VM; whether
+the Postgres Flex ACL is restricted to the VM IP (yes, default assumption).
 
-### TP4 — Deployment-Automatisierung
+### TP4 — Deployment automation
 
-**Umfang:** Rollout neuer Images auf die VM ohne STACKIT-Zugangsdaten auf
-GitHub — also pull-basiert von der VM aus (Skript, das einen Tag zieht,
-Migrationen ausführt, Dienste neu startet). Rollback auf den vorherigen
-Tag. Import des versionierten Datenstands aus Object Storage; Sicherung der
-Datenbank nach Object Storage.
+**Scope:** rollout of new images to the VM without STACKIT credentials on
+GitHub — that is, pull-based from the VM (script that pulls a tag,
+runs migrations, restarts services). Rollback to the previous
+tag. Import of the versioned data version from Object Storage; backup of the
+database to Object Storage.
 
-**Ergebnis:** REQ-INST-002 (automatisiert), REQ-INST-004 (Rollback),
-ADR-010 (Daten getrennt vom Image) erfüllt.
+**Result:** REQ-INST-002 (automated), REQ-INST-004 (rollback),
+ADR-010 (data separate from the image) fulfilled.
 
-**Offen:** Auslöser des Rollouts (manueller Aufruf per SSH vs. Timer, der
-GHCR abfragt); Dump-Format und Versionierung des Datenstands;
-Aufbewahrungsfrist der Sicherungen (offener Punkt aus dem ADR-Register).
+**Open:** trigger of the rollout (manual invocation via SSH vs. a timer that
+polls GHCR); dump format and versioning of the data version;
+retention period of the backups (open item from the ADR register).
 
-### TP1a — Embedding-Modell nur einmal laden, VM auf `g1a.2d` (Folgearbeit direkt nach TP1)
+### TP1a — Load the embedding model only once, VM on `g1a.2d` (follow-up work directly after TP1)
 
-**Anlass (2026-10-03):** Beim Anlegen des Servers im Portal stellte der
-Nutzer die Kosten infrage. Die 16 GB von `g1a.4d` (141,59 €/Monat) sind
-nötig, weil `api` und `chat` dasselbe Embedding-Modell
-(`multilingual-e5-large`, ~3 GB RAM mit Torch) jeweils selbst laden und die
-Ingestion weitere 6–8 GB braucht. Entscheidung: `g1a.4d` für die
-Iterationsphase buchen, danach die Doppelung beseitigen und den Server
-auf `g1a.2d` (70,79 €/Monat) herunterstufen — dauerhaft rund 71 €/Monat
-weniger. STACKIT erlaubt den Wechsel des Maschinentyps bei gestopptem
-Server.
+**Occasion (2026-10-03):** While creating the server in the portal, the
+owner questioned the costs. The 16 GB of `g1a.4d` (€141.59/month) are
+necessary because `api` and `chat` each load the same embedding model
+(`multilingual-e5-large`, ~3 GB RAM with Torch) themselves and the
+ingestion needs a further 6–8 GB. Decision: book `g1a.4d` for the
+iteration phase, then remove the duplication and downsize the server
+to `g1a.2d` (€70.79/month) — permanently around €71/month
+less. STACKIT allows changing the machine type while the server
+is stopped.
 
-**Umfang:** Nur ein Dienst hält das Modell im Speicher; der andere bezieht
-Einbettungen über eine interne HTTP-Schnittstelle. Naheliegend ist `api`
-als Träger (es bietet bereits die Suche an) und ein Endpunkt, den `chat`
-für Anfrage-Einbettungen ruft; die genaue Schnittstelle, Fehlerbehandlung
-und das Verhalten beim Start klärt ein eigenes kurzes Brainstorming.
-Voraussetzung für den kleinen Server ist außerdem, dass die Ingestion nicht
-mehr auf der VM läuft, sondern lokal mit Dump-Import — das liefert TP4.
-Die Herunterstufung selbst erfolgt also erst, wenn TP1a *und* der
-Dump-Import aus TP4 stehen; TP1a selbst kann unmittelbar nach TP1 gebaut
-werden.
+**Scope:** Only one service holds the model in memory; the other obtains
+embeddings via an internal HTTP interface. The obvious choice is `api`
+as the holder (it already offers search) and an endpoint that `chat`
+calls for query embeddings; the exact interface, error handling
+and the startup behavior are settled by a short brainstorming of its own.
+A further prerequisite for the small server is that the ingestion no longer
+runs on the VM, but locally with dump import — TP4 delivers that.
+The downsizing itself therefore only happens once TP1a *and* the
+dump import from TP4 are in place; TP1a itself can be built immediately
+after TP1.
 
-**Ergebnis:** VM-Leerlauf unter 5 GB RAM; `g1a.2d` komfortabel.
+**Result:** VM idle below 5 GB RAM; `g1a.2d` comfortable.
 
-## Dokumentation, die mitläuft
+## Documentation that comes along
 
-- **ADR-022 „Betriebsumgebung Phase 1"**: E1–E7 mit Begründung und
-  Verworfenem; Wiedervorlage europäisches Modell; befristete Abweichung von
-  REQ-DIST-001. Geschrieben in TP1, weil die Modellherkunftsregel dort
-  Code berührt.
-- **CLAUDE.md**: ein Satz zur Modellherkunft unter „Nicht verhandelbar".
-- **SRS**: REQ-INST-003 (Secrets-Fluss per AppRole), REQ-DIST-001
-  (Staging-Abweichung mit Verweis auf ADR-022), Kapitel 3.5 Fließtext
-  (Modellherkunft), REQ-GIT-005 (Abnahmekriterium nennt noch die STACKIT
-  Container Registry, seit ADR-021 ist es die GHCR; in TP2 korrigieren).
-- **`docs/guide/self-hosting.md`**: in TP1 mit dem tatsächlichen
-  Compose-Weg füllen.
-- **ADR-Register „Offene Punkte"**: „Öffentlicher Lesezugriff auf STACKIT
-  Container Registry" ist durch ADR-021 gegenstandslos und wird
-  gestrichen.
+- **ADR-022 "Operating environment phase 1"**: E1–E7 with rationale and
+  rejected options; revisit European model; temporary deviation from
+  REQ-DIST-001. Written in TP1, because the model-origin rule touches
+  code there.
+- **CLAUDE.md**: a sentence on model origin under "Non-negotiable".
+- **SRS**: REQ-INST-003 (secrets flow via AppRole), REQ-DIST-001
+  (staging deviation with a reference to ADR-022), chapter 3.5 running text
+  (model origin), REQ-GIT-005 (acceptance test still names the STACKIT
+  Container Registry; since ADR-021 it is the GHCR; correct in TP2).
+- **`docs/guide/self-hosting.md`**: fill in TP1 with the actual
+  Compose route.
+- **ADR register "Open items"**: "Public read access to STACKIT
+  Container Registry" (wording at the time) has become moot through ADR-021 and is
+  deleted.
 
-## Nicht-Ziele
+## Non-goals
 
-- Kubernetes/SKE, Load Balancer, Multi-Region.
-- Echte Staging-Umgebung auf STACKIT (siehe E7).
-- Native App, lizenzierte Volltexte, kommerzielle Schicht.
-- Wechsel des Embedding-Modells auf STACKIT-Model-Serving-Embeddings
-  (würde Neu-Einbettung des gesamten Bestands bedeuten; `e5-mistral-7b`
-  ist englisch-fokussiert, `Qwen3-VL-Embedding-8B` hat andere
-  Dimensionen). Bleibt lokal in `api`/`chat`.
+- Kubernetes/SKE, load balancer, multi-region.
+- Real staging environment on STACKIT (see E7).
+- Native app, licensed full texts, commercial layer.
+- Switching the embedding model to STACKIT Model Serving embeddings
+  (would mean re-embedding the entire collection; `e5-mistral-7b`
+  is English-focused, `Qwen3-VL-Embedding-8B` has different
+  dimensions). Stays local in `api`/`chat`.
 
-## Im Portal noch zu prüfen (kann von hier nicht geklärt werden)
+## Still to check in the portal (cannot be settled from here)
 
-- Preisstufe von Gemma 4 31B bei AI Model Serving und Ratenlimits je Modell.
-- Auftragsverarbeitungsvertrag / AGB für AI Model Serving (Protokollierung,
-  Aufbewahrung).
-- Bedeutung des Flavor-Suffix `-m` (doppelter Preis, in der Doku nicht
-  erklärt) — Variante ohne Suffix nehmen.
-- Ob Postgres Flex bei Single → Replica ohne Neuanlage wechseln kann.
+- Price tier of Gemma 4 31B in AI Model Serving and rate limits per model.
+- Data processing agreement / terms and conditions for AI Model Serving (logging,
+  retention).
+- Meaning of the flavor suffix `-m` (double price, not explained in the docs)
+  — take the variant without the suffix.
+- Whether Postgres Flex can switch from Single → Replica without being recreated.
 
-## Quellen
+## Sources
 
-- STACKIT AI Model Serving: Katalog
+- STACKIT AI Model Serving: catalog
   (`docs.stackit.cloud/de/products/data-and-ai/ai-model-serving/basics/available-shared-models/`),
-  FAQ, „Use the models".
-- STACKIT Machine Types EU01, PostgreSQL Flex Flavors und Supported
+  FAQ, "Use the models".
+- STACKIT Machine Types EU01, PostgreSQL Flex Flavors and Supported
   Extensions, DNS FAQ, Secrets Manager FAQ, Object Storage Core Features.
-- STACKIT-Preisliste PDF Version 18 (`stackit.com/en/asset/download/37788/file/STACKIT_price_list.pdf?version=18`).
+- STACKIT price list PDF version 18 (`stackit.com/en/asset/download/37788/file/STACKIT_price_list.pdf?version=18`).
