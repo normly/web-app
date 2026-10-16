@@ -3295,7 +3295,7 @@ git commit -s -m "test: verify end-to-end pipeline run and idempotent re-run"
 | Reference extraction | Task 10 |
 | Segmentation and embedding (DGUV only) | Tasks 11–12 |
 | Data flow (full orchestration) | Task 12 |
-| Error handling (all six cases) | Tasks 6 (skip), 9–10 (queue), 4 (embedding failure, idempotently caught up later), 7 (`WithdrawnDeliveryError` already exists) |
+| Error handling (all six cases) | Tasks 6 (skip), 9–10 (queue), 4 (embedding failure, can be caught up later, idempotently), 7 (`WithdrawnDeliveryError` already exists) |
 | Test concept (pgvector, real fixtures, real model, E2E, withdrawal) | Task 1 (pgvector), 13–14 (real fixtures), 11 (real model), 16 (E2E), 7 (withdrawal) |
 
 No gap found.

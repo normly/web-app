@@ -1332,7 +1332,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 10: Documentation — ADR-022, CLAUDE.md, SRS, self-hosting guide
 
 **Files:**
-- Modify: `docs/adr/README.md` (ADR-022 before `## Open items`, line 745; remove the open-items row "Public read access to STACKIT Container Registry" (wording at the time))
+- Modify: `docs/adr/README.md` (ADR-022 before `## Open items`, line 745; remove the open-items row "Public read access to STACKIT Container Registry", wording at the time)
 - Modify: `CLAUDE.md:33-35`
 - Modify: `docs/srs/03-requirements.md` (REQ-DIST-001 "Further information"; section 3.5.9)
 - Modify: `docs/guide/self-hosting.md`, `docs/guide/getting-started.md`
@@ -1586,7 +1586,7 @@ Run:
 (cd chat && .venv/bin/pytest -q --ignore=tests/test_structural_end_to_end.py 2>&1 | tail -2)
 (cd frontend && npm test 2>&1 | tail -4)
 ```
-Expected: all green (Ollama tests `skipped`). `core/tests/pipeline` is slow locally (Docling) and not touched by this sub-project; whoever has time lets it run along.
+Expected: all green (Ollama tests `skipped`). `core/tests/pipeline` is slow locally (Docling) and not touched by this sub-project; run it as well if you have time.
 
 - [ ] **Step 2: License header and secrets scan**
 

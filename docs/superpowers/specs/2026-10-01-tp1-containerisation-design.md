@@ -159,7 +159,7 @@ protocol.
   (secrets flow) only in TP3, once the route is settled.
 - **`docs/guide/self-hosting.md`**: replace the placeholder with the
   actual route: prerequisites, `cp .env.example .env`,
-  `docker compose up`, first call, where mails end up, how the model
+  `docker compose up`, first visit, where mails end up, how the model
   is changed. Note that the data version dump procedure follows (TP4).
 - **`frontend/README.md`** and the services' README tables: new
   `NORMLY_LLM_*` variables.

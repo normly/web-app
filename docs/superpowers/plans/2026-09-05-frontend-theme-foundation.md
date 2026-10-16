@@ -97,8 +97,8 @@ Replace the entire file with:
 
 :root {
   /* Dormant multi-tenant branding override (REQ-DIST-003) -- not wired
-     into any component (2026-09-05 frontend redesign: "no more
-     tenant colors"), kept only so NORMLY_BRAND_COLOR_HSL keeps
+     into any component (2026-09-05 frontend redesign: "no
+     tenant branding color"), kept only so NORMLY_BRAND_COLOR_HSL keeps
      working the day this gets reconnected. Do not remove without a
      separate decision on REQ-DIST-003 itself. */
   --brand: 222 89% 55%;

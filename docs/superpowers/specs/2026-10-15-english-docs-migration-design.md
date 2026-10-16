@@ -137,7 +137,9 @@ Heading anchors in `docs/adr/README.md` change when headings are translated
 Each MR is pushed and opened only after explicit confirmation (pipeline runs
 are billed).
 
-MR 4 additionally translated German prose inside code blocks and German comments/docstrings in the code (owner decisions 2026-10-16); literals used by the product, tests and adapters stay German.
+MR 4 additionally translated German prose inside code blocks and German
+comments/docstrings in the code (owner decisions 2026-10-16); literals used
+by the product, tests and adapters stay German.
 
 ## Process per MR
 

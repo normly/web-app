@@ -22,8 +22,8 @@ on the VM. This also blocks the downsizing to `g1a.2d` (TP1a).
 
 The owner deliberately chose **one** spec for all three parts (option C
 of the decomposition question; the recommendation was to split off rollout first). The parts
-are therefore kept separately acceptable and can be cut into sections of their own
-or plans of their own in the plan:
+are therefore kept separately acceptable and can be cut into separate sections
+or separate plans when planning:
 
 1. Rollout and rollback (`normly-deploy`)
 2. Database backup (`normly-backup`)
@@ -354,7 +354,7 @@ Carried out on the production VM (`normly-prod`), release `v0.2.0`.
   set up and `NORMLY_SMTP_*` entered; the first real sending has
   not been checked yet.
 - `NORMLY_KB_BASE_URL` must end in `.../kb`: the import fetches
-  `<base>/latest` and `<base>/<version>/manifest.json`.
+  `<base-url>/latest` and `<base-url>/<version>/manifest.json`.
 - The VM's backup access needs delete permission (`normly-backup prune`); a
   mitigation with credentials without delete permission remains open.
 - `cleanup-user-data` has no dry-run mode. The timer `normly-cleanup.timer`

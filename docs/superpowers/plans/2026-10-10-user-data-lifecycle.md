@@ -140,7 +140,7 @@
 
 ## Extension: advance warning before deleting abandoned registrations
 
-**Occasion (final review, I1 and owner decision 2026-10-10):** The rule "unverified, older than 30 days, without a Google link, without an account session" also deleted password accounts that were used and then paused, without any announcement. Decision: **No account is deleted silently; it takes an advance warning e-mail with a deadline.** This task replaces the direct deletion with warn → deadline → delete and adapts ADR-027, the operations guide and the spec.
+**Reason (final review, I1 and owner decision 2026-10-10):** The rule "unverified, older than 30 days, without a Google link, without an account session" also deleted password accounts that were used and then paused, without any announcement. Decision: **No account is deleted silently; it takes an advance warning e-mail with a deadline.** This task replaces the direct deletion with warn → deadline → delete and adapts ADR-027, the operations guide and the spec.
 
 ### Task 6: Advance warning e-mail for abandoned registrations
 

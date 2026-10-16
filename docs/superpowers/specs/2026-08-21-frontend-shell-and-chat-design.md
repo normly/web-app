@@ -28,7 +28,7 @@ first: shell plus chat interface, the case that according to SRS chapter 3.1.1 (
    account from the start. Search/browsing of the reference graph (sub-project 2) and
    profile management/account settings (sub-project 3) are separate, later sub-projects.
 2. Styling: Tailwind CSS + shadcn/ui. shadcn/ui delivers components as code in the repository
-   (no runtime service, no conflict with "No US services for operations" (or build)) and builds
+   (no runtime service, no conflict with "No US services for operations" (at the time the rule also covered build)) and builds
    on Radix UI primitives, which already bring keyboard operation, ARIA attributes and focus management
    — a direct advantage for `REQ-UI-004` (WCAG 2.1 AA).
 3. Backend connection: all three services (`api/`, `accounts/`, `chat/`) run in production behind
@@ -285,7 +285,7 @@ sets the cookie and redirects back to the chat view.
 | `REQ-MOB-001` | Web app manifest + service worker for app shell caching, installability |
 | `REQ-MOB-003` | Offline/caching access exclusively via the service worker as the abstraction layer, no scattered direct storage accesses in the application logic |
 | ADR-010 (shipping) | `output: "standalone"`, one image for any number of instances, theming at runtime instead of in the build |
-| CLAUDE.md "multilingualism planned" | DE/EN UI labeling from the start, see "Internationalization (DE/EN)" — brought forward instead of being treated as follow-up work |
+| CLAUDE.md "multilingual support planned" (wording at the time; removed with ADR-020) | DE/EN UI labeling from the start, see "Internationalization (DE/EN)" — brought forward instead of being treated as follow-up work |
 
 ## Open items / follow-up work
 

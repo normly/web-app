@@ -5,7 +5,7 @@ As of: 2026-10-09 · Status: implemented. Follows TP4
 ADR-025). Part B (lifecycle of user data as a whole) is a separate,
 later design.
 
-## Goal and occasion
+## Goal and motivation
 
 The import of a knowledge base dump (`replace_knowledge_base`) currently aborts
 with `ImportBlockedError` as soon as user data still points to a row that

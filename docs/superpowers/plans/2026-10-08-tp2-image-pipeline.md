@@ -1253,7 +1253,7 @@ docker run --rm -v "$PWD":/w -w /w python:3.12 sh -c '
 grep -rl "adr-023-image-pipeline-ghcr-keyless-signatur-eine-version-lock-datei" site/adr/ | head -1
 ```
 
-Expected: `3 issues found`; the grep finds the built ADR page (the anchor exists as the guides link to it; Zensical maps umlauts and special characters the way the existing links to `adr-022-betriebsumgebung-phase-1-und-modellherkunftsregel` show). If the build shows `4 issues found` or more, a link in the new pages is wrong — the build output names it.
+Expected: `3 issues found`; the grep finds the built ADR page (the anchor exists as the guides linked to it at the time; Zensical maps umlauts and special characters the way the existing links to `adr-022-betriebsumgebung-phase-1-und-modellherkunftsregel` show). If the build shows `4 issues found` or more, a link in the new pages is wrong — the build output names it.
 
 - [ ] **Step 5: Commit**
 
@@ -1355,4 +1355,4 @@ Expected: the run aborts in the step "Check that a release tag matches the packa
 
 **Deliberate deviation from the spec:** The spec holds out the prospect of lifting the CI exclusion of the chat end-to-end tests if they run green. The plan keeps the exclusion: the tests start a real `api` process that loads the e5 model at startup — in the CI a 2 GB cold-start download per run, the same mechanism that keeps `test-core` red. The comment in `ci.yml` names this reason. Locally, the tests run from the shared environment (Task 1, Step 7).
 
-**Type consistency:** bake variables `REGISTRY`/`TAGS`/`CACHE_REF`/`PUSH` identical in Task 4 and 5; `ARG` names used only in Task 3; image names identical in Task 4, 5, 7; ADR anchor `adr-023-image-pipeline-ghcr-keyless-signatur-eine-version-lock-datei` the same twice in Task 7 and checked against the build in Task 7 Step 4.
+**Type consistency:** bake variables `REGISTRY`/`TAGS`/`CACHE_REF`/`PUSH` identical in Task 4 and 5; `ARG` names used only in Task 3; image names identical in Task 4, 5, 7; ADR anchor `adr-023-image-pipeline-ghcr-keyless-signatur-eine-version-lock-datei` (anchor at the time; the two Task 7 links were later pointed to `adr-023-image-pipeline-ghcr-keyless-signing-one-version-lock-file` when the ADRs were translated) the same twice in Task 7 and checked against the build in Task 7 Step 4.

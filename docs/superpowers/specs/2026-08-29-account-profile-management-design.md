@@ -12,7 +12,7 @@ revoking sessions, data export, account deletion.
    (the three items originally sketched in sub-project 1's spec), plus setting/changing
    the password (closes a gap that was found — `accounts/` already supports
    password reset, but the frontend has no connection for it yet), plus
-   data export under DSGVO (the EU General Data Protection Regulation) Art. 20 (not explicitly required by any requirement, but
+   data export under Art. 20 DSGVO (the EU General Data Protection Regulation) (not explicitly required by any requirement, but
    appropriate for an account with personal data).
 2. **Account deletion:** hard delete — the account AND all linked data
    (chat sessions/messages) are removed, not just the account link set to

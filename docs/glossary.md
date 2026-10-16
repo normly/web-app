@@ -155,6 +155,7 @@ added here.
 | Markieren (von Text) | selecting (text) (not "marking") |
 | Massenextraktion | bulk extraction |
 | Modellherkunft, Modellherkunftsregel | model origin, model-origin rule |
+| Nachfolgestandard, Nachfolgenorm (successor of a norm, e.g. a harmonized EN) | successor norm |
 | Nachtrag | addendum |
 | Nachverfolgbarkeit | traceability |
 | Neu gefasst durch (SRS status) | revised by |
@@ -218,6 +219,11 @@ compound has no obvious reading under this rule, the maintainers decide.
 are never interchangeable: *norm* is the German *Norm*, *standard* is the
 German *Regelwerk*. "Standard" in its ordinary technical sense ("standard
 library", "standard output") is untouched.
+
+**German statutes.** Names of German statutes stay German. At first
+mention per file, add an English gloss: "DSGVO (the EU General Data
+Protection Regulation)", "UrhG (German Copyright Act)". After that, the
+bare name. Translated text never uses "GDPR".
 
 **Withdrawal vs. retired vs. withdrawn.** Three separate terms:
 

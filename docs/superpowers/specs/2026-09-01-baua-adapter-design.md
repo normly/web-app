@@ -226,7 +226,7 @@ Identical to `DguvAdapter`/`EurLexAdapter`:
 
 | Requirement/ADR | Relation |
 |---|---|
-| REQ-PIPE-009 | Directly fulfilled — BAuA is named there explicitly as a category A/B initial collection source. |
+| REQ-PIPE-009 | Directly fulfilled — BAuA is specifically named there as a category A/B initial collection source. |
 | REQ-PIPE-002 | New register entry with complete mandatory fields (publisher, retrieval path, category, jurisdiction, check date, responsible person). |
 | REQ-PIPE-003 | Not applicable — see Non-goals. |
 | REQ-PIPE-005 | Untouched — lineage runs via the same `Delivery` mechanism as with the existing adapters, adapter-independent. |

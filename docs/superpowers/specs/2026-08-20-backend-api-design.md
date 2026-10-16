@@ -314,7 +314,7 @@ responses=...)`) and per endpoint for the 404 cases.
   REQ-FUNC-001/002/003) — separate, later sub-projects.
 - **Pagination/streaming for `/v1/export`** — not needed with the currently small collections (EUR-Lex,
   DGUV); as soon as further adapters/sources are added, this must be
-  caught up on.
+  added.
 - **Several sources per document.** `source` on `DocumentResponse` currently shows only the
   creating source (`created_via_delivery_id`). As soon as a document is actually enriched via several
   sources, this needs either a `sources: list[SourceResponse]` field

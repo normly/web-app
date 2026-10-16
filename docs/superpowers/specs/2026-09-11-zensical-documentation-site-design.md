@@ -33,7 +33,7 @@ rewritten, only hooked into the site navigation.
 
 On the website (separate repo `normly-website`), the
 "Documentation"/"API reference" links on the home page currently point to
-placeholders — this project redeems these placeholders.
+placeholders — this project fills these placeholders.
 
 ## Goal of this project
 
@@ -196,7 +196,7 @@ above). Two causes were found and assessed individually:
 
 - **32 real, broken anchors in `docs/srs/README.md`** (German umlauts in the
   anchor fragment, which Zensical's slugification removes — e.g. the
-  heading „…WCAG-Konformität" (i.e. WCAG conformance) produces the ID `...wcag-konformitat`, not
+  heading "…WCAG-Konformität" (i.e. WCAG conformance) produces the ID `...wcag-konformitat`, not
   `...wcag-konformität`). This was a real, pre-existing bug in the
   requirements index, independent of this project — fixed in a
   separate commit (`fix(srs): strip diacritics from requirement anchor

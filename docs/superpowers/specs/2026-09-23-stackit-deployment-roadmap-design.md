@@ -131,7 +131,7 @@ REQ-DIST-001 requires separate environments with their own database. Deliberate
 simplification for phase 1: one production environment on STACKIT; the local
 Compose setup from sub-project 1 takes on the role of the staging environment.
 A real staging environment (second VM, second database) comes as soon as there are
-users whom a faulty deployment would hit. Recorded in ADR-022
+users whom a faulty deployment would hit. To be recorded in ADR-022
 as a deliberate, temporary deviation.
 
 ### E8 — Iteration directly on the STACKIT VM instead of locally (2026-10-01)

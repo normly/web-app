@@ -5,7 +5,7 @@ As of: 2026-10-10 · Status: implemented. Follows
 user references on knowledge base import). Requires PR #19 (tombstone backup
 in the rollback).
 
-## Goal and occasion
+## Goal and motivation
 
 Personal data should be stored only if an account needs it,
 and only for as long as the purpose exists (data minimization, storage limitation);
@@ -58,7 +58,7 @@ Existing anonymous histories are deleted by the cleanup command: every `chat_ses
 `account_id`.
 
 **2. Cleanup command `cleanup-user-data`.** New pipeline command
-(`python -m normly_core.pipeline cleanup-user-data`) that enforces the periods of the table
+(`python -m normly_core.pipeline cleanup-user-data`) that enforces the periods from the table above
 via repository methods (including the previous 60 days for read
 notifications), is idempotent and prints only counters. Periods are
 named constants in one place (`normly_core/retention.py`). A small script

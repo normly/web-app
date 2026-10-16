@@ -208,7 +208,7 @@ Image names: `ghcr.io/normly/web-app/api`, `.../chat`, `.../accounts`,
 
 `latest` always points to the newest release, never to `edge`. `X.Y`
 moves with the newest patch release of the minor line. The operator
-decides how mobile their pin should be.
+decides how far their pin should be allowed to move.
 
 ### Signature verification by operators
 

@@ -87,7 +87,7 @@ can be narrowed down to exactly one package/one stage:
    actual proof that the new stack works in the real production build,
    not just under `next dev`/Vitest mocks.
 5. **Final audit check**: a fresh `npm audit` run must show 0 findings;
-   commit `package-lock.json` finally.
+   commit the final `package-lock.json`.
 
 ## Error handling / rollback
 

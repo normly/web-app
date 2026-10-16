@@ -829,7 +829,7 @@ def resolve(record: RawRecord, document_repo: DocumentRepository) -> IdentityRes
                 )
             # Same designation, but not this exact edition -- check whether an
             # earlier edition exists at all, to distinguish "new edition of a
-            # known Regelwerk" from "genuinely first appearance."
+            # known standard" from "genuinely first appearance."
             previous = document_repo.find_by_designation(
                 record.raw_issuer, record.raw_designation
             )
