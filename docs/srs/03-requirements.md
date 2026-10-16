@@ -1,332 +1,332 @@
-# 3. Anforderungen
+# 3. Requirements
 
-Dieses Kapitel beschreibt alle Anforderungen an normly. Alle Anforderungen sind eindeutig identifizierbar, überprüfbar und so formuliert, dass sie direkt in Entwicklung, Test und Abnahme überführt werden können. Die Anforderungen berücksichtigen den MVP-Status (quelloffene, eigenständige Webanwendung mit Open-Source-LLM) sowie die spätere Skalierung und die Trennung zwischen freiem Kern und kommerzieller Schicht.
+This chapter describes all requirements for normly. All requirements are uniquely identifiable, verifiable and formulated so that they can be carried directly into development, testing and acceptance. The requirements take into account the MVP status (open-source, standalone web application with an open-source LLM) as well as later scaling and the separation between the free core and the commercial layer.
 
-## 3.1 Externe Interfaces
+## 3.1 External interfaces
 
-Dieses Kapitel beschreibt alle externen Schnittstellen von normly, über die das System mit Nutzern, Websites, Fremdsystemen und externen Diensten interagiert. Ziel ist es, alle Ein- und Ausgabepunkte so zu spezifizieren, dass Integration, Betrieb und Test eindeutig möglich sind.
+This section describes all external interfaces of normly through which the system interacts with users, websites, third-party systems and external services. The goal is to specify all input and output points so that integration, operation and testing are unambiguously possible.
 
-### 3.1.1 User Interfaces
+### 3.1.1 User interfaces
 
-Dieses Kapitel beschreibt die logischen Benutzeroberflächen von normly sowie die grundlegenden Interaktionsmuster, Bedienkonzepte und Standards, die für alle Nutzeroberflächen verbindlich einzuhalten sind, unabhängig von der konkreten visuellen Gestaltung.
+This section describes the logical user interfaces of normly as well as the basic interaction patterns, operating concepts and standards that are binding for all user interfaces, regardless of the concrete visual design.
 
-#### REQ-UI-001 — Chat-Oberfläche der eigenständigen Webanwendung
+#### REQ-UI-001 — Chat interface of the standalone web application
 
-**Statement:** Das System muss eine eigenständige Chat-Oberfläche als Bestandteil der quelloffenen Webanwendung bereitstellen. Eine Einbettung per Browser-Plugin oder Skript in Websites von Normenanbietern ist nicht vorgesehen.  
-**Rationale:** normly ist eine eigenständige Anwendung; Betreiber einer eigenen Instanz sollen Erscheinungsbild und Konfiguration anpassen können.  
-**Akzeptanzkriterium:**
+**Statement:** The system must provide a standalone chat interface as part of the open-source web application. Embedding via browser plugin or script in websites of norm vendors is not intended.  
+**Rationale:** normly is a standalone application; operators of their own instance should be able to customize appearance and configuration.  
+**Acceptance criteria:**
 
-- Erscheinungsbild (Farben, Typografie, Logo) ist per Konfiguration anpassbar
+- Appearance (colors, typography, logo) is customizable via configuration
 
-- Die Oberfläche ist ohne externe Abhängigkeiten in einer eigenen Instanz lauffähig
+- The interface runs in its own instance without external dependencies
 
-**Abnahmekriterium:** Eine selbst betriebene Instanz stellt die Chat-Oberfläche mit eigener Konfiguration bereit.
+**Acceptance test:** A self-hosted instance provides the chat interface with its own configuration.
 
-**Weitere Informationen:** Ersetzt den früheren White-Label-Ansatz, siehe ADR-001.
+**Further information:** Replaces the earlier white-label approach, see ADR-001.
 
-#### REQ-UI-002 — Chat-basierte Interaktion
+#### REQ-UI-002 — Chat-based interaction
 
-**Statement:** Das UI muss eine Chat-basierte Interaktion mit dem Sprachmodell ermöglichen, inklusive Texteingabe, Antwortanzeige und Ladezuständen.  
-**Rationale:** Chat ist das primäre Interaktionsparadigma für LLM-basierte Systeme.  
-**Akzeptanzkriterium:**
+**Statement:** The UI must enable chat-based interaction with the language model, including text input, answer display and loading states.  
+**Rationale:** Chat is the primary interaction paradigm for LLM-based systems.  
+**Acceptance criteria:**
 
-- Texteingabe mit Absenden per Button oder Enter
+- Text input with submission via button or Enter
 
-- Visueller Ladeindikator während Modellantwort
+- Visual loading indicator during the model response
 
-- Mindestens ein vollständiger Frage-Antwort-Zyklus im Browser
+- At least one complete question-answer cycle in the browser
 
-**Weitere Informationen:** Anlehnung an ChatGPT / Perplexity UX
+**Further information:** Modeled on ChatGPT / Perplexity UX
 
-#### REQ-UI-003 — Quellenanzeige und Verlinkung
+#### REQ-UI-003 — Citations and linking
 
-**Statement:** Das UI muss für jede Antwort die verwendeten Regelwerke als Quelle anzeigen. Bei frei verfügbaren Inhalten wird auf die Originalfundstelle verlinkt, bei kostenpflichtigen Regelwerken auf die Bezugsquelle des Herausgebers.  
-**Rationale:** Nachvollziehbarkeit der Antwort, rechtliche Absicherung sowie Weiterleitung an den Herausgeber als Erlösquelle (Affiliate, siehe Kapitel 3.4).  
-**Akzeptanzkriterium:**
+**Statement:** The UI must display the standards used as the source for each answer. For freely available content, the link points to the original source location; for paid standards, to the publisher's point of purchase.  
+**Rationale:** Traceability of the answer, legal protection, and referral to the publisher as a source of revenue (affiliate, see section 3.4).  
+**Acceptance criteria:**
 
-- Jede Antwort enthält mindestens eine Quellenreferenz
+- Every answer contains at least one citation
 
-- Der Verweis führt bei freien Inhalten zur Originalfundstelle, bei kostenpflichtigen zur Bezugsquelle des Herausgebers
+- For free content, the link leads to the original source location; for paid content, to the publisher's point of purchase
 
-**Abnahmekriterium:** Für beide Quellenarten führt der Verweis nachweislich zum korrekten Ziel.
+**Acceptance test:** For both kinds of source, the link demonstrably leads to the correct target.
 
-**Weitere Informationen:** Siehe Kapitel 3.4 Compliance und REQ-PART-002 (Attribution).
+**Further information:** See section 3.4 Compliance and REQ-PART-002 (attribution).
 
-#### REQ-UI-004 — WCAG-Konformität
+#### REQ-UI-004 — WCAG conformance
 
-**Statement:** Das User Interface muss mindestens WCAG 2.1 AA konform sein.  
-**Rationale:** Barrierefreiheit ist rechtlich und ethisch erforderlich.  
-**Akzeptanzkriterium:**
+**Statement:** The user interface must be at least WCAG 2.1 AA conformant.  
+**Rationale:** Accessibility is legally and ethically required.  
+**Acceptance criteria:**
 
-- Tastaturbedienbarkeit
+- Keyboard operability
 
-- Screenreader-Kompatibilität
+- Screen reader compatibility
 
-- Kontraste gemäß WCAG
+- Contrasts according to WCAG
 
-**Weitere Informationen:** Gilt für alle UI-Komponenten
+**Further information:** Applies to all UI components
 
-#### REQ-UI-005 — Anzeige und Verwaltung der Chat-Historie
+#### REQ-UI-005 — Display and management of the chat history
 
-**Statement:** Das User Interface muss es Nutzern ermöglichen, ihre bisherigen Chat-Unterhaltungen einzusehen, erneut aufzurufen und zwischen mehreren Chat-Sitzungen zu wechseln, vergleichbar mit der Chat-Historienfunktion moderner KI-Chat-Anwendungen.
+**Statement:** The user interface must enable users to view their previous chat conversations, reopen them and switch between multiple chat sessions, comparable to the chat history function of modern AI chat applications.
 
-**Rationale:** Nutzer erwarten bei der Arbeit mit komplexen normativen Inhalten die Möglichkeit, frühere Fragestellungen und Antworten erneut nachzuvollziehen, fortzuführen oder zu referenzieren.
+**Rationale:** When working with complex normative content, users expect to be able to retrace, continue or reference earlier questions and answers.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Eine übersichtliche Liste vergangener Chats ist im UI verfügbar
+- A clear list of past chats is available in the UI
 
-- Chats werden nach Erstellungsdatum sortiert
+- Chats are sorted by creation date
 
-- Ein ausgewählter Chat kann erneut geöffnet und fortgeführt werden (Ausnahme, wenn Dokumente hochgeladen wurden - siehe Anforderung REQ-INT-002C)
+- A selected chat can be reopened and continued (exception if documents were uploaded - see requirement REQ-INT-002C)
 
-- Die Anzeige ist auch bei einer größeren Anzahl an Chats performant nutzbar
+- The display remains performant even with a larger number of chats
 
-**Abnahmekriterium:** Ein Nutzer kann mindestens drei getrennte Chat-Sitzungen erstellen, diese schließen, später erneut öffnen und den Dialog fortsetzen.
+**Acceptance test:** A user can create at least three separate chat sessions, close them, reopen them later and continue the dialogue.
 
-**Weitere Informationen:**
+**Further information:**
 
-- Die Persistenz der Chat-Historie kann nutzer- oder mandantenspezifisch konfigurierbar sein
+- The persistence of the chat history can be configurable per user or per tenant
 
-- Datenschutz- und Löschkonzepte sind gemäß Sicherheits- und Compliance-Anforderungen zu berücksichtigen
+- Data protection and deletion concepts must be taken into account in accordance with the security and compliance requirements
 
-- Die Chat-Historie wird nur für angemeldete Nutzer gespeichert (REQ-ACC-004); anonyme Unterhaltungen leben nur im Browser-Tab und werden serverseitig nicht abgelegt. Gespeicherte Verläufe kann die Person einzeln oder gesamt löschen (ADR-027)
+- The chat history is stored only for signed-in users (REQ-ACC-004); anonymous conversations live only in the browser tab and are not stored on the server. The person can delete stored histories individually or all at once (ADR-027)
 
-### 3.1.2 Hardware Interfaces
+### 3.1.2 Hardware interfaces
 
-Dieses Kapitel beschreibt etwaige Anforderungen an Hardware-Schnittstellen. Für normly sind aktuell keine expliziten Hardware-Integrationen vorgesehen.
+This section describes any requirements for hardware interfaces. No explicit hardware integrations are currently planned for normly.
 
-### 3.1.3 Software Interfaces
+### 3.1.3 Software interfaces
 
-Dieses Kapitel spezifiziert alle softwareseitigen Schnittstellen zu externen Systemen, darunter Website-Integrationen, Authentifizierungsdienste, Datenquellen für Normen sowie die Anbindung an Sprachmodelle und weitere Drittsysteme.
+This section specifies all software interfaces to external systems, including website integrations, authentication services, data sources for norms, and the connection to language models and other third-party systems.
 
-Normly unterstützt zwei Integrationsmodi für Normendokumente:
+Normly supports two integration modes for norm documents:
 
-1.  Anbieterbasierte Vorab-Integration kompletter Normenbestände
+1.  Vendor-based advance integration of complete norm collections
 
-2.  Nutzerbasierte, temporäre Dokumenten-Uploads zur sitzungsbezogenen Modellanreicherung
+2.  User-based, temporary document uploads for session-related model enrichment
 
-#### REQ-INT-001 — Öffentliche API zur Integration in Drittsoftware
+#### REQ-INT-001 — Public API for integration into third-party software
 
-**Statement:** Das System muss ein **dokumentiertes, öffentliches HTTP-API** bereitstellen, über das Drittsysteme (z. B. CAD-, ERP- und Expertensysteme) Anfragen an normly stellen können. Die API ist Bestandteil des freien Kerns und unter Apache-2.0 spezifiziert; die fertigen Integrationen in konkrete Drittsysteme gehören zur kommerziellen Schicht.  
-**Rationale:** Die Integration in bestehende Fachsoftware ist der zentrale USP der kommerziellen Schicht. Eine offene, stabile API stellt sicher, dass Zusatzdienste ohne Fork des Kerns andocken können und keine Abhängigkeit von Browser-Erweiterungen entsteht.
+**Statement:** The system must provide a **documented, public HTTP API** through which third-party systems (e.g. CAD, ERP and expert systems) can send requests to normly. The API is part of the free core and specified under Apache-2.0; the finished integrations into specific third-party systems belong to the commercial layer.  
+**Rationale:** Integration into existing specialist software is the central USP of the commercial layer. An open, stable API ensures that add-on services can dock on without forking the core and that no dependency on browser extensions arises.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Die API ist vollständig als OpenAPI-Spezifikation dokumentiert und versioniert
+- The API is fully documented and versioned as an OpenAPI specification
 
-- Ein Drittsystem kann ohne Kenntnis der internen Implementierung Anfragen stellen und Antworten mit Quellenangabe verarbeiten
+- A third-party system can send requests and process answers with citations without knowledge of the internal implementation
 
-- Keine Installation von Browser-Erweiterungen oder Skripten durch Endnutzer erforderlich
+- No installation of browser extensions or scripts by end users required
 
-**Abnahmekriterium:** Ein Referenzclient spricht die API gegen zwei aufeinanderfolgende Versionen erfolgreich an.
+**Acceptance test:** A reference client successfully calls the API against two consecutive versions.
 
-**Weitere Informationen:** Spezifikation unter Apache-2.0, siehe REQ-OSS-001 und REQ-COM-001.
+**Further information:** Specification under Apache-2.0, see REQ-OSS-001 and REQ-COM-001.
 
-#### REQ-INT-002 — Schnittstelle zu Normen-Datenbanken
+#### REQ-INT-002 — Interface to norm databases
 
-**Statement:** Das System muss Normendokumente (PDF, XML) automatisiert aus den Datenbanken der Herausgeber übernehmen können, sofern hierfür eine vertragliche Grundlage nach Kategorie C des Quellenregisters besteht.  
-**Rationale:** Skalierbare Datenpflege ohne manuelle Uploads. Die Beschränkung auf vertraglich bezogene Bestände folgt aus REQ-PIPE-008.  
-**Akzeptanzkriterium:**
+**Statement:** The system must be able to import norm documents (PDF, XML) automatically from the publishers' databases, provided there is a contractual basis for this under category C of the source register.  
+**Rationale:** Scalable data maintenance without manual uploads. The restriction to contractually obtained collections follows from REQ-PIPE-008.  
+**Acceptance criteria:**
 
-- Import über API oder SFTP
+- Import via API or SFTP
 
-- Metadatenübernahme (Titel (DE und ENG), Version, Ausgabedatum, Gültigkeit)
+- Metadata import (title (DE and ENG), version, publication date, validity)
 
-**Abnahmekriterium:** Automatisierter Import eines Normenbestands über das Partnerportal.
+**Acceptance test:** Automated import of a norm collection via the partner portal.
 
-**Weitere Informationen:** Siehe Kapitel 3.6.2 Datenmanagement, 3.12 Verarbeitungskette sowie REQ-PART-001.
+**Further information:** See section 3.6.2 Data management, 3.12 Processing chain and REQ-PART-001.
 
-#### REQ-INT-002A — Nutzerbasierter Dokumenten-Upload und temporäre Modellanreicherung
+#### REQ-INT-002A — User-based document upload and temporary model enrichment
 
-**Statement:** Das System muss einen Integrationsmodus unterstützen, bei dem Normendokumente nicht vorab vollständig durch den Normenanbieter bereitgestellt werden, sondern vom Endnutzer selbst hochgeladen werden können, um das Sprachmodell **temporär und sitzungs- bzw. nutzerspezifisch** für die Beantwortung von Fragen anzureichern.
+**Statement:** The system must support an integration mode in which norm documents are not provided completely in advance by the norm vendor, but can be uploaded by the end user themselves, in order to enrich the language model **temporarily and per session or per user** for answering questions.
 
-**Rationale:** Nicht alle Normenanbieter stellen ihre vollständigen Normenbestände zur Vorabverarbeitung zur Verfügung. Um dennoch einen Mehrwert zu bieten, muss normly es Nutzern ermöglichen, ausschließlich mit den von ihnen rechtmäßig erworbenen und hochgeladenen Dokumenten zu interagieren, vergleichbar mit dem Ansatz von NotebookLM.
+**Rationale:** Not all norm vendors make their complete norm collections available for advance processing. In order to still offer added value, normly must enable users to interact exclusively with the documents they have lawfully acquired and uploaded, comparable to the approach of NotebookLM.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Nutzer können Normendokumente (z. B. PDF, XML) über die Anwendung hochladen
+- Users can upload norm documents (e.g. PDF, XML) via the application
 
-- Die hochgeladenen Dokumente werden ausschließlich für den jeweiligen Nutzer oder die jeweilige Sitzung verarbeitet
+- The uploaded documents are processed exclusively for the respective user or the respective session
 
-- Das Sprachmodell beantwortet Fragen nur auf Basis der hochgeladenen Inhalte
+- The language model answers questions only on the basis of the uploaded content
 
-- Es erfolgt kein persistentes Training des globalen Modells mit diesen Dokumenten
+- No persistent training of the global model with these documents takes place
 
-**Abnahmekriterium:** Ein Nutzer lädt eine gekaufte Norm hoch und kann unmittelbar danach in einem Chat Fragen stellen, deren Antworten ausschließlich auf dem hochgeladenen Dokument basieren.
+**Acceptance test:** A user uploads a purchased norm and can immediately afterwards ask questions in a chat whose answers are based exclusively on the uploaded document.
 
-**Weitere Informationen:**
+**Further information:**
 
-- Funktional vergleichbar mit Google NotebookLM
+- Functionally comparable to Google NotebookLM
 
-- Technische Umsetzung z. B. über temporäre Vektorisierung / Retrieval-Augmented Generation (RAG)
+- Technical implementation e.g. via temporary vectorization / retrieval-augmented generation (RAG)
 
-- Relevante Abgrenzung zu REQ-INT-002 (anbieterzentrierte Vorab-Integration)
+- Relevant distinction from REQ-INT-002 (vendor-centric advance integration)
 
-#### REQ-INT-002B — Isolation nutzerspezifischer Dokumente
+#### REQ-INT-002B — Isolation of user-specific documents
 
-**Statement:** Das System muss sicherstellen, dass von Nutzern hochgeladene Dokumente strikt von anderen Nutzern und vom globalen Datenbestand isoliert verarbeitet werden.
+**Statement:** The system must ensure that documents uploaded by users are processed in strict isolation from other users and from the global data collection.
 
-**Rationale:** Vermeidung von Datenlecks und Urheberrechtsverletzungen.
+**Rationale:** Avoidance of data leaks and copyright infringements.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Kein Nutzer kann Inhalte anderer Uploads abfragen
+- No user can query the content of other uploads
 
-- Sicherheitsaudit bestätigt Isolation
+- Security audit confirms isolation
 
-#### REQ-INT-002C — Zeitlich begrenzte Speicherung hochgeladener Dokumente
+#### REQ-INT-002C — Time-limited storage of uploaded documents
 
-**Statement:** Das System muss eine konfigurierbare zeitliche Begrenzung für die Speicherung nutzerhochgeladener Dokumente unterstützen, um Serverspeicherplatz zu reduzieren.  
-**Rationale:** Reduzierung rechtlicher Risiken und Speicherbedarf.
+**Statement:** The system must support a configurable time limit for the storage of user-uploaded documents in order to reduce server storage space.  
+**Rationale:** Reduction of legal risks and storage requirements.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Automatische Löschung nach definierter Frist
+- Automatic deletion after a defined period
 
-- Dokument ist nach Ablauf nicht mehr abrufbar
+- Document is no longer retrievable after expiry
 
-**Weitere Informationen:** Default 7 Tage
+**Further information:** Default 7 days
 
-#### REQ-INT-003 — SSO-Authentifizierung
+#### REQ-INT-003 — SSO authentication
 
-**Statement:** Das System muss Single-Sign-On mit bestehenden Mitgliederbereichen von Organisationen unterstützen. SSO ist optional und darf nicht Voraussetzung für die Nutzung frei verfügbarer Inhalte sein.  
-**Rationale:** Nahtlose Nutzererfahrung ohne zusätzliche Logins für Organisationen, die eine eigene Nutzerverwaltung betreiben. Die Optionalität folgt aus REQ-ACC-001.  
-**Akzeptanzkriterium:**
+**Statement:** The system must support single sign-on with existing member areas of organizations. SSO is optional and must not be a prerequisite for using freely available content.  
+**Rationale:** Seamless user experience without additional logins for organizations that run their own user management. The optionality follows from REQ-ACC-001.  
+**Acceptance criteria:**
 
-- Unterstützung gängiger Standards (OAuth2, SAML)
+- Support for common standards (OAuth2, SAML)
 
-- Login über externes Identitätssystem erfolgreich
+- Login via external identity system successful
 
-**Weitere Informationen:** Weitere Anmeldemöglichkeiten wie EMail, mit Google müssen ebenfalls möglich sein.
+**Further information:** Further sign-in options such as email or with Google must also be possible.
 
-#### REQ-INT-004 — LLM-Schnittstelle
+#### REQ-INT-004 — LLM interface
 
-**Statement:** Das System muss über eine klar definierte Schnittstelle mit einem externen LLM (z. B. Llama 3.1) kommunizieren.  
-**Rationale:** Austauschbarkeit des Modells und spätere Migration auf eigenes LLM.  
-**Akzeptanzkriterium:**
+**Statement:** The system must communicate with an external LLM (e.g. Llama 3.1) via a clearly defined interface.  
+**Rationale:** Interchangeability of the model and later migration to its own LLM.  
+**Acceptance criteria:**
 
-- Abstraktionsschicht vorhanden
+- Abstraction layer present
 
-- Modellwechsel ohne UI-Anpassung
+- Model change without UI adjustment
 
-- LLM kann ausgetauscht werden, ohne Funktionseinbußen
+- LLM can be replaced without loss of functionality
 
-**Weitere Informationen:** Siehe Kapitel 3.6
+**Further information:** See section 3.6
 
-## 3.2 Funktionale Anforderungen
+## 3.2 Functional requirements
 
-Dieses Kapitel beschreibt die funktionalen Fähigkeiten von normly aus Sicht externer Beobachter. Es definiert, welche Funktionen das System bereitstellt, welche Eingaben verarbeitet werden, wie darauf reagiert wird und welche Ausgaben oder Fehlerzustände entstehen können.
+This section describes the functional capabilities of normly from the perspective of external observers. It defines which functions the system provides, which inputs are processed, how it responds to them, and which outputs or error states can arise.
 
-### REQ-FUNC-001 — Beantwortung normbasierter Fragen
+### REQ-FUNC-001 — Answering norm-based questions
 
-**Statement:** Das System muss Nutzerfragen ausschließlich auf Basis der verfügbaren Normen beantworten.  
-**Rationale:** Vermeidung von Halluzinationen und Rechtsrisiken.
+**Statement:** The system must answer user questions exclusively on the basis of the available norms.  
+**Rationale:** Avoidance of hallucinations and legal risks.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Antwort enthält nur Inhalte aus referenzierten Normen
+- Answer contains only content from referenced norms
 
-**Weitere Informationen:** AI-Safety relevant
+**Further information:** Relevant to AI safety
 
-### REQ-FUNC-002 — Paraphrasierung statt Volltext
+### REQ-FUNC-002 — Paraphrasing instead of full text
 
-**Statement:** Das System darf urheberrechtlich geschützte Normtexte nicht als Volltext wiedergeben. Zulässig sind Paraphrasen sowie kurze, als Zitat gekennzeichnete Auszüge, soweit ein Lizenzvertrag mit dem Rechteinhaber dies ausdrücklich erlaubt. Für Inhalte, die frei weitergegeben werden dürfen (z. B. amtliche Werke nach § 5 UrhG), gilt diese Beschränkung nicht.  
-**Rationale:** Urheberrechtsschutz. Ohne diese Präzisierung widerspricht die Anforderung den Output-Rechten aus den vorgesehenen Lizenzverträgen.  
-**Akzeptanzkriterium:** Antworten sind eindeutig paraphrasiert
+**Statement:** The system must not reproduce copyright-protected norm texts as full text. Paraphrases and short excerpts marked as quotations are permitted, insofar as a license agreement with the rights holder expressly allows this. For content that may be freely passed on (e.g. official works under § 5 UrhG (German Copyright Act)), this restriction does not apply.  
+**Rationale:** Copyright protection. Without this clarification, the requirement contradicts the output rights from the planned license agreements.  
+**Acceptance criteria:** Answers are clearly paraphrased
 
-**Abnahmekriterium:**
+**Acceptance test:**
 
-- Plagiatsprüfung ohne Treffer
+- Plagiarism check without matches
 
-- Zwingend für alle Antworten
+- Mandatory for all answers
 
-### REQ-FUNC-003 — Fehler- und Fallback-Antworten
+### REQ-FUNC-003 — Error and fallback answers
 
-**Statement:** Das System muss bei unklaren oder nicht beantwortbaren Fragen eine erklärende Fallback-Antwort liefern.  
-**Rationale:** Vertrauen und Transparenz.
+**Statement:** The system must deliver an explanatory fallback answer for unclear or unanswerable questions.  
+**Rationale:** Trust and transparency.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Kein erfundener Inhalt bei fehlender Datenbasis
+- No invented content when the data basis is missing
 
-- Test mit absichtlich unbeantwortbaren Fragen
+- Test with deliberately unanswerable questions
 
-**Weitere Informationen:** Human-in-the-Loop relevant, je nach Umsetzungsaufwand ist diese Funktion für den MVP in Frage zu stellen.
+**Further information:** Relevant to human-in-the-loop; depending on the implementation effort, this function is to be questioned for the MVP.
 
-## 3.3 Nicht-Funktionale Anforderungen
+## 3.3 Non-functional requirements
 
-Dieses Kapitel beschreibt die qualitativen Eigenschaften, die das System erfüllen muss, um ein zuverlässiges, sicheres und skalierbares Nutzererlebnis zu gewährleisten. Diese Anforderungen beschränken oder qualifizieren das funktionale Verhalten.
+This section describes the qualitative properties that the system must fulfill to ensure a reliable, secure and scalable user experience. These requirements constrain or qualify the functional behavior.
 
 ### 3.3.1 Performance
 
-Dieses Kapitel definiert Anforderungen an Antwortzeiten, Durchsatz und Reaktionsverhalten des Systems unter normalen und erwarteten Lastbedingungen.
+This section defines requirements for response times, throughput and responsiveness of the system under normal and expected load conditions.
 
-#### REQ-PERF-001 — Antwortzeit Chat
+#### REQ-PERF-001 — Chat response time
 
-**Statement:** Das System muss innerhalb von 2–4 Sekunden nach Datenverfügbarkeit eine erste Antwort liefern.  
-**Rationale:** Erwartung an modernes Chat-UX.  
-**Akzeptanzkriterium:** 95 % der Anfragen \<4 Sekunden
+**Statement:** The system must deliver a first answer within 2–4 seconds after data availability.  
+**Rationale:** Expectation of a modern chat UX.  
+**Acceptance criteria:** 95 % of requests \<4 seconds
 
-**Abnahmekriterium:**
+**Acceptance test:**
 
-- Lasttest mit definiertem Datensatz
+- Load test with a defined data set
 
-**Weitere Informationen:** Gilt für MVP
+**Further information:** Applies to the MVP
 
-### 3.3.2 Sicherheit
+### 3.3.2 Security
 
-Dieses Kapitel beschreibt die sicherheitsrelevanten Anforderungen an Authentifizierung, Autorisierung, Datenverarbeitung, Kommunikation und Entwicklungsprozesse, um Nutzer- und Systemdaten angemessen zu schützen.
+This section describes the security-relevant requirements for authentication, authorization, data processing, communication and development processes in order to adequately protect user and system data.
 
-Die Sicherheit wird auf verschiedenen Ebene unterschiedlich gewährleistet:
+Security is ensured differently at different levels:
 
-**Authentifizierung & Autorisierung**
+**Authentication & authorization**
 
-- Passwort-Hashing (z. B. bcrypt) und Multi-Faktor-Authentifizierung (MFA).
+- Password hashing (e.g. bcrypt) and multi-factor authentication (MFA).
 
-- Prinzip Least Privilege: Benutzer erhalten nur minimale notwendige Rechte.
+- Principle of least privilege: users receive only the minimum necessary rights.
 
-- Magic-Link-Login (OTP) denkbar
+- Magic-link login (OTP) conceivable
 
-**Eingabevalidierung & Ausgabe-Encoding**
+**Input validation & output encoding**
 
-- Parametrisierte Queries/Prepared Statements gegen SQL-Injection.
+- Parameterized queries/prepared statements against SQL injection.
 
-- Input-Sanitization und Output-Encoding (z. B. HTML-escaping) gegen XSS/CSRF.
+- Input sanitization and output encoding (e.g. HTML escaping) against XSS/CSRF.
 
-**Verschlüsselung & Datenübertragung**
+**Encryption & data transmission**
 
-- TLS 1.3 für alle Kommunikationen (HTTPS only), einschließlich der Verbindungen zwischen internen Diensten und zur Datenbank. Verschlüsselung ruhender Daten gemäß Kapitel 3.13.
+- TLS 1.3 for all communication (HTTPS only), including the connections between internal services and to the database. Encryption of data at rest according to section 3.13.
 
-- Secrets-Management: Zugangsdaten werden ausschließlich im STACKIT Secrets Manager gehalten, nicht im Quellcode, nicht in Konfigurationsdateien und nicht dauerhaft in Umgebungsvariablen. Repositories und Build-Artefakte werden automatisiert auf versehentlich enthaltene Zugangsdaten geprüft.
+- Secrets management: credentials are held exclusively in the STACKIT Secrets Manager, not in the source code, not in configuration files and not permanently in environment variables. Repositories and build artifacts are automatically checked for accidentally included credentials.
 
-**Entwicklungsprozesse**
+**Development processes**
 
-- Secure Coding Standards, automatisierte SAST/DAST-Tests in CI/CD-Pipeline.
+- Secure coding standards, automated SAST/DAST tests in the CI/CD pipeline.
 
-- Regelmäßige Pen-Tests, Threat Modeling und Dependency-Scanning (SCA).
+- Regular pen tests, threat modeling and dependency scanning (SCA).
 
-### 3.3.3 Zuverlässigkeit und Beobachtbarkeit
+### 3.3.3 Reliability and observability
 
-Dieses Kapitel definiert Anforderungen an die Stabilität des Systems sowie an Logging, Monitoring und Fehlerbehandlung, um einen sicheren Betrieb und eine effektive Fehleranalyse zu ermöglichen.
+This section defines requirements for the stability of the system and for logging, monitoring and error handling, in order to enable safe operation and effective error analysis.
 
-Um eine konsistente Überwachung der Software und des Nutzerverhaltens zu haben, sollten alle Anfragen, Ergebnisse, Ereignisse usw. systemtechnisch protokolliert werden.
+To have consistent monitoring of the software and of user behavior, all requests, results, events, etc. should be logged at system level.
 
-Sollten Fehler auftreten, die direkt mit dem Nutzer (z.B. fehlerhafte Eingaben) zu tun haben, sollen diese dem Benutzer mitgeteilt werden.
+If errors occur that relate directly to the user (e.g. incorrect input), these should be communicated to the user.
 
-### 3.3.4 Verfügbarkeit
+### 3.3.4 Availability
 
-Dieses Kapitel beschreibt Anforderungen an die zeitliche Verfügbarkeit des Systems sowie an Maßnahmen zur Sicherstellung einer definierten Mindest-Uptime.
+This section describes requirements for the temporal availability of the system and for measures to ensure a defined minimum uptime.
 
-Die Software (und somit die zugehörigen Server) soll eine **Uptime von 99%** haben.
+The software (and thus the associated servers) should have an **uptime of 99%**.
 
 ## 3.4 Compliance
 
-Die Entwicklung von normly orientiert sich maßgeblich an den zur Verfügung stehenden Normen und Richtlinien. Je nach Vertragssituation mit den normengebenden Vereinen, können diese vorab in das Sprachmodell geladen (da sie und komplett zur Verfügung stehen) oder nur situativ hochgeladen werden.
+The development of normly is substantially guided by the available norms and guidelines. Depending on the contractual situation with the norm-setting associations, these can be loaded into the language model in advance (since they are completely available to us) or only uploaded situationally.
 
-Es ist bei der Ausgabe von Chat Antworten darauf zu achten, dass nie eine originale 1:1 Wiedergabe des Quellmaterials stattfindet, um eine Urheberrechtsverletzung zu vermeiden. Die verwendeten (zitierten) Quellen sind jeweils aufzuführen und auf die Originalform zu verlinken.
+When outputting chat answers, care must be taken that an original 1:1 reproduction of the source material never takes place, in order to avoid copyright infringement. The (cited) sources used must be listed in each case and linked to the original form.
 
-**Wichtig:** Die Verlinkung auf die Original-Norm erfolgt immer auf den jeweiligen Shoplink des Anbieters. Eine Vergütung dieser Weiterleitung (Affiliate-Modell) kann an dieser Stelle in Betracht gezogen werden. Personalisierte Werbung ist ausgeschlossen.
+**Important:** The link to the original norm always points to the vendor's respective shop link. Remuneration for this referral (affiliate model) can be considered at this point. Personalized advertising is excluded.
 
 ## 3.5 Design und Implementierung
 
