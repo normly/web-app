@@ -86,7 +86,8 @@ added here.
 |---|---|
 | abgelöst durch / ersetzt / ergänzt (ADR status) | superseded by / replaces / amends |
 | Abstammung | lineage |
-| Akzeptanzkriterium, Abnahmekriterium | acceptance criterion (both; the SRS uses them as synonyms) |
+| Akzeptanzkriterium (SRS field, a list) | Acceptance criteria |
+| Abnahmekriterium (SRS field, a concrete acceptance test) | Acceptance test |
 | Alterung (of tombstones) | expiry |
 | anerkannter Stand der Technik | recognized state of the art |
 | Anmeldung | sign-in |
@@ -100,22 +101,30 @@ added here.
 | baut auf (ADR status) | builds on |
 | Begründung / Entscheidung / Konsequenz | Rationale / Decision / Consequence |
 | Beitragsfassade | contribution facade (explained at first mention) |
+| Beitragsweg | contribution path |
 | Beobachtungsliste | watchlist |
 | beschlossen / favorisiert / offen (ADR status) | accepted / preferred / open |
 | Bestand, Bestände | collection, collections (content); data stores (in the sense of storage: database, object storage, indexes, logs, backups) |
 | Betreiber | operator |
 | Bezeichner (of a norm, e.g. "DIN EN ISO 9001") | designation (code: `DocumentDesignation`) |
 | Bezeichner (programming sense) | identifier |
+| Datenlizenz | data license |
+| Drittsoftware, Drittsysteme | third-party software, third-party systems |
 | Entscheidungsdokumentation | architecture decision records |
 | Erfassung, Datenerfassung | acquisition, data acquisition |
 | Ersetzung | replacement (matches the graph edge `REPLACES`; the existing "supersession" in the README stays) |
+| Expertensysteme | expert systems |
 | führend (platform, registry) | primary |
+| Hauptzweig | main branch |
 | Herausgeber | publisher |
 | Herkunft (attribute) | provenance |
 | Herkunftsadresse | client IP address |
 | (sachliche) Herkunftsangabe | (factual) statement of origin |
 | hinfällig (status) | obsolete |
 | Identifikator, Identifikatorschema | identifier, identifier scheme |
+| Identitätsauflösung | identity resolution |
+| Inhaltepartnerschaft | content partnership |
+| Inhaltezulieferung | content supply |
 | Kennung (record ID, e.g. "Google-Kennung") | ID |
 | Kennungen (in the export, ADR-027) | readable document IDs (export uses publisher/number/edition/part) |
 | Kennzeichnung (of displays/copies, ADR-015, REQ-DRM-003) | marking |
@@ -123,24 +132,30 @@ added here.
 | Kontingent | quota |
 | Konto-, Kontolöschung | account deletion |
 | Kontobezug | account reference |
+| Kontopflicht | account requirement |
 | Kopierschutz | copy protection |
 | kryptographisches Löschen | cryptographic erasure |
 | Lizenzklassifikation | license classification (distinct from rights classification) |
 | Löschprotokoll | deletion log |
+| Mandantenfähigkeit | multi-tenancy |
 | Massenextraktion | bulk extraction |
 | Modellherkunft, Modellherkunftsregel | model origin, model-origin rule |
 | Nachtrag | addendum |
 | Nachverfolgbarkeit | traceability |
+| Neu gefasst durch (SRS status) | revised by |
 | Neulieferung | re-delivery |
 | Nicht betroffen (ADR label) | Not affected |
 | Norm, Normen | norm, norms |
 | Normen und Regelwerke / Normen- und Regelwerkswissen | norms and standards / knowledge about norms and standards |
+| Normenanbieter (sellers of norms, e.g. DIN Media/Nautos) | norm vendor(s) |
 | Normenausschuss, Trägerorganisation | unchanged (German loanwords, see above) |
 | Normungsorganisation | standardization body |
 | Nutzerwunsch, Nutzerentscheidung (the project owner) | at the owner's request, owner decision |
 | Nutzungsvorbehalt | rights reservation |
 | Offene Punkte | Open items |
 | Partnerschaftsleiter / Volltext-Sprung (ADR-013) | partnership ladder / full-text leap |
+| Quellenangabe, Quellenanzeige (in chat answers) | citation(s) (code: citations) |
+| Quellenattribution (partner billing, REQ-PART-002) | source attribution |
 | Quellenregister | source register |
 | Quelllieferung | source delivery |
 | Ratenbegrenzung | rate limiting |
@@ -156,15 +171,21 @@ added here.
 | Selbsthoster | self-hosters |
 | Sicherung | backup |
 | Sicherungs-Stand / -Stände | backup(s) |
+| Stand (date, as a label) | As of |
 | Tombstone | tombstone |
 | Trägerschaft | stewardship |
+| Umsatzbeteiligung | revenue share |
 | Umsetzung (ADR label) | Implementation |
 | Verarbeitungskette | processing chain |
+| Vergütung | remuneration |
 | Verläufe (chat) | histories |
 | Verworfen (ADR label) | Rejected |
+| Weitere Informationen (SRS field) | Further information |
+| Wichtig (SRS label) | Important |
 | Widerruf | revocation (code: `revoked_at`) |
 | Wissensbasis, Wissensbestand | knowledge base |
 | zurückgezogen (documents/edges kept as tombstones), zurückgezogene Kennungen | retired, retired IDs (code: `retired_at`; the process stays "withdrawal") |
+| Zusatzdienste | add-on services |
 
 **Compounds follow their stem.** Rechtsnorm → legal norm, EU-Normen → EU
 norms, Regelwerkswissen → knowledge about standards, Regelwerksreihen →
