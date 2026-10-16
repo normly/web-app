@@ -684,325 +684,325 @@ only a change of language.
 
 ---
 
-## ADR-021 — Rückkehr zu GitHub für Quellcode, CI und Registry
+## ADR-021 — Return to GitHub for source code, CI and registry
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** GitHub (Organisation `normly`, Repository
-`github.com/normly/web-app`) ist ab dem 14.09.2026 wieder die führende
-Plattform für Quellcode, CI/CD und Container-Registry (GitHub Actions,
-GitHub Container Registry). Das löst ADR-019 vollständig ab — nicht nur den
-Beitragsfassade-Teil, sondern die gesamte Festlegung „STACKIT Git ist die
-alleinige Plattform für Quellcode, Beiträge, Build und Betrieb". STACKIT
-Git (`jwokittel/normly-webapp`) wird nicht mehr für Quellcode, CI oder
-Registry verwendet. Es bleibt bestehen und ist als Plattform für das
-künftige Hosting der Normen-Wissensbasis vorgesehen, sobald lizenzierte
-Bestände hinzukommen — das ist ein Datenprojekt, kein Code-Projekt, und
-folgt weiter der Trennung aus ADR-010 (Code und Daten getrennt versioniert).
+**Decision:** GitHub (organization `normly`, repository
+`github.com/normly/web-app`) is again the primary platform for source code,
+CI/CD and container registry (GitHub Actions, GitHub Container Registry) from
+14.09.2026. This supersedes ADR-019 entirely — not only the contribution
+facade part, but the entire stipulation "STACKIT Git is the sole platform
+for source code, contributions, build and operations". STACKIT
+Git (`jwokittel/normly-webapp`) is no longer used for source code, CI or
+registry. It remains in place and is intended as the platform for the
+future hosting of the norms knowledge base as soon as licensed
+collections are added — that is a data project, not a code project, and
+continues to follow the separation from ADR-010 (code and data versioned separately).
 
-**Begründung:** Nutzerentscheidung. Die Kollaboration — externe wie interne
-— ist auf GitHub spürbar einfacher als auf dem selbst gehosteten
-Forgejo-Setup: Tooling, Reviewer-Ökosystem und Beitragsfreundlichkeit waren
-schon der ursprüngliche Grund für ADR-004, bevor ADR-019 sie zugunsten der
-Souveränität einer einzigen STACKIT-Plattform verworfen hatte. Der
-Kollaborationsnachteil hat sich in der Praxis stärker ausgewirkt als
-erwartet; die Souveränitätsanforderung selbst bleibt bestehen, gilt aber ab
-sofort für Betrieb, Nutzerdaten, die Normen-Wissensbasis und Secrets — nicht
-mehr für den quelloffenen Kern-Quellcode, dessen CI und dessen
-Image-Registry.
+**Rationale:** User decision. Collaboration — external as well as internal
+— is noticeably easier on GitHub than on the self-hosted
+Forgejo setup: tooling, reviewer ecosystem and contributor-friendliness were
+already the original reason for ADR-004, before ADR-019 rejected them in favor
+of the sovereignty of a single STACKIT platform. The
+collaboration disadvantage has had a stronger effect in practice than
+expected; the sovereignty requirement itself remains in place, but with
+immediate effect applies to operations, user data, the norms knowledge base
+and secrets — no longer to the open-source core source code, its CI and its
+image registry.
 
-**Konsequenz:**
+**Consequence:**
 
-- Löst ADR-019 vollständig ab und ändert ADR-004 (STACKIT statt GitHub
-  führend) sowie den Registry-Nachtrag in ADR-010 (STACKIT Container
-  Registry statt GHCR) auf ihren jeweiligen Kernpunkt.
-- CLAUDE.md's nicht-verhandelbare US-Dienste-Regel gilt unverändert für
-  Betrieb, Nutzerdaten, Normen-Wissensbasis, Secrets-Management und
-  Produktions-Deployment — dafür bleibt STACKIT ohne Ausnahme. Für
-  Quellcode, CI/CD und Container-Registry des freien Kerns gilt ab jetzt
-  die hier getroffene Ausnahme.
-- `docs/srs/03-requirements.md` ist entsprechend zu aktualisieren:
-  REQ-GIT-001 (führende Plattform), REQ-GIT-002 (Beitragsweg), REQ-BUILD-002
-  (CI/CD-Infrastruktur), REQ-INST-001 (Ausnahme im Fließtext) und
-  REQ-DIST-004 (Registry-Verweis).
-- Der bisherige GitHub-Spiegel `Sn4kez/normly-app` (lokaler Remote
-  `github-old`) war ein reiner, nicht mehr gepflegter Schnappschuss aus der
-  ADR-004-Ära und ist vom neuen Repository `normly/web-app` zu
-  unterscheiden — kein automatischer Zusammenhang zwischen beiden.
-- Offen als technische Folgearbeit, nicht Teil dieser Entscheidung selbst:
-  Port von `.forgejo/workflows/ci.yml` nach `.github/workflows/`,
-  GHCR-Zugangsdaten und Secrets-Einrichtung in den GitHub-Repository-
-  Einstellungen. Bis dahin läuft auf GitHub keine CI.
+- Supersedes ADR-019 entirely and changes ADR-004 (STACKIT instead of GitHub
+  as primary) as well as the registry addendum in ADR-010 (STACKIT Container
+  Registry instead of GHCR) in their respective core point.
+- CLAUDE.md's non-negotiable US-services rule continues to apply unchanged to
+  operations, user data, the norms knowledge base, secrets management and
+  production deployment — STACKIT remains in place for these without
+  exception. For source code, CI/CD and container registry of the free core,
+  the exception made here applies from now on.
+- `docs/srs/03-requirements.md` is to be updated accordingly:
+  REQ-GIT-001 (primary platform), REQ-GIT-002 (contribution path), REQ-BUILD-002
+  (CI/CD infrastructure), REQ-INST-001 (exception in the running text) and
+  REQ-DIST-004 (registry reference).
+- The previous GitHub mirror `Sn4kez/normly-app` (local remote
+  `github-old`) was a pure snapshot from the ADR-004 era, no longer
+  maintained, and is to be distinguished from the new repository
+  `normly/web-app` — no automatic connection between the two.
+- Open as technical follow-up work, not part of this decision itself:
+  port of `.forgejo/workflows/ci.yml` to `.github/workflows/`,
+  GHCR credentials and secrets setup in the GitHub repository
+  settings. Until then, no CI runs on GitHub.
 
-**Verworfen:** STACKIT Git als alleinige Plattform beibehalten (Status quo
-aus ADR-019) — der Kollaborationsnachteil wiegt für den Kern-Quellcode
-schwerer als der Souveränitätsgewinn, während dieser für Betrieb und Daten
-weiterhin überwiegt und dort unangetastet bleibt.
+**Rejected:** Keeping STACKIT Git as the sole platform (status quo
+from ADR-019) — the collaboration disadvantage weighs more heavily for the
+core source code than the sovereignty gain, while the latter continues to
+prevail for operations and data and remains untouched there.
 
-**Nachtrag 2026-10-09 (ADR-025):** Die Aussage oben, STACKIT Git sei als
-Plattform für das künftige Hosting der Normen-Wissensbasis vorgesehen, ist
-überholt. Die Wissensbasis wird als signierter Dump in einem öffentlich
-lesbaren STACKIT-Object-Storage-Bucket verteilt (ADR-025); die Trennung von
-Code und Daten aus ADR-010 bleibt davon unberührt. Das Repository
-`jwokittel/normly-webapp` hat damit keine Aufgabe mehr. **Entschieden
-(2026-10-09): Das Repository wird gelöscht**, nicht archiviert; der Betreiber
-führt das im STACKIT-Portal aus. Der Git-Remote `stackit` ist damit hinfällig.
-Der ursprüngliche Wortlaut bleibt als Entscheidungsverlauf stehen.
+**Addendum 2026-10-09 (ADR-025):** The statement above that STACKIT Git is
+intended as the platform for the future hosting of the norms knowledge base
+is outdated. The knowledge base is distributed as a signed dump in a publicly
+readable STACKIT Object Storage bucket (ADR-025); the separation of
+code and data from ADR-010 is unaffected by this. The repository
+`jwokittel/normly-webapp` thus no longer has a purpose. **Decided
+(2026-10-09): The repository will be deleted**, not archived; the operator
+carries this out in the STACKIT portal. The Git remote `stackit` is thus obsolete.
+The original wording remains in place as the decision history.
 
 ---
 
-## ADR-022 — Betriebsumgebung Phase 1 und Modellherkunftsregel
+## ADR-022 — Operating environment phase 1 and model-origin rule
 
-**Status:** beschlossen (2026-09-23, ergänzt 2026-10-03)
+**Status:** accepted (2026-09-23, amended 2026-10-03)
 
-**Entscheidung:**
+**Decision:**
 
-1. **Zielumgebung:** eine STACKIT-VM (`g1a.4d`) mit Docker Compose, Caddy
-   für TLS, PostgreSQL Flex (Einzelinstanz, pgvector), Secrets Manager,
-   später Object Storage. Kein SKE, kein Load Balancer. Bestätigt ADR-005.
-2. **LLM-Inferenz:** STACKIT AI Model Serving (OpenAI-kompatible API,
-   Region eu01), Startmodell `google/gemma-4-31B-it`. Ollama bleibt für
-   lokale Entwicklung und Self-Hosting.
-3. **Modellherkunftsregel:** Produktiv eingesetzte Sprachmodelle sind
-   Open-Weight-Modelle unter OSI-anerkannter Lizenz, betrieben
-   ausschließlich auf STACKIT-Infrastruktur; keine Anfrage erreicht den
-   Modellhersteller. Europäische Herkunft ist Präferenz, nicht Pflicht.
-   Wiedervorlage: sobald STACKIT ein europäisches Modell in passender
-   Größe anbietet, wird der Wechsel geprüft.
-4. **DNS:** die Zone `normly.ai` liegt vollständig bei STACKIT DNS
-   (Registrar bleibt Strato); kein Cloudflare mehr. App unter
+1. **Target environment:** one STACKIT VM (`g1a.4d`) with Docker Compose, Caddy
+   for TLS, PostgreSQL Flex (single instance, pgvector), Secrets Manager,
+   later Object Storage. No SKE, no load balancer. Confirms ADR-005.
+2. **LLM inference:** STACKIT AI Model Serving (OpenAI-compatible API,
+   region eu01), initial model `google/gemma-4-31B-it`. Ollama remains for
+   local development and self-hosting.
+3. **Model-origin rule:** Language models used in production are
+   open-weight models under an OSI-approved license, operated
+   exclusively on STACKIT infrastructure; no request reaches the
+   model vendor. European origin is a preference, not a requirement.
+   Revisit: as soon as STACKIT offers a European model of suitable
+   size, the switch is examined.
+4. **DNS:** the zone `normly.ai` is hosted entirely at STACKIT DNS
+   (registrar remains Strato); no more Cloudflare. App at
    `app.normly.ai`.
-5. **Mailversand:** SMTP aus dem bestehenden Strato-Mailpaket
-   (`noreply@normly.ai`), SPF und DKIM in der STACKIT-Zone.
-6. **Umgebungen:** zunächst nur eine Produktionsumgebung auf STACKIT; das
-   lokale Compose-Setup übernimmt die Rolle der Staging-Umgebung.
-   Bewusste, befristete Abweichung von REQ-DIST-001, aufzuheben, sobald es
-   Nutzer gibt, die ein fehlerhaftes Deployment treffen würde.
-7. **Images:** ein gemeinsames Python-Basis-Image mit allen
-   `core`-Abhängigkeiten und eingebackenen Embedding-Gewichten; keine
-   Aufteilung der Abhängigkeiten.
+5. **Mail sending:** SMTP from the existing Strato mail package
+   (`noreply@normly.ai`), SPF and DKIM in the STACKIT zone.
+6. **Environments:** initially only one production environment on STACKIT; the
+   local Compose setup takes on the role of the staging environment.
+   Deliberate, temporary deviation from REQ-DIST-001, to be lifted as soon as
+   there are users whom a faulty deployment would hit.
+7. **Images:** one shared Python base image with all
+   `core` dependencies and baked-in embedding weights; no
+   splitting of the dependencies.
 
-**Begründung:** Die VM mit Compose ist die günstigste Umgebung und zugleich
-das Self-Hosting-Artefakt aus ADR-010. AI Model Serving liefert
-GPU-Inferenz pro Token ohne Dauerkosten; die Daten gehen an STACKIT, nicht
-an den Modellhersteller — Gewichte sind eine Datei, kein Dienst. Die
-Herkunftsregel schließt die bisher ungeregelte Lücke, dass das
-Standardmodell (Llama, Meta-Lizenz) weder offen lizenziert noch
-geregelt war; europäische Pflicht hätte nur eine eigene GPU-VM übrig
-gelassen, da der STACKIT-Katalog kein europäisches Chat-Modell führt.
-Cloudflare als DNS wäre ein US-Dienst in der Betriebskette gewesen. Die
-Mail der Domain lag bereits bei Strato; ein zweiter Anbieter hätte einen
-MX-Wechsel bedeutet.
+**Rationale:** The VM with Compose is the cheapest environment and at the
+same time the self-hosting artifact from ADR-010. AI Model Serving delivers
+GPU inference per token without standing costs; the data goes to STACKIT, not
+to the model vendor — weights are a file, not a service. The
+origin rule closes the previously unregulated gap that the
+default model (Llama, Meta license) was neither openly licensed nor
+regulated; a European requirement would have left only a dedicated GPU VM,
+since the STACKIT catalog lists no European chat model.
+Cloudflare as DNS would have been a US service in the operations chain. The
+domain's mail was already at Strato; a second provider would have meant an
+MX change.
 
-**Verworfen:** Ollama auf CPU in Produktion (Antwortzeiten), eigene GPU-VM
-(Dauerkosten), europäische Modellherkunft als Pflicht (kein Angebot),
-Subzonen-Delegation nur für `app` (Cloudflare bliebe autoritativ), IONOS
-als zweiter Mailanbieter (MX-Konflikt), Aufteilung der
-`core`-Abhängigkeiten in Extras (Nutzerentscheidung zugunsten der
-Einfachheit).
+**Rejected:** Ollama on CPU in production (response times), own GPU VM
+(standing costs), European model origin as a requirement (no offering),
+subzone delegation only for `app` (Cloudflare would remain authoritative), IONOS
+as a second mail provider (MX conflict), splitting the
+`core` dependencies into extras (user decision in favor of
+simplicity).
 
-**Konsequenz:** CLAUDE.md erhält einen Satz zur Modellherkunft; REQ-DIST-001
-und Kapitel 3.5.9 der SRS verweisen hierher; `docs/guide/self-hosting.md`
-beschreibt den Compose-Weg. Folgearbeiten: Embedding-Modell nur einmal
-laden und VM auf `g1a.2d` verkleinern (TP1a), Image-Pipeline (TP2),
-Secrets-Bezug per AppRole (TP3), Rollout/Rollback/Datenstand (TP4). Details:
+**Consequence:** CLAUDE.md gets a sentence on model origin; REQ-DIST-001
+and chapter 3.5.9 of the SRS refer here; `docs/guide/self-hosting.md`
+describes the Compose route. Follow-up work: load the embedding model only once
+and downsize the VM to `g1a.2d` (TP1a), image pipeline (TP2),
+obtaining secrets via AppRole (TP3), rollout/rollback/data version (TP4). Details:
 `docs/superpowers/specs/2026-09-23-stackit-deployment-roadmap-design.md`.
 
 ---
 
-## ADR-023 — Image-Pipeline: GHCR, keyless Signatur, eine Version, Lock-Datei
+## ADR-023 — Image pipeline: GHCR, keyless signing, one version, lock file
 
-**Status:** beschlossen (2026-10-08)
+**Status:** accepted (2026-10-08)
 
-**Entscheidung:**
+**Decision:**
 
-1. **Veröffentlichung:** Die fünf Container-Images (`api`, `chat`,
-   `accounts`, `pipeline`, `frontend`) werden in GitHub Actions gebaut
-   und als öffentliche Pakete unter `ghcr.io/normly/web-app/` abgelegt
-   (bestätigt ADR-021). Gebaut wird bei Push auf `main` (Tags `edge`,
-   `sha-<kurz>`), bei Git-Tags `vX.Y.Z` (`X.Y.Z`, `X.Y`, `latest`) und
-   manuell — nie bei Pull Requests.
-2. **Signatur:** cosign keyless über GitHub-OIDC. Kein Schlüsselmaterial
-   wird erzeugt oder verwahrt; das kurzlebige Zertifikat bindet die
-   Signatur an Repository, Workflow und Commit. Dazu je Image
-   SLSA-Provenance und SBOM aus BuildKit (REQ-GIT-005).
-3. **Versionierung:** Eine Version für alle fünf Images; der annotierte
-   Git-Tag `vX.Y.Z` ist die einzige Quelle. Die Versionsfelder der
-   Pakete werden im Release-Commit auf denselben Wert gesetzt, der
-   Workflow prüft die Übereinstimmung.
-4. **Reproduzierbarkeit:** Die vier Python-Pakete bilden einen
-   uv-Workspace mit einer `uv.lock`; Torch kommt ausschließlich aus dem
-   CPU-Wheel-Index; Basis-Images sind per Digest, Modellgewichte (e5,
-   Docling) per Commit gepinnt und liegen in einer eigenen Build-Stufe
-   (REQ-BUILD-001). Bewusst offen bleiben Zeitstempel in den Schichten
-   und die apt-Pakete der Basisschicht; bit-identische Images sind damit
-   noch nicht erreicht.
+1. **Publication:** The five container images (`api`, `chat`,
+   `accounts`, `pipeline`, `frontend`) are built in GitHub Actions
+   and stored as public packages under `ghcr.io/normly/web-app/`
+   (confirms ADR-021). Builds run on push to `main` (tags `edge`,
+   `sha-<kurz>`), on Git tags `vX.Y.Z` (`X.Y.Z`, `X.Y`, `latest`) and
+   manually — never on pull requests.
+2. **Signing:** cosign keyless via GitHub OIDC. No key material
+   is generated or kept; the short-lived certificate binds the
+   signature to repository, workflow and commit. In addition, per image,
+   SLSA provenance and SBOM from BuildKit (REQ-GIT-005).
+3. **Versioning:** One version for all five images; the annotated
+   Git tag `vX.Y.Z` is the single source. The version fields of the
+   packages are set to the same value in the release commit; the
+   workflow checks that they match.
+4. **Reproducibility:** The four Python packages form a
+   uv workspace with one `uv.lock`; Torch comes exclusively from the
+   CPU wheel index; base images are pinned by digest, model weights (e5,
+   Docling) by commit, and sit in a build stage of their own
+   (REQ-BUILD-001). Deliberately left open are timestamps in the layers
+   and the apt packages of the base layer; bit-identical images are thus
+   not yet achieved.
 
-**Begründung:** Der Vertrauensanker der keyless Signatur — die öffentliche
-Sigstore-Infrastruktur (Fulcio, Rekor) — wird von der **Linux Foundation
-betrieben, einer Non-Profit-Organisation.** Das unterscheidet ihn
-qualitativ von den kommerziellen US-Diensten in der Build-Kette, die
-ADR-021 für den freien Kern erlaubt, und wiegt leichter als
-Schlüsselpflege, Rotation und Neusignierung bei Verlust. Die gemeinsame
-Version bildet ab, was tatsächlich getestet wird: die Dienste nur in
-Kombination, `api` und `chat` sogar aus einem Basis-Image; ein Rollback
-ist damit ein Handgriff. Der Verzicht auf PR-Builds hält die Pipeline
-schlank; ein kaputtes Dockerfile fällt nach dem Merge laut und ohne
-Schaden auf (`edge` bleibt stehen, der Release-Tag schlägt fehl). Ohne
-gepinnte Gewichte könnte derselbe Git-Tag andere Embeddings erzeugen als
-der Datenstand, den TP4 importiert.
+**Rationale:** The trust anchor of the keyless signature — the public
+Sigstore infrastructure (Fulcio, Rekor) — is **operated by the Linux
+Foundation, a non-profit organization.** This distinguishes it
+qualitatively from the commercial US services in the build chain that
+ADR-021 permits for the free core, and weighs less than
+key management, rotation and re-signing on loss. The shared
+version reflects what is actually tested: the services only in
+combination, `api` and `chat` even from one base image; a rollback
+is thus a single step. Doing without PR builds keeps the pipeline
+lean; a broken Dockerfile shows up loudly and without harm after the merge
+(`edge` stays where it is, the release tag fails). Without
+pinned weights, the same Git tag could produce different embeddings than
+the data version that TP4 imports.
 
-**Verworfen:** eigenes cosign-Schlüsselpaar (Schlüsselpflege, Ablage
-außerhalb von GitHub, Neusignierung bei Verlust); Version je Paket
-(getestete Kombination nicht mehr ablesbar, ein Tag je Paket je Release);
-Image-Build bei Pull Requests (voller Build je PR, Pfadfilter übersieht
-Codeänderungen); pip-tools (vier Lock-Dateien mit möglicher Drift, keine
-saubere Index-Trennung für Torch).
+**Rejected:** own cosign key pair (key management, storage
+outside GitHub, re-signing on loss); version per package
+(tested combination no longer readable, one tag per package per release);
+image build on pull requests (full build per PR, path filter misses
+code changes); pip-tools (four lock files with possible drift, no
+clean index separation for Torch).
 
-**Konsequenz:** `docker compose up -d` zieht veröffentlichte Images,
-`--build` bleibt der lokale Weg; `docs/guide/self-hosting.md` beschreibt
-Bezug und Signaturprüfung, `docs/guide/releasing.md` den Release-Ablauf,
-`CONTRIBUTING.md` die uv-Entwicklungsumgebung. REQ-BUILD-001,
-REQ-DIST-004 und REQ-GIT-005 verweisen hierher. Die Signaturprüfung als
-Pflichtschritt vor dem Start auf der VM folgt mit dem Rollout-Skript
+**Consequence:** `docker compose up -d` pulls published images,
+`--build` remains the local route; `docs/guide/self-hosting.md` describes
+obtaining the images and verifying the signatures, `docs/guide/releasing.md`
+the release procedure, `CONTRIBUTING.md` the uv development environment.
+REQ-BUILD-001, REQ-DIST-004 and REQ-GIT-005 refer here. Signature verification
+as a mandatory step before start on the VM follows with the rollout script
 (TP4). Details:
 `docs/superpowers/specs/2026-10-08-tp2-image-pipeline-design.md`.
 
 ---
 
-## ADR-024 — Rollout, Rollback und Sicherung auf der Einzel-VM
+## ADR-024 — Rollout, rollback and backup on the single VM
 
-**Status:** beschlossen (2026-10-09); baut auf ADR-010, ADR-014 und ADR-023
+**Status:** accepted (2026-10-09); builds on ADR-010, ADR-014 and ADR-023
 
-**Kontext:** Die Produktions-VM baut ihre Images heute aus dem Quellcode; es
-gibt keinen Rollback-Punkt. Nutzerdaten sind nur durch die Flex-Sicherung
-gesichert (täglich, 30 Tage, anbieterintern). STACKIT-Zugangsdaten dürfen
-nicht auf GitHub liegen (ADR-021), ein Push-Rollout aus der CI scheidet also
-aus. Die Signaturen aus ADR-023 nützen erst etwas, wenn die VM sie vor dem
-Start prüft (REQ-GIT-005).
+**Context:** The production VM currently builds its images from source code;
+there is no rollback point. User data is backed up only by the Flex backup
+(daily, 30 days, provider-internal). STACKIT credentials must
+not be stored on GitHub (ADR-021), so a push rollout from CI is ruled
+out. The signatures from ADR-023 are of use only once the VM verifies them
+before start (REQ-GIT-005).
 
-**Entscheidung:**
+**Decision:**
 
-1. **Auslöser:** Rollout manuell per SSH: `normly-deploy deploy vX.Y.Z`. Das
-   Skript ist timerfähig gehalten, einen Timer gibt es nicht.
-2. **Prüfung vor dem Start:** `cosign verify` aller fünf Images gegen die
-   Identität `images.yml@refs/tags/vX.Y.Z` des Release-Workflows. Compose-Datei
-   und Skript-Assets reisen im signierten `pipeline`-Image und werden aus dem
-   geprüften `pipeline@<digest>` entnommen. Die geprüften Digests werden
-   festgehalten (Digest-Pinning); nach `compose pull` müssen die gezogenen
-   Digests den geprüften entsprechen, sonst startet nichts.
-3. **Ablauf:** aktuellen Tag und Wissensbestand-Version lesen,
-   Pre-Rollout-Sicherung (ohne bestätigten Upload kein Rollout), `pull`,
-   `up -d --wait`. Der aktuelle Tag wird abgelehnt; solange ein
-   fehlgeschlagener Rollout vermerkt ist (`state/failed_rollout`), startet
-   kein neuer `deploy` (bewusstes Übergehen: die Markierungsdatei entfernen).
-   Es gibt keinen automatischen Rückweg.
-4. **Rollback stellt Images und Daten auf den Stand vor dem Rollout zurück.**
-   Weil Alembic-Migrationen nur vorwärts laufen, wird das Schema neu
-   aufgebaut: Dienste stoppen, alle Tabellen des Schemas `public` verwerfen
-   (Liste aus der Datenbank, das Schema bleibt, damit pgvector erhalten
-   bleibt), `migrate` mit dem vorherigen Image, Wissensbestand in der
-   damals aktiven Dump-Version importieren (vor den Nutzerdaten, wegen der
-   Fremdschlüssel), die zurückgezogenen Kennungen der Sicherung
-   (`exchange import-tombstones`, siehe ADR-026), Nutzerdaten mit
-   `pg_restore --data-only`, vorheriges Release starten. Vorab prüft das
-   Skript, dass die Alembic-Revision der Sicherung dem Alembic-Head des
-   vorherigen Images entspricht, dass der aufgezeichnete Wissensbestand-Dump
-   abrufbar und prüfbar ist (Signatur, Modell, Prüfsummen; ohne nutzbaren
-   öffentlichen Schlüssel Abbruch, bevor etwas verändert wird) und dass die
-   Tombstone-Datei der Sicherung abrufbar, entschlüsselbar und gültig ist
-   (eine Sicherung, deren `meta.json` die Datei zusagt, der sie aber fehlt,
-   gilt als beschädigt: Abbruch; eine ältere Sicherung ohne Zusage führt zu
-   einer Warnung, der Rollback läuft weiter), und verlangt
-   die Eingabe des Ziel-Tags (oder `--yes`). Der private Schlüssel wird nur
-   für den Lauf bereitgestellt (`--age-identity FILE`). Scheitert der
-   Rollback nach dem Verwerfen, gibt das Skript Hinweise zur Wiederherstellung;
-   ein erneuter Aufruf ist gefahrlos.
-5. **Sicherung:** die Nutzerdaten-Tabellen (`exchange tables user`) und, als
-   zweite verschlüsselte Datei, die zurückgezogenen Kennungen
-   (`<base>.tombstones.age`, ADR-026; nie Inhalt, Rechte oder Nutzerdaten).
-   Beide `age`-verschlüsselt auf der VM mit dem öffentlichen Schlüssel, Upload
-   per `rclone` in einen privaten STACKIT-Object-Storage-Bucket. Der private
-   Schlüssel liegt nie auf der VM. Reihenfolge des Uploads: `meta.json`,
-   `dump.age`, `tombstones.age`, `.sha256`; die Prüfsumme deckt beide
-   verschlüsselten Dateien ab und ist die Commit-Markierung, erst mit ihr
-   zählt eine Sicherung. `meta.json` trägt `"tombstones": true`.
-6. **Aufbewahrung:** 7 tägliche, 2 monatliche (jeweils der neueste tägliche
-   Stand der beiden jüngsten Kalendermonate), 3 Pre-Rollout-Stände. Die
-   Aufbewahrung gilt für beide Dateien einer Sicherung: die Bereinigung löscht
-   `.sha256`, `meta.json`, `tombstones.age`, `dump.age` in dieser Reihenfolge
-   und überspringt Objekte, die nicht im Bucket liegen (ältere Sicherungen
-   ohne Tombstone-Datei). Sie zählt nur committete Sicherungen und löscht
-   Waisen (ohne `.sha256`, auch eine einzelne `tombstones.age`) erst nach
-   einem Tag. Zusätzlich bleibt die 30-Tage-Sicherung
-   der Gesamtdatenbank durch Flex das Betriebsnetz.
-7. **Restore-Test:** manuell und dokumentiert (`docs/guide/operations.md`),
-   nach dem Bau einmal, danach monatliche Erinnerung.
+1. **Trigger:** Rollout manually via SSH: `normly-deploy deploy vX.Y.Z`. The
+   script is kept timer-capable; there is no timer.
+2. **Verification before start:** `cosign verify` of all five images against the
+   identity `images.yml@refs/tags/vX.Y.Z` of the release workflow. Compose file
+   and script assets travel in the signed `pipeline` image and are taken from the
+   verified `pipeline@<digest>`. The verified digests are
+   recorded (digest pinning); after `compose pull` the pulled
+   digests must match the verified ones, otherwise nothing starts.
+3. **Procedure:** read the current tag and knowledge base version,
+   pre-rollout backup (no rollout without a confirmed upload), `pull`,
+   `up -d --wait`. The current tag is rejected; as long as a
+   failed rollout is recorded (`state/failed_rollout`), no new
+   `deploy` starts (deliberate override: remove the marker file).
+   There is no automatic way back.
+4. **Rollback restores images and data to their state before the rollout.**
+   Because Alembic migrations run forward only, the schema is
+   rebuilt: stop services, drop all tables of the schema `public`
+   (list from the database; the schema remains so that pgvector is
+   preserved), `migrate` with the previous image, import the knowledge base
+   in the dump version active at the time (before the user data, because of the
+   foreign keys), the withdrawn IDs of the backup
+   (`exchange import-tombstones`, see ADR-026), user data with
+   `pg_restore --data-only`, start the previous release. Beforehand the
+   script checks that the Alembic revision of the backup matches the Alembic head of the
+   previous image, that the recorded knowledge base dump is
+   retrievable and verifiable (signature, model, checksums; without a usable
+   public key, abort before anything is changed) and that the
+   tombstone file of the backup is retrievable, decryptable and valid
+   (a backup whose `meta.json` promises the file but which lacks it
+   counts as damaged: abort; an older backup without such a promise leads to
+   a warning, the rollback continues), and requires
+   entering the target tag (or `--yes`). The private key is provided only
+   for the run (`--age-identity FILE`). If the
+   rollback fails after the drop, the script gives hints for the restore;
+   calling it again is safe.
+5. **Backup:** the user data tables (`exchange tables user`) and, as a
+   second encrypted file, the withdrawn IDs
+   (`<base>.tombstones.age`, ADR-026; never content, rights or user data).
+   Both `age`-encrypted on the VM with the public key, upload
+   via `rclone` into a private STACKIT Object Storage bucket. The private
+   key never resides on the VM. Upload order: `meta.json`,
+   `dump.age`, `tombstones.age`, `.sha256`; the checksum covers both
+   encrypted files and is the commit marker; only with it does
+   a backup count. `meta.json` carries `"tombstones": true`.
+6. **Retention:** 7 daily, 2 monthly (in each case the newest daily
+   snapshot of the two most recent calendar months), 3 pre-rollout snapshots. The
+   retention applies to both files of a backup: the cleanup deletes
+   `.sha256`, `meta.json`, `tombstones.age`, `dump.age` in this order
+   and skips objects that are not in the bucket (older backups
+   without a tombstone file). It counts only committed backups and deletes
+   orphans (without `.sha256`, including a lone `tombstones.age`) only after
+   one day. In addition, Flex's 30-day backup
+   of the entire database remains the operational safety net.
+7. **Restore test:** manual and documented (`docs/guide/operations.md`),
+   once after the build, a monthly reminder thereafter.
 
-**Begründung:**
+**Rationale:**
 
-- *Manueller Auslöser:* Ein Mensch entscheidet über das Migrationsfenster.
-  Migrationen liefen sonst unbeaufsichtigt, und ein Timer bräuchte eine
-  „höchster Tag“-Logik und ein Stabilitätsfenster.
-- *Rollback = Neuaufbau:* Migrationen sind nur vorwärts. Ein reiner
-  Image-Rollback verlangte eine Expand/Contract-Disziplin, die es nicht gibt;
-  ein reiner Datenrestore ließe das neue Schema stehen.
-- *Nur Nutzerdaten sichern:* Der Wissensbestand ist über den Dump
-  (ADR-025) reproduzierbar; ein täglicher Gesamtdump wäre bei zweistelligen GB
-  verschwendet, die Nutzerdaten sind dagegen klein und unersetzlich.
-- *Schlüsseltrennung:* Die VM kann Sicherungen schreiben, aber nicht
-  entschlüsseln (der Bucket-Zugang der VM umfasst Lesen, weil der Rollback
-  die Sicherung herunterlädt; der private Schlüssel fehlt).
-  Auch bei kompromittierter VM bleiben die Sicherungen geschützt, anders als
-  bei serverseitiger Verschlüsselung, deren Schlüssel beim Anbieter neben den
-  Daten liegt (CLAUDE.md: Schlüssel nie neben den Daten).
-- *Digest-Pinning:* `cosign verify` prüft, worauf das Tag in diesem Moment
-  zeigt. Ein zwischen Prüfung und `pull` umgesetztes Tag würde sonst die
-  Prüfung umgehen.
-- *Commit-Markierung:* Ein abgebrochener Upload darf weder als Sicherung
-  zählen noch eine ältere, gültige verdrängen.
+- *Manual trigger:* A human decides on the migration window.
+  Otherwise migrations would run unattended, and a timer would need
+  "highest tag" logic and a stability window.
+- *Rollback = rebuild:* Migrations are forward only. A pure
+  image rollback would require an expand/contract discipline that does not exist;
+  a pure data restore would leave the new schema in place.
+- *Back up only user data:* The knowledge base is reproducible via the dump
+  (ADR-025); a daily full dump would be wasteful at double-digit GB,
+  whereas the user data is small and irreplaceable.
+- *Key separation:* The VM can write backups but not
+  decrypt them (the VM's bucket access includes reading, because the rollback
+  downloads the backup; the private key is missing).
+  Even with a compromised VM the backups remain protected, unlike
+  with server-side encryption, whose key lies with the provider next to the
+  data (CLAUDE.md: keys never next to the data).
+- *Digest pinning:* `cosign verify` checks what the tag points to at that
+  moment. A tag moved between verification and `pull` would otherwise bypass the
+  verification.
+- *Commit marker:* An aborted upload must neither count as a backup
+  nor displace an older, valid one.
 
-**Verworfen:** Timer mit Auto-Rollout; reiner Image-Rollback mit
-Expand/Contract-Disziplin; ausschließlich serverseitige Verschlüsselung;
-täglicher Gesamtdump; nur Pre-Rollout-Dumps; wöchentliche Stände (Nutzen
-jenseits von 7 Tagen klein).
+**Rejected:** timer with auto-rollout; pure image rollback with
+expand/contract discipline; exclusively server-side encryption;
+daily full dump; only pre-rollout dumps; weekly snapshots (benefit
+beyond 7 days small).
 
-**Folgen:**
+**Consequences:**
 
-- Ein Rollback verwirft alle Änderungen seit der Pre-Rollout-Sicherung
-  (Konten, Chats, Watchlists). Das Skript warnt und verlangt Bestätigung.
-- Die Rollback-Dauer wächst mit dem Wissensbestand (Neu-Import).
-- Voraussetzung: Der Wissensbestand in Produktion ändert sich nur durch
-  Dump-Import, nie durch Ingestion auf der VM (zugleich Voraussetzung für die
-  Verkleinerung der VM, TP1a).
-- `pg_dump`, `psql` und `pg_restore` laufen auf dem Host; `NORMLY_DATABASE_URL`
-  muss dort auflösbar sein (verwaltete Datenbank, nicht das gebündelte Profil).
-  Das Datenbankpasswort steht in den Prozessargumenten (Annahme: Einzelmandant-VM;
-  Härtung zurückgestellt). Es braucht Docker Compose ab 2.20 (`--wait-timeout`).
-- Offen: Kryptographisches Löschen bei Vertragsende (ADR-014) für lizenzierte
-  Bestände ist Aufgabe der kommerziellen Schicht; sie müssen von Sicherungen
-  ausgenommen oder je Herausgeber verschlüsselt werden. Der Secrets-Fluss per
-  AppRole (TP3) liegt außerhalb. PITR und Verschlüsselung der Flex-Sicherungen
-  sind zu klären. **Objektsperre (Entscheidung 2026-10-10): vorerst keine.**
-  STACKIT bietet Object Lock nach Angabe des Betreibers nur nach einem
-  projektweiten Compliance Lock und nur beim Anlegen des Buckets;
-  unumkehrbar (vor Umsetzung gegen die STACKIT-Doku zu prüfen). Dagegen
-  sprechen: Unumkehrbarkeit vor der ersten Live-Abnahme, Wirkung auf das ganze
-  Projekt, Konflikt mit der eigenen Aufbewahrung (`normly-backup` löscht alte
-  Stände) und der Zusage, gelöschte Nutzerdaten nicht wiederkehren zu lassen
-  (Rollback spielt Löschungen der letzten 90 Tage nach; eine längere Sperre
-  hielte sie länger vor). Akzeptiertes Restrisiko: Mit gestohlenen Zugangsdaten
-  der VM ließen sich Sicherungen löschen; gelesen werden können sie nicht
-  (`age`, privater Schlüssel außerhalb). Minderung zu prüfen: eigene
-  Zugangsdaten der VM ohne Löschrecht. Neubewertung nach der Live-Abnahme; ein
-  späterer zweiter Bucket mit Sperre und Frist von höchstens 90 Tagen wäre
-  möglich. Das Zusammenspiel
-  von `docker compose up --wait` mit dem einmaligen `migrate`-Dienst und die
-  Abfrage des Alembic-Heads sind bislang nur gegen Attrappen geprüft, bis
-  zur Live-Abnahme.
+- A rollback discards all changes since the pre-rollout backup
+  (accounts, chats, watchlists). The script warns and requires confirmation.
+- The rollback duration grows with the knowledge base (re-import).
+- Prerequisite: the knowledge base in production changes only through
+  dump import, never through ingestion on the VM (at the same time a prerequisite for
+  downsizing the VM, TP1a).
+- `pg_dump`, `psql` and `pg_restore` run on the host; `NORMLY_DATABASE_URL`
+  must be resolvable there (managed database, not the bundled profile).
+  The database password appears in the process arguments (assumption: single-tenant VM;
+  hardening deferred). Docker Compose 2.20 or later is required (`--wait-timeout`).
+- Open: Cryptographic erasure at contract end (ADR-014) for licensed
+  collections is a task of the commercial layer; they must be excluded from backups
+  or encrypted per publisher. The secrets flow via
+  AppRole (TP3) is out of scope. PITR and encryption of the Flex backups
+  are to be clarified. **Object lock (decision 2026-10-10): none for now.**
+  According to the operator, STACKIT offers Object Lock only after a
+  project-wide Compliance Lock and only when the bucket is created;
+  irreversible (to be checked against the STACKIT documentation before implementation). Arguments
+  against it: irreversibility before the first live acceptance, effect on the whole
+  project, conflict with the in-house retention (`normly-backup` deletes old
+  snapshots) and with the promise not to let deleted user data come back
+  (rollback replays deletions of the last 90 days; a longer lock
+  would retain them longer). Accepted residual risk: with stolen credentials
+  of the VM, backups could be deleted; they cannot be read
+  (`age`, private key kept elsewhere). Mitigation to be examined: separate
+  credentials for the VM without delete permission. Reassessment after the live acceptance; a
+  later second bucket with a lock and a period of at most 90 days would be
+  possible. The interplay
+  of `docker compose up --wait` with the one-off `migrate` service and the
+  query of the Alembic head have so far only been tested against mocks, until
+  the live acceptance.
 
 Details: `docs/superpowers/specs/2026-10-09-tp4-deployment-automation-design.md`,
-Betrieb: `docs/guide/operations.md`.
+operations: `docs/guide/operations.md`.
 
 ---
 
