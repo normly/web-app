@@ -99,7 +99,7 @@ added here.
 | Beitragsfassade | contribution facade (explained at first mention) |
 | Beobachtungsliste | watchlist |
 | beschlossen / favorisiert / offen (ADR status) | accepted / preferred / open |
-| Bestand, Bestände | collection, collections |
+| Bestand, Bestände | collection, collections (content); data stores (in the sense of storage: database, object storage, indexes, logs, backups) |
 | Betreiber | operator |
 | Bezeichner (of a norm, e.g. "DIN EN ISO 9001") | designation (code: `DocumentDesignation`) |
 | Bezeichner (programming sense) | identifier |

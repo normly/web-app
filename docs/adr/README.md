@@ -230,7 +230,7 @@ directory.
 
 **Rationale:**
 
-- *Arithmetic:* A chat session generates hardly any ad slots, but consumes
+- *By the numbers:* A chat session generates hardly any ad slots, but consumes
   several LLM calls with long contexts. A small, German-speaking specialist
   target group at high cost per query — structurally the worst
   combination for advertising financing.
@@ -238,7 +238,7 @@ directory.
   safety officer after an accident, a mid-sized company before a
   product launch. That is competitive information and partly liability-relevant.
 - *Neutrality:* Whoever says what the recognized state of the art is cannot
-  advertise products at the same time. Towards DIN and VDI an unnecessary
+  advertise products at the same time. With respect to DIN and VDI, an unnecessary
   point of attack.
 
 **The better lever is the cost side** — see ADR-008.
@@ -278,7 +278,7 @@ access become a real problem.
 **Decision:** The reference graph is designed for worldwide coverage from the
 start: globally collision-free identifier scheme, language-independent
 node identity, national adoptions as relationships, multilingual
-designations. License classification **per jurisdiction**, not global.
+designations. License classification **per jurisdiction**, not globally.
 
 **Rationale:** A later rebuild of the identifier scheme is the
 most expensive legacy burden imaginable. DIN EN ISO 9001 and BS EN ISO 9001 are the same
@@ -292,7 +292,7 @@ EU norms, CJEU C-588/21 (2024) must be assessed separately. A global
 classification would be either unlawful or unnecessarily restrictive.
 
 **Follow-up task:** The legal assessment per jurisdiction is an ongoing
-task, not a one-time clarification. Later needs a role or a process.
+task, not a one-time clarification. It will later need a role or a process.
 
 ---
 
@@ -336,7 +336,7 @@ references **from the law** are.
 licenses typically exclude reuse in one's own product.
 Before such a license, the contract terms would have to be examined closely.
 
-**Not governable by intent:** The block is deliberately formulated *technically*
+**Not governable by good intentions:** The block is deliberately formulated *technically*
 (category D adapters cannot be configured for flagged sources),
 not as a policy. As soon as student employees or external
 contributors write adapters, the specification decides, not
@@ -375,7 +375,7 @@ announced).
 
 **Status:** accepted
 
-**Decision:** Encryption of data at rest for **all** collections
+**Decision:** Encryption of data at rest for **all** data stores
 (database, object storage, indexes, logs, backups). Keys in the
 STACKIT Secrets Manager, separate from the data, with rotation and
 access logging. **A separate data key per publisher.** In addition, protection
