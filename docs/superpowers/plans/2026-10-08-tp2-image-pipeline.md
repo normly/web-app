@@ -1133,7 +1133,7 @@ Nach `## Configuration reference` (vor `## Ingesting documents`) einfügen:
 
 Every published image is signed keyless with [cosign](https://docs.sigstore.dev/)
 from the `Images` workflow in `normly/web-app`, and ships a SLSA provenance
-and an SBOM attestation ([ADR-023](../adr/README.md#adr-023-image-pipeline-ghcr-keyless-signatur-eine-version-lock-datei)).
+and an SBOM attestation ([ADR-023](../adr/README.md#adr-023-image-pipeline-ghcr-keyless-signing-one-version-lock-file)).
 To check an image before running it:
 
 ```bash
@@ -1163,7 +1163,7 @@ Unter `## Known gaps` den Punkt „No published images yet …" (zwei Zeilen) er
 # Releasing
 
 A release is one git tag that produces one version of all five images
-([ADR-023](../adr/README.md#adr-023-image-pipeline-ghcr-keyless-signatur-eine-version-lock-datei)).
+([ADR-023](../adr/README.md#adr-023-image-pipeline-ghcr-keyless-signing-one-version-lock-file)).
 Images are built, signed and published by the `Images` workflow
 (`.github/workflows/images.yml`); nobody builds release images by hand.
 

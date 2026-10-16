@@ -1,7 +1,7 @@
 # Releasing
 
 A release is one git tag that produces one version of all five images
-([ADR-023](../adr/README.md#adr-023-image-pipeline-ghcr-keyless-signatur-eine-version-lock-datei)).
+([ADR-023](../adr/README.md#adr-023-image-pipeline-ghcr-keyless-signing-one-version-lock-file)).
 Images are built, signed and published by the `Images` workflow
 (`.github/workflows/images.yml`); nobody builds release images by hand.
 

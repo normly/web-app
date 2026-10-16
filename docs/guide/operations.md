@@ -2,8 +2,8 @@
 
 How to run a normly production VM: rolling out a release, rolling it back,
 backing up user data, and publishing knowledge-base dumps. The design and its
-reasons are in [ADR-024](../adr/README.md#adr-024-rollout-rollback-und-sicherung-auf-der-einzel-vm)
-(rollout, rollback, backup) and [ADR-025](../adr/README.md#adr-025-wissensbestand-dump-als-austauschformat)
+reasons are in [ADR-024](../adr/README.md#adr-024-rollout-rollback-and-backup-on-the-single-vm)
+(rollout, rollback, backup) and [ADR-025](../adr/README.md#adr-025-knowledge-base-dump-as-exchange-format)
 (knowledge-base dump). For a plain Compose setup without a VM, see
 [Self-Hosting](self-hosting.md).
 
@@ -571,7 +571,7 @@ was used and then paused for about 37 days (its session rows are gone after
 sign-in within 14 days keeps it (the sign-in is recorded in
 `account.last_login_at`, so logging out again does not undo it). Chats of accounts have no retention period: the
 user deletes them, or the account. The reasoning is in
-[ADR-027](../adr/README.md#adr-027-lebenszyklus-der-nutzerdaten). The periods
+[ADR-027](../adr/README.md#adr-027-lifecycle-of-user-data). The periods
 are project decisions and should be reviewed by a data-protection professional.
 
 ## Deletions and backups
@@ -717,7 +717,7 @@ notification the next time `notify-watchers` runs, but only watchers whose
 watch is older than the withdrawal and who have notifications enabled. An import of a dump without
 any documents is refused while the database holds documents; pass
 `--allow-empty` to apply it deliberately
-([ADR-026](../adr/README.md#adr-026-umgang-mit-nutzerdaten-beim-wissensbestand-import)).
+([ADR-026](../adr/README.md#adr-026-handling-user-data-on-knowledge-base-import)).
 
 The dump contains no personal names: the export replaces
 `source.responsible_person` and `rights_classification.classified_by` with the

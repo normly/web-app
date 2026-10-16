@@ -10,7 +10,7 @@ deterministically, in milliseconds, at no token cost. A model call here
 would be more expensive, slower, and more error-prone. Hallucinations are
 especially costly for validity and replacement questions.
 
-Details and trade-offs: [ADR-008](../adr/README.md#adr-008-graph-first-anfrageverarbeitung).
+Details and trade-offs: [ADR-008](../adr/README.md#adr-008-graph-first-query-processing).
 
 ## Data storage
 
@@ -20,7 +20,7 @@ systems that would need to be kept in sync. Database access goes
 exclusively through the repository layer; the underlying storage
 technology stays swappable.
 
-Details: [ADR-006](../adr/README.md#adr-006-postgresql-statt-neo4j-fur-den-referenzgraph).
+Details: [ADR-006](../adr/README.md#adr-006-postgresql-instead-of-neo4j-for-the-reference-graph).
 
 ## Open and layered at once
 

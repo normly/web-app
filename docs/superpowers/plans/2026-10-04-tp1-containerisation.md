@@ -1438,7 +1438,7 @@ Quellcode, CI/CD und Container-Registry des freien Kerns liegen seit ADR-021 auf
 # Self-Hosting
 
 normly ships as container images plus a Compose setup that starts a
-working instance with one command ([ADR-010](../adr/README.md#adr-010-auslieferung-als-container-daten-getrennt-vom-image)).
+working instance with one command ([ADR-010](../adr/README.md#adr-010-shipping-as-a-container-data-separate-from-the-image)).
 The knowledge base is **not** part of the images; it arrives as a
 separately versioned dump (import tooling follows in a later release, see
 "Known gaps").
@@ -1499,7 +1499,7 @@ Point the instance at managed services instead of the bundled ones:
 - LLM: `NORMLY_LLM_PROVIDER=openai-compatible` plus base URL, model and
   `NORMLY_LLM_API_KEY` of any OpenAI-compatible `/chat/completions`
   endpoint. Only open-weight models under an OSI-approved licence are used
-  by the project itself ([ADR-022](../adr/README.md#adr-022-betriebsumgebung-phase-1-und-modellherkunftsregel)).
+  by the project itself ([ADR-022](../adr/README.md#adr-022-operating-environment-phase-1-and-model-origin-rule)).
 - Mail: a real SMTP relay (`NORMLY_SMTP_*`; STARTTLS is used as soon as a
   username is set).
 

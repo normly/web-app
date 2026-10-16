@@ -22,7 +22,7 @@ established English equivalent.
 : Holds the brand, open data, and source code; responsible for the free
   core and relationships with publishers and the community. Separate from
   a future commercial entity — see
-  [ADR-001](adr/README.md#adr-001-open-core-modell-statt-white-label-produkt).
+  [ADR-001](adr/README.md#adr-001-open-core-model-instead-of-a-white-label-product).
 
 **Normenausschuss vs. publisher**
 : The publisher (e.g. DIN, VDI, DGUV) releases a standard; the

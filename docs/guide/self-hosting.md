@@ -1,7 +1,7 @@
 # Self-Hosting
 
 normly ships as container images plus a Compose setup that starts a
-working instance with one command ([ADR-010](../adr/README.md#adr-010-auslieferung-als-container-daten-getrennt-vom-image)).
+working instance with one command ([ADR-010](../adr/README.md#adr-010-shipping-as-a-container-data-separate-from-the-image)).
 The knowledge base is **not** part of the images; it arrives as a
 separately versioned dump (see "Importing the knowledge base").
 
@@ -88,7 +88,7 @@ Point the instance at managed services instead of the bundled ones:
 - LLM: `NORMLY_LLM_PROVIDER=openai-compatible` plus base URL, model and
   `NORMLY_LLM_API_KEY` of any OpenAI-compatible `/chat/completions`
   endpoint. Only open-weight models under an OSI-approved licence are used
-  by the project itself ([ADR-022](../adr/README.md#adr-022-betriebsumgebung-phase-1-und-modellherkunftsregel)).
+  by the project itself ([ADR-022](../adr/README.md#adr-022-operating-environment-phase-1-and-model-origin-rule)).
 - Mail: a real SMTP relay (`NORMLY_SMTP_*`; STARTTLS is used as soon as a
   username is set).
 
@@ -103,7 +103,7 @@ branding variables are described in `frontend/README.md`.
 
 Every published image is signed keyless with [cosign](https://docs.sigstore.dev/)
 from the `Images` workflow in `normly/web-app`, and ships a SLSA provenance
-and an SBOM attestation ([ADR-023](../adr/README.md#adr-023-image-pipeline-ghcr-keyless-signatur-eine-version-lock-datei)).
+and an SBOM attestation ([ADR-023](../adr/README.md#adr-023-image-pipeline-ghcr-keyless-signing-one-version-lock-file)).
 To check an image before running it:
 
 ```bash
@@ -145,7 +145,7 @@ The import is idempotent: running it again with the same dump changes nothing.
 User data (watchlists, notifications, chat citations) never blocks an import:
 tombstones and citations keep their references, and what the new dump no longer
 contains loses its content
-([ADR-026](../adr/README.md#adr-026-umgang-mit-nutzerdaten-beim-wissensbestand-import)).
+([ADR-026](../adr/README.md#adr-026-handling-user-data-on-knowledge-base-import)).
 
 ## Ingesting documents
 
@@ -177,7 +177,7 @@ Sources: `eur-lex`, `dguv`, `baua`. Other maintenance commands:
   ships one). The periods are listed there.
 - **Export and deletion.** Signed-in users can download their data as JSON
   (`GET /v1/accounts/export`) and delete their account, which removes its data
-  ([ADR-027](../adr/README.md#adr-027-lebenszyklus-der-nutzerdaten)). Deletions
+  ([ADR-027](../adr/README.md#adr-027-lifecycle-of-user-data)). Deletions
   are written to a deletion log (identifiers only) so they can be re-applied
   after a restore from a backup.
 
