@@ -285,7 +285,7 @@ bauen.
   Hosting der Normen-Wissensbasis vorgesehen, entfällt; die Wissensbasis
   wird als Dump im Object Storage verteilt (ADR-025). Als datierter
   Nachtrag, nicht als stilles Überschreiben (Muster: ADR-020). Mitzuziehen:
-  der Satz in `CLAUDE.md`, REQ-GIT-005 in `docs/srs/03-anforderungen.md` und
+  der Satz in `CLAUDE.md`, REQ-GIT-005 in `docs/srs/03-requirements.md` und
   das ADR-Register. Was mit dem STACKIT-Git-Repository `normly-webapp`
   geschieht (archivieren oder löschen), ist eine getrennte Entscheidung des
   Nutzers und nicht Teil dieser Spec.

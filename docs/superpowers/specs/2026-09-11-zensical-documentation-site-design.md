@@ -81,8 +81,8 @@ docs/
     getting-started.md        # neu (Basis: alter Branch, geprüft)
     self-hosting.md           # neu (Basis: alter Branch, geprüft)
   concepts/
-    normen-graph.md           # neu (Basis: alter Branch, geprüft)
-    lizenzmodell.md           # neu (Basis: alter Branch, geprüft)
+    norm-graph.md           # neu (Basis: alter Branch, geprüft)
+    license-model.md           # neu (Basis: alter Branch, geprüft)
   reference/
     core.md                    # neu, mkdocstrings-Stub: ::: normly_core
     api.md                     # neu, mkdocstrings-Stub: ::: normly_api
@@ -152,8 +152,8 @@ Grund ebenfalls keine Google Fonts lädt.
 | `index.md` | Text aus altem Branch übernehmen, dann gegen `README.md` prüfen. **Muss korrigiert werden:** GitHub-Link (`github.com/sn4kez/normly-app`) raus — ADR-019 friert die GitHub-Fassade ein, keine neuen Verweise darauf. |
 | `guide/getting-started.md` | Text aus altem Branch übernehmen, gegen aktuellen Stand prüfen. Ehrlich bleiben: weiterhin keine lauffähige Version, kein Public-Access — Platzhalter-Charakter wo zutreffend beibehalten. |
 | `guide/self-hosting.md` | Text aus altem Branch übernehmen, gegen aktuelle Compose-/Deployment-Doku prüfen (`ADR-010`). |
-| `concepts/normen-graph.md` | Gegen ADR-008 ("Graph zuerst") in `docs/adr/README.md` prüfen. |
-| `concepts/lizenzmodell.md` | Gegen ADR-002/-011/-014 und die aktuelle Kategorien-Tabelle (A–D) aus CLAUDE.md prüfen. |
+| `concepts/norm-graph.md` | Gegen ADR-008 ("Graph zuerst") in `docs/adr/README.md` prüfen. |
+| `concepts/license-model.md` | Gegen ADR-002/-011/-014 und die aktuelle Kategorien-Tabelle (A–D) aus CLAUDE.md prüfen. |
 | `glossary.md` | Text aus altem Branch übernehmen, auf neue Begriffe seit 27.08. prüfen (z. B. Normtracker-Begriffe). |
 | `adr/README.md`, `srs/*.md` | Unverändert, nur in `nav:` eintragen. |
 

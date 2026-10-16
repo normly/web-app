@@ -7,7 +7,7 @@
 ## Kontext
 
 Das erste Teilprojekt (Datenmodell & Referenzgraph-Schema, siehe
-`docs/superpowers/specs/2026-08-11-datenmodell-referenzgraph-schema-design.md`) hat das
+`docs/superpowers/specs/2026-08-11-data-model-reference-graph-schema-design.md`) hat das
 PostgreSQL-Schema und die Repository-Schicht gebaut, aber bewusst ohne Ingestion-Logik und
 ohne Segment-/Embedding-Tabellen. Der Graph ist leer.
 

@@ -2809,7 +2809,7 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 **Files:**
 - Modify: `docs/adr/README.md` (ADR-024, ADR-025 anfügen; ADR-021-Nachtrag bei Zeile ~700; Register „Offene Punkte“ prüfen)
 - Modify: `CLAUDE.md` (Ausnahmeregel zu ADR-021: Satz zu STACKIT Git und Wissensbasis)
-- Modify: `docs/srs/03-anforderungen.md` (REQ-GIT-005 Satz zu STACKIT Git; Verweise bei REQ-INST-002, REQ-INST-004, REQ-DIST-004)
+- Modify: `docs/srs/03-requirements.md` (REQ-GIT-005 Satz zu STACKIT Git; Verweise bei REQ-INST-002, REQ-INST-004, REQ-DIST-004)
 - Create: `docs/guide/operations.md` (Englisch)
 - Modify: `docs/guide/releasing.md` (Verweis auf `normly-deploy deploy vX.Y.Z` als nächster Schritt nach einem Release)
 

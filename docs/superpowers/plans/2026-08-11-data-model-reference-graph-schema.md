@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.11+, SQLAlchemy 2.0, Alembic, psycopg 3, pytest, testcontainers-python (PostgreSQL 16 container for tests).
 
-**Spec:** `docs/superpowers/specs/2026-08-11-datenmodell-referenzgraph-schema-design.md`
+**Spec:** `docs/superpowers/specs/2026-08-11-data-model-reference-graph-schema-design.md`
 
 ## Global Constraints
 
@@ -2792,7 +2792,7 @@ Keine Lücke gefunden.
 
 ---
 
-**Plan complete and saved to `docs/superpowers/plans/2026-08-11-datenmodell-referenzgraph-schema.md`. Two execution options:**
+**Plan complete and saved to `docs/superpowers/plans/2026-08-11-data-model-reference-graph-schema.md`. Two execution options:**
 
 **1. Subagent-Driven (recommended)** — I dispatch a fresh subagent per task, review between tasks, fast iteration
 

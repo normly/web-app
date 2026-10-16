@@ -60,7 +60,7 @@ Spec: `docs/superpowers/specs/2026-10-08-tp2-image-pipeline-design.md`. Roadmap:
 | `compose.yaml`, `.env.example` | GHCR-Image-Namen, `NORMLY_IMAGE_TAG` | 4 |
 | `.github/workflows/images.yml` (neu) | Build, Push, Cache, Attestation, Signatur | 5 |
 | `docs/adr/README.md` | ADR-023 | 6 |
-| `docs/srs/03-anforderungen.md` | Verweise REQ-BUILD-001, REQ-DIST-004, REQ-GIT-005 | 6 |
+| `docs/srs/03-requirements.md` | Verweise REQ-BUILD-001, REQ-DIST-004, REQ-GIT-005 | 6 |
 | `docs/guide/self-hosting.md`, `docs/guide/releasing.md` (neu), `zensical.toml`, `README.md` | Pull-Weg, Signaturprüfung, Release-Ablauf | 7 |
 | `docs/superpowers/specs/2026-09-23-stackit-deployment-roadmap-design.md` | TP2-Verweis | 7 |
 | `docs/superpowers/specs/2026-10-08-tp2-image-pipeline-design.md` | Verifikationsergebnisse | 8 |
@@ -978,7 +978,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 6: ADR-023 und SRS-Verweise
 
 **Files:**
-- Modify: `docs/adr/README.md` (neuer Eintrag vor `## Offene Punkte`, Zeile 804), `docs/srs/03-anforderungen.md:407-419` (REQ-BUILD-001), `:515` (REQ-DIST-004), `:771-781` (REQ-GIT-005)
+- Modify: `docs/adr/README.md` (neuer Eintrag vor `## Offene Punkte`, Zeile 804), `docs/srs/03-requirements.md:407-419` (REQ-BUILD-001), `:515` (REQ-DIST-004), `:771-781` (REQ-GIT-005)
 
 - [ ] **Step 1: ADR-023 einfügen**
 
@@ -1076,7 +1076,7 @@ Expected: letzte Zeile `3 issues found`.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add docs/adr/README.md docs/srs/03-anforderungen.md
+git add docs/adr/README.md docs/srs/03-requirements.md
 git commit -s -m "docs: record ADR-023 on image publishing, signing and reproducible builds
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"

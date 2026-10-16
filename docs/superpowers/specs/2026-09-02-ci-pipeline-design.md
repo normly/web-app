@@ -253,7 +253,7 @@ Check am Pull Request.
 | REQ-BUILD-003 | Fehlgeschlagene Tests verhindern (nach Aktivierung des Branch-Schutzes) den Merge — Linting/Security-Anteil bewusst als Folgeaufgabe vertagt, siehe Nicht-Ziele. |
 | REQ-GIT-004 | Wird durch diese Pipeline erst *erfüllbar* (technische Voraussetzung); die eigentliche Durchsetzung (Merge-Blockade bei rotem Status) ist der dokumentierte manuelle Aktivierungsschritt unten. |
 | REQ-GIT-001 | Erfüllt — STACKIT Git ist mit dieser Pipeline die führende Plattform für Build/Test. |
-| REQ-GIT-002 | **Entfällt (ADR-019, 2026-09-05).** Push-Mirror wird nicht eingerichtet; kein GitHub als Beitragsfassade mehr. Requirement in `docs/srs/03-anforderungen.md` entsprechend als überholt markiert. |
+| REQ-GIT-002 | **Entfällt (ADR-019, 2026-09-05).** Push-Mirror wird nicht eingerichtet; kein GitHub als Beitragsfassade mehr. Requirement in `docs/srs/03-requirements.md` entsprechend als überholt markiert. |
 | REQ-INST-002, REQ-DIST-004 | Unberührt — kein Deployment, kein Image-Build in diesem Teilprojekt. |
 
 ## Aktivierungsschritte nach Implementierung (manuell, einmalig)

@@ -176,7 +176,7 @@ hier).
 |---|---|
 | REQ-GRAPH-005 | `Work`-Gruppierung der Suchergebnisse ist die erste nutzerseitig sichtbare Konsequenz der in Teilprojekt 1 eingeführten Work-Identität. |
 | ADR-006 | pgvector bleibt die einzige Vektor-Infrastruktur (kein Neo4j, keine externe Suchmaschine) — dieses Teilprojekt fügt eine zweite pgvector-Nutzung (Document-Embeddings) neben der bestehenden (Segment-Embeddings) hinzu, ohne neue Technologie. |
-| — | Es existiert aktuell kein REQ-SEARCH-*-Eintrag im SRS (`docs/srs/03-anforderungen.md`) für die Suche selbst — dieses Design füllt eine bislang unformalisierte Anforderung. Empfehlung als Folgearbeit: einen REQ-SEARCH-001 ergänzen, der die hybride Suche und die Work-Gruppierung als Abnahmekriterium festhält. |
+| — | Es existiert aktuell kein REQ-SEARCH-*-Eintrag im SRS (`docs/srs/03-requirements.md`) für die Suche selbst — dieses Design füllt eine bislang unformalisierte Anforderung. Empfehlung als Folgearbeit: einen REQ-SEARCH-001 ergänzen, der die hybride Suche und die Work-Gruppierung als Abnahmekriterium festhält. |
 
 ## Offene Punkte / Folgearbeiten
 

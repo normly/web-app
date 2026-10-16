@@ -103,7 +103,7 @@ ersetzt wurde, und welche Rechtsvorschrift auf welche Norm verweist.
 ## Wo du weiterliest
 
 - **[Guide](guide/getting-started.md)** — Einstieg für Nutzer und Betreiber
-- **[Concepts](concepts/normen-graph.md)** — die fachlichen Prinzipien
+- **[Concepts](concepts/norm-graph.md)** — die fachlichen Prinzipien
   dahinter (Graph zuerst, Lizenzmodell)
 - **[Architekturentscheidungen](adr/README.md)** — warum es so gebaut ist,
   wie es gebaut ist
@@ -123,7 +123,7 @@ Details und Begründung stehen in `README.md` und `GOVERNANCE.md` im
 Repository-Wurzelverzeichnis.
 ```
 
-Note: this links to `guide/getting-started.md`, `concepts/normen-graph.md`,
+Note: this links to `guide/getting-started.md`, `concepts/norm-graph.md`,
 `reference/core.md` which don't exist yet — that's expected, they land in
 Tasks 2, 3, 5. Don't build with `--strict` yet (it would fail on these); a
 plain build is enough for this task.
@@ -289,15 +289,15 @@ git commit -s -m "docs: add Guide section (getting-started, self-hosting)"
 ### Task 3: Concepts section
 
 **Files:**
-- Create: `docs/concepts/normen-graph.md`
-- Create: `docs/concepts/lizenzmodell.md`
+- Create: `docs/concepts/norm-graph.md`
+- Create: `docs/concepts/license-model.md`
 - Modify: `zensical.toml` (extend `nav`)
 
 **Interfaces:**
 - Consumes: `nav` array from Task 2.
 - Produces: `nav` now has a `"Concepts"` section after `"Guide"`.
 
-- [ ] **Step 1: Write `docs/concepts/normen-graph.md`**
+- [ ] **Step 1: Write `docs/concepts/norm-graph.md`**
 
 ```markdown
 # Graph zuerst, Modell nur bei Bedarf
@@ -328,12 +328,12 @@ Details: [ADR-006](../adr/README.md#adr-006-postgresql-instead-of-neo4j-for-the-
 
 Der Referenzgraph selbst ist offen (ODbL) — geschichtet in einen freien und
 einen kommerziellen Teil, nicht zurückgehalten. Was frei ist, steht in
-[Lizenzmodell](lizenzmodell.md).
+[Lizenzmodell](license-model.md).
 ```
 
 (Unchanged from the old branch — content still matches current ADR-006/-008.)
 
-- [ ] **Step 2: Write `docs/concepts/lizenzmodell.md`**
+- [ ] **Step 2: Write `docs/concepts/license-model.md`**
 
 ```markdown
 # Lizenzmodell
@@ -398,8 +398,8 @@ nav = [
     "guide/self-hosting.md",
   ] },
   { "Concepts" = [
-    "concepts/normen-graph.md",
-    "concepts/lizenzmodell.md",
+    "concepts/norm-graph.md",
+    "concepts/license-model.md",
   ] },
 ]
 ```
@@ -426,7 +426,7 @@ Expected: no `MISSING:` lines. `adr-014-...` is the one anchor in this list
 that wasn't already validated on the old branch (it's a new reference added
 in Step 2) — if it's reported missing, open the built ADR page and grep for
 `id="adr-014` to find the actual id Zensical generated, then fix the link
-in `lizenzmodell.md`.
+in `license-model.md`.
 
 - [ ] **Step 5: Commit**
 
@@ -463,8 +463,8 @@ nav = [
     "guide/self-hosting.md",
   ] },
   { "Concepts" = [
-    "concepts/normen-graph.md",
-    "concepts/lizenzmodell.md",
+    "concepts/norm-graph.md",
+    "concepts/license-model.md",
   ] },
   { "Architecture decisions" = "adr/README.md" },
   { "Requirements (SRS)" = "srs/README.md" },
@@ -586,8 +586,8 @@ nav = [
     "guide/self-hosting.md",
   ] },
   { "Concepts" = [
-    "concepts/normen-graph.md",
-    "concepts/lizenzmodell.md",
+    "concepts/norm-graph.md",
+    "concepts/license-model.md",
   ] },
   { "Architecture decisions" = "adr/README.md" },
   { "Requirements (SRS)" = "srs/README.md" },
@@ -669,7 +669,7 @@ keine etablierte Entsprechung gibt.
 
 **Kategorie A–D**
 : Rechteklassifikation je Quelle, siehe
-  [Lizenzmodell](concepts/lizenzmodell.md#rechteklassifikation-nach-kategorie).
+  [Lizenzmodell](concepts/license-model.md#rechteklassifikation-nach-kategorie).
 ```
 
 (Adds a **Work** entry — new domain term introduced by the Normtracker work
@@ -687,8 +687,8 @@ nav = [
     "guide/self-hosting.md",
   ] },
   { "Concepts" = [
-    "concepts/normen-graph.md",
-    "concepts/lizenzmodell.md",
+    "concepts/norm-graph.md",
+    "concepts/license-model.md",
   ] },
   { "Architecture decisions" = "adr/README.md" },
   { "Requirements (SRS)" = "srs/README.md" },

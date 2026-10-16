@@ -154,7 +154,7 @@ Protokoll gültig.
 - **CLAUDE.md**, Abschnitt „Nicht verhandelbar": ein Satz zur
   Modellherkunft (Open-Weight, OSI-Lizenz, Betrieb nur auf STACKIT, keine
   Daten an den Modellhersteller) mit Verweis auf ADR-022.
-- **SRS** `docs/srs/03-anforderungen.md`: REQ-DIST-001 (Abweichung mit
+- **SRS** `docs/srs/03-requirements.md`: REQ-DIST-001 (Abweichung mit
   Verweis), Kapitel 3.5 Fließtext (Modellherkunft). REQ-INST-003
   (Secrets-Fluss) erst in TP3, wenn der Weg feststeht.
 - **`docs/guide/self-hosting.md`**: Platzhalter ersetzen durch den

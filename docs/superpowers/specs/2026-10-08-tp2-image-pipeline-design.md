@@ -400,7 +400,7 @@ bleibt der Nachweis, dass zur Laufzeit kein Netzwerkzugriff stattfindet.
   Voraussetzung für den Datenstand-Abgleich. Verworfen: eigener Schlüssel,
   Version je Paket, PR-Builds, pip-tools. Konsequenz: Verweise aus
   REQ-BUILD-001, REQ-DIST-004, REQ-GIT-005.
-- **`docs/srs/03-anforderungen.md`:** REQ-BUILD-001 und REQ-DIST-004
+- **`docs/srs/03-requirements.md`:** REQ-BUILD-001 und REQ-DIST-004
   erhalten unter „Weitere Informationen" den Verweis auf ADR-023.
   REQ-GIT-005 nennt im Akzeptanzkriterium noch die STACKIT Container
   Registry; der Satz wird auf GHCR (ADR-021) umgestellt und bekommt den

@@ -213,8 +213,8 @@ nav = [
     "guide/self-hosting.md",
   ] },
   { "Concepts" = [
-    "concepts/normen-graph.md",
-    "concepts/lizenzmodell.md",
+    "concepts/norm-graph.md",
+    "concepts/license-model.md",
   ] },
   { "Architekturentscheidungen" = "adr/README.md" },
   { "Anforderungen (SRS)" = "srs/README.md" },
@@ -242,8 +242,8 @@ nav = [
     "guide/self-hosting.md",
   ] },
   { "Concepts" = [
-    "concepts/normen-graph.md",
-    "concepts/lizenzmodell.md",
+    "concepts/norm-graph.md",
+    "concepts/license-model.md",
   ] },
   { "Architecture decisions" = "adr/README.md" },
   { "Requirements (SRS)" = "srs/README.md" },
@@ -285,7 +285,7 @@ standard.
 
 - **[Guide](guide/getting-started.md)** — getting started for users and
   operators
-- **[Concepts](concepts/normen-graph.md)** — the underlying principles
+- **[Concepts](concepts/norm-graph.md)** — the underlying principles
   (graph first, license model)
 - **[Architecture decisions](adr/README.md)** — why it's built the way
   it's built
@@ -397,19 +397,19 @@ git commit -s -m "docs: translate Guide section to English"
 ### Task 4: Translate the Concepts section
 
 **Files:**
-- Modify: `docs/concepts/normen-graph.md`
-- Modify: `docs/concepts/lizenzmodell.md`
+- Modify: `docs/concepts/norm-graph.md`
+- Modify: `docs/concepts/license-model.md`
 
 **Interfaces:**
 - Consumes: nothing new from Task 3.
 
 Work from: `/home/snake/Dokumente/Projekte/01_normly/normly-app/.worktrees/docs-zensical-documentation-site`
 
-Note: the filenames stay German (`normen-graph.md`, `lizenzmodell.md`) —
+Note: the filenames stay German (`norm-graph.md`, `license-model.md`) —
 only the content and the display text of links pointing at them change.
 Don't rename the files; other pages link to them by these exact paths.
 
-- [ ] **Step 1: Replace `docs/concepts/normen-graph.md`**
+- [ ] **Step 1: Replace `docs/concepts/norm-graph.md`**
 
 ```markdown
 # Graph first, model only when needed
@@ -440,10 +440,10 @@ Details: [ADR-006](../adr/README.md#adr-006-postgresql-instead-of-neo4j-for-the-
 
 The reference graph itself is open (ODbL) — layered into a free and a
 commercial part, not withheld. What's free is described in
-[License Model](lizenzmodell.md).
+[License Model](license-model.md).
 ```
 
-- [ ] **Step 2: Replace `docs/concepts/lizenzmodell.md`**
+- [ ] **Step 2: Replace `docs/concepts/license-model.md`**
 
 ```markdown
 # License Model
@@ -580,7 +580,7 @@ established English equivalent.
 
 **Category A–D**
 : Rights classification per source, see
-  [License Model](concepts/lizenzmodell.md#rechteklassifikation-nach-kategorie).
+  [License Model](concepts/license-model.md#rechteklassifikation-nach-kategorie).
 ```
 
 Judgment call worth understanding, not re-litigating: `Referenzgraph` (the
@@ -588,7 +588,7 @@ original German term) is translated here to "Reference graph", *not* kept
 under the domain-term exception — unlike `Normenausschuss` and
 `Trägerorganisation`, "reference graph" already has an established
 English equivalent, the one already used consistently throughout
-`index.md`, `normen-graph.md`, and `lizenzmodell.md` (translated in Tasks
+`index.md`, `norm-graph.md`, and `license-model.md` (translated in Tasks
 2 and 4). Keeping the glossary entry itself in German would be
 inconsistent with how the term is used everywhere else in the same site.
 `Normenausschuss` and `Trägerorganisation` stay German because they don't

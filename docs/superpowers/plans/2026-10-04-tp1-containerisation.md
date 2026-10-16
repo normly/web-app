@@ -71,7 +71,7 @@ Python-Pakete lokal: `core/.venv`, `api/.venv`, `chat/.venv`, `accounts/.venv` (
 - `chat/tests/conftest.py`, `test_chat_router.py`, `test_structural_end_to_end.py` — neue Variablennamen.
 - `docs/adr/README.md` — ADR-022, offener Punkt gestrichen.
 - `CLAUDE.md` — Satz zur Modellherkunft.
-- `docs/srs/03-anforderungen.md` — REQ-DIST-001, Kapitel 3.5.9.
+- `docs/srs/03-requirements.md` — REQ-DIST-001, Kapitel 3.5.9.
 - `docs/guide/self-hosting.md`, `docs/guide/getting-started.md` — tatsächlicher Compose-Weg.
 - `frontend/README.md` — Hinweis auf Compose-Betrieb.
 
@@ -1334,7 +1334,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 **Files:**
 - Modify: `docs/adr/README.md` (ADR-022 vor `## Offene Punkte`, Zeile 745; Zeile der offenen Punkte „Öffentlicher Lesezugriff auf STACKIT Container Registry" entfernen)
 - Modify: `CLAUDE.md:33-35`
-- Modify: `docs/srs/03-anforderungen.md` (REQ-DIST-001 „Weitere Informationen"; Abschnitt 3.5.9)
+- Modify: `docs/srs/03-requirements.md` (REQ-DIST-001 „Weitere Informationen"; Abschnitt 3.5.9)
 - Modify: `docs/guide/self-hosting.md`, `docs/guide/getting-started.md`
 - Modify: `frontend/README.md` (Hinweis unter „Environment variables")
 
@@ -1418,7 +1418,7 @@ Nach dem Punkt „Der Kern darf nicht von proprietären Bestandteilen abhängen.
 
 - [ ] **Step 3: SRS anpassen**
 
-In `docs/srs/03-anforderungen.md`, REQ-DIST-001, Zeile `**Weitere Informationen:** Gilt auch für ML-Daten und Logs.` ersetzen durch:
+In `docs/srs/03-requirements.md`, REQ-DIST-001, Zeile `**Weitere Informationen:** Gilt auch für ML-Daten und Logs.` ersetzen durch:
 
 ```markdown
 **Weitere Informationen:** Gilt auch für ML-Daten und Logs. **Befristete Abweichung (ADR-022, 2026-09-23):** In Phase 1 existiert nur eine Produktionsumgebung auf STACKIT; das lokale Compose-Setup übernimmt die Rolle der Staging-Umgebung. Aufzuheben, sobald es Nutzer gibt, die ein fehlerhaftes Deployment treffen würde.
@@ -1566,7 +1566,7 @@ Expected: `3 issues found` (die drei bekannten Wiki-Link-Treffer in `docs/superp
 - [ ] **Step 7: Commit**
 
 ```bash
-git add docs/adr/README.md CLAUDE.md docs/srs/03-anforderungen.md docs/guide/self-hosting.md docs/guide/getting-started.md frontend/README.md
+git add docs/adr/README.md CLAUDE.md docs/srs/03-requirements.md docs/guide/self-hosting.md docs/guide/getting-started.md frontend/README.md
 git commit -s -m "docs: add ADR-022 (phase-1 operations, model provenance), self-hosting guide
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
