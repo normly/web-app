@@ -50,7 +50,7 @@ dependencies.
   reference only (left-nav + content-card two-column pattern), the same
   way `ai-chat-v2` was structural-reference-only for the chat page in an
   earlier plan.
-- **No shared "Save" bar (bottom save bar).** The spec describes
+- **No shared "Save" bar at the bottom.** The spec describes
   `settings-profile4`'s own structure as including one, but each of the
   six existing account sections already has its own inline save button
   tied to its own already-working handler — there is no single unified

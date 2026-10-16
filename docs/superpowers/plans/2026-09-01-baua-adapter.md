@@ -29,9 +29,9 @@ no new dependency), `reportlab` (dev-only, test fixtures), `pytest`.
 - Every commit needs `Signed-off-by: normly <anonymous-jw@pm.me>` (DCO, CLAUDE.md).
 - One `BauaAdapter` covers all three series (TRGS, TRBS, TRBA) under a single registry
   entry, publisher `"BAuA"` — not three adapters (spec, "Goal of this sub-project").
-- Legal basis category is **A** (official work, § 5 UrhG (German Copyright Act) "amtliche Bekanntmachungen", i.e. official notices)
-  — same tier as the existing `"dguv"`/`"eur-lex"` registry entries (spec,
-  "Legal basis: category A").
+- Legal basis category is **A** (official work under § 5 UrhG, the German Copyright
+  Act: "amtliche Bekanntmachungen", i.e. official notices) — same tier as the existing
+  `"dguv"`/`"eur-lex"` registry entries (spec, "Legal basis: category A").
 - `extract_structure()` returns exactly one segment holding the full document text,
   `heading=None` — no numbered-section splitting in this pass (spec, "Decision:
   structure depth phase 1"). Do not add heading detection as part of this plan.

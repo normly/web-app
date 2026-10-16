@@ -185,7 +185,7 @@ More directly, diagnose from the failure category:
 
 - A `container:` or implicit-checkout syntax error (job fails immediately,
   before your `run:` step's own output ever appears) — this is the
-  spec's flagged unverified assumption ("Illustrativ" in the design doc).
+  spec's flagged unverified assumption ("Illustrative" in the design doc).
   Adjust the YAML to whatever the runner's Forgejo version actually
   expects (check the Forgejo version via
   `curl -s https://normly.git.onstackit.cloud/api/v1/version`, then compare

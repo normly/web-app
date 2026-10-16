@@ -3371,7 +3371,7 @@ git commit -s -m "test: add end-to-end chat/history flows and a WCAG 2.1 AA chec
 | `REQ-MOB-001`/`003` (PWA, abstraction layer) | Task 2 |
 | Internationalization (DE/EN) | Task 5 |
 | BFF/httpOnly cookie architecture | Task 6, 7, 9, 11 |
-| Theming/White-Label | Task 4 |
+| Theming/white-label configuration | Task 4 |
 
 No gap found — every section of the spec has a counterpart in at least one
 Task.
