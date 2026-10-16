@@ -328,288 +328,288 @@ When outputting chat answers, care must be taken that an original 1:1 reproducti
 
 **Important:** The link to the original norm always points to the vendor's respective shop link. Remuneration for this referral (affiliate model) can be considered at this point. Personalized advertising is excluded.
 
-## 3.5 Design und Implementierung
+## 3.5 Design and implementation
 
-Dieses Kapitel beschreibt verbindliche Anforderungen und Rahmenbedingungen für das Design, die Implementierung, den Build-, Deployment- und Distributionsprozess von normly.
+This section describes binding requirements and constraints for the design, the implementation, and the build, deployment and distribution process of normly.
 
-Die hier definierten Anforderungen stellen sicher, dass das System sicher, wartbar, skalierbar und konform mit den Zielen der Daten- und Technologiesouveränität betrieben werden kann.
+The requirements defined here ensure that the system can be operated securely, maintainably, scalably and in conformity with the goals of data and technology sovereignty.
 
-Sie gelten für alle Umgebungen (Entwicklung, Test, Staging und Produktion) und ergänzen die funktionalen sowie nicht-funktionalen Anforderungen der vorangegangenen Kapitel um konkrete Vorgaben zur technischen Umsetzung und zum Betrieb.
+They apply to all environments (development, test, staging and production) and supplement the functional and non-functional requirements of the preceding sections with concrete specifications for technical implementation and operation.
 
 ### 3.5.1 Installation (Deployment)
 
-Dieses Kapitel definiert Anforderungen an die Bereitstellung, Konfiguration und Wiederherstellung der normly-Software in allen Zielumgebungen.
+This section defines requirements for the provisioning, configuration and recovery of the normly software in all target environments.
 
-#### REQ-INST-001 — Deployment auf deutscher StackIT-Infrastruktur
+#### REQ-INST-001 — Deployment on German StackIT infrastructure
 
-**Statement:** Das System muss in allen Umgebungen (Produktiv-, Test-, Staging- und Entwicklungsumgebung) ausschließlich auf **Serverinfrastruktur der StackIT (Schwarz Gruppe) mit Standort in Deutschland** betrieben werden.
+**Statement:** The system must be operated in all environments (production, test, staging and development environments) exclusively on **server infrastructure of StackIT (Schwarz Gruppe) located in Germany**.
 
-**Rationale:** Sicherstellung von Datenhoheit, rechtlicher Souveränität und Unabhängigkeit von nicht-europäischen Cloud-Anbietern.
+**Rationale:** Ensuring data sovereignty, legal sovereignty and independence from non-European cloud providers.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Alle Compute-, Storage- und Netzwerkressourcen stammen von StackIT
+- All compute, storage and network resources come from StackIT
 
-- Serverstandorte befinden sich in Deutschland
+- Server locations are in Germany
 
-**Abnahmekriterium:** Infrastruktur- und Vertragsprüfung bestätigt ausschließliche Nutzung von STACKIT-Services in Deutschland.
+**Acceptance test:** Infrastructure and contract review confirms exclusive use of STACKIT services in Germany.
 
-**Weitere Informationen:** Gilt für LLM-Inferenz, Vektordatenbanken, Logging und Monitoring sowie für Betrieb, Nutzerdaten und die Normen-Wissensbasis uneingeschränkt. Seit ADR-021 (2026-09-14) gilt eine Ausnahme für Quellcode, CI/CD und Container-Registry des freien Kerns: Diese liegen auf GitHub (`github.com/normly/web-app`), siehe REQ-GIT-001 und REQ-BUILD-002. Die Server-, Daten- und Betriebsinfrastruktur selbst bleibt davon unberührt und ausschließlich auf STACKIT.
+**Further information:** Applies without restriction to LLM inference, vector databases, logging and monitoring as well as to operations, user data and the norms knowledge base. Since ADR-021 (2026-09-14), an exception applies to source code, CI/CD and container registry of the free core: these reside on GitHub (`github.com/normly/web-app`), see REQ-GIT-001 and REQ-BUILD-002. The server, data and operations infrastructure itself remains unaffected by this and exclusively on STACKIT.
 
-#### REQ-INST-002 — Automatisiertes Deployment
+#### REQ-INST-002 — Automated deployment
 
-**Statement:** Das System muss vollständig automatisiert deploybar sein, ohne manuelle Eingriffe in Zielumgebungen.
+**Statement:** The system must be deployable fully automatically, without manual intervention in target environments.
 
-**Rationale:** Reduzierung von Fehlern, schnellere Releases und reproduzierbare Umgebungen.
+**Rationale:** Reduction of errors, faster releases and reproducible environments.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Deployment erfolgt per Skript oder Pipeline
+- Deployment takes place via script or pipeline
 
-- Kein manuelles Server-Setup erforderlich
+- No manual server setup required
 
-**Abnahmekriterium:** Neues System kann aus leerer Umgebung automatisiert bereitgestellt werden.
+**Acceptance test:** A new system can be provisioned automatically from an empty environment.
 
-**Weitere Informationen:** Infrastructure as Code empfohlen. Umsetzung: ADR-024 (`normly-deploy`).
+**Further information:** Infrastructure as Code recommended. Implementation: ADR-024 (`normly-deploy`).
 
-#### REQ-INST-003 — Konfigurationsmanagement über Umgebungsvariablen
+#### REQ-INST-003 — Configuration management via environment variables
 
-**Statement:** Umgebungsspezifische Konfigurationen (z. B. Endpunkte, Feature-Flags) müssen über Umgebungsvariablen oder zentrale Konfigurationsdienste erfolgen. Zugangsdaten und Schlüsselmaterial werden ausschließlich im STACKIT Secrets Manager gehalten, nicht in Umgebungsvariablen.
+**Statement:** Environment-specific configurations (e.g. endpoints, feature flags) must be provided via environment variables or central configuration services. Credentials and key material are held exclusively in the STACKIT Secrets Manager, not in environment variables.
 
-**Rationale:** Trennung von Code und Konfiguration erhöht Sicherheit und Wartbarkeit.
+**Rationale:** Separation of code and configuration increases security and maintainability.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Keine secrets im Quellcode
+- No secrets in the source code
 
-- Unterschiedliche Umgebungen ohne Codeänderung betreibbar
+- Different environments can be operated without code changes
 
-**Abnahmekriterium:** Code-Review zeigt keine hartkodierten Konfigurationswerte.
+**Acceptance test:** Code review shows no hard-coded configuration values.
 
-**Weitere Informationen:** Siehe Kapitel 3.3.2 sowie REQ-SEC-002.
+**Further information:** See section 3.3.2 as well as REQ-SEC-002.
 
-#### REQ-INST-004 — Rollback-Fähigkeit
+#### REQ-INST-004 — Rollback capability
 
-**Statement:** Das System muss die Möglichkeit bieten, ein Deployment automatisiert auf eine vorherige stabile Version zurückzusetzen.
+**Statement:** The system must provide the ability to automatically roll back a deployment to a previous stable version.
 
-**Rationale:** Minimierung von Ausfallzeiten bei fehlerhaften Releases.
+**Rationale:** Minimization of downtime in the case of faulty releases.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Mindestens eine vorherige Version ist jederzeit wiederherstellbar
+- At least one previous version can be restored at any time
 
-**Abnahmekriterium:** Rollback wird erfolgreich in Testumgebung durchgeführt.
+**Acceptance test:** A rollback is carried out successfully in a test environment.
 
-**Weitere Informationen:** Blue-Green oder vergleichbare Strategien zulässig. Umsetzung: ADR-024 (`normly-deploy`); der Rollback stellt Images und Datenstand wieder her und verwirft Nutzerdaten seit dem Rollout (mit Warnung und Bestätigung).
+**Further information:** Blue-green or comparable strategies permitted. Implementation: ADR-024 (`normly-deploy`); the rollback restores images and data state and discards user data since the rollout (with warning and confirmation).
 
 ### 3.5.2 Build and Delivery
 
-Dieses Kapitel definiert Anforderungen an Build-Prozesse, Artefakterstellung, Integrität und Auslieferung der Software.
+This section defines requirements for build processes, artifact creation, integrity and shipping of the software.
 
-#### REQ-BUILD-001 — Reproduzierbare Builds
+#### REQ-BUILD-001 — Reproducible builds
 
-**Statement:** Builds des Systems müssen reproduzierbar sein, sodass derselbe Quellcode unter gleichen Bedingungen identische Artefakte erzeugt.
+**Statement:** Builds of the system must be reproducible, so that the same source code produces identical artifacts under the same conditions.
 
-**Rationale:** Nachvollziehbarkeit, Sicherheit und Debugging-Fähigkeit.
+**Rationale:** Traceability, security and debuggability.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Versionierte Abhängigkeiten
+- Versioned dependencies
 
-- Build ohne externe, nicht deterministische Einflüsse
+- Build without external, non-deterministic influences
 
-**Abnahmekriterium:** Zwei Builds aus identischem Commit erzeugen identische Artefakte.
+**Acceptance test:** Two builds from an identical commit produce identical artifacts.
 
-**Weitere Informationen:** Gilt für Backend, Frontend und ML-Komponenten. Umsetzung seit ADR-023 (2026-10-08): uv-Workspace mit `uv.lock`, Basis-Images per Digest, Modellgewichte per Commit gepinnt; derselbe Git-Tag baut aus denselben Eingaben (Lock-Datei, Image-Digests, Modell-Commits, gelockter Build-Backend). Bit-identische Images (Abnahmekriterium) sind damit noch nicht erreicht: Zeitstempel in Schichten und die apt-Pakete der Basisschicht sind nicht festgeschrieben — offener Punkt.
+**Further information:** Applies to backend, frontend and ML components. Implementation since ADR-023 (2026-10-08): uv workspace with `uv.lock`, base images pinned by digest, model weights pinned by commit; the same Git tag builds from the same inputs (lock file, image digests, model commits, locked build backend). Bit-identical images (acceptance test) are thus not yet achieved: timestamps in layers and the apt packages of the base layer are not pinned — open item.
 
-#### REQ-BUILD-002 — CI/CD-Infrastruktur für den freien Kern
+#### REQ-BUILD-002 — CI/CD infrastructure for the free core
 
-**Statement:** Build-, Test- und CI/CD-Prozesse für den freien Kern laufen auf **GitHub Actions** im Repository `normly/web-app`. Für Betrieb, Deployment, Secrets-Management und die Normen-Wissensbasis gilt unverändert die Beschränkung auf STACKIT bzw. gleichwertige, nicht-US-amerikanische Infrastruktur.
+**Statement:** Build, test and CI/CD processes for the free core run on **GitHub Actions** in the repository `normly/web-app`. For operations, deployment, secrets management and the norms knowledge base, the restriction to STACKIT or equivalent, non-US infrastructure continues to apply unchanged.
 
-**Rationale:** ADR-021 (2026-09-14) — einfachere Kollaboration überwiegt für Quellcode und CI des offenen Kerns den Souveränitätsvorteil einer alleinigen STACKIT-Plattform. Schutz von Betriebsdaten, Zugangsdaten und Prompts vor extraterritorialem Zugriff bleibt davon unberührt, da diese nicht Teil des CI-Prozesses auf GitHub sind.
+**Rationale:** ADR-021 (2026-09-14) — for the source code and CI of the open core, easier collaboration outweighs the sovereignty advantage of a single STACKIT platform. The protection of operational data, credentials and prompts against extraterritorial access remains unaffected by this, since these are not part of the CI process on GitHub.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Build und Test des freien Kerns laufen auf GitHub Actions
+- Build and test of the free core run on GitHub Actions
 
-- Secrets Manager, Produktions-Deployment und Betriebs-Runner für alles außer dem Kern-Build bleiben ausschließlich in STACKIT
+- Secrets Manager, production deployment and operations runners for everything except the core build remain exclusively in STACKIT
 
-**Abnahmekriterium:** Tooling-Review bestätigt, dass kein Betriebs- oder Deployment-Schritt außerhalb von STACKIT läuft und dass in der GitHub-CI keine STACKIT-Betriebszugangsdaten hinterlegt sind.
+**Acceptance test:** A tooling review confirms that no operations or deployment step runs outside STACKIT and that no STACKIT operations credentials are stored in the GitHub CI.
 
-**Weitere Informationen:** Bis zum Port von `.forgejo/workflows/ci.yml` nach `.github/workflows/` läuft auf GitHub noch keine CI (Stand 2026-09-14). Siehe REQ-GIT-001.
+**Further information:** Until `.forgejo/workflows/ci.yml` is ported to `.github/workflows/`, no CI runs on GitHub yet (as of 2026-09-14). See REQ-GIT-001.
 
-#### REQ-BUILD-003 — Automatisierte Qualitätssicherung im Build
+#### REQ-BUILD-003 — Automated quality assurance in the build
 
-**Statement:** Builds dürfen nur erfolgreich abgeschlossen werden, wenn definierte Qualitätskriterien (Tests, Linting, Security-Checks) erfüllt sind.
+**Statement:** Builds may only complete successfully if defined quality criteria (tests, linting, security checks) are met.
 
-**Rationale:** Vermeidung instabiler oder unsicherer Releases.
+**Rationale:** Avoidance of unstable or insecure releases.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Fehlgeschlagene Tests verhindern Auslieferung
+- Failed tests prevent shipping
 
-**Abnahmekriterium:** Pipeline bricht bei Testfehlern ab.
+**Acceptance test:** The pipeline aborts on test failures.
 
-**Weitere Informationen:** Siehe auch Kapitel 3.5.4 Wartbarkeit.
+**Further information:** See also section 3.5.4 Maintainability.
 
 ### 3.5.3 Distribution
 
-Dieses Kapitel beschreibt Anforderungen an die Verteilung, Skalierung und Trennung der Systemkomponenten über mehrere Umgebungen hinweg.
+This section describes requirements for the distribution, scaling and separation of the system components across multiple environments.
 
-#### REQ-DIST-001 — Klare Trennung von Umgebungen
+#### REQ-DIST-001 — Clear separation of environments
 
-**Statement:** Produktiv-, Staging-, Test- und Entwicklungsumgebungen müssen strikt voneinander getrennt betrieben werden.
+**Statement:** Production, staging, test and development environments must be operated strictly separately from each other.
 
-**Rationale:** Vermeidung von Datenlecks und unbeabsichtigten Änderungen im Produktivsystem.
+**Rationale:** Avoidance of data leaks and unintended changes in the production system.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Getrennte Infrastruktur und Konfigurationen
+- Separate infrastructure and configurations
 
-- Keine gemeinsamen Datenbanken
+- No shared databases
 
-**Abnahmekriterium:** Architektur-Review bestätigt Umgebungstrennung.
+**Acceptance test:** An architecture review confirms the separation of environments.
 
-**Weitere Informationen:** Gilt auch für ML-Daten und Logs. **Befristete Abweichung (ADR-022, 2026-09-23):** In Phase 1 existiert nur eine Produktionsumgebung auf STACKIT; das lokale Compose-Setup übernimmt die Rolle der Staging-Umgebung. Aufzuheben, sobald es Nutzer gibt, die ein fehlerhaftes Deployment treffen würde.
+**Further information:** Also applies to ML data and logs. **Temporary deviation (ADR-022, 2026-09-23):** In Phase 1, only one production environment exists on STACKIT; the local Compose setup takes on the role of the staging environment. To be lifted as soon as there are users whom a faulty deployment would affect.
 
-#### REQ-DIST-002 — Skalierbare Verteilung der Systemkomponenten
+#### REQ-DIST-002 — Scalable distribution of the system components
 
-**Statement:** Das System muss so verteilt sein, dass einzelne Komponenten (z. B. Chat-Backend, LLM-Inferenz, Dokumentenverarbeitung) unabhängig voneinander skaliert werden können.
+**Statement:** The system must be distributed in such a way that individual components (e.g. chat backend, LLM inference, document processing) can be scaled independently of each other.
 
-**Rationale:** Kosteneffizienz und Performance bei wachsender Nutzung.
+**Rationale:** Cost efficiency and performance with growing usage.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Horizontale Skalierung einzelner Services möglich
+- Horizontal scaling of individual services possible
 
-**Abnahmekriterium:** Lasttest zeigt erfolgreiche Skalierung einzelner Komponenten.
+**Acceptance test:** A load test shows successful scaling of individual components.
 
-**Weitere Informationen:** Microservice- oder modulare Architektur empfohlen.
+**Further information:** Microservice or modular architecture recommended.
 
-#### REQ-DIST-003 — Optionale Mandantenfähigkeit für Managed Hosting
+#### REQ-DIST-003 — Optional multi-tenancy for managed hosting
 
-**Statement:** Das System soll optional mehrere Organisationen (Mandanten) logisch getrennt innerhalb derselben Deployment-Struktur betreiben können. Mandantenfähigkeit ist Voraussetzung für das Managed-Hosting-Angebot der kommerziellen Schicht, nicht für den Betrieb einer einzelnen Instanz des freien Kerns.
+**Statement:** The system should optionally be able to operate multiple organizations (tenants) logically separated within the same deployment structure. Multi-tenancy is a prerequisite for the managed hosting offering of the commercial layer, not for operating a single instance of the free core.
 
-**Rationale:** Grundvoraussetzung für das Managed-Hosting-Angebot der kommerziellen Schicht. Für den Betrieb einer einzelnen Instanz des freien Kerns ist Mandantenfähigkeit nicht erforderlich und darf keine Voraussetzung sein.
+**Rationale:** Basic prerequisite for the managed hosting offering of the commercial layer. For operating a single instance of the free core, multi-tenancy is not required and must not be a prerequisite.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Trennung von Konfiguration, Erscheinungsbild und Daten je Mandant
+- Separation of configuration, appearance and data per tenant
 
-- Der freie Kern ist ohne aktivierte Mandantenfähigkeit vollständig lauffähig
+- The free core is fully runnable without multi-tenancy enabled
 
-**Abnahmekriterium:** Zwei Organisationen können parallel ohne Überschneidungen betrieben werden; eine Einzelinstanz läuft ohne Mandantenkonfiguration.
+**Acceptance test:** Two organizations can be operated in parallel without overlaps; a single instance runs without tenant configuration.
 
-**Weitere Informationen:** Relevanz für UI, Datenmanagement und Abrechnung. Trennung lizenzierter Bestände siehe REQ-PART-004 und REQ-SEC-003.
+**Further information:** Relevant for UI, data management and billing. For the separation of licensed collections, see REQ-PART-004 and REQ-SEC-003.
 
-#### REQ-DIST-004 — Versionierte Auslieferung der Anwendung
+#### REQ-DIST-004 — Versioned shipping of the application
 
-**Statement:** Die Anwendung muss als versionierte, signierte Container-Images ausgeliefert werden, ergänzt um ein lauffähiges Compose-Setup, das Anwendung, Datenbank und Grundkonfiguration in einem Aufruf startet. Der freie Wissensbestand ist nicht Bestandteil des Images, sondern wird als eigenständig versionierter Dump bereitgestellt und beim ersten Start bezogen. Code- und Datenstand sind getrennt versioniert und unabhängig voneinander aktualisierbar.
+**Statement:** The application must be shipped as versioned, signed container images, supplemented by a runnable Compose setup that starts the application, database and basic configuration in one invocation. The free knowledge base is not part of the image, but is provided as an independently versioned dump and obtained on first start. Code and data are versioned separately and can be updated independently of each other.
 
-**Rationale:** Ein quelloffener Kern, den außer dem Projekt selbst niemand betreiben kann, ist praktisch nicht offen. Das Container-Image ist der Nachweis der Selbst-Hostbarkeit und zugleich Grundlage der eigenen Deployments und des Managed-Hosting-Angebots. Die Trennung von Code und Daten ist erforderlich, weil sich Normenstände deutlich häufiger ändern als der Anwendungscode.
+**Rationale:** An open-source core that no one except the project itself can operate is practically not open. The container image is the proof of self-hostability and at the same time the basis of our own deployments and of the managed hosting offering. The separation of code and data is necessary because norm editions change considerably more often than the application code.
 
-**Akzeptanzkriterium:**
+**Acceptance criteria:**
 
-- Ein Compose-Aufruf startet eine lauffähige Instanz ohne manuelle Nacharbeit; Image-Größe bleibt unabhängig vom Umfang des Wissensbestands; Datenstände sind einzeln referenzierbar und austauschbar; Images sind signiert und über einen öffentlich lesbaren Weg beziehbar.
+- One Compose invocation starts a runnable instance without manual rework; the image size remains independent of the size of the knowledge base; data versions are individually referenceable and interchangeable; images are signed and obtainable via a publicly readable route.
 
-**Abnahmekriterium:** Eine leere Umgebung wird ohne Vorkenntnisse allein anhand der Dokumentation in Betrieb genommen; ein Wechsel des Datenstands erfolgt ohne Neubau des Images.
+**Acceptance test:** An empty environment is put into operation without prior knowledge, solely on the basis of the documentation; a change of the data version takes place without rebuilding the image.
 
-**Weitere Informationen:** Führende Registry für den freien Kern ist seit ADR-021 (2026-09-14) die GitHub Container Registry (GHCR) im Repository `normly/web-app` — löst den vorherigen Stand (STACKIT Container Registry alleinig, ADR-019/ADR-010-Nachtrag) ab. Der öffentlich lesbare Bezug im Akzeptanzkriterium ist über anonymen Lesezugriff auf GHCR zu lösen. Helm-Charts für den Betrieb auf Kubernetes können ergänzend folgen. Cache-Strategien sind zu berücksichtigen. Build, Signatur (cosign keyless) und Tagging der Images regelt ADR-023. Umsetzung des Wissensbestand-Dumps: ADR-025.
+**Further information:** Since ADR-021 (2026-09-14), the primary registry for the free core is the GitHub Container Registry (GHCR) in the repository `normly/web-app` — supersedes the previous state (STACKIT Container Registry exclusively, ADR-019/ADR-010 addendum). The publicly readable retrieval in the acceptance criteria is to be solved via anonymous read access to GHCR. Helm charts for operation on Kubernetes may follow in addition. Caching strategies are to be taken into account. Build, signing (cosign keyless) and tagging of the images are governed by ADR-023. Implementation of the knowledge base dump: ADR-025.
 
-### 3.5.4 Wartbarkeit
+### 3.5.4 Maintainability
 
-Um das Onboarding von weiteren Entwicklern zu erleichtern, die Zeit für Fehlerbehebungen zu reduzieren und um die Entwicklung zu beschleunigen ist auf folgende Entwicklungsgrundsätze zu achten:
+To make onboarding further developers easier, to reduce the time for bug fixes and to speed up development, the following development principles are to be observed:
 
-**Bereich**
+**Area**
 
-**Vorgabe**
+**Specification**
 
-**Modulare Architektur**
+**Modular architecture**
 
-Code in unabhängige, austauschbare Module unterteilen für einfache Wartung und Erweiterung.
+Divide code into independent, interchangeable modules for easy maintenance and extension.
 
-**Niedrige Code-Komplexität (Cyclomatic Complexity \<10)**
+**Low code complexity (Cyclomatic Complexity \<10)**
 
-Begrenzt Verzweigungen in Funktionen, um Code lesbar und testbar zu halten.
+Limits branching in functions to keep code readable and testable.
 
-**Coding Standards (z.B. PSR-12)**
+**Coding standards (e.g. PSR-12)**
 
-Einheitliche Formatierungsregeln für konsistenten, teamfähigen Code.
+Uniform formatting rules for consistent, team-ready code.
 
-**Schnittstellen**
+**Interfaces**
 
-Klare, standardisierte APIs/Contracts zwischen Modulen definieren.
+Define clear, standardized APIs/contracts between modules.
 
-**Developer Observability (Logging, Monitoring, Tracing)**
+**Developer Observability (logging, monitoring, tracing)**
 
-Strukturierte Logs, Metriken und Spuren für schnelle Fehlerdiagnose.
+Structured logs, metrics and traces for fast error diagnosis.
 
-**Dokumentation**
+**Documentation**
 
-Vollständige Beschreibung von Komponenten, APIs und Algorithmen.
+Complete description of components, APIs and algorithms.
 
-Dokumentation erfolgt als "Docs as Code" im Git-Repository mit Markdown-Templates und automatisierter Generierung (z. B. MkDocs/Sphinx). Jede Komponente erhält READMEs mit Architektur, APIs, Algorithmen und Beispielen; API-Docs via OpenAPI/Swagger.
+Documentation is done as "Docs as Code" in the Git repository with Markdown templates and automated generation (e.g. MkDocs/Sphinx). Each component receives READMEs with architecture, APIs, algorithms and examples; API docs via OpenAPI/Swagger.
 
-Eine Swagger Instanz zur Dokumentation der API ist zwingend.
+A Swagger instance for documenting the API is mandatory.
 
-**Automatisierte Tests (\>80% Coverage)**
+**Automated tests (\>80% coverage)**
 
-Unit-/Integrationstests decken den Großteil des Codes ab.
+Unit/integration tests cover the majority of the code.
 
-**CI/CD-Pipelines**
+**CI/CD pipelines**
 
-Automatisierte Builds/Tests/Deployments für schnelle Releases.
+Automated builds/tests/deployments for fast releases.
 
 **Technical Debt Management**
 
-Regelmäßiges Refactoring und Debt-Tracking verhindern Akkumulation
+Regular refactoring and debt tracking prevent accumulation
 
 **Open Source**
 
-Der Code soll Open Source verfügbar sein - auf einem öffentlich einsehbaren Repository.
+The code should be available as open source - in a publicly viewable repository.
 
-Verwendete Open Source Frameworks sind gesondert und sauber aufzulisten und zu verlinken.
+Open source frameworks used are to be listed and linked separately and cleanly.
 
-### 3.5.5 Wiederverwendbarkeit
+### 3.5.5 Reusability
 
-Die Software soll durch modulare, lose gekoppelte Komponenten wiederverwendbar sein. Die Implementierung von DRY-Prinzipien (Don't Repeat Yourself), ein zentrales Repository für Code und Anforderungen mit Versionskontrolle in STACKIT Git sowie standardisierte APIs/Schnittstellen sind vorzusehen.
+The software should be reusable through modular, loosely coupled components. The implementation of DRY principles (Don't Repeat Yourself), a central repository for code and requirements with version control in STACKIT Git, and standardized APIs/interfaces are to be provided for.
 
-### 3.5.6 Portabilität
+### 3.5.6 Portability
 
-normly wird als Webanwendung designt, um in allen üblichen Browserversionen zu laufen. Responsive Design ist jederzeit einzuhalten. Die Anwendung ist zugleich als Progressive Web App installierbar und ermöglicht Push-Benachrichtigungen.
+normly is designed as a web application in order to run in all common browser versions. Responsive design is to be adhered to at all times. The application is at the same time installable as a Progressive Web App and enables push notifications.
 
-Rückwärtskompatibilität ist bis zu folgenden Versionen sicherzustellen:
+Backward compatibility is to be ensured down to the following versions:
 
 |                 |                                     |
 |-----------------|-------------------------------------|
-| **Browser**     | **Rückwärtskompatibel bis Version** |
+| **Browser**     | **Backward compatible down to version** |
 | Google Chrome   | 143                                 |
 | Microsoft Edge  | 142                                 |
 | Mozilla Firefox | 145                                 |
 | Apple Safari    | 26                                  |
 | Opera           | 125                                 |
 
-Die mobile Bereitstellung erfolgt zunächst als Progressive Web App (PWA) auf derselben Codebasis wie die Desktop-Anwendung. Eine native App ist erst erforderlich, sobald lizenzierte Volltexte offline bereitgestellt werden — nicht in Abhängigkeit von der Verfügbarkeit eines eigenen Sprachmodells. Näheres regelt Kapitel 3.15.
+Mobile provision initially takes place as a Progressive Web App (PWA) on the same codebase as the desktop application. A native app is only required once licensed full texts are provided offline — not depending on the availability of a dedicated language model. Section 3.15 governs the details.
 
-### 3.5.7 Kosten
+### 3.5.7 Costs
 
-Das Ziel ist es zu Beginn eine MVP-Lösung zu haben, deren freier Kern öffentlich nutzbar ist und auf deren Basis erste kommerzielle Dienste (Managed Hosting, Integrationen, Berichte) verkauft werden können, um ersten ARR vorweisen zu können.
+The goal is to have, at the beginning, an MVP solution whose free core is publicly usable and on the basis of which first commercial services (managed hosting, integrations, reports) can be sold, in order to be able to show initial ARR.
 
 ### 3.5.8 Deadline
 
-Die Entwicklung eines ersten testbaren Prototypen ist bis Mai/Juni 2026 abgeschlossen. Ein erstes, verkaufsfähiges MVP Produkt ist Ende Q2, Anfang Q3 2026 zu erreichen.
+The development of a first testable prototype is completed by May/June 2026. A first, sellable MVP product is to be reached at the end of Q2, beginning of Q3 2026.
 
-### 3.5.9 Physische Anforderungen
+### 3.5.9 Physical requirements
 
-Um als USP eine 100%ige Unabhängig von amerikanischen oder chinesischen Angeboten sicherstellen zu können, ist das komplette Deployment auf Server-Infrastruktur von [<u>Stack IT</u>](https://stackit.com/de) sicherzustellen. Dies gilt auch für Entwicklungs-, Build- und Deployment-Umgebungen. Quellcode, CI/CD und Container-Registry des freien Kerns liegen seit ADR-021 auf GitHub (REQ-GIT-001, REQ-BUILD-002). Für Sprachmodelle gilt ADR-022: ausschließlich Open-Weight-Modelle mit OSI-anerkannter Lizenz, betrieben auf STACKIT-Infrastruktur; keine Anfrage erreicht den Modellhersteller.
+In order to be able to ensure, as a USP, 100% independence from American or Chinese offerings, the entire deployment is to be ensured on server infrastructure of [<u>Stack IT</u>](https://stackit.com/de). This also applies to development, build and deployment environments. Since ADR-021, source code, CI/CD and container registry of the free core reside on GitHub (REQ-GIT-001, REQ-BUILD-002). For language models, ADR-022 applies: exclusively open-weight models with an OSI-approved license, operated on STACKIT infrastructure; no request reaches the model vendor.
 
-### 3.5.10 Design Anforderungen
+### 3.5.10 Design requirements
 
-Um die Entwicklungskosten für Design auf ein Minimum zu beschränken, werden wir uns auf frei verfügbare Quellen stützen und Anwenden. Hierzu zählen:
+In order to limit the development costs for design to a minimum, we will rely on and apply freely available sources. These include:
 
-- Frontend-Design: [<u>Shadcn</u>](https://ui.shadcn.com/), [Github-Repo von Shadcn-ui](https://github.com/shadcn-ui/ui)
+- Frontend design: [<u>Shadcn</u>](https://ui.shadcn.com/), [Github repo of Shadcn-ui](https://github.com/shadcn-ui/ui)
 
-Als Inspiration für die Darstellung an den Endnutzer dienen vor allem:
+The following serve above all as inspiration for the presentation to the end user:
 
 - Perplexity
 
