@@ -89,7 +89,7 @@ Split into chapters so that readers can read selectively instead of the whole do
 | [`REQ-INST-003`](03-requirements.md#req-inst-003-configuration-management-via-environment-variables) | Configuration management via environment variables | 3.5.1 |
 | [`REQ-INST-004`](03-requirements.md#req-inst-004-rollback-capability) | Rollback capability | 3.5.1 |
 
-### REQ-BUILD — Build and Delivery
+### REQ-BUILD — Build and shipping
 
 | ID | Title | Section |
 |---|---|---|

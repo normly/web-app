@@ -85,16 +85,17 @@ added here.
 | German | English |
 |---|---|
 | abgelöst durch / ersetzt / ergänzt (ADR status) | superseded by / replaces / amends |
+| Abnahmekriterium (SRS field, a concrete acceptance test) | Acceptance test |
 | Abstammung | lineage |
 | Akzeptanzkriterium (SRS field, a list) | Acceptance criteria |
-| Abnahmekriterium (SRS field, a concrete acceptance test) | Acceptance test |
 | Alterung (of tombstones) | expiry |
 | anerkannter Stand der Technik | recognized state of the art |
 | Anmeldung | sign-in |
-| Attributionserfassung | attribution capture (exception to Erfassung → acquisition: recording attribution data per answer) |
+| Attributionserfassung | attribution capture (recording attribution data per answer; see Erfassen → capture) |
 | Aufbewahrung | retention |
 | Aufräumbefehl | cleanup command |
 | Ausgabestand | edition |
+| ausliefern (content shown in the display, not as a file, REQ-DRM-004) | serve |
 | Auslieferung (shipping software to operators) | shipping (software to operators) |
 | Auslieferung (of a file to an end user), ausgeliefert, Dateiauslieferung | handed out, file download (distinct from shipping software to operators) |
 | Ausspielung (output to users at the end of the processing chain) | output |
@@ -108,13 +109,18 @@ added here.
 | Betreiber | operator |
 | Bezeichner (of a norm, e.g. "DIN EN ISO 9001") | designation (code: `DocumentDesignation`) |
 | Bezeichner (programming sense) | identifier |
+| Bezugsquelle (des Herausgebers) | (publisher's) point of purchase |
+| Datenbestand | collection (not "data collection", which reads as the act of collecting) |
 | Datenlizenz | data license |
+| Datenstand, Datenstände | data state (point in time, e.g. rollback); data version(s) (versioned knowledge base dump) |
 | Drittsoftware, Drittsysteme | third-party software, third-party systems |
 | Entscheidungsdokumentation | architecture decision records |
-| Erfassung, Datenerfassung | acquisition, data acquisition |
+| Erfassen, Erfassung (recording usage, attribution, billing data or delivery metadata, REQ-PART-001/002) | capture |
+| Erfassung, Datenerfassung (taking in sources and data, processing chain, REQ-PIPE) | acquisition, data acquisition |
 | Ersetzung | replacement (matches the graph edge `REPLACES`; the existing "supersession" in the README stays) |
 | Expertensysteme | expert systems |
 | führend (platform, registry) | primary |
+| gekennzeichnet (plain labeling, e.g. als bezahlt, als Zitat) | labeled as paid, marked as quotations (plain sense, not the DRM marking) |
 | Hauptzweig | main branch |
 | Herausgeber | publisher |
 | Herkunft (attribute) | provenance |
@@ -128,6 +134,7 @@ added here.
 | Kennung (record ID, e.g. "Google-Kennung") | ID |
 | Kennungen (in the export, ADR-027) | readable document IDs (export uses publisher/number/edition/part) |
 | Kennzeichnung (of displays/copies, ADR-015, REQ-DRM-003) | marking |
+| Kennzeichnung (source-register attribute, REQ-PIPE-008), gekennzeichnet als … | flag, flagged as … |
 | kommunizierbarer Prototyp | presentable prototype |
 | Kontingent | quota |
 | Konto-, Kontolöschung | account deletion |
@@ -138,6 +145,7 @@ added here.
 | Lizenzklassifikation | license classification (distinct from rights classification) |
 | Löschprotokoll | deletion log |
 | Mandantenfähigkeit | multi-tenancy |
+| Markieren (von Text) | selecting (text) (not "marking") |
 | Massenextraktion | bulk extraction |
 | Modellherkunft, Modellherkunftsregel | model origin, model-origin rule |
 | Nachtrag | addendum |
@@ -149,6 +157,7 @@ added here.
 | Normen und Regelwerke / Normen- und Regelwerkswissen | norms and standards / knowledge about norms and standards |
 | Normenanbieter (sellers of norms, e.g. DIN Media/Nautos) | norm vendor(s) |
 | Normenausschuss, Trägerorganisation | unchanged (German loanwords, see above) |
+| normengebende / normgebende Vereine | norm-setting associations |
 | Normungsorganisation | standardization body |
 | Nutzerwunsch, Nutzerentscheidung (the project owner) | at the owner's request, owner decision |
 | Nutzungsvorbehalt | rights reservation |
@@ -163,6 +172,7 @@ added here.
 | Rechtsraum | jurisdiction |
 | Referenzgraph | reference graph |
 | Regelwerk, Regelwerke | standards |
+| Richtlinie(n); EU-Richtlinie(n) | guideline(s); EU directive(s) |
 | Rollback (deployment) | rollback |
 | Rücknahme | withdrawal |
 | Rückzug | withdrawal (same concept as Rücknahme, REQ-PIPE-005) |
@@ -184,7 +194,10 @@ added here.
 | Wichtig (SRS label) | Important |
 | Widerruf | revocation (code: `revoked_at`) |
 | Wissensbasis, Wissensbestand | knowledge base |
+| Zugang (countable, an individual user's access) | user access (uncountable access and anonymous access stay "access") |
+| Zugangsweg | access path |
 | zurückgezogen (documents/edges kept as tombstones), zurückgezogene Kennungen | retired, retired IDs (code: `retired_at`; the process stays "withdrawal") |
+| Zurückziehung (of a norm by its standardization body), Zurückziehungskette | withdrawn (norm status), chains of withdrawn norms |
 | Zusatzdienste | add-on services |
 
 **Compounds follow their stem.** Rechtsnorm → legal norm, EU-Normen → EU

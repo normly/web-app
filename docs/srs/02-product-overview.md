@@ -70,11 +70,11 @@ MVP-specific functions are therefore specially highlighted.
 
 **Norm insights**
 
-- Analytics reports require the acquisition of aggregated usage data. Collection takes place exclusively in the commercial layer, can be deactivated in the free core and must not create personal profiles. Anonymous usage data may be collected, for example to be able to state how many users open a specific norm, or which part of a norm is used particularly often and is therefore highly relevant.
+- Analytics reports require the capture of aggregated usage data. Collection takes place exclusively in the commercial layer, can be deactivated in the free core and must not create personal profiles. Anonymous usage data may be collected, for example to be able to state how many users open a specific norm, or which part of a norm is used particularly often and is therefore highly relevant.
 
 - Norm vendors should also be offered a further (paid) service. They can buy detailed reports that show them in great detail how and by which user group their norms are used.
 
-- A further paid service for end users is based on AI-supported recommendations on how norms should be applied in operation, or which practice-oriented recommendations are made as a result of amendments.
+- A further paid service for end users is based on AI-supported recommendations on how norms should be applied in the workplace, or which practice-oriented recommendations are made as a result of amendments.
 
 **Norm management**
 

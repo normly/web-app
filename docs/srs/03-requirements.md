@@ -165,7 +165,7 @@ Normly supports two integration modes for norm documents:
 
 #### REQ-INT-002B — Isolation of user-specific documents
 
-**Statement:** The system must ensure that documents uploaded by users are processed in strict isolation from other users and from the global data collection.
+**Statement:** The system must ensure that documents uploaded by users are processed in strict isolation from other users and from the global collection.
 
 **Rationale:** Avoidance of data leaks and copyright infringements.
 
@@ -203,7 +203,7 @@ Normly supports two integration modes for norm documents:
 #### REQ-INT-004 — LLM interface
 
 **Statement:** The system must communicate with an external LLM (e.g. Llama 3.1) via a clearly defined interface.  
-**Rationale:** Interchangeability of the model and later migration to its own LLM.  
+**Rationale:** Interchangeability of the model and later migration to normly's own LLM.  
 **Acceptance criteria:**
 
 - Abstraction layer present
@@ -402,7 +402,7 @@ This section defines requirements for the provisioning, configuration and recove
 
 **Further information:** Blue-green or comparable strategies permitted. Implementation: ADR-024 (`normly-deploy`); the rollback restores images and data state and discards user data since the rollout (with warning and confirmation).
 
-### 3.5.2 Build and Delivery
+### 3.5.2 Build and shipping
 
 This section defines requirements for build processes, artifact creation, integrity and shipping of the software.
 
@@ -800,7 +800,7 @@ This chapter defines requirements for the structure, licensing and use of the no
 
 **Statement:** Schema, identifiers, references between publicly accessible standards, replacement chains and validity states are published freely. Reserved for the commercial layer are: currency guarantee with SLA and change notification, references down to section level within licensed norms, confidence ratings and evidence citations for audit purposes, and industry-specific enrichments.
 
-**Rationale:** References that map the internal structure of protected norms must not be published freely, depending on the license agreement. At the same time, commercial customers pay for reliability and currency, not for the data collection as such; a periodic dump and an SLA-backed API are different products.
+**Rationale:** References that map the internal structure of protected norms must not be published freely, depending on the license agreement. At the same time, commercial customers pay for reliability and currency, not for the collection as such; a periodic dump and an SLA-backed API are different products.
 
 **Acceptance criteria:** Every edge and every node of the graph carries a provenance and license classification per jurisdiction according to REQ-GRAPH-006; the free export contains, per jurisdiction, exclusively elements that are freely licensable there.
 
@@ -854,7 +854,7 @@ This chapter defines requirements for the supply of licensed norm content by pub
 
 **Statement:** For publishing organizations, a portal with an associated interface is provided through which norm content is supplied in full text. Common exchange formats are supported (at least PDF and XML). Per delivery, publisher, document identifier, edition, language, jurisdiction and the contractually granted rights of use are captured as metadata. Deliveries are versioned; withdrawing individual documents or entire collections must be possible at any time and takes immediate effect on the answering of queries.
 
-**Rationale:** The supply of full texts is the prerequisite for the decisive leap in the data collection. A defined, traceable supply path lowers the hurdle for publishers and is part of the negotiating position. The ability to withdraw at any time is the prerequisite for publishers keeping control over their works, and thus a condition for concluding the contract.
+**Rationale:** The supply of full texts is the prerequisite for the decisive leap in the collection. A defined, traceable supply path lowers the hurdle for publishers and is part of the negotiating position. The ability to withdraw at any time is the prerequisite for publishers keeping control over their works, and thus a condition for concluding the contract.
 
 **Acceptance criteria:** Supply, status tracking and withdrawal can be carried out via the portal without technical support from normly; every delivery is assigned to a contract; rights metadata are mandatory fields.
 
@@ -936,7 +936,7 @@ This chapter defines requirements for the commercial layer, which builds on the 
 
 ### REQ-COM-005 — Exclusion of personalized advertising
 
-**Statement:** Personalized advertising based on search queries, chat histories or user profiles is ruled out. Context-free directory entries and references to sources of supply for the original documents are permitted.
+**Statement:** Personalized advertising based on search queries, chat histories or user profiles is ruled out. Context-free directory entries and references to points of purchase for the original documents are permitted.
 
 **Rationale:** Personalized advertising is incompatible with the neutrality of the Trägerorganisation and the data-protection promise of the free core.
 
@@ -946,7 +946,7 @@ This chapter defines requirements for the commercial layer, which builds on the 
 
 ## 3.12 Data acquisition and processing chain
 
-This chapter describes the path by which content of different provenance — freely available sources, licensed partner deliveries and collections without a clarified legal situation — is transferred into a uniform data collection.
+This chapter describes the path by which content of different provenance — freely available sources, licensed partner deliveries and collections without a clarified legal situation — is transferred into a uniform collection.
 
 ### REQ-PIPE-001 — Uniform processing chain
 
