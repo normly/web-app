@@ -93,7 +93,8 @@ added here.
 | Aufbewahrung | retention |
 | Aufräumbefehl | cleanup command |
 | Ausgabestand | edition |
-| Auslieferung (shipping software to operators) | shipping |
+| Auslieferung (shipping software to operators) | shipping (software to operators) |
+| Auslieferung (of a file to an end user), ausgeliefert, Dateiauslieferung | handed out, file download (distinct from shipping software to operators) |
 | Ausspielung (output to users at the end of the processing chain) | output |
 | Begründung / Entscheidung / Konsequenz | Rationale / Decision / Consequence |
 | Beitragsfassade | contribution facade (explained at first mention) |
@@ -106,12 +107,14 @@ added here.
 | Entscheidungsdokumentation | architecture decision records |
 | Erfassung, Datenerfassung | acquisition, data acquisition |
 | Ersetzung | replacement (matches the graph edge `REPLACES`; the existing "supersession" in the README stays) |
+| führend (platform, registry) | primary |
 | Herausgeber | publisher |
 | Herkunft (attribute) | provenance |
 | (sachliche) Herkunftsangabe | (factual) statement of origin |
 | Herkunftsadresse | client IP address |
 | Identifikator, Identifikatorschema | identifier, identifier scheme |
 | Kennung (record ID, e.g. "zurückgezogene Kennungen", "Google-Kennung") | ID |
+| Kennungen (in the export, ADR-027) | designations (export uses publisher/number/edition/part) |
 | kommunizierbarer Prototyp | presentable prototype |
 | Kontingent | quota |
 | Konto-, Kontolöschung | account deletion |
@@ -121,6 +124,7 @@ added here.
 | Lizenzklassifikation | license classification (distinct from rights classification) |
 | Löschprotokoll | deletion log |
 | Massenextraktion | bulk extraction |
+| Modellherkunft, Modellherkunftsregel | model origin, model-origin rule |
 | Nachtrag | addendum |
 | Nachverfolgbarkeit | traceability |
 | Neulieferung | re-delivery |
@@ -145,6 +149,7 @@ added here.
 | Schlüsselzeremonie | key ceremony |
 | Selbsthoster | self-hosters |
 | Sicherung | backup |
+| Sicherungs-Stand / -Stände | backup(s) |
 | Tombstone | tombstone |
 | Trägerschaft | stewardship |
 | Umsetzung (ADR label) | Implementation |
@@ -152,6 +157,7 @@ added here.
 | Verworfen (ADR label) | Rejected |
 | Widerruf | revocation (code: `revoked_at`) |
 | Wissensbasis, Wissensbestand | knowledge base |
+| zurückgezogen (documents/edges kept as tombstones), zurückgezogene Kennungen | retired, retired IDs (code: `retired_at`; the process stays "withdrawal") |
 
 **Compounds follow their stem.** Rechtsnorm → legal norm, EU-Normen → EU
 norms, Regelwerkswissen → knowledge about standards, Regelwerksreihen →

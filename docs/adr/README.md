@@ -81,16 +81,16 @@ a future Trägerorganisation or a GmbH? Clarify before the first external contri
 
 ---
 
-## ADR-004 — STACKIT Git as the leading platform, GitHub as contribution facade
+## ADR-004 — STACKIT Git as the primary platform, GitHub as contribution facade
 
 **Status:** was partially superseded by ADR-019 (2026-09-05), which rejected the
 contribution facade on GitHub (a public presence for issues, pull requests and
 visibility, holding no credentials or deployment rights). Since ADR-021
 (2026-09-14), the GitHub split originally made here applies again to source
-code, CI and registry, but with GitHub as leading instead of as a mere
+code, CI and registry, but with GitHub as primary instead of as a mere
 contribution facade — see ADR-021 for the current state.
 
-**Decision:** STACKIT Git (Forgejo) with STACKIT Pipelines is leading for
+**Decision:** STACKIT Git (Forgejo) with STACKIT Pipelines is primary for
 source code, build, artifacts, credentials and deployment. GitHub serves as the
 public contribution facade: issues, pull requests, visibility. No
 credentials, runners, build artifacts or deployment rights there.
@@ -261,7 +261,7 @@ considerably more often than the code; otherwise the image grows and every data 
 forces a rebuild.
 
 **Registry:** **Addendum 2026-09-14 (ADR-021):** GitHub Container Registry
-(GHCR) in the repository `normly/web-app` is the leading registry for the
+(GHCR) in the repository `normly/web-app` is the primary registry for the
 free core — supersedes the previous addendum of 2026-09-05 (ADR-019, STACKIT
 Container Registry exclusively) in turn. STACKIT Container Registry remains
 available for artifacts of the commercial layer or later norm data projects,
@@ -406,7 +406,7 @@ are not a secrets manager. Corrected.
 
 **Status:** accepted
 
-**Decision:** Licensed full texts are never shipped as a complete file.
+**Decision:** Licensed full texts are never handed out as a complete file.
 Offline use via encrypted, time-limited local storage bound to user and
 device. User-specific marking of every display. All three components belong
 to the **commercial layer**, not to the core.
@@ -416,7 +416,7 @@ to the **commercial layer**, not to the core.
 plus text recognition delivers a usable copy in seconds. Whoever promises
 otherwise promises the untenable. Achievable and sufficient are:
 
-1. *Ship no file.* The damage arises from passed-on PDFs,
+1. *Hand out no file.* The damage arises from passed-on PDFs,
    not from reading.
 2. *Enable offline use nonetheless.* Without offline capability, the PDF copy
    remains more practical for people on the construction site — then the
@@ -519,7 +519,7 @@ experiences the product signs up voluntarily and with a recognizable benefit in 
 **content**, not the access path. Anonymously reachable is exclusively what
 is freely licensable under REQ-PIPE-004 — and anyone may extract that anyway.
 Licensed full texts are **structurally** unreachable anonymously
-(REQ-PART-004 authorization check, REQ-DRM-001 no file shipping,
+(REQ-PART-004 authorization check, REQ-DRM-001 no file download,
 REQ-DRM-003 mandatory marking). That is not a setting but follows
 from the architecture.
 
@@ -614,7 +614,7 @@ rationale.
 No push mirror from STACKIT Git to GitHub is set up, and no
 acceptance of contributions (issues, pull requests) is planned there any longer. STACKIT Git
 is from the start the sole platform for source code, contributions, build and
-operations — not merely leading alongside a public facade. The
+operations — not merely primary alongside a public facade. The
 existing GitHub mirror (`Sn4kez/normly-app`, remote `origin`) remains in place as a
 historical snapshot but is no longer actively pushed to.
 
@@ -903,7 +903,7 @@ before start (REQ-GIT-005).
    (list from the database; the schema remains so that pgvector is
    preserved), `migrate` with the previous image, import the knowledge base
    in the dump version active at the time (before the user data, because of the
-   foreign keys), the withdrawn IDs of the backup
+   foreign keys), the retired IDs of the backup
    (`exchange import-tombstones`, see ADR-026), user data with
    `pg_restore --data-only`, start the previous release. Beforehand the
    script checks that the Alembic revision of the backup matches the Alembic head of the
@@ -919,7 +919,7 @@ before start (REQ-GIT-005).
    rollback fails after the drop, the script gives hints for the restore;
    calling it again is safe.
 5. **Backup:** the user data tables (`exchange tables user`) and, as a
-   second encrypted file, the withdrawn IDs
+   second encrypted file, the retired IDs
    (`<base>.tombstones.age`, ADR-026; never content, rights or user data).
    Both `age`-encrypted on the VM with the public key, upload
    via `rclone` into a private STACKIT Object Storage bucket. The private
@@ -928,7 +928,7 @@ before start (REQ-GIT-005).
    encrypted files and is the commit marker; only with it does
    a backup count. `meta.json` carries `"tombstones": true`.
 6. **Retention:** 7 daily, 2 monthly (in each case the newest daily
-   snapshot of the two most recent calendar months), 3 pre-rollout snapshots. The
+   backup of the two most recent calendar months), 3 pre-rollout backups. The
    retention applies to both files of a backup: the cleanup deletes
    `.sha256`, `meta.json`, `tombstones.age`, `dump.age` in this order
    and skips objects that are not in the bucket (older backups
@@ -964,7 +964,7 @@ before start (REQ-GIT-005).
 
 **Rejected:** timer with auto-rollout; pure image rollback with
 expand/contract discipline; exclusively server-side encryption;
-daily full dump; only pre-rollout dumps; weekly snapshots (benefit
+daily full dump; only pre-rollout dumps; weekly backups (benefit
 beyond 7 days small).
 
 **Consequences:**
@@ -989,7 +989,7 @@ beyond 7 days small).
   irreversible (to be checked against the STACKIT documentation before implementation). Arguments
   against it: irreversibility before the first live acceptance, effect on the whole
   project, conflict with the in-house retention (`normly-backup` deletes old
-  snapshots) and with the promise not to let deleted user data come back
+  backups) and with the promise not to let deleted user data come back
   (rollback replays deletions of the last 90 days; a longer lock
   would retain them longer). Accepted residual risk: with stolen credentials
   of the VM, backups could be deleted; they cannot be read
