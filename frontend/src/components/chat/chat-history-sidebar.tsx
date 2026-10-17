@@ -208,6 +208,7 @@ export function ChatHistorySidebar({
                   <SidebarMenuItem key={session.id}>
                     <div className="flex items-center gap-1">
                       <SidebarMenuButton
+                        data-testid="chat-session"
                         isActive={session.id === activeSessionId}
                         aria-current={session.id === activeSessionId ? "true" : undefined}
                         onClick={() => onOpenSession(session.id)}

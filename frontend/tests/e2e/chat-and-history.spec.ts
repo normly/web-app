@@ -71,7 +71,8 @@ test.describe("registration, login, and chat history", () => {
     await expect(page.getByRole("log").getByText(question)).toHaveCount(0);
 
     // The title is the model's summary or, without a model, the question.
-    await page.locator('[data-sidebar="menu-button"]').first().click();
+    await page.getByTestId("chat-session").first().click();
     await expect(page.getByRole("log").getByText(question)).toBeVisible();
+    await expect(page.getByTestId("chat-session").first()).toHaveAttribute("aria-current", "true");
   });
 });
