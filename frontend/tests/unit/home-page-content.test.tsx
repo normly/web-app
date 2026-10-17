@@ -243,4 +243,120 @@ describe("HomePageContent", () => {
       expect(calls.filter((u) => u === "/api/chat/sessions").length).toBeGreaterThanOrEqual(2),
     );
   });
+
+  const sessionList = [
+    { id: "sess-9", session_token: "x", jurisdiction: "DE", language: "de", title: "Schutzbrillen", created_at: new Date().toISOString() },
+  ];
+  const sessionMessages = {
+    session_id: "sess-9",
+    title: "Schutzbrillen",
+    messages: [{ role: "user", content: "Brauche ich eine Schutzbrille?", paragraphs: ["Brauche ich eine Schutzbrille?"], citations: [] }],
+  };
+  const renderHome = () =>
+    render(
+      <LocaleProvider initialLocale="de">
+        <JurisdictionProvider initialJurisdiction="DE">
+          <HomePageContent />
+        </JurisdictionProvider>
+      </LocaleProvider>,
+    );
+
+  it("resets the view and calls new-session when the active session is deleted", async () => {
+    const calls: string[] = [];
+    global.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      calls.push(`${init?.method ?? "GET"} ${url}`);
+      if (url === "/api/chat/current") return Promise.resolve(new Response(null, { status: 204 }));
+      if (url === "/api/chat/sessions" && !init?.method) {
+        return Promise.resolve(new Response(JSON.stringify(sessionList), { status: 200 }));
+      }
+      if (url === "/api/chat/sessions/sess-9/messages") {
+        return Promise.resolve(new Response(JSON.stringify(sessionMessages), { status: 200 }));
+      }
+      if (init?.method === "DELETE") return Promise.resolve(new Response(null, { status: 204 }));
+      return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    });
+    renderHome();
+    fireEvent.click(await screen.findByRole("button", { name: "Schutzbrillen" }));
+    await screen.findByText("Brauche ich eine Schutzbrille?");
+
+    fireEvent.click(screen.getByRole("button", { name: "Verlauf löschen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Endgültig löschen" }));
+
+    await waitFor(() => expect(calls).toContain("POST /api/chat/new-session"));
+    await waitFor(() =>
+      expect(screen.queryByText("Brauche ich eine Schutzbrille?")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("does not call new-session when a non-active session is deleted", async () => {
+    const calls: string[] = [];
+    global.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      calls.push(`${init?.method ?? "GET"} ${url}`);
+      if (url === "/api/chat/current") {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              session_id: "other",
+              title: null,
+              messages: [{ role: "user", content: "Aktive Frage", paragraphs: ["Aktive Frage"], citations: [] }],
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      if (url === "/api/chat/sessions" && !init?.method) {
+        return Promise.resolve(new Response(JSON.stringify(sessionList), { status: 200 }));
+      }
+      if (init?.method === "DELETE") return Promise.resolve(new Response(null, { status: 204 }));
+      return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    });
+    renderHome();
+    await screen.findByText("Aktive Frage");
+    fireEvent.click(await screen.findByRole("button", { name: "Verlauf löschen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Endgültig löschen" }));
+
+    await waitFor(() => expect(calls).toContain("DELETE /api/chat/sessions/sess-9"));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Schutzbrillen" })).not.toBeInTheDocument());
+    expect(calls).not.toContain("POST /api/chat/new-session");
+    expect(screen.getByText("Aktive Frage")).toBeInTheDocument();
+  });
+
+  it("does not append a late answer to a session opened in the meantime", async () => {
+    let resolveAnswer: (response: Response) => void = () => {};
+    global.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/chat/current") return Promise.resolve(new Response(null, { status: 204 }));
+      if (url === "/api/chat/sessions") {
+        return Promise.resolve(new Response(JSON.stringify(sessionList), { status: 200 }));
+      }
+      if (url === "/api/chat/sessions/sess-9/messages") {
+        return Promise.resolve(new Response(JSON.stringify(sessionMessages), { status: 200 }));
+      }
+      if (url === "/api/chat" && init?.method === "POST") {
+        return new Promise<Response>((resolve) => {
+          resolveAnswer = resolve;
+        });
+      }
+      return Promise.resolve(new Response(JSON.stringify({ title: "T" }), { status: 200 }));
+    });
+    renderHome();
+    fireEvent.change(screen.getByPlaceholderText("Frage stellen…"), { target: { value: "Frage" } });
+    fireEvent.click(screen.getByRole("button", { name: "Senden" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Schutzbrillen" }));
+    await screen.findByText("Brauche ich eine Schutzbrille?");
+
+    resolveAnswer(
+      new Response(
+        JSON.stringify({ session_id: "sess-old", answer: "Späte Antwort", answer_type: "fallback", paragraphs: ["Späte Antwort"], citations: [] }),
+        { status: 200 },
+      ),
+    );
+    await waitFor(() =>
+      expect(
+        (global.fetch as ReturnType<typeof vi.fn>).mock.calls.some(([u]) => u === "/api/chat/sessions/sess-old/title"),
+      ).toBe(true),
+    );
+    expect(screen.queryByText("Späte Antwort")).not.toBeInTheDocument();
+    expect(screen.getByText("Brauche ich eine Schutzbrille?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Schutzbrillen" })).toHaveAttribute("aria-current", "true");
+  });
 });

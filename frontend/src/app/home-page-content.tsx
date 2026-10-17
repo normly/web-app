@@ -48,19 +48,28 @@ export function HomePageContent() {
   const [sessionsVersion, setSessionsVersion] = React.useState(0);
   const refreshSessions = () => setSessionsVersion((version) => version + 1);
 
+  // Bumped on every view change (new chat, open session, send). Async
+  // results apply only if the generation they started with is still
+  // current, so late replies never mix into another session's view.
+  const viewGeneration = React.useRef(0);
+
   const showSession = (body: SessionMessagesResponse) => {
     setActiveSessionId(body.session_id);
     setMessages(messageViews(body.messages));
   };
 
   // After a reload the chat cookie still names a session; show it instead of
-  // an empty chat that new questions would silently continue.
+  // an empty chat that new questions would silently continue. Applies only
+  // if nothing else changed the view meanwhile (generation still 0; sending
+  // a message bumps it too).
   React.useEffect(() => {
     let cancelled = false;
     fetch("/api/chat/current")
       .then(async (response) => {
         if (cancelled || response.status !== 200) return;
-        showSession(await response.json());
+        const body = await response.json();
+        if (cancelled || viewGeneration.current !== 0) return;
+        showSession(body);
       })
       .catch(() => {});
     return () => {
@@ -70,12 +79,20 @@ export function HomePageContent() {
   }, []);
 
   const openSession = async (sessionId: string) => {
-    const response = await fetch(`/api/chat/sessions/${sessionId}/messages`);
-    if (!response.ok) return;
-    showSession(await response.json());
+    const generation = ++viewGeneration.current;
+    try {
+      const response = await fetch(`/api/chat/sessions/${sessionId}/messages`);
+      if (!response.ok) return;
+      const body = await response.json();
+      if (viewGeneration.current !== generation) return;
+      showSession(body);
+    } catch {
+      // Leave the current view unchanged.
+    }
   };
 
   const startNewChat = () => {
+    viewGeneration.current += 1;
     setMessages([]);
     setActiveSessionId(null);
   };
@@ -83,11 +100,17 @@ export function HomePageContent() {
   const handleSessionsDeleted = async (deletedId: string | null) => {
     if (activeSessionId === null) return;
     if (deletedId !== null && deletedId !== activeSessionId) return;
-    await fetch("/api/chat/new-session", { method: "POST" });
-    startNewChat();
+    try {
+      await fetch("/api/chat/new-session", { method: "POST" });
+    } catch {
+      // The local reset below must happen regardless.
+    } finally {
+      startNewChat();
+    }
   };
 
   const sendMessage = async (message: string) => {
+    const generation = ++viewGeneration.current;
     setMessages((prev) => [...prev, { role: "user", content: message }]);
     setIsLoading(true);
     try {
@@ -97,10 +120,14 @@ export function HomePageContent() {
         body: JSON.stringify({ jurisdiction, language: locale, message }),
       });
       const body: ChatApiResponse = await response.json();
-      setMessages((prev) => [...prev, assistantMessageView(body.answer, body.paragraphs, body.citations)]);
+      const viewUnchanged = viewGeneration.current === generation;
+      if (viewUnchanged) {
+        setMessages((prev) => [...prev, assistantMessageView(body.answer, body.paragraphs, body.citations)]);
+      }
       if (body.session_id) {
         const isNewSession = activeSessionId === null;
-        setActiveSessionId(body.session_id);
+        if (viewUnchanged) setActiveSessionId(body.session_id);
+        // The server stored the answer either way.
         refreshSessions();
         if (isNewSession) {
           // Not awaited: the title is a convenience and must never delay
