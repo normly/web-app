@@ -11,9 +11,17 @@ import { useTranslation } from "@/lib/i18n/provider";
 
 export function ChatShell({
   onNewChat,
+  activeSessionId = null,
+  onOpenSession,
+  onSessionsDeleted,
+  sessionsVersion = 0,
   children,
 }: {
   onNewChat: () => void;
+  activeSessionId?: string | null;
+  onOpenSession?: (sessionId: string) => void;
+  onSessionsDeleted?: (deletedId: string | null) => void;
+  sessionsVersion?: number;
   children: React.ReactNode;
 }) {
   const { t } = useTranslation();
@@ -47,7 +55,13 @@ export function ChatShell({
           (a permanent whole-page scrollbar) -- confirmed via a real
           browser render, not something jsdom-based unit tests catch. */}
       <SidebarProvider className="min-h-0">
-        <ChatHistorySidebar onNewChat={onNewChat} />
+        <ChatHistorySidebar
+          onNewChat={onNewChat}
+          activeSessionId={activeSessionId}
+          onOpenSession={onOpenSession}
+          onSessionsDeleted={onSessionsDeleted}
+          sessionsVersion={sessionsVersion}
+        />
         {/* A plain div, not SidebarInset: HomePageContent is already
             rendered inside AppShell's own SidebarInset (page.tsx), which
             renders a <main> around PageHeader + HomePageContent.

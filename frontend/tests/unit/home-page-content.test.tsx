@@ -35,12 +35,15 @@ describe("HomePageContent", () => {
     // Response can only have .json() read once) and so the assertion below
     // finds the right call instead of assuming it's mock.calls[0].
     global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/chat/current") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
       if (url === "/api/chat/sessions") {
         return Promise.resolve(new Response(JSON.stringify([]), { status: 401 }));
       }
       return Promise.resolve(
         new Response(
-          JSON.stringify({ answer: "Answer", answer_type: "fallback", citations: [] }),
+          JSON.stringify({ session_id: null, answer: "Answer", answer_type: "fallback", paragraphs: ["Answer"], citations: [] }),
           { status: 200 },
         ),
       );
@@ -69,6 +72,9 @@ describe("HomePageContent", () => {
 
   it("clears the message list and calls the new-session endpoint when Neuer Chat is clicked", async () => {
     global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/chat/current") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
       if (url === "/api/chat/sessions") {
         return Promise.resolve(new Response(JSON.stringify([]), { status: 401 }));
       }
@@ -80,7 +86,9 @@ describe("HomePageContent", () => {
         );
       }
       return Promise.resolve(
-        new Response(JSON.stringify({ answer: "Answer", answer_type: "fallback", citations: [] })),
+        new Response(
+          JSON.stringify({ session_id: null, answer: "Answer", answer_type: "fallback", paragraphs: ["Answer"], citations: [] }),
+        ),
       );
     });
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({
@@ -110,6 +118,129 @@ describe("HomePageContent", () => {
     );
     await waitFor(() =>
       expect(screen.queryByText("Ist DIN EN ISO 9001 gültig?")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("restores the active session on load", async () => {
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/chat/current") {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              session_id: "sess-1",
+              title: "Titel",
+              messages: [
+                { role: "user", content: "Alte Frage", paragraphs: ["Alte Frage"], citations: [] },
+                {
+                  role: "assistant",
+                  content: "Alte Antwort",
+                  paragraphs: ["Alte Antwort"],
+                  citations: [
+                    { document_id: "d1", segment_id: null, designation: "DGUV Vorschrift 1", section: null, paragraph_index: 0 },
+                  ],
+                },
+              ],
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+    });
+
+    render(
+      <LocaleProvider initialLocale="de">
+        <JurisdictionProvider initialJurisdiction="DE">
+          <HomePageContent />
+        </JurisdictionProvider>
+      </LocaleProvider>,
+    );
+
+    expect(await screen.findByText("Alte Frage")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "DGUV Vorschrift 1" })).toHaveAttribute("href", "/documents/d1");
+  });
+
+  it("opens a session from the sidebar", async () => {
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/chat/current") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      if (url === "/api/chat/sessions") {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify([
+              { id: "sess-9", session_token: "x", jurisdiction: "DE", language: "de", title: "Schutzbrillen", created_at: new Date().toISOString() },
+            ]),
+            { status: 200 },
+          ),
+        );
+      }
+      if (url === "/api/chat/sessions/sess-9/messages") {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              session_id: "sess-9",
+              title: "Schutzbrillen",
+              messages: [{ role: "user", content: "Brauche ich eine Schutzbrille?", paragraphs: ["Brauche ich eine Schutzbrille?"], citations: [] }],
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify({}), { status: 404 }));
+    });
+
+    render(
+      <LocaleProvider initialLocale="de">
+        <JurisdictionProvider initialJurisdiction="DE">
+          <HomePageContent />
+        </JurisdictionProvider>
+      </LocaleProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Schutzbrillen" }));
+
+    expect(await screen.findByText("Brauche ich eine Schutzbrille?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Schutzbrillen" })).toHaveAttribute("aria-current", "true");
+  });
+
+  it("asks for a title after the first answer of a new session and reloads the list", async () => {
+    const calls: string[] = [];
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      calls.push(url);
+      if (url === "/api/chat/current") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      if (url === "/api/chat/sessions") {
+        return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+      }
+      if (url === "/api/chat/sessions/sess-new/title") {
+        return Promise.resolve(new Response(JSON.stringify({ title: "Neu" }), { status: 200 }));
+      }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ session_id: "sess-new", answer: "A", answer_type: "fallback", paragraphs: ["A"], citations: [] }),
+          { status: 200 },
+        ),
+      );
+    });
+
+    render(
+      <LocaleProvider initialLocale="de">
+        <JurisdictionProvider initialJurisdiction="DE">
+          <HomePageContent />
+        </JurisdictionProvider>
+      </LocaleProvider>,
+    );
+    fireEvent.change(screen.getByPlaceholderText("Frage stellen…"), { target: { value: "Frage" } });
+    fireEvent.click(screen.getByRole("button", { name: "Senden" }));
+
+    await waitFor(() => expect(calls).toContain("/api/chat/sessions/sess-new/title"));
+    // Initial load plus at least one reload after the answer. React may batch
+    // the answer's and the title's refresh into one render, so the exact
+    // count is not asserted.
+    await waitFor(() =>
+      expect(calls.filter((u) => u === "/api/chat/sessions").length).toBeGreaterThanOrEqual(2),
     );
   });
 });
