@@ -8,12 +8,20 @@ import * as React from "react";
 import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n/provider";
-import { CitationChip, type CitationView } from "@/components/chat/citation-chip";
+import { CitationChip } from "@/components/chat/citation-chip";
+import type { CitationView, ChatMessageView } from "@/lib/chat-answer";
 
-export interface ChatMessageView {
-  role: "user" | "assistant";
-  content: string;
-  citations?: CitationView[];
+export type { ChatMessageView };
+
+function ChipRow({ citations }: { citations: CitationView[] }) {
+  if (citations.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {citations.map((citation) => (
+        <CitationChip key={`${citation.documentId}:${citation.segmentId ?? ""}`} citation={citation} />
+      ))}
+    </div>
+  );
 }
 
 function CopyButton({ content }: { content: string }) {
@@ -69,15 +77,16 @@ export function MessageList({
             </p>
           </div>
         ) : (
-          <div key={index} className="flex flex-col gap-2">
-            <p className="whitespace-pre-wrap text-sm text-foreground">{message.content}</p>
-            {message.citations && message.citations.length > 0 && (
-              <div className="flex gap-2">
-                {message.citations.map((citation) => (
-                  <CitationChip key={citation.documentId} citation={citation} />
-                ))}
-              </div>
+          <div key={index} className="flex flex-col gap-3">
+            {(message.paragraphs ?? [{ text: message.content, citations: [] }]).map(
+              (paragraph, paragraphIndex) => (
+                <div key={paragraphIndex} className="flex flex-col gap-1.5">
+                  <p className="whitespace-pre-wrap text-sm text-foreground">{paragraph.text}</p>
+                  <ChipRow citations={paragraph.citations} />
+                </div>
+              ),
             )}
+            <ChipRow citations={message.answerCitations ?? []} />
             <CopyButton content={message.content} />
           </div>
         ),
