@@ -42,7 +42,30 @@ class ChatSessionSummary(BaseModel):
     session_token: str
     jurisdiction: str
     language: str
+    title: str | None
     created_at: datetime
+
+
+class ChatMessageResponse(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+    answer_type: Literal["structural", "synthesis", "fallback"] | None
+    paragraphs: list[str]
+    citations: list[CitationResponse]
+    created_at: datetime
+
+
+class ChatSessionMessagesResponse(BaseModel):
+    session_id: uuid.UUID
+    # The frontend sets its chat cookie from this, so that new questions
+    # continue the reopened session.
+    session_token: str
+    title: str | None
+    messages: list[ChatMessageResponse]
+
+
+class ChatSessionTitleResponse(BaseModel):
+    title: str
 
 
 class DeletedSessionsResponse(BaseModel):
