@@ -21,6 +21,13 @@ class TitleResponse(BaseModel):
     language: str
     title: str
 
+class SegmentResponse(BaseModel):
+    id: uuid.UUID
+    sequence_number: int
+    heading: str | None
+    text: str
+
+
 
 class SourceResponse(BaseModel):
     publisher: str
