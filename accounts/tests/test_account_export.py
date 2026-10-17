@@ -137,6 +137,7 @@ def test_export_citations_name_the_document_readably(client, db_session):
     )
     PostgresChatRepository(db_session).add_citation(
         message_id=message.id, document_id=document.id, segment_id=segment.id,
+        paragraph_index=0,
     )
     db_session.commit()
 
@@ -149,6 +150,7 @@ def test_export_citations_name_the_document_readably(client, db_session):
             "origin_number": "TST-7", "edition": "2024", "part": "2",
         },
         "segment_id": str(segment.id),
+        "paragraph_index": 0,
     }]
 
 
@@ -311,3 +313,14 @@ def test_export_contains_nothing_of_another_account(client, db_session):
     assert str(other_session.id) not in serialised
     assert "THEIRS-1" not in serialised
     assert "theirs@example.de" not in serialised
+
+
+def test_export_includes_the_session_title(client, db_session):
+    headers = _register(client, email="titleexport@example.de")
+    chat_session, _ = _chat_with_message(db_session, _account_id(client, headers), token="t-title")
+    PostgresChatRepository(db_session).set_session_title(chat_session.id, "Schutzbrillen")
+    db_session.commit()
+
+    body = client.get("/v1/accounts/export", headers=headers).json()
+
+    assert body["chat_sessions"][0]["title"] == "Schutzbrillen"
