@@ -48,4 +48,30 @@ test.describe("registration, login, and chat history", () => {
     await page.goto("/");
     await expect(page.getByText("Noch keine Chats vorhanden.")).toBeVisible();
   });
+
+  test("a chat can be reopened from the sidebar and is restored after a reload", async ({ page }) => {
+    await page.goto("/signup");
+    const email = `e2e-reopen-${Date.now()}@example.de`;
+    await page.getByLabel("E-Mail-Adresse").fill(email);
+    await page.getByLabel("Passwort").fill("correct horse battery staple");
+    await page.getByRole("button", { name: "Konto erstellen" }).click();
+    await expect(page).toHaveURL("http://localhost:3000/");
+
+    // An unknown designation answers structurally with a fallback: no model
+    // and no knowledge-base data needed.
+    const question = "Ist DIN EN ISO 99999 noch gültig?";
+    await page.getByPlaceholder("Frage stellen…").fill(question);
+    await page.getByRole("button", { name: "Senden" }).click();
+    await expect(page.getByText(question).first()).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByRole("log").getByText(question)).toBeVisible();
+
+    await page.getByRole("button", { name: "Neuer Chat" }).click();
+    await expect(page.getByRole("log").getByText(question)).toHaveCount(0);
+
+    // The title is the model's summary or, without a model, the question.
+    await page.locator('[data-sidebar="menu-button"]').first().click();
+    await expect(page.getByRole("log").getByText(question)).toBeVisible();
+  });
 });
