@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 normly contributors
+
 from __future__ import annotations
 
 import uuid
@@ -108,6 +111,7 @@ def list_sessions(
         )
         for s in sessions
     ]
+
 
 @sessions_router.get(
     "/sessions/{session_id}/messages", response_model=ChatSessionMessagesResponse,
