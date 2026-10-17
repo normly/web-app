@@ -64,7 +64,9 @@ def test_a_normal_paraphrase_is_accepted():
         _FakeSegmentRepo([segment]), ollama,
     )
     assert result.is_fallback is False
-    assert result.citations == [{"document_id": segment.document_id, "segment_id": segment.id}]
+    assert result.citations == [
+        {"document_id": segment.document_id, "segment_id": segment.id, "paragraph_index": None},
+    ]
 
 
 def test_a_verbatim_repeating_answer_is_rejected():
@@ -164,3 +166,84 @@ def test_faithfulness_check_is_skipped_after_a_verbatim_rejection():
     assert result.is_fallback is True
     assert ollama.calls == 1
     assert result.ollama_calls == 1
+
+
+def _two_call_llm(answer):
+    class _Llm:
+        def __init__(self):
+            self.calls = 0
+            self.messages = []
+
+        def chat(self, messages):
+            self.calls += 1
+            self.messages.append(messages)
+            return answer if self.calls == 1 else "ja"
+
+    return _Llm()
+
+
+def test_markers_become_paragraph_citations_and_are_stripped():
+    first = _FakeSegment(uuid.uuid4(), uuid.uuid4(), "Schutzbrillen sind beim Schweißen Pflicht.")
+    second = _FakeSegment(uuid.uuid4(), uuid.uuid4(), "Helfer tragen ebenfalls Schutzbrillen.")
+    llm = _two_call_llm(
+        "Beim Schweißen muss eine Schutzbrille getragen werden [1].\n\n"
+        "Auch helfende Personen brauchen eine [2]."
+    )
+
+    result = build_synthesis_answer(
+        "Welche Schutzausrüstung beim Schweißen?", "DE", "de", _FakeEmbeddingModel(),
+        _FakeSegmentRepo([first, second]), llm,
+    )
+
+    assert result.is_fallback is False
+    assert result.paragraphs == [
+        "Beim Schweißen muss eine Schutzbrille getragen werden.",
+        "Auch helfende Personen brauchen eine.",
+    ]
+    assert result.text == "\n\n".join(result.paragraphs)
+    assert result.citations == [
+        {"document_id": first.document_id, "segment_id": first.id, "paragraph_index": 0},
+        {"document_id": second.document_id, "segment_id": second.id, "paragraph_index": 1},
+    ]
+    system_prompt = llm.messages[0][0]["content"]
+    assert "[1] Schutzbrillen sind beim Schweißen Pflicht." in system_prompt
+    assert "[2] Helfer tragen ebenfalls Schutzbrillen." in system_prompt
+    # The faithfulness check sees the stripped answer, not the markers.
+    assert "[1]" not in llm.messages[1][1]["content"]
+
+
+def test_an_answer_without_valid_markers_cites_every_segment_for_the_whole_answer():
+    segment = _FakeSegment(uuid.uuid4(), uuid.uuid4(), "Schutzbrillen sind beim Schweißen Pflicht.")
+    llm = _two_call_llm("Beim Schweißen muss eine Schutzbrille getragen werden [9].")
+
+    result = build_synthesis_answer(
+        "Frage", "DE", "de", _FakeEmbeddingModel(), _FakeSegmentRepo([segment]), llm,
+    )
+
+    assert result.paragraphs == ["Beim Schweißen muss eine Schutzbrille getragen werden."]
+    assert result.citations == [
+        {"document_id": segment.document_id, "segment_id": segment.id, "paragraph_index": None},
+    ]
+
+
+def test_the_english_prompt_asks_for_markers_in_english():
+    segment = _FakeSegment(uuid.uuid4(), uuid.uuid4(), "Goggles are mandatory when welding.")
+    llm = _two_call_llm("Wear goggles when welding [1].")
+
+    build_synthesis_answer(
+        "What protection?", "DE", "en", _FakeEmbeddingModel(), _FakeSegmentRepo([segment]), llm,
+    )
+
+    assert "for example [1] or [2][3]" in llm.messages[0][0]["content"]
+
+
+def test_an_answer_of_only_markers_is_a_fallback():
+    segment = _FakeSegment(uuid.uuid4(), uuid.uuid4(), "Text.")
+    llm = _two_call_llm("[1]")
+
+    result = build_synthesis_answer(
+        "Frage", "DE", "de", _FakeEmbeddingModel(), _FakeSegmentRepo([segment]), llm,
+    )
+
+    assert result.is_fallback is True
+    assert result.paragraphs == ["Dazu finde ich in den verfügbaren Quellen keine ausreichende Grundlage."]
