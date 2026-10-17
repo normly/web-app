@@ -7,6 +7,7 @@ from __future__ import annotations
 import smtplib
 from dataclasses import dataclass, field
 from email.message import EmailMessage
+from email.utils import parseaddr
 from typing import Protocol
 
 
@@ -31,6 +32,17 @@ class SmtpEmailSender:
     from_address: str
     username: str | None = None
     password: str | None = None
+
+    def __post_init__(self) -> None:
+        # A relay may accept a bare `MAIL FROM:<normly>` and drop the mail
+        # afterwards; the bounce then has no address to go to, so the loss is
+        # silent. Fail at startup instead of at the first undelivered mail.
+        local, _, domain = parseaddr(self.from_address)[1].partition("@")
+        if not local or not domain:
+            raise ValueError(
+                f"NORMLY_SMTP_FROM must be a full mail address such as "
+                f"noreply@example.org, got {self.from_address!r}"
+            )
 
     def send(self, *, to: str, subject: str, body: str) -> None:
         message = EmailMessage()
