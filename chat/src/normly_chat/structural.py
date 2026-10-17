@@ -6,6 +6,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 
+from normly_chat.citation_labels import CitationResolver
 from normly_chat.classify import QuestionType, extract_designation
 
 _FALLBACK_TEXT = {
@@ -68,17 +69,33 @@ _WITHDRAWN_BY_SENTENCE = {
 
 @dataclass(frozen=True)
 class StructuralAnswer:
-    text: str
+    paragraphs: list[str]
     citations: list[dict] = field(default_factory=list)
     is_fallback: bool = False
 
+    @property
+    def text(self) -> str:
+        return "\n\n".join(self.paragraphs)
+
 
 def _fallback(language: str) -> StructuralAnswer:
-    return StructuralAnswer(text=_FALLBACK_TEXT[language], citations=[], is_fallback=True)
+    return StructuralAnswer(paragraphs=[_FALLBACK_TEXT[language]], citations=[], is_fallback=True)
+
+
+def _labelled(labels: CitationResolver, document_ids: list[uuid.UUID]) -> list[tuple[uuid.UUID, str]]:
+    # A target api/ does not return is left out entirely: its id must never
+    # reach the answer text.
+    pairs = []
+    for document_id in document_ids:
+        label = labels.label(document_id)
+        if label is not None:
+            pairs.append((document_id, label))
+    return pairs
 
 
 def build_structural_answer(
     question_type: QuestionType, message: str, jurisdiction: str, language: str, api_client,
+    labels: CitationResolver,
 ) -> StructuralAnswer:
     found = extract_designation(message)
     if found is None:
@@ -89,11 +106,22 @@ def build_structural_answer(
     if document is None:
         return _fallback(language)
 
-    # The API speaks JSON, so ids arrive as strings; ChatMessageCitation and
-    # CitationResponse both declare uuid.UUID, so the conversion belongs here
-    # rather than at each consumer.
+    # The API speaks JSON, so ids arrive as strings; the citation schemas
+    # declare uuid.UUID, so the conversion belongs here.
     document_id = uuid.UUID(document["id"])
-    citations = [{"document_id": document_id, "segment_id": None}]
+
+    paragraphs: list[str] = []
+    citations: list[dict] = []
+
+    def add(sentence: str, target_ids: list[uuid.UUID]) -> None:
+        # Each sentence is one paragraph and cites the asked-about document
+        # together with the documents the sentence names.
+        index = len(paragraphs)
+        paragraphs.append(sentence)
+        citations.extend(
+            {"document_id": cited, "segment_id": None, "paragraph_index": index}
+            for cited in [document_id, *target_ids]
+        )
 
     if question_type == QuestionType.STRUCTURAL_VALIDITY:
         validity = api_client.get_validity(document_id, jurisdiction)
@@ -101,7 +129,8 @@ def build_structural_answer(
             return _fallback(language)
         status = validity.get("status")
         phrase = _STATUS_PHRASE[language].get(status, _UNKNOWN_STATUS_PHRASE[language])
-        return StructuralAnswer(text=f"{designation} {phrase}.", citations=citations)
+        add(f"{designation} {phrase}.", [])
+        return StructuralAnswer(paragraphs=paragraphs, citations=citations)
 
     # A replacement question ("Was ersetzt DIN EN ISO 9001?") asks about the
     # OLD document, but REPLACES/WITHDRAWN_BY edges point FROM the successor TO
@@ -114,30 +143,38 @@ def build_structural_answer(
     validity = api_client.get_validity(document_id, jurisdiction)
     edges = api_client.get_edges(document_id, jurisdiction)
 
-    sentences: list[str] = []
     if validity is not None:
-        replaced_by = validity.get("replaced_by") or []
-        if replaced_by:
-            sentences.append(
+        successors = _labelled(
+            labels, [uuid.UUID(str(target)) for target in validity.get("replaced_by") or []]
+        )
+        if successors:
+            add(
                 _REPLACED_BY_SENTENCE[language].format(
                     designation=designation,
-                    targets=", ".join(str(target) for target in replaced_by),
-                )
+                    targets=", ".join(label for _, label in successors),
+                ),
+                [target for target, _ in successors],
             )
         withdrawn_reference = validity.get("withdrawn_reference")
         if withdrawn_reference:
-            sentences.append(
-                _WITHDRAWN_BY_SENTENCE[language].format(
-                    designation=designation, reference=withdrawn_reference,
+            withdrawing = _labelled(labels, [uuid.UUID(str(withdrawn_reference))])
+            if withdrawing:
+                target, label = withdrawing[0]
+                add(
+                    _WITHDRAWN_BY_SENTENCE[language].format(
+                        designation=designation, reference=label,
+                    ),
+                    [target],
                 )
-            )
 
     for edge in edges or []:
-        phrase = _EDGE_PHRASE[language].get(
-            edge.get("edge_type"), _UNKNOWN_EDGE_PHRASE[language]
-        )
-        sentences.append(f"{designation} {phrase}: {edge['to_document_id']}.")
+        resolved = _labelled(labels, [uuid.UUID(str(edge["to_document_id"]))])
+        if not resolved:
+            continue
+        target, label = resolved[0]
+        phrase = _EDGE_PHRASE[language].get(edge.get("edge_type"), _UNKNOWN_EDGE_PHRASE[language])
+        add(f"{designation} {phrase}: {label}.", [target])
 
-    if not sentences:
+    if not paragraphs:
         return _fallback(language)
-    return StructuralAnswer(text=" ".join(sentences), citations=citations)
+    return StructuralAnswer(paragraphs=paragraphs, citations=citations)

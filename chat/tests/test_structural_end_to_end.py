@@ -190,8 +190,10 @@ def test_a_replacement_question_about_the_superseded_document_is_not_a_fallback(
     assert body["answer_type"] == "structural"
     assert body["answer_type"] != "fallback"
     # The successor is named in the answer, not merely implied.
-    assert str(successor.id) in body["answer"]
-    assert [c["document_id"] for c in body["citations"]] == [str(superseded.id)]
+    assert "ISO 9001." in body["answer"]
+    assert str(successor.id) not in body["answer"]
+    assert [c["document_id"] for c in body["citations"]] == [str(superseded.id), str(successor.id)]
+    assert {c["designation"] for c in body["citations"]} == {"DIN EN ISO 9001", "ISO 9001"}
 
 
 def test_an_english_replacement_question_answers_in_english(
@@ -208,7 +210,8 @@ def test_an_english_replacement_question_answers_in_english(
     assert response.status_code == 200
     body = response.json()
     assert body["answer_type"] == "structural"
-    assert body["answer"] == f"DIN EN ISO 9001 has been replaced by: {successor.id}."
+    assert body["answer"] == "DIN EN ISO 9001 has been replaced by: ISO 9001."
+    assert body["paragraphs"] == [body["answer"]]
 
 
 def test_an_unknown_designation_falls_back_without_calling_the_model(structural_client):

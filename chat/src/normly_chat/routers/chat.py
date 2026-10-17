@@ -16,6 +16,7 @@ from normly_core.graph.postgres.repositories import (
 
 from normly_chat.accounts_client import AccountsClient
 from normly_chat.api_client import ApiClient
+from normly_chat.citation_labels import CitationResolver
 from normly_chat.classify import QuestionType, classify
 from normly_chat.dependencies import (
     get_accounts_client, get_api_client, get_embedding_model, get_llm_client, get_session,
@@ -67,8 +68,12 @@ def chat(
             PostgresSegmentRepository(session), llm_client,
         )
     else:
+        labels = CitationResolver(
+            api_client, PostgresSegmentRepository(session), payload.jurisdiction,
+        )
         result = build_structural_answer(
             question_type, payload.message, payload.jurisdiction, payload.language, api_client,
+            labels,
         )
 
     answer_type = (
