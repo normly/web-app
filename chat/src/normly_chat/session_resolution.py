@@ -16,7 +16,8 @@ def resolve_session(
     (the router never calls this without a valid account), so a session is
     only reused when it belongs to the requesting identity; anything else,
     including a session of another account or a legacy unlinked row, yields a
-    fresh session. Nothing is ever linked to an account after the fact.
+    fresh session. A session also keeps one jurisdiction: a request under
+    another jurisdiction never continues it but starts a new session. Nothing is ever linked to an account after the fact.
 
     Returns (session, is_new_session) -- the router needs to know whether to
     return the client a NEW session_token or the one it already had.
@@ -28,6 +29,9 @@ def resolve_session(
     owner_id = identity.account_id if identity is not None else None
     if session is not None and session.account_id != owner_id:
         session = None  # force creation of a fresh, correctly-owned session below
+
+    if session is not None and session.jurisdiction != jurisdiction:
+        session = None  # a jurisdiction switch starts a new chat
 
     is_new = session is None
     if is_new:

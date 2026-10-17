@@ -260,6 +260,22 @@ def test_the_answer_carries_paragraphs_and_labelled_citations(client):
     }]
 
 
+class _FailingDocumentApiClient(_OneDocumentApiClient):
+    def get_document(self, document_id, jurisdiction):
+        raise httpx.ConnectError("api/ is down")
+
+
+def test_a_failing_document_lookup_drops_the_chip_but_keeps_the_answer(client):
+    client.app.dependency_overrides[get_api_client] = lambda: _FailingDocumentApiClient()
+
+    response = client.post("/v1/chat", json=_BODY)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["answer"]
+    assert body["citations"] == []
+
+
 def test_a_stored_answer_keeps_its_paragraph_index_and_returns_the_session_id(client, db_session):
     from normly_chat.accounts_client import ChatAccountIdentity
     from normly_core.graph.postgres.repositories import (

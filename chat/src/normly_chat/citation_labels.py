@@ -10,8 +10,13 @@ current state of the knowledge base instead of a stale snapshot.
 
 from __future__ import annotations
 
+import logging
 import re
 import uuid
+
+import httpx
+
+logger = logging.getLogger(__name__)
 
 # "4.5.4 Performance Level" -> "4.5.4", "§ 1 Geltungsbereich" -> "§ 1".
 # A trailing dot after a number ("4.5.4. Title") is not part of the section.
@@ -39,7 +44,8 @@ class CitationResolver:
     """
     Resolves chip labels for one jurisdiction, fetching each document from
     api/ at most once. A document api/ does not return (not visible, retired)
-    yields no label, and its citations are dropped.
+    yields no label, and its citations are dropped; so does a document whose
+    fetch fails.
     """
 
     def __init__(self, api_client, segment_repo, jurisdiction: str):
@@ -50,9 +56,18 @@ class CitationResolver:
 
     def label(self, document_id: uuid.UUID) -> str | None:
         if document_id not in self._documents:
-            self._documents[document_id] = self._api_client.get_document(
-                document_id, self._jurisdiction
-            )
+            try:
+                self._documents[document_id] = self._api_client.get_document(
+                    document_id, self._jurisdiction
+                )
+            except httpx.HTTPError as error:
+                # An api/ failure must not fail the answer or the reopen: the
+                # citation simply yields no chip.
+                logger.warning(
+                    "Could not fetch document %s for a citation label: %s",
+                    document_id, type(error).__name__,
+                )
+                self._documents[document_id] = None
         document = self._documents[document_id]
         return document_label(document) if document is not None else None
 

@@ -3,6 +3,7 @@
 
 import uuid
 
+import httpx
 import pytest
 
 from normly_chat.citation_labels import CitationResolver, document_label, section_from_heading
@@ -113,3 +114,24 @@ def test_resolve_without_segments_does_not_query_headings():
 def test_label_returns_none_for_an_unknown_document():
     resolver = CitationResolver(_FakeApiClient({}), _FakeSegmentRepo({}), "DE")
     assert resolver.label(uuid.uuid4()) is None
+
+
+def test_a_failing_document_fetch_yields_no_chip_and_is_fetched_once():
+    document_id = uuid.uuid4()
+
+    class _FailingApiClient:
+        def __init__(self):
+            self.calls = 0
+
+        def get_document(self, document_id, jurisdiction):
+            self.calls += 1
+            raise httpx.ConnectError("api/ is down")
+
+    api_client = _FailingApiClient()
+    resolver = CitationResolver(api_client, _FakeSegmentRepo({}), "DE")
+
+    assert resolver.label(document_id) is None
+    assert resolver.resolve(
+        [{"document_id": document_id, "segment_id": None, "paragraph_index": 0}]
+    ) == []
+    assert api_client.calls == 1
