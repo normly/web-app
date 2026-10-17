@@ -1798,6 +1798,54 @@ class PostgresSegmentRepository:
         ).scalars()
         return [_segment_to_domain(row) for row in rows]
 
+    def list_citable_segments_for_jurisdiction(
+        self, document_id: uuid.UUID, jurisdiction: str
+    ) -> list[Segment]:
+        # Showing a passage to a reader is a stricter question than indexing
+        # it for search: EUR-Lex texts, for example, are indexable but not
+        # citable. may_index_fulltext stays in the gate because segments only
+        # exist where indexing was permitted when they were written.
+        rows = self._session.execute(
+            select(SegmentORM)
+            .join(
+                RightsClassificationORM,
+                RightsClassificationORM.document_id == SegmentORM.document_id,
+            )
+            .where(
+                SegmentORM.document_id == document_id,
+                RightsClassificationORM.jurisdiction == jurisdiction,
+                RightsClassificationORM.may_process.is_(True),
+                RightsClassificationORM.may_index_fulltext.is_(True),
+                RightsClassificationORM.may_cite_passages.is_(True),
+                RightsClassificationORM.revoked_at.is_(None),
+            )
+            .order_by(SegmentORM.sequence_number)
+        ).scalars()
+        return [_segment_to_domain(row) for row in rows]
+
+    def list_segment_headings_for_jurisdiction(
+        self, segment_ids: list[uuid.UUID], jurisdiction: str
+    ) -> dict[uuid.UUID, str | None]:
+        # Same read gate as list_segments_for_jurisdiction: chat citations
+        # point at segments that synthesis read under exactly this gate.
+        if not segment_ids:
+            return {}
+        rows = self._session.execute(
+            select(SegmentORM.id, SegmentORM.heading)
+            .join(
+                RightsClassificationORM,
+                RightsClassificationORM.document_id == SegmentORM.document_id,
+            )
+            .where(
+                SegmentORM.id.in_(segment_ids),
+                RightsClassificationORM.jurisdiction == jurisdiction,
+                RightsClassificationORM.may_process.is_(True),
+                RightsClassificationORM.may_index_fulltext.is_(True),
+                RightsClassificationORM.revoked_at.is_(None),
+            )
+        ).all()
+        return {segment_id: heading for segment_id, heading in rows}
+
     def find_similar_segments_for_jurisdiction(
         self, query_vector: list[float], jurisdiction: str, model_name: str, limit: int = 5,
     ) -> list[Segment]:

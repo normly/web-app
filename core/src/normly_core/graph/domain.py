@@ -555,6 +555,18 @@ class SegmentRepository(Protocol):
         self, document_id: uuid.UUID, jurisdiction: str
     ) -> list[Segment]: ...
 
+    def list_citable_segments_for_jurisdiction(
+        self, document_id: uuid.UUID, jurisdiction: str
+    ) -> list[Segment]:
+        """Segments whose text may be shown to a reader (may_cite_passages)."""
+        ...
+
+    def list_segment_headings_for_jurisdiction(
+        self, segment_ids: list[uuid.UUID], jurisdiction: str
+    ) -> dict[uuid.UUID, str | None]:
+        """Headings of the visible segments among segment_ids; others are absent."""
+        ...
+
     def find_similar_segments_for_jurisdiction(
         self, query_vector: list[float], jurisdiction: str, model_name: str, limit: int = 5,
     ) -> list[Segment]: ...
