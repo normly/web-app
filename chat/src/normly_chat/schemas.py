@@ -20,12 +20,20 @@ class ChatRequest(BaseModel):
 class CitationResponse(BaseModel):
     document_id: uuid.UUID
     segment_id: uuid.UUID | None
+    designation: str
+    section: str | None
+    # None: the citation backs the whole answer rather than one paragraph.
+    paragraph_index: int | None
 
 
 class ChatResponse(BaseModel):
+    session_id: uuid.UUID | None
     session_token: str | None
+    # The paragraphs joined by a blank line; kept for clients that render
+    # plain text.
     answer: str
     answer_type: Literal["structural", "synthesis", "fallback"]
+    paragraphs: list[str]
     citations: list[CitationResponse]
 
 

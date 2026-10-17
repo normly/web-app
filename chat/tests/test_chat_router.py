@@ -221,3 +221,94 @@ def test_request_with_a_valid_account_stores_session_messages_and_returns_a_toke
     after = _count_chat_rows(db_session)
     assert after[0] == before[0] + 1
     assert after[1] == before[1] + 2
+
+
+class _OneDocumentApiClient:
+    """A validity question about one known, valid document."""
+
+    DOCUMENT_ID = "66666666-6666-6666-6666-666666666666"
+
+    def search_document(self, issuer, designation, jurisdiction):
+        return {"id": self.DOCUMENT_ID}
+
+    def get_validity(self, document_id, jurisdiction):
+        return {"status": "valid", "replaced_by": [], "withdrawn_reference": None}
+
+    def get_edges(self, document_id, jurisdiction):
+        return []
+
+    def get_document(self, document_id, jurisdiction):
+        return {
+            "origin_issuer": "ISO", "origin_number": "9001",
+            "designations": [{"designation": "DIN EN ISO 9001", "is_primary": True}],
+        }
+
+
+def test_the_answer_carries_paragraphs_and_labelled_citations(client):
+    client.app.dependency_overrides[get_api_client] = lambda: _OneDocumentApiClient()
+
+    response = client.post("/v1/chat", json=_BODY)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["session_id"] is None
+    assert body["answer"] == "DIN EN ISO 9001 ist noch gültig."
+    assert body["paragraphs"] == ["DIN EN ISO 9001 ist noch gültig."]
+    assert body["citations"] == [{
+        "document_id": _OneDocumentApiClient.DOCUMENT_ID, "segment_id": None,
+        "designation": "DIN EN ISO 9001", "section": None, "paragraph_index": 0,
+    }]
+
+
+def test_a_stored_answer_keeps_its_paragraph_index_and_returns_the_session_id(client, db_session):
+    from normly_chat.accounts_client import ChatAccountIdentity
+    from normly_core.graph.postgres.repositories import (
+        PostgresAccountRepository,
+        PostgresChatRepository,
+    )
+
+    account = PostgresAccountRepository(db_session).create_account(
+        email="chat-paragraph@example.de", password_hash=None,
+    )
+    identity = ChatAccountIdentity(account_id=account.id, email=account.email)
+    client.app.dependency_overrides[get_accounts_client] = lambda: _FixedAccountsClient(identity)
+    # The document must exist for the citation's foreign key.
+    from datetime import date, datetime, timezone
+
+    from normly_core.graph.domain import LegalBasisCategory
+    from normly_core.graph.postgres.repositories import (
+        PostgresDeliveryRepository,
+        PostgresDocumentRepository,
+        PostgresSourceRepository,
+    )
+
+    source = PostgresSourceRepository(db_session).create_source(
+        publisher="DIN", retrieval_path="https://example.de/router",
+        legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
+        reviewed_at=date(2026, 1, 1), responsible_person="Reviewer",
+    )
+    delivery = PostgresDeliveryRepository(db_session).record_delivery(
+        source_id=source.id, content_hash="sha256:router-paragraph",
+        ingested_at=datetime.now(timezone.utc),
+    )
+    document = PostgresDocumentRepository(db_session).create_document(
+        origin_issuer="ISO", origin_number="9001", edition="2015", part=None,
+        delivery_id=delivery.id,
+    )
+
+    class _KnownDocumentApiClient(_OneDocumentApiClient):
+        DOCUMENT_ID = str(document.id)
+
+    client.app.dependency_overrides[get_api_client] = lambda: _KnownDocumentApiClient()
+
+    response = client.post("/v1/chat", json=_BODY, headers={"Authorization": "Bearer valid"})
+
+    body = response.json()
+    session_id = body["session_id"]
+    assert session_id is not None
+    chat_repo = PostgresChatRepository(db_session)
+    chat_session = chat_repo.get_session_by_token(body["session_token"])
+    assert str(chat_session.id) == session_id
+    answer = chat_repo.list_messages_for_session(chat_session.id)[1]
+    [citation] = chat_repo.citations_for_messages([answer.id])[answer.id]
+    assert citation.paragraph_index == 0
