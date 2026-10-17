@@ -73,9 +73,10 @@ by id. `ApiClient` gets a `get_document(id, jurisdiction)` method for this.
 **Chip labels are resolved in the backend.** Each citation carries:
 
 - `designation` — the document's primary designation;
-- `section` — the leading section number of the segment heading
-  (`4.5.4 Performance Level` → `4.5.4`), matched by `^\d+(\.\d+)*`; `null`
-  when the heading has no number or the citation has no segment.
+- `section` — the leading section marker of the segment heading:
+  `4.5.4 Performance Level` → `4.5.4`, `§ 1 Geltungsbereich` → `§ 1`;
+  `null` when the heading starts with neither or the citation has no
+  segment.
 
 ### Response format of `POST /v1/chat`
 
@@ -108,9 +109,10 @@ An extension; `answer` stays for compatibility.
 - Designation and section are **not** stored. They are derived from
   `document_id` and `segment_id` whenever an answer is shown, so a reopened
   chat reflects the current state of the knowledge base, not a stale label.
-- `chat_message_citation` is a user table in the exchange format
-  (`core/src/normly_core/exchange/tables.py`). The new column must survive export
-  and import; a test proves it.
+- `chat_session` and `chat_message_citation` are user tables
+  (`core/src/normly_core/exchange/tables.py`); user tables are never part
+  of a knowledge-base dump, so the new columns need no exchange change.
+  They are personal data and appear in the account export (Art. 15 GDPR).
 
 ### Frontend
 
@@ -184,7 +186,7 @@ ADR-017):
 ### Session titles
 
 - `chat_session.title` — new nullable text column, Alembic migration;
-  carried through the exchange format like `paragraph_index`.
+  included in the account export.
 - **Fallback, computed on read, never stored:** the first user question,
   truncated to about 60 characters at a word boundary. A session without
   messages keeps showing its timestamp.
@@ -201,9 +203,7 @@ ADR-017):
 
 ## Error handling
 
-- **Target or document cannot be resolved** (API error or 404): the chip
-  falls back to `origin_issuer origin_number` when known and is dropped
-  otherwise. A structural sentence whose target designation is missing is
+- **Target or document cannot be resolved:** a document without a designation is labelled `origin_issuer origin_number`; a document `api/` does not return (error or 404) yields no chip. A structural sentence whose target designation is missing is
   left out; if no sentence remains, the existing fallback answer applies. No
   UUID ever appears in answer text.
 - **Segment revoked or no longer citable:** the chip stays; the anchor finds
@@ -236,8 +236,7 @@ REQ-UI-005 needs no change; part 1b fulfils it.
   revoked, unknown document.
 - **Chat:** `POST /v1/chat` format; messages endpoint for own and foreign
   account; title endpoint — success, idempotence, model failure.
-- **Migration and exchange:** `paragraph_index` and `title` survive export
-  and import.
+- **Migration and export:** the migration applies; `title` and `paragraph_index` appear in the account export.
 - **Frontend (vitest):** chips per paragraph, anchor link, highlight on the
   document page, opening a session, title in the sidebar.
 - **E2E (Playwright):** ask a question, click a chip, land on the highlighted

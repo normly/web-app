@@ -752,6 +752,7 @@ class ChatSessionORM(Base):
     )
     jurisdiction: Mapped[str]
     language: Mapped[str]
+    title: Mapped[str | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), server_default=sa.func.now()
     )
@@ -804,6 +805,7 @@ class ChatMessageCitationORM(Base):
     segment_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), sa.ForeignKey("segment.id"), nullable=True
     )
+    paragraph_index: Mapped[int | None] = mapped_column(nullable=True)
 
 
 class RateLimitBucketORM(Base):

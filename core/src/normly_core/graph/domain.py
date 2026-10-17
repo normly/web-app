@@ -956,6 +956,7 @@ class ChatSession:
     jurisdiction: str
     language: str
     created_at: datetime
+    title: str | None = None
 
 
 @dataclass(frozen=True)
@@ -974,6 +975,7 @@ class ChatMessageCitation:
     message_id: uuid.UUID
     document_id: uuid.UUID
     segment_id: uuid.UUID | None
+    paragraph_index: int | None = None
 
 
 class ChatRepository(Protocol):
@@ -993,6 +995,20 @@ class ChatRepository(Protocol):
     ) -> ChatSession: ...
 
     def get_session_by_token(self, session_token: str) -> ChatSession | None: ...
+
+    def get_session_for_account(
+        self, session_id: uuid.UUID, account_id: uuid.UUID
+    ) -> ChatSession | None:
+        """The session only if it belongs to account_id; None for unknown and foreign ids alike."""
+        ...
+
+    def set_session_title(self, session_id: uuid.UUID, title: str) -> None: ...
+
+    def first_user_messages_for_sessions(
+        self, session_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, str]:
+        """The earliest user message per session; sessions without one are absent."""
+        ...
 
     def list_sessions_for_account(self, account_id: uuid.UUID) -> list[ChatSession]: ...
 
@@ -1022,7 +1038,7 @@ class ChatRepository(Protocol):
 
     def add_citation(
         self, *, message_id: uuid.UUID, document_id: uuid.UUID,
-        segment_id: uuid.UUID | None,
+        segment_id: uuid.UUID | None, paragraph_index: int | None = None,
     ) -> ChatMessageCitation: ...
 
     def citations_for_messages(

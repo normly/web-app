@@ -89,6 +89,7 @@ JURISDICTION_EXEMPT_READS = {
     "ChatRepository.get_session_by_token",
     "ChatRepository.list_sessions_for_account",
     "ChatRepository.list_messages_for_session",
+    "ChatRepository.get_session_for_account",
     # Watchlist and notification listings: account-scoped bookkeeping (this
     # account's watches, this account's notifications), not rights-gated
     # document content. Accounts are not jurisdiction-scoped.

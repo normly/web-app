@@ -122,3 +122,133 @@ def test_list_sessions_for_account_returns_only_that_accounts_sessions_newest_fi
     sessions = repo.list_sessions_for_account(account_a.id)
 
     assert [s.id for s in sessions] == [newer.id, older.id]
+
+
+def _account(db_session, email):
+    from normly_core.graph.postgres.repositories import PostgresAccountRepository
+
+    return PostgresAccountRepository(db_session).create_account(email=email, password_hash=None)
+
+
+def test_a_new_session_has_no_title_and_set_session_title_stores_one(db_session):
+    repo = PostgresChatRepository(db_session)
+    session = repo.create_session(
+        session_token="tok-title", jurisdiction="DE", language="de", created_at=_now(),
+    )
+    assert session.title is None
+
+    repo.set_session_title(session.id, "Schutzbrillen beim Schweißen")
+
+    assert repo.get_session_by_token("tok-title").title == "Schutzbrillen beim Schweißen"
+
+
+def test_get_session_for_account_returns_only_the_owners_session(db_session):
+    owner = _account(db_session, "owner-lookup@example.de")
+    other = _account(db_session, "other-lookup@example.de")
+    repo = PostgresChatRepository(db_session)
+    session = repo.create_session(
+        session_token="tok-owned", jurisdiction="DE", language="de", created_at=_now(),
+        account_id=owner.id,
+    )
+
+    assert repo.get_session_for_account(session.id, owner.id).id == session.id
+    assert repo.get_session_for_account(session.id, other.id) is None
+
+
+def test_first_user_messages_for_sessions_returns_the_earliest_question_per_session(db_session):
+    repo = PostgresChatRepository(db_session)
+    first = repo.create_session(
+        session_token="tok-first-a", jurisdiction="DE", language="de", created_at=_now(),
+    )
+    second = repo.create_session(
+        session_token="tok-first-b", jurisdiction="DE", language="de", created_at=_now(),
+    )
+    empty = repo.create_session(
+        session_token="tok-first-c", jurisdiction="DE", language="de", created_at=_now(),
+    )
+    t0 = datetime(2026, 3, 1, 12, 0, tzinfo=timezone.utc)
+    t1 = datetime(2026, 3, 1, 12, 5, tzinfo=timezone.utc)
+    repo.create_message(
+        session_id=first.id, role=ChatMessageRole.USER, content="Spätere Frage",
+        answer_type=None, created_at=t1,
+    )
+    repo.create_message(
+        session_id=first.id, role=ChatMessageRole.USER, content="Erste Frage",
+        answer_type=None, created_at=t0,
+    )
+    repo.create_message(
+        session_id=second.id, role=ChatMessageRole.ASSISTANT, content="Antwort",
+        answer_type=ChatAnswerType.FALLBACK, created_at=t0,
+    )
+    repo.create_message(
+        session_id=second.id, role=ChatMessageRole.USER, content="Frage B",
+        answer_type=None, created_at=t1,
+    )
+
+    result = repo.first_user_messages_for_sessions([first.id, second.id, empty.id])
+
+    assert result == {first.id: "Erste Frage", second.id: "Frage B"}
+    assert repo.first_user_messages_for_sessions([]) == {}
+
+
+def test_a_user_message_sorts_before_its_answer_when_both_share_a_timestamp(db_session):
+    # routers/chat.py stores question and answer with the same `now`.
+    repo = PostgresChatRepository(db_session)
+    session = repo.create_session(
+        session_token="tok-tie", jurisdiction="DE", language="de", created_at=_now(),
+    )
+    same = _now()
+    answer = repo.create_message(
+        session_id=session.id, role=ChatMessageRole.ASSISTANT, content="Antwort",
+        answer_type=ChatAnswerType.FALLBACK, created_at=same,
+    )
+    question = repo.create_message(
+        session_id=session.id, role=ChatMessageRole.USER, content="Frage",
+        answer_type=None, created_at=same,
+    )
+
+    assert [m.id for m in repo.list_messages_for_session(session.id)] == [question.id, answer.id]
+
+
+def test_add_citation_stores_the_paragraph_index(db_session):
+    from datetime import date
+
+    from normly_core.graph.domain import LegalBasisCategory
+    from normly_core.graph.postgres.repositories import (
+        PostgresDeliveryRepository,
+        PostgresDocumentRepository,
+        PostgresSourceRepository,
+    )
+
+    source = PostgresSourceRepository(db_session).create_source(
+        publisher="DGUV", retrieval_path="https://example.de/p",
+        legal_basis_category=LegalBasisCategory.A, jurisdiction="DE",
+        reviewed_at=date(2026, 1, 1), responsible_person="Reviewer",
+    )
+    delivery = PostgresDeliveryRepository(db_session).record_delivery(
+        source_id=source.id, content_hash="sha256:paragraph-index", ingested_at=_now(),
+    )
+    document = PostgresDocumentRepository(db_session).create_document(
+        origin_issuer="DGUV", origin_number="2", edition="2021", part=None,
+        delivery_id=delivery.id,
+    )
+    repo = PostgresChatRepository(db_session)
+    session = repo.create_session(
+        session_token="tok-pi", jurisdiction="DE", language="de", created_at=_now(),
+    )
+    message = repo.create_message(
+        session_id=session.id, role=ChatMessageRole.ASSISTANT, content="A\n\nB",
+        answer_type=ChatAnswerType.SYNTHESIS, created_at=_now(),
+    )
+
+    with_index = repo.add_citation(
+        message_id=message.id, document_id=document.id, segment_id=None, paragraph_index=1,
+    )
+    without_index = repo.add_citation(
+        message_id=message.id, document_id=document.id, segment_id=None,
+    )
+
+    assert with_index.paragraph_index == 1
+    assert without_index.paragraph_index is None
+    stored = repo.citations_for_messages([message.id])[message.id]
+    assert sorted(c.paragraph_index is None for c in stored) == [False, True]
