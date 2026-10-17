@@ -45,6 +45,23 @@ describe("GET /api/chat/sessions/[id]/messages", () => {
     expect(init.headers.Authorization).toBe("Bearer acct");
   });
 
+  it("answers 502 and clears a stale chat cookie when the backend omits the session token", async () => {
+    vi.stubEnv("NORMLY_CHAT_BASE_URL", "http://chat.internal");
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ session_id: "sess-1", messages: [] }), { status: 200 }));
+
+    const response = await getMessages(
+      request("http://localhost/api/chat/sessions/sess-1/messages", "normly_account_session=acct; normly_session=stale"),
+      { params: Promise.resolve({ id: "sess-1" }) },
+    );
+
+    expect(response.status).toBe(502);
+    const cookie = response.cookies.get("normly_session");
+    expect(cookie?.value).toBe("");
+    expect(cookie?.maxAge).toBe(0);
+  });
+
   it("answers 401 without an account cookie and does not call the backend", async () => {
     global.fetch = vi.fn();
     const response = await getMessages(request("http://localhost/api/chat/sessions/x/messages"), {

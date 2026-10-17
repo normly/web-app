@@ -16,6 +16,6 @@ export async function GET(
       `?jurisdiction=${encodeURIComponent(jurisdiction)}`,
     { headers: rateLimitHeaders(request) },
   );
-  const body = await backendResponse.json();
+  const body = await backendResponse.json().catch(() => ({}));
   return NextResponse.json(body, { status: backendResponse.status });
 }

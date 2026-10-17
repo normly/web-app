@@ -3,7 +3,11 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getBackendUrls } from "@/lib/backend-urls";
-import { applySessionCookies, readSessionCookies } from "@/lib/session-cookies";
+import {
+  applySessionCookies,
+  clearChatSessionCookie,
+  readSessionCookies,
+} from "@/lib/session-cookies";
 
 // Opening a session makes it the active one: the chat cookie is pointed at
 // it, so the next /api/chat POST continues this conversation. The token
@@ -26,6 +30,13 @@ export async function GET(
     return NextResponse.json(body, { status: backendResponse.status });
   }
   const { session_token: chatSessionToken, ...rest } = body;
+  if (typeof chatSessionToken !== "string" || chatSessionToken === "") {
+    // Without a token the cookie would keep pointing at a previously opened
+    // session, so the page would silently continue the wrong conversation.
+    const failure = NextResponse.json({ detail: "chat session token missing" }, { status: 502 });
+    clearChatSessionCookie(failure);
+    return failure;
+  }
   const response = NextResponse.json(rest);
   applySessionCookies(response, { chatSessionToken });
   return response;
