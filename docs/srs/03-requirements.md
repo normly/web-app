@@ -40,15 +40,19 @@ This section describes the logical user interfaces of normly as well as the basi
 
 #### REQ-UI-003 — Citations and linking
 
-**Statement:** The UI must display the standards used as the source for each answer. For freely available content, the link points to the original source location; for paid standards, to the publisher's point of purchase.  
+**Statement:** The UI must display the standards used as the source for each answer. Each source links to its location in normly: the document page, scrolled to the cited section where the rights classification permits showing the passage. The document page links free content to the original source location and paid standards to the publisher's point of purchase.  
 **Rationale:** Traceability of the answer, legal protection, and referral to the publisher as a source of revenue (affiliate, see section 3.4).  
 **Acceptance criteria:**
 
 - Every answer contains at least one citation
 
-- For free content, the link leads to the original source location; for paid content, to the publisher's point of purchase
+- Each citation names the standard and, where known, the section
 
-**Acceptance test:** For both kinds of source, the link demonstrably leads to the correct target.
+- A citation leads to the document page in normly, at the cited section where the passage may be shown
+
+- The document page links free content to the original source location and paid content to the publisher's point of purchase
+
+**Acceptance test:** For both kinds of source, the citation demonstrably leads to the correct document page and section, and the document page demonstrably links to the correct external target.
 
 **Further information:** See section 3.4 Compliance and REQ-PART-002 (attribution).
 
