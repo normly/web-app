@@ -1,6 +1,6 @@
 # 3. Requirements
 
-This chapter describes all requirements for normly. All requirements are uniquely identifiable, verifiable and formulated so that they can be carried directly into development, testing and acceptance. The requirements take into account the MVP status (open-source, standalone web application with an open-source LLM) as well as later scaling and the separation between the free core and the commercial layer.
+This chapter describes all requirements for normly. All requirements are uniquely identifiable, verifiable and formulated so that they can be carried directly into development, testing and acceptance. The requirements take into account the MVP status (open-source, standalone web application with an open-weight LLM under an OSI-approved license) as well as later scaling and the separation between the free core and the commercial layer.
 
 ## 3.1 External interfaces
 
@@ -202,7 +202,7 @@ Normly supports two integration modes for norm documents:
 
 #### REQ-INT-004 — LLM interface
 
-**Statement:** The system must communicate with an external LLM (e.g. Llama 3.1) via a clearly defined interface.  
+**Statement:** The system must communicate with an external LLM (an open-weight model under an OSI-approved license according to ADR-022, see 3.6.1) via a clearly defined interface.  
 **Rationale:** Interchangeability of the model and later migration to normly's own LLM.  
 **Acceptance criteria:**
 
@@ -342,13 +342,13 @@ This section defines requirements for the provisioning, configuration and recove
 
 #### REQ-INST-001 — Deployment on German StackIT infrastructure
 
-**Statement:** The system must be operated in all environments (production, test, staging and development environments) exclusively on **server infrastructure of StackIT (Schwarz Gruppe) located in Germany**.
+**Statement:** The production environment of the system must be operated exclusively on **server infrastructure of StackIT (Schwarz Gruppe) located in Germany**. Development and testing may take place anywhere, in particular locally by contributors from the open-source community; no user data, production credentials or licensed content are used there.
 
 **Rationale:** Ensuring data sovereignty, legal sovereignty and independence from non-European cloud providers.
 
 **Acceptance criteria:**
 
-- All compute, storage and network resources come from StackIT
+- All compute, storage and network resources of the production environment come from StackIT
 
 - Server locations are in Germany
 
@@ -424,7 +424,7 @@ This section defines requirements for build processes, artifact creation, integr
 
 #### REQ-BUILD-002 — CI/CD infrastructure for the free core
 
-**Statement:** Build, test and CI/CD processes for the free core run on **GitHub Actions** in the repository `normly/web-app`. For operations, deployment, secrets management and the norms knowledge base, the restriction to STACKIT or equivalent, non-US infrastructure continues to apply unchanged.
+**Statement:** Build, test and CI/CD processes for the free core run on **GitHub Actions** in the repository `normly/web-app`. For operations, deployment, secrets management and the norms knowledge base, the restriction to STACKIT continues to apply unchanged.
 
 **Rationale:** ADR-021 (2026-09-14) — for the source code and CI of the open core, easier collaboration outweighs the sovereignty advantage of a single STACKIT platform. The protection of operational data, credentials and prompts against extraterritorial access remains unaffected by this, since these are not part of the CI process on GitHub.
 
@@ -436,7 +436,7 @@ This section defines requirements for build processes, artifact creation, integr
 
 **Acceptance test:** A tooling review confirms that no operations or deployment step runs outside STACKIT and that no STACKIT operations credentials are stored in the GitHub CI.
 
-**Further information:** Until `.forgejo/workflows/ci.yml` is ported to `.github/workflows/`, no CI runs on GitHub yet (as of 2026-09-14). See REQ-GIT-001.
+**Further information:** CI runs on GitHub Actions (`.github/workflows/ci.yml`); images are built, signed and pushed to GHCR by `.github/workflows/images.yml` (ADR-023). See REQ-GIT-001.
 
 #### REQ-BUILD-003 — Automated quality assurance in the build
 
@@ -572,7 +572,7 @@ Open source frameworks used are to be listed and linked separately and cleanly.
 
 ### 3.5.5 Reusability
 
-The software should be reusable through modular, loosely coupled components. The implementation of DRY principles (Don't Repeat Yourself), a central repository for code and requirements with version control in STACKIT Git, and standardized APIs/interfaces are to be provided for.
+The software should be reusable through modular, loosely coupled components. The implementation of DRY principles (Don't Repeat Yourself), a central repository for code and requirements with version control on GitHub (`normly/web-app`), and standardized APIs/interfaces are to be provided for.
 
 ### 3.5.6 Portability
 
@@ -601,7 +601,7 @@ The development of a first testable prototype is completed by May/June 2026. A f
 
 ### 3.5.9 Physical requirements
 
-In order to be able to ensure, as a USP, 100% independence from American or Chinese offerings, the entire deployment is to be ensured on server infrastructure of [<u>Stack IT</u>](https://stackit.com/de). This also applies to development, build and deployment environments. Since ADR-021, source code, CI/CD and container registry of the free core reside on GitHub (REQ-GIT-001, REQ-BUILD-002). For language models, ADR-022 applies: exclusively open-weight models with an OSI-approved license, operated on STACKIT infrastructure; no request reaches the model vendor.
+In order to be able to ensure, as a USP, 100% independence from American or Chinese offerings, the entire deployment is to be ensured on server infrastructure of [<u>Stack IT</u>](https://stackit.com/de). This applies to production and deployment; development and testing may take place anywhere, in particular locally by the open-source community. Since ADR-021, source code, CI/CD and container registry of the free core reside on GitHub (REQ-GIT-001, REQ-BUILD-002). For language models, ADR-022 applies: exclusively open-weight models with an OSI-approved license, operated on STACKIT infrastructure; no request reaches the model vendor.
 
 ### 3.5.10 Design requirements
 
@@ -623,9 +623,9 @@ This section defines requirements that apply specifically to systems whose core 
 
 ### 3.6.1 Model specifications
 
-In order to be able to ensure fast and cost-effective development, we will initially rely on open source LLMs. It is to be ensured that German and English are supported with priority. Followed by French, Spanish and Italian.
+In order to be able to ensure fast and cost-effective development, we rely on open-weight LLMs under an OSI-approved license, operated exclusively on STACKIT; no request reaches the model vendor (ADR-022). It is to be ensured that German and English are supported with priority. Followed by French, Spanish and Italian.
 
-- Language model: [<u>Llama 3.1</u>](https://ai.meta.com/blog/meta-llama-3-1/) (open source and permits commercial use for own products). Currently leading, but can be replaced.
+- Language model: currently `google/gemma-4-31B-it` via STACKIT AI Model Serving in production, and `gemma4:e4b` via Ollama for local development and self-hosting. Replaceable at any time within the rule of ADR-022.
 
 ### 3.6.2 Data management
 

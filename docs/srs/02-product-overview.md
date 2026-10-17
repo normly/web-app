@@ -40,7 +40,7 @@ MVP-specific functions are therefore specially highlighted.
 
 **Language model**
 
-- An open-source language model is to be selected for the start.
+- An open-weight language model under an OSI-approved license, operated on STACKIT, is used (ADR-022).
 
 - Operating the model in isolation can rule out any outflow of information.
 
@@ -93,13 +93,15 @@ This chapter describes binding framework conditions and constraints that influen
 - normly must be implemented as a standalone, self-hostable, web-based application. A white-label web widget to be embedded in vendor websites is not part of the product; integration into third-party systems takes place exclusively via the public API.
 
 - The use of browser plugins for end users is not planned.  
-  For MVP status, an open-source language model is used; a dedicated normlyLLM is not part of the initial development phase.
+  For MVP status, an open-weight language model under an OSI-approved license is used (ADR-022); a dedicated normlyLLM is not part of the initial development phase.
 
 **Infrastructure and hosting constraints**
 
-- Hosting of all system components (production, test, staging and development environments) is permitted exclusively on server infrastructure of StackIT (Schwarz Gruppe) located in Germany.
+- The production environment is operated exclusively on server infrastructure of StackIT (Schwarz Gruppe) located in Germany.
 
-- The use of US cloud or SaaS providers (e.g. AWS, Azure, Google Cloud) for operation, build, data storage, credentials or deployment is not permitted. The only permitted use is publishing the already public source code on an external platform (GitHub) as a pure contribution facade. No credentials, build artifacts, runners or deployment rights are kept there.
+- Development and testing may take place anywhere, in particular locally on the machines of contributors from the open-source community (Compose setup). No user data, production credentials or licensed content are used there.
+
+- The use of US cloud or SaaS providers (e.g. AWS, Azure, Google Cloud) for operation, user data, the norms knowledge base, credentials or deployment is not permitted. Exception since ADR-021: source code, CI/CD and the container registry of the free core reside on GitHub (`github.com/normly/web-app`). No operations or deployment credentials are kept there.
 
 **Legal and contractual constraints**
 
@@ -153,13 +155,13 @@ This chapter describes assumptions and external dependencies on which the planni
 
 - End users have the legal right to upload norms, provided these are not provided centrally by the vendor.
 
-- Open-source language models achieve sufficient quality for MVP use.
+- Open-weight language models under an OSI-approved license achieve sufficient quality for MVP use.
 
 **Technical dependencies**
 
 - Availability and stability of the StackIT infrastructure.
 
-- Availability of suitable open-source LLMs with a license for commercial use.
+- Availability of suitable open-weight LLMs under an OSI-approved license on STACKIT.
 
 - Performance of retrieval and vectorization mechanisms for large volumes of documents.
 
@@ -173,6 +175,6 @@ This chapter describes assumptions and external dependencies on which the planni
 
 - Delays or restrictions in concluding contracts may reduce the scope of functions.
 
-- Changes in the licensing of open-source LLMs may require technical adjustments.
+- Changes in the licensing or in the STACKIT offering of open-weight LLMs may require technical adjustments.
 
 - Unexpected scaling requirements may lead to performance or cost risks.
