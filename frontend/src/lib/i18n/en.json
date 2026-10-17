@@ -122,7 +122,10 @@
     "mayExportFree": "Free export permitted",
     "addToWatchlist": "Add to watchlist",
     "removeFromWatchlist": "Remove from watchlist",
-    "watchlistToggleError": "The action could not be completed. Please try again."
+    "watchlistToggleError": "The action could not be completed. Please try again.",
+    "textHeading": "Text",
+    "textNotShown": "The text of this document cannot be shown here.",
+    "textOriginalSource": "Open the original source"
   },
   "account": {
     "pageTitle": "Account",

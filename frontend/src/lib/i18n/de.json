@@ -122,7 +122,10 @@
     "mayExportFree": "Freier Export erlaubt",
     "addToWatchlist": "Zur Watchlist hinzufügen",
     "removeFromWatchlist": "Von Watchlist entfernen",
-    "watchlistToggleError": "Aktion konnte nicht ausgeführt werden. Bitte versuche es erneut."
+    "watchlistToggleError": "Aktion konnte nicht ausgeführt werden. Bitte versuche es erneut.",
+    "textHeading": "Text",
+    "textNotShown": "Der Text dieses Dokuments kann hier nicht angezeigt werden.",
+    "textOriginalSource": "Zur Originalquelle"
   },
   "account": {
     "pageTitle": "Konto",

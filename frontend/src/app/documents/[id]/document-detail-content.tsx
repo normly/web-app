@@ -22,6 +22,7 @@ import { useTranslation } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/dictionary-keys";
 import { useJurisdiction } from "@/lib/jurisdiction/provider";
 import { useAccountSession } from "@/lib/use-account-session";
+import { cn } from "@/lib/utils";
 
 interface DocumentDetail {
   id: string;
@@ -69,6 +70,13 @@ interface RightsClassification {
   legal_basis_reference: string;
 }
 
+interface SegmentView {
+  id: string;
+  sequence_number: number;
+  heading: string | null;
+  text: string;
+}
+
 // Work-internal edge types are shown structurally via the edition-history and
 // national-adoptions sections instead -- they must not also appear as
 // generic References-list badges.
@@ -101,6 +109,8 @@ export function DocumentDetailContent({ documentId }: { documentId: string }) {
   const [validity, setValidity] = React.useState<ValiditySummary | null>(null);
   const [workStructure, setWorkStructure] = React.useState<WorkStructure | null>(null);
   const [rights, setRights] = React.useState<RightsClassification | null>(null);
+  const [segments, setSegments] = React.useState<SegmentView[] | null>(null);
+  const [highlightedSegmentId, setHighlightedSegmentId] = React.useState<string | null>(null);
   const [notFound, setNotFound] = React.useState(false);
   const [isWatched, setIsWatched] = React.useState(false);
   const [isTogglingWatch, setIsTogglingWatch] = React.useState(false);
@@ -111,13 +121,21 @@ export function DocumentDetailContent({ documentId }: { documentId: string }) {
     const query = `?jurisdiction=${encodeURIComponent(jurisdiction)}`;
 
     async function load() {
-      const [documentResponse, edgesResponse, validityResponse, workResponse, rightsResponse] =
+      const [
+        documentResponse,
+        edgesResponse,
+        validityResponse,
+        workResponse,
+        rightsResponse,
+        segmentsResponse,
+      ] =
         await Promise.all([
           fetch(`/api/documents/${documentId}${query}`),
           fetch(`/api/documents/${documentId}/edges${query}`),
           fetch(`/api/documents/${documentId}/validity${query}`),
           fetch(`/api/documents/${documentId}/work${query}`),
           fetch(`/api/documents/${documentId}/rights${query}`),
+          fetch(`/api/documents/${documentId}/segments${query}`),
         ]);
       if (cancelled) return;
 
@@ -129,6 +147,7 @@ export function DocumentDetailContent({ documentId }: { documentId: string }) {
       setValidity(validityResponse.ok ? await validityResponse.json() : null);
       setWorkStructure(workResponse.ok ? await workResponse.json() : null);
       setRights(rightsResponse.ok ? await rightsResponse.json() : null);
+      setSegments(segmentsResponse.ok ? await segmentsResponse.json() : null);
 
       const rawEdges: RawEdge[] = edgesResponse.ok ? await edgesResponse.json() : [];
       const referenceEdges = rawEdges.filter((edge) => !WORK_INTERNAL_EDGE_TYPES.has(edge.edge_type));
@@ -156,6 +175,20 @@ export function DocumentDetailContent({ documentId }: { documentId: string }) {
       cancelled = true;
     };
   }, [documentId, jurisdiction]);
+
+  // A citation chip links to /documents/{id}#segment-{id}. The segments
+  // arrive after the first render, so the browser's own jump to the anchor
+  // finds nothing; this scrolls once they exist and marks the target.
+  React.useEffect(() => {
+    if (!segments || segments.length === 0) return;
+    const prefix = "#segment-";
+    if (!window.location.hash.startsWith(prefix)) return;
+    const segmentId = decodeURIComponent(window.location.hash.slice(prefix.length));
+    const element = document.getElementById(`segment-${segmentId}`);
+    if (!element) return;
+    setHighlightedSegmentId(segmentId);
+    element.scrollIntoView?.({ block: "start" });
+  }, [segments]);
 
   React.useEffect(() => {
     if (!account || !workStructure) {
@@ -331,6 +364,44 @@ export function DocumentDetailContent({ documentId }: { documentId: string }) {
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+          {segments !== null && (
+            <div>
+              <h3 className="font-medium">{t("documentDetail.textHeading")}</h3>
+              {segments.length === 0 ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {t("documentDetail.textNotShown")}{" "}
+                  <a
+                    href={documentDetail.source.retrieval_path}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                  >
+                    {t("documentDetail.textOriginalSource")}
+                  </a>
+                </p>
+              ) : (
+                <div className="mt-2 flex flex-col gap-3" data-testid="segment-list">
+                  {segments.map((segment) => {
+                    const isHighlighted = segment.id === highlightedSegmentId;
+                    return (
+                      <section
+                        key={segment.id}
+                        id={`segment-${segment.id}`}
+                        aria-current={isHighlighted ? "true" : undefined}
+                        className={cn(
+                          "scroll-mt-20 rounded-md border p-3",
+                          isHighlighted && "border-primary bg-primary/10",
+                        )}
+                      >
+                        {segment.heading && <h4 className="text-sm font-medium">{segment.heading}</h4>}
+                        <p className="mt-1 whitespace-pre-wrap text-sm">{segment.text}</p>
+                      </section>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>
