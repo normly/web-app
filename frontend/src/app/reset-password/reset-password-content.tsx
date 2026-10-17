@@ -5,6 +5,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -37,7 +38,14 @@ function ResetPasswordForm() {
     return <p className="text-sm text-red-600">{t("auth.resetInvalidToken")}</p>;
   }
   if (status === "success") {
-    return <p className="text-sm">{t("auth.resetSuccessMessage")}</p>;
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-sm">{t("auth.resetSuccessMessage")}</p>
+        <Button asChild>
+          <Link href="/login">{t("auth.loginButton")}</Link>
+        </Button>
+      </div>
+    );
   }
 
   return (
