@@ -18,8 +18,9 @@ task: ask, do not work around them.
   CI/CD and the container registry of the free core live on GitHub
   (`github.com/normly/web-app`) — easier collaboration was the deciding
   reason. STACKIT Git (`jwokittel/normly-webapp`) is no longer used for
-  this, is no longer intended for the knowledge base (ADR-025) and will be
-  deleted; the knowledge base lives as a dump in STACKIT Object Storage.
+  this, is no longer intended for the knowledge base (ADR-025) and was
+  deleted on 2026-10-17; the knowledge base lives as a dump in STACKIT
+  Object Storage.
   → ADR-021 (supersedes ADR-019)
 - **No scraping of commercially exploited catalog collections** (DIN
   Media/Nautos and comparable ones). Obtain only by contract. Applies even

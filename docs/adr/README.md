@@ -759,6 +759,9 @@ code and data from ADR-010 is unaffected by this. The repository
 carries this out in the STACKIT portal. The Git remote `stackit` is thus obsolete.
 The original wording remains in place as the decision history.
 
+**Carried out 2026-10-17:** The operator deleted the repository
+`jwokittel/normly-webapp` in the STACKIT portal.
+
 ---
 
 ## ADR-022 — Operating environment phase 1 and model-origin rule
@@ -1510,7 +1513,6 @@ operations in `docs/guide/operations.md`.
 | Legal assessment per jurisdiction | ongoing task | Needs a responsible role in the medium term, not a one-off clarification |
 | Apple commission on digital subscriptions | open | In the EU there are now alternatives via external payment routes — check before the store release |
 | Retention periods of the backup copies | open | (User data: maximum periods recorded in ADR-027.) Determines how long a destroyed key must be kept on hand before backups expire |
-| STACKIT repository `jwokittel/normly-webapp` | decided (2026-10-09): delete | The operator deletes it in the STACKIT portal (addendum to ADR-021); then remove the entry |
 | Personal names in the public knowledge base dump | decided (2026-10-09): role `normly maintainers` | Implemented in the export (ADR-025); remove the entry after the first public dump |
 | Retention and expiry of tombstones | open | Whether retired IDs are limited in time; ADR-027 did not decide it (ADR-026) |
 | Identity on re-delivery after revocation | open | New document nodes do not take over the tombstones' watches; product and identity decision (ADR-026) |
