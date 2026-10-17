@@ -78,6 +78,10 @@ by id. `ApiClient` gets a `get_document(id, jurisdiction)` method for this.
   `null` when the heading starts with neither or the citation has no
   segment.
 
+Section numbers are read under the indexing gate (`may_index_fulltext`), so
+a chip may show a section number for a document whose passage cannot be shown;
+only the number, never text, is exposed.
+
 ### Response format of `POST /v1/chat`
 
 An extension; `answer` stays for compatibility.
@@ -213,6 +217,7 @@ ADR-017):
   links to the document page.
 - **Document no longer available** in a reopened chat: the chip is dropped;
   the text stays.
+- **Jurisdiction switch:** a session keeps one jurisdiction; switching the jurisdiction starts a new chat (frontend), and the backend never continues a session under another jurisdiction.
 
 ## Requirements change
 

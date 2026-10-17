@@ -61,7 +61,13 @@ test.describe("registration, login, and chat history", () => {
     // and no knowledge-base data needed.
     const question = "Ist DIN EN ISO 99999 noch gültig?";
     await page.getByPlaceholder("Frage stellen…").fill(question);
-    await page.getByRole("button", { name: "Senden" }).click();
+    // The reload must wait for the answer: the chat cookie arrives with it.
+    await Promise.all([
+      page.waitForResponse(
+        (r) => r.url().endsWith("/api/chat") && r.request().method() === "POST",
+      ),
+      page.getByRole("button", { name: "Senden" }).click(),
+    ]);
     await expect(page.getByText(question).first()).toBeVisible();
 
     await page.reload();

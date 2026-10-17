@@ -105,6 +105,7 @@ def test_export_chat_sessions_carry_the_id_and_never_the_token(client, db_sessio
     assert exported["messages"][0]["content"] == "Antwort"
     assert exported["messages"][0]["answer_type"] == "synthesis"
     assert exported["messages"][0]["citations"] == []
+    assert exported["title"] is None
 
 
 def test_export_message_without_answer_type_is_null(client, db_session):
@@ -172,6 +173,7 @@ def test_export_citation_of_a_tombstoned_document_stays_readable(client, db_sess
 
     citation = body["chat_sessions"][0]["messages"][0]["citations"][0]
     assert citation["segment_id"] is None
+    assert citation["paragraph_index"] is None
     assert citation["document"]["origin_number"] == "TST-GONE"
     assert citation["document"]["origin_issuer"] == "TestIssuer"
     assert citation["document"]["id"] == str(document.id)
