@@ -24,7 +24,6 @@ import type { TranslationKey } from "@/lib/i18n/dictionary-keys";
 
 interface ChatSessionSummary {
   id: string;
-  session_token: string;
   jurisdiction: string;
   language: string;
   title: string | null;

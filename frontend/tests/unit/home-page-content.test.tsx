@@ -5,7 +5,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LocaleProvider } from "@/lib/i18n/provider";
-import { JurisdictionProvider } from "@/lib/jurisdiction/provider";
+import { JurisdictionProvider, useJurisdiction } from "@/lib/jurisdiction/provider";
 import { HomePageContent } from "@/app/home-page-content";
 
 const originalFetch = global.fetch;
@@ -169,7 +169,7 @@ describe("HomePageContent", () => {
         return Promise.resolve(
           new Response(
             JSON.stringify([
-              { id: "sess-9", session_token: "x", jurisdiction: "DE", language: "de", title: "Schutzbrillen", created_at: new Date().toISOString() },
+              { id: "sess-9", jurisdiction: "DE", language: "de", title: "Schutzbrillen", created_at: new Date().toISOString() },
             ]),
             { status: 200 },
           ),
@@ -245,7 +245,7 @@ describe("HomePageContent", () => {
   });
 
   const sessionList = [
-    { id: "sess-9", session_token: "x", jurisdiction: "DE", language: "de", title: "Schutzbrillen", created_at: new Date().toISOString() },
+    { id: "sess-9", jurisdiction: "DE", language: "de", title: "Schutzbrillen", created_at: new Date().toISOString() },
   ];
   const sessionMessages = {
     session_id: "sess-9",
@@ -358,5 +358,100 @@ describe("HomePageContent", () => {
     expect(screen.queryByText("Späte Antwort")).not.toBeInTheDocument();
     expect(screen.getByText("Brauche ich eine Schutzbrille?")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Schutzbrillen" })).toHaveAttribute("aria-current", "true");
+  });
+
+  it("starts a new chat when the jurisdiction changes while a session is open", async () => {
+    const calls: string[] = [];
+    global.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      calls.push(`${init?.method ?? "GET"} ${url}`);
+      if (url === "/api/chat/current") {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              session_id: "sess-1",
+              title: null,
+              messages: [{ role: "user", content: "Aktive Frage", paragraphs: ["Aktive Frage"], citations: [] }],
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      if (url === "/api/chat/sessions") return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+      return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    });
+    function SwitchToEu() {
+      const { setJurisdiction } = useJurisdiction();
+      return <button onClick={() => setJurisdiction("EU")}>to-eu</button>;
+    }
+    render(
+      <LocaleProvider initialLocale="de">
+        <JurisdictionProvider initialJurisdiction="DE">
+          <SwitchToEu />
+          <HomePageContent />
+        </JurisdictionProvider>
+      </LocaleProvider>,
+    );
+    await screen.findByText("Aktive Frage");
+    expect(calls).not.toContain("POST /api/chat/new-session");
+
+    fireEvent.click(screen.getByRole("button", { name: "to-eu" }));
+
+    await waitFor(() => expect(calls).toContain("POST /api/chat/new-session"));
+    await waitFor(() => expect(screen.queryByText("Aktive Frage")).not.toBeInTheDocument());
+  });
+
+  it("shows only this turn when the reply belongs to a different session than the active one", async () => {
+    const calls: string[] = [];
+    global.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      calls.push(`${init?.method ?? "GET"} ${url}`);
+      if (url === "/api/chat/current") {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              session_id: "sess-old",
+              title: null,
+              messages: [{ role: "user", content: "Alte Frage", paragraphs: ["Alte Frage"], citations: [] }],
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      if (url === "/api/chat/sessions") return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+      if (url === "/api/chat/sessions/sess-fresh/title") {
+        return Promise.resolve(new Response(JSON.stringify({ title: "T" }), { status: 200 }));
+      }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ session_id: "sess-fresh", answer: "Neue Antwort", answer_type: "fallback", paragraphs: ["Neue Antwort"], citations: [] }),
+          { status: 200 },
+        ),
+      );
+    });
+    renderHome();
+    await screen.findByText("Alte Frage");
+
+    fireEvent.change(screen.getByPlaceholderText("Frage stellen…"), { target: { value: "Neue Frage" } });
+    fireEvent.click(screen.getByRole("button", { name: "Senden" }));
+
+    expect(await screen.findByText("Neue Antwort")).toBeInTheDocument();
+    expect(screen.getByText("Neue Frage")).toBeInTheDocument();
+    expect(screen.queryByText("Alte Frage")).not.toBeInTheDocument();
+    await waitFor(() => expect(calls).toContain("POST /api/chat/sessions/sess-fresh/title"));
+  });
+
+  it("shows a translated error message when the chat answer is an error", async () => {
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/chat/current") return Promise.resolve(new Response(null, { status: 204 }));
+      if (url === "/api/chat/sessions") return Promise.resolve(new Response(JSON.stringify([]), { status: 401 }));
+      return Promise.resolve(new Response(JSON.stringify({ detail: "down" }), { status: 503 }));
+    });
+    renderHome();
+
+    fireEvent.change(screen.getByPlaceholderText("Frage stellen…"), { target: { value: "Frage" } });
+    fireEvent.click(screen.getByRole("button", { name: "Senden" }));
+
+    expect(
+      await screen.findByText("Die Antwort konnte gerade nicht erstellt werden. Bitte versuche es erneut."),
+    ).toBeInTheDocument();
   });
 });

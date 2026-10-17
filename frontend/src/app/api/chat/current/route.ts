@@ -13,6 +13,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!chatSessionToken || !accountSessionToken) {
     return new NextResponse(null, { status: 204 });
   }
+  try {
+    return await restoreCurrent(chatSessionToken, accountSessionToken);
+  } catch {
+    return new NextResponse(null, { status: 204 });
+  }
+}
+
+async function restoreCurrent(chatSessionToken: string, accountSessionToken: string): Promise<NextResponse> {
   const headers = { Authorization: `Bearer ${accountSessionToken}` };
   const listResponse = await fetch(`${getBackendUrls().chat}/v1/chat/sessions`, { headers });
   if (!listResponse.ok) {

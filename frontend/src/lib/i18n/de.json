@@ -9,7 +9,8 @@
     "loading": "Antwort wird geladen…",
     "copyButtonLabel": "Antwort kopieren",
     "copiedLabel": "Kopiert",
-    "aiDisclaimer": "normly ist eine KI und kann Fehler machen. Bitte überprüfe die Antworten."
+    "aiDisclaimer": "normly ist eine KI und kann Fehler machen. Bitte überprüfe die Antworten.",
+    "errorAnswer": "Die Antwort konnte gerade nicht erstellt werden. Bitte versuche es erneut."
   },
   "auth": {
     "loginTab": "Anmelden",

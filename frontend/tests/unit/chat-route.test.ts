@@ -43,6 +43,7 @@ describe("POST /api/chat", () => {
       expect.objectContaining({ method: "POST" }),
     );
     expect(body.answer).toBe("Beispielantwort");
+    expect(body.session_token).toBeUndefined();
     expect(response.cookies.get("normly_session")?.value).toBe("new-session-token");
   });
 

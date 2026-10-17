@@ -152,6 +152,28 @@ describe("GET /api/chat/current", () => {
     ]);
   });
 
+  it("answers 204 when the backend cannot be reached", async () => {
+    vi.stubEnv("NORMLY_CHAT_BASE_URL", "http://chat.internal");
+    global.fetch = vi.fn().mockRejectedValue(new TypeError("fetch failed"));
+
+    const response = await getCurrent(
+      request("http://localhost/api/chat/current", "normly_account_session=acct; normly_session=chat-tok-1"),
+    );
+
+    expect(response.status).toBe(204);
+  });
+
+  it("answers 204 when the backend answers with a body that is not JSON", async () => {
+    vi.stubEnv("NORMLY_CHAT_BASE_URL", "http://chat.internal");
+    global.fetch = vi.fn().mockResolvedValue(new Response("<html>", { status: 200 }));
+
+    const response = await getCurrent(
+      request("http://localhost/api/chat/current", "normly_account_session=acct; normly_session=chat-tok-1"),
+    );
+
+    expect(response.status).toBe(204);
+  });
+
   it("answers 204 when a cookie is missing or no session matches", async () => {
     vi.stubEnv("NORMLY_CHAT_BASE_URL", "http://chat.internal");
     global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify([]), { status: 200 }));

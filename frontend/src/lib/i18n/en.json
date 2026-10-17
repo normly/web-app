@@ -9,7 +9,8 @@
     "loading": "Loading answer…",
     "copyButtonLabel": "Copy response",
     "copiedLabel": "Copied",
-    "aiDisclaimer": "normly uses AI and can make mistakes. Please check its responses."
+    "aiDisclaimer": "normly uses AI and can make mistakes. Please check its responses.",
+    "errorAnswer": "The answer could not be created right now. Please try again."
   },
   "auth": {
     "loginTab": "Log in",

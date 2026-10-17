@@ -154,8 +154,8 @@ describe("ChatHistorySidebar", () => {
   // always the first entry (identical new Date() values made this flaky).
   const baseTime = Date.now();
   const twoSessions = [
-    { id: "s-1", session_token: "tok-one", jurisdiction: "DE", language: "de", created_at: new Date(baseTime).toISOString() },
-    { id: "s-2", session_token: "tok-two", jurisdiction: "DE", language: "de", created_at: new Date(baseTime - 60_000).toISOString() },
+    { id: "s-1", jurisdiction: "DE", language: "de", created_at: new Date(baseTime).toISOString() },
+    { id: "s-2", jurisdiction: "DE", language: "de", created_at: new Date(baseTime - 60_000).toISOString() },
   ];
 
   function mockFetch(deleteResponse: () => Response) {
@@ -239,7 +239,7 @@ describe("ChatHistorySidebar", () => {
     global.fetch = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify([
-          { id: "s1", session_token: "t1", jurisdiction: "DE", language: "de", title: "Schutzbrillen", created_at: new Date().toISOString() },
+          { id: "s1", jurisdiction: "DE", language: "de", title: "Schutzbrillen", created_at: new Date().toISOString() },
         ]),
         { status: 200 },
       ),
@@ -267,7 +267,7 @@ describe("ChatHistorySidebar", () => {
       return Promise.resolve(
         new Response(
           JSON.stringify([
-            { id: "s1", session_token: "t1", jurisdiction: "DE", language: "de", title: "Eins", created_at: new Date().toISOString() },
+            { id: "s1", jurisdiction: "DE", language: "de", title: "Eins", created_at: new Date().toISOString() },
           ]),
           { status: 200 },
         ),

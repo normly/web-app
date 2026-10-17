@@ -97,6 +97,21 @@ export function HomePageContent() {
     setActiveSessionId(null);
   };
 
+  // A session keeps one jurisdiction: switching it starts a new chat. The
+  // first render is skipped, it is not a switch.
+  const previousJurisdiction = React.useRef(jurisdiction);
+  React.useEffect(() => {
+    if (previousJurisdiction.current === jurisdiction) return;
+    previousJurisdiction.current = jurisdiction;
+    if (activeSessionId === null) return;
+    fetch("/api/chat/new-session", { method: "POST" })
+      .catch(() => {
+        // The local reset below must happen regardless.
+      })
+      .finally(startNewChat);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jurisdiction]);
+
   const handleSessionsDeleted = async (deletedId: string | null) => {
     if (activeSessionId === null) return;
     if (deletedId !== null && deletedId !== activeSessionId) return;
@@ -119,13 +134,28 @@ export function HomePageContent() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ jurisdiction, language: locale, message }),
       });
-      const body: ChatApiResponse = await response.json();
       const viewUnchanged = viewGeneration.current === generation;
+      if (!response.ok) {
+        if (viewUnchanged) {
+          setMessages((prev) => [...prev, { role: "assistant", content: t("chat.errorAnswer") }]);
+        }
+        return;
+      }
+      const body: ChatApiResponse = await response.json();
+      // A reply for another session than the active one means the backend
+      // started a fresh session (e.g. after a jurisdiction switch): this
+      // turn is its first, so only it is shown.
+      const startedFreshSession = activeSessionId !== null && body.session_id !== activeSessionId;
       if (viewUnchanged) {
-        setMessages((prev) => [...prev, assistantMessageView(body.answer, body.paragraphs, body.citations)]);
+        const answer = assistantMessageView(body.answer, body.paragraphs, body.citations);
+        setMessages((prev) =>
+          body.session_id && startedFreshSession
+            ? [{ role: "user", content: message }, answer]
+            : [...prev, answer],
+        );
       }
       if (body.session_id) {
-        const isNewSession = activeSessionId === null;
+        const isNewSession = activeSessionId === null || startedFreshSession;
         if (viewUnchanged) setActiveSessionId(body.session_id);
         // The server stored the answer either way.
         refreshSessions();
