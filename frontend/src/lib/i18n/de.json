@@ -7,10 +7,10 @@
     "sendButton": "Senden",
     "inputPlaceholder": "Frage stellen…",
     "loading": "Antwort wird geladen…",
-    "citationSource": "Quelle",
     "copyButtonLabel": "Antwort kopieren",
     "copiedLabel": "Kopiert",
-    "aiDisclaimer": "normly ist eine KI und kann Fehler machen. Bitte überprüfe die Antworten."
+    "aiDisclaimer": "normly ist eine KI und kann Fehler machen. Bitte überprüfe die Antworten.",
+    "errorAnswer": "Die Antwort konnte gerade nicht erstellt werden. Bitte versuche es erneut."
   },
   "auth": {
     "loginTab": "Anmelden",
@@ -123,7 +123,10 @@
     "mayExportFree": "Freier Export erlaubt",
     "addToWatchlist": "Zur Watchlist hinzufügen",
     "removeFromWatchlist": "Von Watchlist entfernen",
-    "watchlistToggleError": "Aktion konnte nicht ausgeführt werden. Bitte versuche es erneut."
+    "watchlistToggleError": "Aktion konnte nicht ausgeführt werden. Bitte versuche es erneut.",
+    "textHeading": "Text",
+    "textNotShown": "Der Text dieses Dokuments kann hier nicht angezeigt werden.",
+    "textOriginalSource": "Zur Originalquelle"
   },
   "account": {
     "pageTitle": "Konto",

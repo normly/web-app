@@ -18,6 +18,7 @@ from normly_api.routers.documents import documents_router
 from normly_api.routers.edges import edges_router
 from normly_api.routers.export import export_router
 from normly_api.routers.rights import rights_router
+from normly_api.routers.segments import segments_router
 from normly_api.routers.search import search_router
 from normly_api.routers.validity import validity_router
 from normly_api.routers.work import work_router
@@ -85,6 +86,10 @@ def create_app() -> FastAPI:
     )
     app.include_router(
         rights_router, responses=COMMON_ERROR_RESPONSES,
+        dependencies=[Depends(enforce_rate_limit)],
+    )
+    app.include_router(
+        segments_router, responses=COMMON_ERROR_RESPONSES,
         dependencies=[Depends(enforce_rate_limit)],
     )
     app.include_router(

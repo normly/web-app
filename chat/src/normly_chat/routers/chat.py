@@ -16,6 +16,7 @@ from normly_core.graph.postgres.repositories import (
 
 from normly_chat.accounts_client import AccountsClient
 from normly_chat.api_client import ApiClient
+from normly_chat.citation_labels import CitationResolver
 from normly_chat.classify import QuestionType, classify
 from normly_chat.dependencies import (
     get_accounts_client, get_api_client, get_embedding_model, get_llm_client, get_session,
@@ -60,6 +61,7 @@ def chat(
             payload.session_token, identity, payload.jurisdiction, payload.language, chat_repo,
         )
 
+    labels = CitationResolver(api_client, PostgresSegmentRepository(session), payload.jurisdiction)
     question_type = classify(payload.message)
     if question_type == QuestionType.SYNTHESIS:
         result = build_synthesis_answer(
@@ -69,7 +71,9 @@ def chat(
     else:
         result = build_structural_answer(
             question_type, payload.message, payload.jurisdiction, payload.language, api_client,
+            labels,
         )
+    citations = labels.resolve(result.citations)
 
     answer_type = (
         ChatAnswerType.FALLBACK if result.is_fallback
@@ -87,18 +91,21 @@ def chat(
             session_id=chat_session.id, role=ChatMessageRole.ASSISTANT, content=result.text,
             answer_type=answer_type, created_at=now,
         )
-        for citation in result.citations:
+        for citation in citations:
             chat_repo.add_citation(
                 message_id=answer_message.id, document_id=citation["document_id"],
-                segment_id=citation.get("segment_id"),
+                segment_id=citation["segment_id"], paragraph_index=citation["paragraph_index"],
             )
+        # Committed before the response leaves: the frontend reloads the
+        # session list as soon as the answer arrives, and the dependency's own
+        # commit would only run after that.
+        session.commit()
 
     return ChatResponse(
+        session_id=chat_session.id if chat_session is not None else None,
         session_token=chat_session.session_token if chat_session is not None else None,
         answer=result.text,
         answer_type=answer_type.value,
-        citations=[
-            CitationResponse(document_id=c["document_id"], segment_id=c.get("segment_id"))
-            for c in result.citations
-        ],
+        paragraphs=result.paragraphs,
+        citations=[CitationResponse(**citation) for citation in citations],
     )

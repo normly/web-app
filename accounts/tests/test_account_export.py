@@ -105,6 +105,7 @@ def test_export_chat_sessions_carry_the_id_and_never_the_token(client, db_sessio
     assert exported["messages"][0]["content"] == "Antwort"
     assert exported["messages"][0]["answer_type"] == "synthesis"
     assert exported["messages"][0]["citations"] == []
+    assert exported["title"] is None
 
 
 def test_export_message_without_answer_type_is_null(client, db_session):
@@ -137,6 +138,7 @@ def test_export_citations_name_the_document_readably(client, db_session):
     )
     PostgresChatRepository(db_session).add_citation(
         message_id=message.id, document_id=document.id, segment_id=segment.id,
+        paragraph_index=0,
     )
     db_session.commit()
 
@@ -149,6 +151,7 @@ def test_export_citations_name_the_document_readably(client, db_session):
             "origin_number": "TST-7", "edition": "2024", "part": "2",
         },
         "segment_id": str(segment.id),
+        "paragraph_index": 0,
     }]
 
 
@@ -170,6 +173,7 @@ def test_export_citation_of_a_tombstoned_document_stays_readable(client, db_sess
 
     citation = body["chat_sessions"][0]["messages"][0]["citations"][0]
     assert citation["segment_id"] is None
+    assert citation["paragraph_index"] is None
     assert citation["document"]["origin_number"] == "TST-GONE"
     assert citation["document"]["origin_issuer"] == "TestIssuer"
     assert citation["document"]["id"] == str(document.id)
@@ -311,3 +315,14 @@ def test_export_contains_nothing_of_another_account(client, db_session):
     assert str(other_session.id) not in serialised
     assert "THEIRS-1" not in serialised
     assert "theirs@example.de" not in serialised
+
+
+def test_export_includes_the_session_title(client, db_session):
+    headers = _register(client, email="titleexport@example.de")
+    chat_session, _ = _chat_with_message(db_session, _account_id(client, headers), token="t-title")
+    PostgresChatRepository(db_session).set_session_title(chat_session.id, "Schutzbrillen")
+    db_session.commit()
+
+    body = client.get("/v1/accounts/export", headers=headers).json()
+
+    assert body["chat_sessions"][0]["title"] == "Schutzbrillen"

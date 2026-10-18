@@ -20,12 +20,20 @@ class ChatRequest(BaseModel):
 class CitationResponse(BaseModel):
     document_id: uuid.UUID
     segment_id: uuid.UUID | None
+    designation: str
+    section: str | None
+    # None: the citation backs the whole answer rather than one paragraph.
+    paragraph_index: int | None
 
 
 class ChatResponse(BaseModel):
+    session_id: uuid.UUID | None
     session_token: str | None
+    # The paragraphs joined by a blank line; kept for clients that render
+    # plain text.
     answer: str
     answer_type: Literal["structural", "synthesis", "fallback"]
+    paragraphs: list[str]
     citations: list[CitationResponse]
 
 
@@ -34,7 +42,30 @@ class ChatSessionSummary(BaseModel):
     session_token: str
     jurisdiction: str
     language: str
+    title: str | None
     created_at: datetime
+
+
+class ChatMessageResponse(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+    answer_type: Literal["structural", "synthesis", "fallback"] | None
+    paragraphs: list[str]
+    citations: list[CitationResponse]
+    created_at: datetime
+
+
+class ChatSessionMessagesResponse(BaseModel):
+    session_id: uuid.UUID
+    # The frontend sets its chat cookie from this, so that new questions
+    # continue the reopened session.
+    session_token: str
+    title: str | None
+    messages: list[ChatMessageResponse]
+
+
+class ChatSessionTitleResponse(BaseModel):
+    title: str
 
 
 class DeletedSessionsResponse(BaseModel):

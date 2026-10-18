@@ -16,6 +16,7 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { useTranslation } from "@/lib/i18n/provider";
@@ -23,9 +24,9 @@ import type { TranslationKey } from "@/lib/i18n/dictionary-keys";
 
 interface ChatSessionSummary {
   id: string;
-  session_token: string;
   jurisdiction: string;
   language: string;
+  title: string | null;
   created_at: string;
 }
 
@@ -80,7 +81,19 @@ function groupSessionsByBucket(sessions: ChatSessionSummary[], now: Date): Bucke
 // What the open confirmation dialog is about; null = dialog closed.
 type DeleteTarget = { kind: "one"; id: string } | { kind: "all" } | null;
 
-export function ChatHistorySidebar({ onNewChat }: { onNewChat: () => void }) {
+export function ChatHistorySidebar({
+  onNewChat,
+  activeSessionId = null,
+  onOpenSession = () => {},
+  onSessionsDeleted = () => {},
+  sessionsVersion = 0,
+}: {
+  onNewChat: () => void;
+  activeSessionId?: string | null;
+  onOpenSession?: (sessionId: string) => void;
+  onSessionsDeleted?: (deletedId: string | null) => void;
+  sessionsVersion?: number;
+}) {
   const { t, locale } = useTranslation();
   const [sessions, setSessions] = React.useState<ChatSessionSummary[] | null>(null);
   const [requiresLogin, setRequiresLogin] = React.useState(false);
@@ -98,7 +111,7 @@ export function ChatHistorySidebar({ onNewChat }: { onNewChat: () => void }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [sessionsVersion]);
 
   const [deleteTarget, setDeleteTarget] = React.useState<DeleteTarget>(null);
   const [deleteFailed, setDeleteFailed] = React.useState(false);
@@ -124,6 +137,7 @@ export function ChatHistorySidebar({ onNewChat }: { onNewChat: () => void }) {
         current === null ? current : target.kind === "all" ? [] : current.filter((s) => s.id !== target.id),
       );
       setDeleteTarget(null);
+      onSessionsDeleted(target.kind === "all" ? null : target.id);
     } catch {
       setDeleteFailed(true);
     } finally {
@@ -191,14 +205,18 @@ export function ChatHistorySidebar({ onNewChat }: { onNewChat: () => void }) {
               <SidebarMenu>
                 {bucket.sessions.map((session) => (
                   <SidebarMenuItem key={session.id}>
-                    {/* The date is plain text, not a link or button: no
-                        session-resumption feature exists (see Global
-                        Constraints) -- it must not look clickable. The only
-                        control in the row is the delete button. */}
-                    <div className="flex h-8 items-center justify-between gap-1">
-                      <span className="rounded-md px-2 text-sm text-sidebar-foreground/70">
-                        {new Date(session.created_at).toLocaleString(locale)}
-                      </span>
+                    <div className="flex items-center gap-1">
+                      <SidebarMenuButton
+                        data-testid="chat-session"
+                        isActive={session.id === activeSessionId}
+                        aria-current={session.id === activeSessionId ? "true" : undefined}
+                        onClick={() => onOpenSession(session.id)}
+                        className="min-w-0 flex-1"
+                      >
+                        <span className="truncate">
+                          {session.title ?? new Date(session.created_at).toLocaleString(locale)}
+                        </span>
+                      </SidebarMenuButton>
                       <Button
                         variant="ghost"
                         size="icon"

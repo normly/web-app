@@ -38,6 +38,17 @@ class ApiClient:
         response.raise_for_status()
         return response.json()
 
+    def get_document(self, document_id: uuid.UUID, jurisdiction: str) -> dict | None:
+        with httpx.Client(timeout=_TIMEOUT_SECONDS) as http:
+            response = http.get(
+                f"{self._base_url}/v1/documents/{document_id}",
+                params={"jurisdiction": jurisdiction},
+            )
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        return response.json()
+
     def get_validity(self, document_id: uuid.UUID, jurisdiction: str) -> dict | None:
         with httpx.Client(timeout=_TIMEOUT_SECONDS) as http:
             response = http.get(

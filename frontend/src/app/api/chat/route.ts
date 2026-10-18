@@ -21,7 +21,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   });
 
   const body = await backendResponse.json();
-  const response = NextResponse.json(body, { status: backendResponse.status });
+  // The chat session token is a credential: it travels in the httpOnly
+  // cookie only, never in the body the browser can read.
+  const { session_token: _sessionToken, ...browserBody } = body;
+  const response = NextResponse.json(browserBody, { status: backendResponse.status });
 
   if (backendResponse.ok && typeof body.session_token === "string") {
     applySessionCookies(response, { chatSessionToken: body.session_token });

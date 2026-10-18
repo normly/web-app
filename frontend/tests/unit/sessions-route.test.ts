@@ -52,6 +52,8 @@ describe("GET /api/chat/sessions", () => {
     const body = await response.json();
 
     expect(body).toHaveLength(1);
+    expect(body[0].session_token).toBeUndefined();
+    expect(body[0].id).toBe("1");
     const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(init.headers.Authorization).toBe("Bearer acct-tok");
   });

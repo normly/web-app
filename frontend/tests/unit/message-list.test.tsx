@@ -8,13 +8,20 @@ import { LocaleProvider } from "@/lib/i18n/provider";
 import { MessageList, type ChatMessageView } from "@/components/chat/message-list";
 
 describe("MessageList", () => {
-  it("renders user and assistant messages with a citation link", () => {
+  it("renders paragraphs with their chips and whole-answer chips after them", () => {
     const messages: ChatMessageView[] = [
-      { role: "user", content: "Ist DIN EN ISO 9001 gültig?" },
+      { role: "user", content: "Was gilt beim Schweißen?" },
       {
         role: "assistant",
-        content: "DIN EN ISO 9001 ist noch gültig.",
-        citations: [{ documentId: "11111111-1111-1111-1111-111111111111", href: "https://example.de/norm" }],
+        content: "Erster Absatz.\n\nZweiter Absatz.",
+        paragraphs: [
+          {
+            text: "Erster Absatz.",
+            citations: [{ documentId: "d1", segmentId: "s1", designation: "DGUV Vorschrift 1", section: "§ 2" }],
+          },
+          { text: "Zweiter Absatz.", citations: [] },
+        ],
+        answerCitations: [{ documentId: "d2", segmentId: null, designation: "ISO 9001", section: null }],
       },
     ];
     render(
@@ -22,9 +29,15 @@ describe("MessageList", () => {
         <MessageList messages={messages} isLoading={false} />
       </LocaleProvider>,
     );
-    expect(screen.getByText("Ist DIN EN ISO 9001 gültig?")).toBeInTheDocument();
-    expect(screen.getByText("DIN EN ISO 9001 ist noch gültig.")).toBeInTheDocument();
-    expect(screen.getByRole("link")).toHaveAttribute("href", "https://example.de/norm");
+
+    expect(screen.getByText("Was gilt beim Schweißen?")).toBeInTheDocument();
+    expect(screen.getByText("Erster Absatz.")).toBeInTheDocument();
+    expect(screen.getByText("Zweiter Absatz.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "DGUV Vorschrift 1 · § 2" })).toHaveAttribute(
+      "href",
+      "/documents/d1#segment-s1",
+    );
+    expect(screen.getByRole("link", { name: "ISO 9001" })).toHaveAttribute("href", "/documents/d2");
   });
 
   it("shows a loading indicator when isLoading is true", () => {
@@ -36,9 +49,14 @@ describe("MessageList", () => {
     expect(screen.getByText("Antwort wird geladen…")).toBeInTheDocument();
   });
 
-  it("renders an assistant message without a citation link when resolution failed", () => {
+  it("renders an assistant message without chips when it has no citations", () => {
     const messages: ChatMessageView[] = [
-      { role: "assistant", content: "Fallback-Antwort ohne Quelle.", citations: [] },
+      {
+        role: "assistant",
+        content: "Fallback-Antwort ohne Quelle.",
+        paragraphs: [{ text: "Fallback-Antwort ohne Quelle.", citations: [] }],
+        answerCitations: [],
+      },
     ];
     render(
       <LocaleProvider initialLocale="de">
@@ -70,7 +88,7 @@ describe("MessageList", () => {
         writable: true,
       });
       const messages: ChatMessageView[] = [
-        { role: "assistant", content: "DIN EN ISO 9001 ist noch gültig.", citations: [] },
+        { role: "assistant", content: "DIN EN ISO 9001 ist noch gültig." },
       ];
       render(
         <LocaleProvider initialLocale="de">
@@ -88,7 +106,7 @@ describe("MessageList", () => {
         writable: true,
       });
       const messages: ChatMessageView[] = [
-        { role: "assistant", content: "DIN EN ISO 9001 ist noch gültig.", citations: [] },
+        { role: "assistant", content: "DIN EN ISO 9001 ist noch gültig." },
       ];
       render(
         <LocaleProvider initialLocale="de">

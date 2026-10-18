@@ -127,6 +127,7 @@ class ExportCitation(BaseModel):
     # None once the cited segment is gone (takedown); the document reference
     # stays readable because the tombstone keeps its identifiers.
     segment_id: uuid.UUID | None
+    paragraph_index: int | None
 
 
 class ExportChatMessage(BaseModel):
@@ -141,6 +142,7 @@ class ExportChatSession(BaseModel):
     id: uuid.UUID
     jurisdiction: str
     language: str
+    title: str | None
     created_at: datetime
     messages: list[ExportChatMessage]
 

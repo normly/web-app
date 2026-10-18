@@ -1798,6 +1798,54 @@ class PostgresSegmentRepository:
         ).scalars()
         return [_segment_to_domain(row) for row in rows]
 
+    def list_citable_segments_for_jurisdiction(
+        self, document_id: uuid.UUID, jurisdiction: str
+    ) -> list[Segment]:
+        # Showing a passage to a reader is a stricter question than indexing
+        # it for search: EUR-Lex texts, for example, are indexable but not
+        # citable. may_index_fulltext stays in the gate because segments only
+        # exist where indexing was permitted when they were written.
+        rows = self._session.execute(
+            select(SegmentORM)
+            .join(
+                RightsClassificationORM,
+                RightsClassificationORM.document_id == SegmentORM.document_id,
+            )
+            .where(
+                SegmentORM.document_id == document_id,
+                RightsClassificationORM.jurisdiction == jurisdiction,
+                RightsClassificationORM.may_process.is_(True),
+                RightsClassificationORM.may_index_fulltext.is_(True),
+                RightsClassificationORM.may_cite_passages.is_(True),
+                RightsClassificationORM.revoked_at.is_(None),
+            )
+            .order_by(SegmentORM.sequence_number)
+        ).scalars()
+        return [_segment_to_domain(row) for row in rows]
+
+    def list_segment_headings_for_jurisdiction(
+        self, segment_ids: list[uuid.UUID], jurisdiction: str
+    ) -> dict[uuid.UUID, str | None]:
+        # Same read gate as list_segments_for_jurisdiction: chat citations
+        # point at segments that synthesis read under exactly this gate.
+        if not segment_ids:
+            return {}
+        rows = self._session.execute(
+            select(SegmentORM.id, SegmentORM.heading)
+            .join(
+                RightsClassificationORM,
+                RightsClassificationORM.document_id == SegmentORM.document_id,
+            )
+            .where(
+                SegmentORM.id.in_(segment_ids),
+                RightsClassificationORM.jurisdiction == jurisdiction,
+                RightsClassificationORM.may_process.is_(True),
+                RightsClassificationORM.may_index_fulltext.is_(True),
+                RightsClassificationORM.revoked_at.is_(None),
+            )
+        ).all()
+        return {segment_id: heading for segment_id, heading in rows}
+
     def find_similar_segments_for_jurisdiction(
         self, query_vector: list[float], jurisdiction: str, model_name: str, limit: int = 5,
     ) -> list[Segment]:
@@ -2615,6 +2663,7 @@ def _chat_session_to_domain(orm: ChatSessionORM) -> ChatSession:
     return ChatSession(
         id=orm.id, session_token=orm.session_token, account_id=orm.account_id,
         jurisdiction=orm.jurisdiction, language=orm.language, created_at=orm.created_at,
+        title=orm.title,
     )
 
 
@@ -2628,7 +2677,7 @@ def _chat_message_to_domain(orm: ChatMessageORM) -> ChatMessage:
 def _chat_message_citation_to_domain(orm: ChatMessageCitationORM) -> ChatMessageCitation:
     return ChatMessageCitation(
         id=orm.id, message_id=orm.message_id, document_id=orm.document_id,
-        segment_id=orm.segment_id,
+        segment_id=orm.segment_id, paragraph_index=orm.paragraph_index,
     )
 
 
@@ -2654,6 +2703,42 @@ class PostgresChatRepository:
         ).scalar_one_or_none()
         return _chat_session_to_domain(orm) if orm else None
 
+    def get_session_for_account(
+        self, session_id: uuid.UUID, account_id: uuid.UUID
+    ) -> ChatSession | None:
+        # Scoped by account_id in the WHERE clause, like delete_chat_session:
+        # a foreign id answers exactly like an unknown one.
+        orm = self._session.execute(
+            select(ChatSessionORM).where(
+                ChatSessionORM.id == session_id, ChatSessionORM.account_id == account_id,
+            )
+        ).scalar_one_or_none()
+        return _chat_session_to_domain(orm) if orm else None
+
+    def set_session_title(self, session_id: uuid.UUID, title: str) -> None:
+        self._session.execute(
+            sa.update(ChatSessionORM).where(ChatSessionORM.id == session_id).values(title=title)
+        )
+        self._session.flush()
+
+    def first_user_messages_for_sessions(
+        self, session_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, str]:
+        if not session_ids:
+            return {}
+        rows = self._session.execute(
+            select(ChatMessageORM.session_id, ChatMessageORM.content)
+            .where(
+                ChatMessageORM.session_id.in_(session_ids),
+                ChatMessageORM.role == ChatMessageRole.USER,
+            )
+            .order_by(ChatMessageORM.session_id, ChatMessageORM.created_at)
+        ).all()
+        first: dict[uuid.UUID, str] = {}
+        for session_id, content in rows:
+            first.setdefault(session_id, content)
+        return first
+
     def list_sessions_for_account(self, account_id: uuid.UUID) -> list[ChatSession]:
         rows = self._session.execute(
             select(ChatSessionORM)
@@ -2675,20 +2760,26 @@ class PostgresChatRepository:
         return _chat_message_to_domain(orm)
 
     def list_messages_for_session(self, session_id: uuid.UUID) -> list[ChatMessage]:
+        # routers/chat.py stores a question and its answer with the same
+        # timestamp, so created_at alone leaves their order to the database.
+        # The question always comes first.
         rows = self._session.execute(
             select(ChatMessageORM)
             .where(ChatMessageORM.session_id == session_id)
-            .order_by(ChatMessageORM.created_at)
+            .order_by(
+                ChatMessageORM.created_at,
+                sa.case((ChatMessageORM.role == ChatMessageRole.USER, 0), else_=1),
+            )
         ).scalars()
         return [_chat_message_to_domain(row) for row in rows]
 
     def add_citation(
         self, *, message_id: uuid.UUID, document_id: uuid.UUID,
-        segment_id: uuid.UUID | None,
+        segment_id: uuid.UUID | None, paragraph_index: int | None = None,
     ) -> ChatMessageCitation:
         orm = ChatMessageCitationORM(
             id=uuid.uuid4(), message_id=message_id, document_id=document_id,
-            segment_id=segment_id,
+            segment_id=segment_id, paragraph_index=paragraph_index,
         )
         self._session.add(orm)
         self._session.flush()

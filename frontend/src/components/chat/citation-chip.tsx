@@ -4,29 +4,23 @@
 
 "use client";
 
-import { useTranslation } from "@/lib/i18n/provider";
+import Link from "next/link";
+import { FileText } from "lucide-react";
+import { citationHref, citationLabel, type CitationView } from "@/lib/chat-answer";
 
-export interface CitationView {
-  documentId: string;
-  // null when resolving the citation to a real link failed -- degrade to
-  // plain text rather than hiding the citation entirely (REQ-UI-003 still
-  // wants a reference shown; only the clickable link is best-effort).
-  href: string | null;
-}
+export type { CitationView };
 
+// Names the norm and section, so the reader sees where an answer stands
+// without opening anything; the link opens the passage on the document page
+// (REQ-UI-003).
 export function CitationChip({ citation }: { citation: CitationView }) {
-  const { t } = useTranslation();
-  if (!citation.href) {
-    return <span className="text-xs text-muted-foreground">{t("chat.citationSource")}</span>;
-  }
   return (
-    <a
-      href={citation.href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-xs text-primary underline"
+    <Link
+      href={citationHref(citation)}
+      className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-foreground hover:bg-muted"
     >
-      {t("chat.citationSource")}
-    </a>
+      <FileText className="size-3 text-muted-foreground" aria-hidden="true" />
+      {citationLabel(citation)}
+    </Link>
   );
 }
