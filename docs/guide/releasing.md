@@ -17,17 +17,24 @@ Images: `ghcr.io/normly/web-app/{api,chat,accounts,pipeline,frontend}`.
 tags publish (no pre-release tags yet), and manual runs are accepted only
 from `main` or a release tag.
 
+`main` changes only through releases and hotfixes (ADR-028), so `edge`
+tracks production. Day-to-day work is merged into `develop`, which builds
+no images.
+
 ## Cutting a release
 
-1. Set the same version in all five places and commit it on a branch:
-   `core/pyproject.toml`, `api/pyproject.toml`, `chat/pyproject.toml`,
-   `accounts/pyproject.toml` (`[project] version`) and
-   `frontend/package.json` (then `cd frontend && npm install --package-lock-only`
-   so `package-lock.json` follows). Run `uv lock` afterwards: `uv.lock`
-   records the workspace packages' versions, and CI installs with
-   `--locked`, so a stale lock fails the PR. The workflow refuses a tag
-   whose version differs from any of the five fields.
-2. Merge that branch to `main` through a pull request as usual.
+1. Set the same version in all five places and commit it on a branch off
+   `develop`: `core/pyproject.toml`, `api/pyproject.toml`,
+   `chat/pyproject.toml`, `accounts/pyproject.toml` (`[project] version`)
+   and `frontend/package.json` (then
+   `cd frontend && npm install --package-lock-only` so `package-lock.json`
+   follows). Run `uv lock` afterwards: `uv.lock` records the workspace
+   packages' versions, and CI installs with `--locked`, so a stale lock
+   fails the PR. The workflow refuses a tag whose version differs from any
+   of the five fields. A Lead Maintainer squash-merges that branch into
+   `develop`.
+2. Open a pull request from `develop` into `main`. A Lead Maintainer
+   merges it with a **merge commit**, never squash (ADR-028).
 3. Tag the merge commit and push the tag:
 
    ```bash
@@ -38,11 +45,19 @@ from `main` or a release tag.
 
 4. Watch the `Images` run. Its summary lists every image digest and the
    `cosign verify` command. A failed run publishes nothing for that tag;
-   fix on `main`, delete the tag locally and remotely, and tag again.
+   fix through a `hotfix/<issue>-…` branch into `main`, delete the tag locally and remotely, and tag again.
 5. Roll the release out to production by running
    `normly-deploy deploy vX.Y.Z` on the VM. It verifies the signatures,
    takes a backup first and starts the new images; see
    [Operations](operations.md) for the full procedure, including rollback.
+
+## Hotfixes
+
+A critical fix branches off `main` as `hotfix/<issue>-…` and goes back to
+`main` through a pull request, merged by a Lead Maintainer with a merge
+commit. Tag it like a release (patch version). Afterwards open a pull
+request from `main` into `develop` and merge it with a merge commit, so the
+fix is not lost with the next release.
 
 ## First publish only
 
