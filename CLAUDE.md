@@ -42,9 +42,13 @@ task: ask, do not work around them.
 
 - **License headers** in new source files: AGPL-3.0 (core), Apache-2.0
   (SDKs, API specification).
-- **Commits** need `Signed-off-by` (DCO). Conventional Commits, SemVer.
-- **No direct push to `main`** — merge request with review and a green
-  pipeline.
+- **Commits** need `Signed-off-by` (DCO) of a natural person. Conventional
+  Commits, SemVer. AI involvement is recorded as `Assisted-by: <tool>` —
+  never as `Co-Authored-By`, never as `Signed-off-by`.
+- **Branches** off `develop` as `feature/<issue>-…` or `fix/<issue>-…`;
+  hotfixes off `main` as `hotfix/<issue>-…`. → ADR-028
+- **No direct push to `main` or `develop`** — pull request with a green
+  pipeline, merged only by a Lead Maintainer. → ADR-028
 - **No secrets in code**, not even in tests or examples.
 
 ## Working mode: when to align first, when to implement directly
