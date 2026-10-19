@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 normly contributors
+name: Feature
+description: New or changed functionality, including documentation.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What can't be done today, and for whom?
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What should be possible afterwards?
+    validations:
+      required: true
+  - type: input
+    id: requirement
+    attributes:
+      label: Requirement
+      description: Existing REQ ID from docs/srs/03-requirements.md, or "new" if a requirement still has to be written.
+      placeholder: REQ-UI-001 or new
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Non-negotiable boundaries
+      options:
+        - label: I have read the non-negotiable boundaries in CONTRIBUTING.md; this proposal does not cross them.
+          required: true
