@@ -13,10 +13,10 @@ and approve requirements in their area. Details in
 
 | Area | Responsible |
 |---|---|
-| Core and API | *(to be added)* |
-| Reference graph and data model | *(to be added)* |
-| Processing chain and sources | *(to be added)* |
-| Infrastructure and shipping | *(to be added)* |
+| Core and API | Tobias Haarhoff |
+| Reference graph and data model | Tobias Haarhoff |
+| Processing chain and sources | Jan Wokittel |
+| Infrastructure and shipping | Jan Wokittel |
 
 Admission as a Maintainer is by the Lead Maintainers after a sustained
 contribution over a longer period.
