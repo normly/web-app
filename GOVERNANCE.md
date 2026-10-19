@@ -8,9 +8,9 @@ commercial exploitation are kept separate.
 
 ## Structure
 
-**Trägerorganisation** (normly e.V.) — holds the trademark, open data and source code, is
-responsible for the free core and for relationships with publishers and the
-community.
+**Trägerorganisation** (normly e.V.) — holds the trademark, open data and
+source code, is responsible for the free core and for relationships with
+publishers and the community.
 
 **Commercial company** *(planned, not yet founded)* — operates paid services:
 managed hosting, compliance instances, integrations, licensed collections. It
@@ -41,6 +41,7 @@ normly e.V. decides.
 As a rule by consensus within the affected area. Anything that finds no
 consensus is discussed among the maintainers; if it remains disputed, the
 Lead Maintainers decide, and if they disagree, the board of normly e.V.
+decides.
 
 **Architecture decisions** are documented as ADRs in [docs/adr/](docs/adr/) —
 with the rationale and the rejected alternatives. A decision without a

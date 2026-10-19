@@ -1,4 +1,5 @@
 Issue: #    Spec: REQ-XXX-NNN    Type: Fix | Feature | Hotfix
+
 Target: develop (hotfix: main)
 
 **What and why**
@@ -15,4 +16,4 @@ Target: develop (hotfix: main)
 - [ ] New source files carry the license header
 - [ ] No credentials in code, not even in tests or examples
 - [ ] DCO sign-off on every commit
-- [ ] AI used: no | yes (tool, recorded as `Assisted-by:` — see [CONTRIBUTING.md](../CONTRIBUTING.md#working-with-ai))
+- [ ] AI used: no | yes (tool, recorded as `Assisted-by:` — see [CONTRIBUTING.md](https://github.com/normly/web-app/blob/develop/CONTRIBUTING.md#working-with-ai))

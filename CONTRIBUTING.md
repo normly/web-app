@@ -150,18 +150,19 @@ under *Settings → Emails*.
 Forgot to sign off? Sign afterwards:
 
 ```bash
-git commit --amend -s          # last commit
-git rebase --signoff develop   # multiple commits
+git commit --amend -s                 # last commit
+git rebase --signoff origin/develop   # multiple commits (in a fork: upstream/develop)
 ```
 
 There is no automatic check: every contributor signs off their own
 commits. The merging Lead Maintainer checks the sign-offs and keeps the
 `Signed-off-by` lines in the squash commit message. Without a sign-off,
-nothing gets merged.
+nothing gets merged. Merge commits that a Lead Maintainer creates when
+merging a pull request need no sign-off.
 
 **Deliberate consequence:** because the rights stay with the contributors, a
 later relicensing of the core is permanently ruled out. That's intentional —
-see [ADR-003](docs/adr/README.md).
+see [ADR-003](docs/adr/README.md#adr-003-contribution-model-dco-instead-of-cla).
 
 ## Pull requests
 

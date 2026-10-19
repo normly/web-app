@@ -1501,12 +1501,15 @@ operations in `docs/guide/operations.md`.
 
 ## ADR-028 — Branching and merge model: `develop` integration, Lead Maintainer merges
 
-**Status:** accepted (2026-10-19); builds on ADR-003 and ADR-021
+**Status:** accepted (2026-10-19); builds on ADR-003 and ADR-021; deviates
+from REQ-GIT-004 (no required approval within the core team) and leaves the
+automatic DCO check of REQ-OSS-003 open
 
 **Context:** Until October 2026 one person worked on `main` directly
 through pull requests. With a second Lead Maintainer and outside
 contributions ahead, `main` alone mixes integration and production: every
-merge rebuilt the `edge` image that the VM tracks.
+merge rebuilt the `edge` image, which self-hosters follow by default
+(`NORMLY_IMAGE_TAG`, see `docs/guide/self-hosting.md`).
 
 **Decision:**
 
@@ -1534,8 +1537,8 @@ not production, and a single, known group that decides what reaches it.
 Squash keeps `develop` readable (one commit per PR); merge commits keep
 `develop` and `main` related.
 
-**Knowingly accepted:** Every release needs a merge and a back-merge.
-Merging without a second review is a risk carried by CI.
+**Knowingly accepted:** Every release is a merge commit on `main`, and every hotfix also needs a
+back-merge into `develop`. Merging without a second review is a risk carried by CI.
 
 **Rejected:** GitHub Flow with `main` only — no integration stage before
 production. Merges by every Maintainer — unreviewed changes could reach
@@ -1549,6 +1552,7 @@ production. Merges by every Maintainer — unreviewed changes could reach
 |---|---|---|
 | Spin-off GmbH | preferred, not accepted | Review under tax law and association law before founding |
 | Legal form of the Trägerorganisation | decided (2026-10-19): normly e.V. | Remove this entry once the association is registered |
+| SRS alignment with ADR-028 | open | Amend REQ-GIT-004 (approval required only for external PRs) and REQ-OSS-003 (automatic DCO check as follow-up) |
 | Rights holder in the copyright header | open | Clarify before the first external contribution |
 | License agreement Trägerorganisation → GmbH | open | Must be on customary market terms, otherwise a risk to non-profit status |
 | RDF/JSON-LD export with SKOS | proposed | Storage format and publication format are separable |

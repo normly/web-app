@@ -180,8 +180,9 @@ implementation.
    pushes, require a PR (0 approvals), require the seven CI jobs
    (`test-accounts`, `test-api`, `test-chat`, `test-core`,
    `test-frontend`, `test-docs`, `test-scripts`).
-   - `develop`: squash and merge allowed.
-   - `main`: merge only.
+   - `develop`: allows both squash and merge commit (the merge commit is
+     needed for the back-merge from `main`).
+   - `main`: allows merge commit only.
    Required checks on `develop` are switched on after this PR is merged.
 4. Label `process` (the guide requires it for changes to
    `CONTRIBUTING.md`); this PR carries it.

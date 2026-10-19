@@ -23,9 +23,10 @@ no images.
 
 ## Cutting a release
 
-1. Set the same version in all five places and commit it on a branch off
-   `develop`: `core/pyproject.toml`, `api/pyproject.toml`,
-   `chat/pyproject.toml`, `accounts/pyproject.toml` (`[project] version`)
+1. Set the same version in all five places and commit it on a
+   `feature/<issue>-…` branch off `develop`: `core/pyproject.toml`,
+   `api/pyproject.toml`, `chat/pyproject.toml`, `accounts/pyproject.toml`
+   (`[project] version`)
    and `frontend/package.json` (then
    `cd frontend && npm install --package-lock-only` so `package-lock.json`
    follows). Run `uv lock` afterwards: `uv.lock` records the workspace
@@ -45,7 +46,8 @@ no images.
 
 4. Watch the `Images` run. Its summary lists every image digest and the
    `cosign verify` command. A failed run publishes nothing for that tag;
-   fix through a `hotfix/<issue>-…` branch into `main`, delete the tag locally and remotely, and tag again.
+   fix through a `hotfix/<issue>-…` branch into `main` (see *Hotfixes*),
+   delete the tag locally and remotely, and tag again.
 5. Roll the release out to production by running
    `normly-deploy deploy vX.Y.Z` on the VM. It verifies the signatures,
    takes a backup first and starts the new images; see
@@ -53,11 +55,16 @@ no images.
 
 ## Hotfixes
 
-A critical fix branches off `main` as `hotfix/<issue>-…` and goes back to
-`main` through a pull request, merged by a Lead Maintainer with a merge
-commit. Tag it like a release (patch version). Afterwards open a pull
-request from `main` into `develop` and merge it with a merge commit, so the
-fix is not lost with the next release.
+A critical fix branches off `main` as `hotfix/<issue>-…`. On that branch,
+also raise the patch version in the five places from step 1 of *Cutting a
+release* (including `npm install --package-lock-only` and `uv lock`); the
+workflow refuses a tag that differs from them. A Lead Maintainer merges the
+pull request into `main` with a merge commit. Then continue with steps 3–5
+above (tag, watch the run, deploy). Afterwards open a pull request from
+`main` into `develop` and merge it with a merge commit, so the fix is not
+lost with the next release. If that pull request has conflicts, resolve
+them on a branch made from `main`, not in the GitHub UI, which would commit
+to the protected `main`.
 
 ## First publish only
 
