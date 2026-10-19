@@ -12,43 +12,64 @@ from sqlalchemy.orm import Session, aliased
 
 from normly_core.graph.domain import (
     Account,
+    AccountGoogleIdentityRepository,
     AccountGoogleIdentity,
+    AccountRepository,
+    AccountSessionRepository,
     AccountSession,
+    AccountTokenRepository,
     AccountToken,
     AccountTokenPurpose,
     ChatAnswerType,
+    ChatRepository,
     ChatMessage,
     ChatMessageCitation,
     ChatMessageRole,
     ChatSession,
     ContradictoryWorkMergeError,
+    DeliveryRepository,
     Delivery,
+    DocumentEmbeddingRepository,
     Document,
     DocumentDesignation,
     DocumentEmbedding,
+    DocumentRepository,
     DocumentTitle,
+    EdgeRepository,
     Edge,
     EdgeType,
     Embedding,
+    EmbeddingRepository,
     EmailAlreadyRegisteredError,
     GoogleIdentityAlreadyLinkedError,
     IdentityResolutionCase,
     IdentityResolutionCaseType,
     IdentityResolutionStatus,
+    IdentityResolutionRepository,
+    NotifiedEdgeRepository,
     LegalBasisCategory,
     Layer,
     Notification,
+    NotificationRepository,
     NotificationPreference,
     NotificationTriggerType,
     OAuthState,
+    OAuthStateRepository,
+    RateLimitRepository,
     RightsClassification,
+    RightsNotificationBaselineRepository,
     RightsNotificationBaseline,
+    RightsRepository,
     Segment,
+    SegmentRepository,
     Source,
+    SourceRepository,
     TdmOptOutResult,
     Watchlist,
+    WatchlistRepository,
     WithdrawnDeliveryError,
     Work,
+    WorkRepository,
     WorkCreatedVia,
     WorkSearchHit,
     WorkStatus,
@@ -174,7 +195,7 @@ def _source_to_domain(orm: SourceORM) -> Source:
     )
 
 
-class PostgresSourceRepository:
+class PostgresSourceRepository(SourceRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -242,7 +263,7 @@ def _delivery_to_domain(orm: DeliveryORM) -> Delivery:
     )
 
 
-class PostgresDeliveryRepository:
+class PostgresDeliveryRepository(DeliveryRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -392,7 +413,7 @@ def _title_to_domain(orm: DocumentTitleORM) -> DocumentTitle:
     )
 
 
-class PostgresDocumentRepository:
+class PostgresDocumentRepository(DocumentRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -905,7 +926,7 @@ def _work_to_domain(orm: WorkORM) -> Work:
     )
 
 
-class PostgresWorkRepository:
+class PostgresWorkRepository(WorkRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -931,7 +952,7 @@ def _watchlist_to_domain(orm: WatchlistORM) -> Watchlist:
     )
 
 
-class PostgresWatchlistRepository:
+class PostgresWatchlistRepository(WatchlistRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -994,7 +1015,7 @@ def _notification_to_domain(orm: NotificationORM) -> Notification:
     )
 
 
-class PostgresNotificationRepository:
+class PostgresNotificationRepository(NotificationRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -1097,7 +1118,7 @@ def _rights_to_domain(orm: RightsClassificationORM) -> RightsClassification:
     )
 
 
-class PostgresRightsRepository:
+class PostgresRightsRepository(RightsRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -1172,7 +1193,7 @@ def _rights_notification_baseline_to_domain(
     )
 
 
-class PostgresRightsNotificationBaselineRepository:
+class PostgresRightsNotificationBaselineRepository(RightsNotificationBaselineRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -1217,7 +1238,7 @@ class PostgresRightsNotificationBaselineRepository:
         return _rights_notification_baseline_to_domain(merged)
 
 
-class PostgresNotifiedEdgeRepository:
+class PostgresNotifiedEdgeRepository(NotifiedEdgeRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -1329,7 +1350,7 @@ def _work_structure_entry_to_domain(
     )
 
 
-class PostgresEdgeRepository:
+class PostgresEdgeRepository(EdgeRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -1721,7 +1742,7 @@ def _segment_to_domain(orm: SegmentORM) -> Segment:
 _CHAT_SEGMENT_MAX_COSINE_DISTANCE = 0.75
 
 
-class PostgresSegmentRepository:
+class PostgresSegmentRepository(SegmentRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -1889,7 +1910,7 @@ def _embedding_to_domain(orm: EmbeddingORM) -> Embedding:
     )
 
 
-class PostgresEmbeddingRepository:
+class PostgresEmbeddingRepository(EmbeddingRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -1966,7 +1987,7 @@ def _document_embedding_to_domain(orm: DocumentEmbeddingORM) -> DocumentEmbeddin
     )
 
 
-class PostgresDocumentEmbeddingRepository:
+class PostgresDocumentEmbeddingRepository(DocumentEmbeddingRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -2025,7 +2046,7 @@ def _identity_case_to_domain(orm: IdentityResolutionCaseORM) -> IdentityResoluti
     )
 
 
-class PostgresIdentityResolutionRepository:
+class PostgresIdentityResolutionRepository(IdentityResolutionRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -2141,7 +2162,7 @@ def _account_to_domain(orm: AccountORM) -> Account:
     )
 
 
-class PostgresAccountRepository:
+class PostgresAccountRepository(AccountRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -2408,7 +2429,7 @@ class PostgresDeletionLogRepository:
         return result.rowcount
 
 
-class PostgresAccountGoogleIdentityRepository:
+class PostgresAccountGoogleIdentityRepository(AccountGoogleIdentityRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -2476,7 +2497,7 @@ def _account_session_to_domain(orm: AccountSessionORM) -> AccountSession:
     )
 
 
-class PostgresAccountSessionRepository:
+class PostgresAccountSessionRepository(AccountSessionRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -2557,7 +2578,7 @@ def _account_token_to_domain(orm: AccountTokenORM) -> AccountToken:
     )
 
 
-class PostgresAccountTokenRepository:
+class PostgresAccountTokenRepository(AccountTokenRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -2618,7 +2639,7 @@ def _oauth_state_to_domain(orm: OAuthStateORM) -> OAuthState:
     )
 
 
-class PostgresOAuthStateRepository:
+class PostgresOAuthStateRepository(OAuthStateRepository):
     def __init__(self, session: Session) -> None:
         self._session = session
 
@@ -2681,7 +2702,7 @@ def _chat_message_citation_to_domain(orm: ChatMessageCitationORM) -> ChatMessage
     )
 
 
-class PostgresChatRepository:
+class PostgresChatRepository(ChatRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -2844,7 +2865,7 @@ class PostgresChatRepository:
         return self._delete_sessions_where(ChatSessionORM.account_id == account_id)
 
 
-class PostgresRateLimitRepository:
+class PostgresRateLimitRepository(RateLimitRepository):
     def __init__(self, session: Session):
         self._session = session
 
