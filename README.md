@@ -60,6 +60,40 @@ separate program and unaffected — integrations are explicitly welcome.
 
 ## Contributing
 
+Every contribution follows the same path: **issue → requirement → branch →
+pull request → merge by a Lead Maintainer.** Branch off `develop` as
+`feature/<issue>-…` or `fix/<issue>-…`, open the PR against `develop`;
+critical fixes go as `hotfix/<issue>-…` against `main`. Releases are merged
+from `develop` into `main` and tagged.
+
+```mermaid
+gitGraph
+    commit id: "v0.4.0" tag: "v0.4.0"
+    branch develop
+    checkout develop
+    commit id: "…"
+    branch feature/42-mcp-server
+    checkout feature/42-mcp-server
+    commit id: "spec REQ-MCP-001"
+    commit id: "feat(mcp)"
+    checkout develop
+    branch fix/51-graph-cycle
+    checkout fix/51-graph-cycle
+    commit id: "fix(graph)"
+    checkout develop
+    merge fix/51-graph-cycle id: "PR #52 squash"
+    merge feature/42-mcp-server id: "PR #45 squash"
+    checkout main
+    merge develop id: "release" tag: "v0.5.0"
+    branch hotfix/60-auth
+    checkout hotfix/60-auth
+    commit id: "fix(auth)"
+    checkout main
+    merge hotfix/60-auth id: "hotfix" tag: "v0.5.1"
+    checkout develop
+    merge main id: "back-merge"
+```
+
 Contributions go through the **Developer Certificate of Origin** (DCO), not
 a transfer of rights. Every commit needs a `Signed-off-by` line:
 
@@ -67,8 +101,9 @@ a transfer of rights. Every commit needs a `Signed-off-by` line:
 git commit -s -m "feat: short description"
 ```
 
-Details in [CONTRIBUTING.md](CONTRIBUTING.md). Please **do not** report
-security vulnerabilities as an issue — see [SECURITY.md](SECURITY.md).
+Details — roles, requirements, merge rules, working with AI — in
+[CONTRIBUTING.md](CONTRIBUTING.md). Please **do not** report security
+vulnerabilities as an issue — see [SECURITY.md](SECURITY.md).
 
 ## Where the code lives
 
