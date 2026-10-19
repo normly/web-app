@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 normly contributors
+name: New data source
+description: Suggest a source of norms and standards for normly.
+labels: ["enhancement"]
+body:
+  - type: input
+    id: publisher
+    attributes:
+      label: Publisher
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: Where it is published
+      placeholder: https://…
+    validations:
+      required: true
+  - type: textarea
+    id: content
+    attributes:
+      label: What it contains
+      description: Which standards, how many, which formats.
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - A — official works, legal texts (§ 5 UrhG or similar)
+        - B — freely licensed standards (license of the publisher)
+        - C — obtained by contract (contract reference)
+        - D — other publicly accessible (case-by-case review, § 44b Abs. 3 UrhG)
+    validations:
+      required: true
+  - type: textarea
+    id: legal-basis
+    attributes:
+      label: Legal basis
+      description: License, legal provision or contract that allows the use; for category D also the publisher's rights reservation for text and data mining, if any.
+    validations:
+      required: true
+  - type: checkboxes
+    id: catalog
+    attributes:
+      label: Commercial catalogs
+      options:
+        - label: This source is not a commercially exploited catalog collection (e.g. DIN Media/Nautos). Such collections are only obtained by contract, never scraped.
+          required: true

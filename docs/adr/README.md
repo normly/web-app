@@ -1499,12 +1499,60 @@ operations in `docs/guide/operations.md`.
 
 ---
 
+## ADR-028 — Branching and merge model: `develop` integration, Lead Maintainer merges
+
+**Status:** accepted (2026-10-19); builds on ADR-003 and ADR-021; deviates
+from REQ-GIT-004 (no required approval within the core team) and leaves the
+automatic DCO check of REQ-OSS-003 open
+
+**Context:** Until October 2026 one person worked on `main` directly
+through pull requests. With a second Lead Maintainer and outside
+contributions ahead, `main` alone mixes integration and production: every
+merge rebuilt the `edge` image, which self-hosters follow by default
+(`NORMLY_IMAGE_TAG`, see `docs/guide/self-hosting.md`).
+
+**Decision:**
+
+- `main` is production and carries the release tags. `develop` is the
+  integration and default branch. Work branches are named
+  `feature/<issue>-…`, `fix/<issue>-…` (off `develop`) and
+  `hotfix/<issue>-…` (off `main`).
+- Only Lead Maintainers merge, into `develop` and into `main`. A Lead
+  Maintainer may merge their own PR after green CI; no second review is
+  required. Maintainers review and approve requirements.
+- Work branches are squash-merged into `develop`. The release
+  (`develop` → `main`), hotfixes into `main` and the back-merge
+  (`main` → `develop`) are merge commits — a squashed release would give
+  `main` commits `develop` does not know.
+- The DCO sign-off is set by each contributor (`git commit -s`); there is
+  no automatic check. The merging Lead Maintainer keeps the
+  `Signed-off-by` lines in the squash commit message.
+- AI involvement is recorded as `Assisted-by: <tool>`, never as
+  `Co-Authored-By` or `Signed-off-by`.
+- The `edge` image keeps being built from `main` only; with `develop` in
+  place it tracks production, not integration.
+
+**Rationale:** Outside contributions need an integration branch that is
+not production, and a single, known group that decides what reaches it.
+Squash keeps `develop` readable (one commit per PR); merge commits keep
+`develop` and `main` related.
+
+**Knowingly accepted:** Every release is a merge commit on `main`, and every hotfix also needs a
+back-merge into `develop`. Merging without a second review is a risk carried by CI.
+
+**Rejected:** GitHub Flow with `main` only — no integration stage before
+production. Merges by every Maintainer — unreviewed changes could reach
+`develop`. An automatic DCO check — postponed, not ruled out.
+
+---
+
 ## Open items
 
 | Topic | Status | Next step |
 |---|---|---|
 | Spin-off GmbH | preferred, not accepted | Review under tax law and association law before founding |
-| Legal form of the Trägerorganisation (e.V. / eG / alternative) | open | An eG could bring standardization bodies in as members instead of opponents |
+| Legal form of the Trägerorganisation | decided (2026-10-19): normly e.V. | Remove this entry once the association is registered |
+| SRS alignment with ADR-028 | open | Amend REQ-GIT-004 (approval required only for external PRs) and REQ-OSS-003 (automatic DCO check as follow-up) |
 | Rights holder in the copyright header | open | Clarify before the first external contribution |
 | License agreement Trägerorganisation → GmbH | open | Must be on customary market terms, otherwise a risk to non-profit status |
 | RDF/JSON-LD export with SKOS | proposed | Storage format and publication format are separable |
