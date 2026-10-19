@@ -8,7 +8,7 @@ commercial exploitation are kept separate.
 
 ## Structure
 
-**Trägerorganisation** — holds the trademark, open data and source code, is
+**Trägerorganisation** (normly e.V.) — holds the trademark, open data and source code, is
 responsible for the free core and for relationships with publishers and the
 community.
 
@@ -26,18 +26,21 @@ side.
 corrections, documentation, translations. No formal prerequisite other than the
 DCO signature.
 
-**Maintainers** — may merge and are responsible for an area. Admitted by
-existing maintainers after a sustained contribution over a longer period. The
-current list is in `MAINTAINERS.md`.
+**Maintainers** — review contributions and approve requirements in their
+area; they do not merge. Admitted by the Lead Maintainers after a sustained
+contribution over a longer period. The current list is in `MAINTAINERS.md`.
 
-**Technical lead** — decides when the maintainers cannot reach agreement, and
-is responsible for compliance with the architecture principles.
+**Lead Maintainers** — the only ones who merge, into `develop` and into
+`main`; decide on architecture (ADRs) and releases, decide when the
+maintainers cannot reach agreement, and are responsible for compliance with
+the architecture principles. If the Lead Maintainers disagree, the board of
+normly e.V. decides.
 
 ## Decisions
 
 As a rule by consensus within the affected area. Anything that finds no
 consensus is discussed among the maintainers; if it remains disputed, the
-technical lead decides.
+Lead Maintainers decide, and if they disagree, the board of normly e.V.
 
 **Architecture decisions** are documented as ADRs in [docs/adr/](docs/adr/) —
 with the rationale and the rejected alternatives. A decision without a
