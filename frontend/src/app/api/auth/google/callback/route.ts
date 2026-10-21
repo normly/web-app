@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getBackendUrls } from "@/lib/backend-urls";
+import { localeFromRequest } from "@/lib/i18n/resolve-locale";
 import { applySessionCookies } from "@/lib/session-cookies";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -14,6 +15,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (code) forwardedParams.set("code", code);
   if (state) forwardedParams.set("state", state);
   if (error) forwardedParams.set("error", error);
+  forwardedParams.set("locale", localeFromRequest(request));
 
   const backendResponse = await fetch(
     `${getBackendUrls().accounts}/v1/accounts/google/callback?${forwardedParams.toString()}`,
