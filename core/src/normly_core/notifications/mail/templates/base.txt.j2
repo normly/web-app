@@ -1,0 +1,22 @@
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{# Copyright (C) 2026 normly contributors #}
+{{ heading }}
+
+{{ paragraph }}
+{% if button %}
+
+{{ button }}: {{ action_url }}
+{% endif %}
+{% if note %}
+
+{{ note }}
+{% endif %}
+
+--
+normly · {{ claim }}
+{% if imprint_url %}
+{{ imprint }}: {{ imprint_url }}
+{% endif %}
+{% if privacy_url %}
+{{ privacy }}: {{ privacy_url }}
+{% endif %}
