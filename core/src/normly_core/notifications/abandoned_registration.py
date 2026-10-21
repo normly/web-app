@@ -14,11 +14,24 @@ from sqlalchemy.orm import Session
 from normly_core import retention
 from normly_core.graph.postgres.repositories import PostgresAccountRepository
 from normly_core.notifications.email import EmailSender, NullEmailSender
-from normly_core.notifications.mail import RenderedEmail, format_date, render_email
+from normly_core.notifications.mail import (
+    RenderedEmail,
+    format_date,
+    render_bilingual_email,
+    render_email,
+)
 
 logger = logging.getLogger(__name__)
 
-def build_warning_email(*, delete_on: date, base_url: str | None, locale: str) -> RenderedEmail:
+def build_warning_email(
+    *, delete_on: date, base_url: str | None, locale: str | None
+) -> RenderedEmail:
+    """Unknown language (None): one mail in German and English."""
+    if locale is None:
+        return render_bilingual_email(
+            "deletion_warning", base_url=base_url, action_url=base_url,
+            params={lang: {"date": format_date(delete_on, lang)} for lang in ("de", "en")},
+        )
     return render_email(
         "deletion_warning", locale, base_url=base_url, action_url=base_url,
         date=format_date(delete_on, locale),

@@ -465,9 +465,8 @@ class AccountORM(Base):
     )
 
     # Language of the account's emails; 'de' or 'en' (ck_account_locale).
-    locale: Mapped[str] = mapped_column(
-        sa.String(2), nullable=False, default="de", server_default="de"
-    )
+    # NULL = unknown (account created before it was stored).
+    locale: Mapped[str | None] = mapped_column(sa.String(2), nullable=True)
 
     __table_args__ = (
         sa.UniqueConstraint("email", name="uq_account_email"),

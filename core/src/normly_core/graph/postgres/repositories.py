@@ -2373,7 +2373,7 @@ class PostgresAccountRepository:
 
     def abandoned_registrations_to_warn(
         self, cutoff: datetime
-    ) -> list[tuple[uuid.UUID, str, str]]:
+    ) -> list[tuple[uuid.UUID, str, str | None]]:
         ids = self._abandoned_registration_ids(cutoff, unwarned=True)
         if not ids:
             return []

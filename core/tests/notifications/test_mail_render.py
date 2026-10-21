@@ -5,7 +5,12 @@ from datetime import date, timedelta
 
 import pytest
 
-from normly_core.notifications.mail import format_date, format_duration, render_email
+from normly_core.notifications.mail import (
+    format_date,
+    format_duration,
+    render_bilingual_email,
+    render_email,
+)
 
 KINDS = [
     "verification", "magic_link", "password_reset", "email_change",
@@ -108,3 +113,35 @@ def test_format_duration(duration, locale, expected):
 def test_format_date():
     assert format_date(date(2026, 10, 21), "de") == "21.10.2026"
     assert format_date(date(2026, 10, 21), "en") == "21 October 2026"
+
+
+def test_bilingual_mail_has_both_languages_in_one_document():
+    mail = render_bilingual_email(
+        "deletion_warning", base_url="https://app.example.org",
+        action_url="https://app.example.org",
+        params={"de": {"date": "21.10.2026"}, "en": {"date": "21 October 2026"}},
+    )
+
+    assert mail.subject == "Dein normly-Konto wird gelöscht / Your normly account will be deleted"
+    for part in (mail.text, mail.html):
+        assert "Dein Konto wird bald gelöscht" in part
+        assert "Your account will be deleted soon" in part
+        assert "21.10.2026" in part and "21 October 2026" in part
+        assert part.index("Dein Konto") < part.index("Your account")
+    assert mail.html.count("<html") == 1
+    assert 'lang="de"' in mail.html
+    assert "\n---\n" in mail.text
+    assert "Bei normly anmelden" in mail.html and "Sign in to normly" in mail.html
+
+
+def test_bilingual_mail_still_escapes_html_only():
+    mail = render_bilingual_email(
+        "watch_rights_change", base_url=None, action_url=ACTION,
+        params={
+            "de": {"designation": "DIN 1", "title": "<b>x</b>"},
+            "en": {"designation": "DIN 1", "title": "<b>x</b>"},
+        },
+    )
+    assert "<b>x</b>" not in mail.html
+    assert "&lt;b&gt;x&lt;/b&gt;" in mail.html
+    assert "<b>x</b>" in mail.text

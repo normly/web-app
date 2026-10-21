@@ -8,7 +8,7 @@
 <title>{{ subject }}</title>
 </head>
 <body style="margin:0;background-color:{{ tokens.muted }};font-family:system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;color:{{ tokens.foreground }}">
-<div style="display:none;overflow:hidden;line-height:1px;opacity:0;max-height:0;max-width:0">{{ paragraph }}</div>
+<div style="display:none;overflow:hidden;line-height:1px;opacity:0;max-height:0;max-width:0">{{ blocks[0].paragraph }}</div>
 <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;padding:32px 16px">
 <tbody><tr><td>
 <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="padding-bottom:24px">
@@ -22,15 +22,20 @@
 </table>
 <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background-color:{{ tokens.card }};border:1px solid {{ tokens.border }};border-radius:{{ tokens.radius }};padding:32px">
 <tbody><tr><td>
-<p style="margin:0 0 16px;font-size:20px;font-weight:600">{{ heading }}</p>
-<p style="margin:0 0 24px;font-size:15px;line-height:24px">{{ paragraph }}</p>
-{% if button %}
-<a href="{{ action_url }}" style="display:inline-block;background:{{ tokens.primary }};color:{{ tokens.primary_foreground }};padding:10px 20px;border-radius:{{ tokens.radius }};font-size:14px;font-weight:500;text-decoration:none" target="_blank">{{ button }}</a>
-<p style="margin:24px 0 0;font-size:13px;line-height:20px;color:{{ tokens.muted_foreground }}">{{ fallback_link }}<br/><a href="{{ action_url }}" style="color:{{ tokens.muted_foreground }};text-decoration:underline;word-break:break-all" target="_blank">{{ action_url }}</a></p>
+{% for block in blocks %}
+{% if not loop.first %}
+<hr style="margin:32px 0;border:0;border-top:1px solid {{ tokens.border }}"/>
 {% endif %}
-{% if note %}
-<p style="margin:16px 0 0;font-size:13px;line-height:20px;color:{{ tokens.muted_foreground }}">{{ note }}</p>
+<p style="margin:0 0 16px;font-size:20px;font-weight:600">{{ block.heading }}</p>
+<p style="margin:0 0 24px;font-size:15px;line-height:24px">{{ block.paragraph }}</p>
+{% if block.button %}
+<a href="{{ block.action_url }}" style="display:inline-block;background:{{ tokens.primary }};color:{{ tokens.primary_foreground }};padding:10px 20px;border-radius:{{ tokens.radius }};font-size:14px;font-weight:500;text-decoration:none" target="_blank">{{ block.button }}</a>
+<p style="margin:24px 0 0;font-size:13px;line-height:20px;color:{{ tokens.muted_foreground }}">{{ block.fallback_link }}<br/><a href="{{ block.action_url }}" style="color:{{ tokens.muted_foreground }};text-decoration:underline;word-break:break-all" target="_blank">{{ block.action_url }}</a></p>
 {% endif %}
+{% if block.note %}
+<p style="margin:16px 0 0;font-size:13px;line-height:20px;color:{{ tokens.muted_foreground }}">{{ block.note }}</p>
+{% endif %}
+{% endfor %}
 </td></tr></tbody>
 </table>
 <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="padding-top:24px">

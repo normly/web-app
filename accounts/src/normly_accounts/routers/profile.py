@@ -31,7 +31,7 @@ def _account_response(account: Account) -> AccountResponse:
         has_avatar=account.avatar_image is not None,
         has_password=account.password_hash is not None,
         notification_preference=account.notification_preference.value,
-        locale=account.locale,
+        locale=account.locale or "de",
     )
 
 

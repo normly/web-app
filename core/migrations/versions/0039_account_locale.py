@@ -5,7 +5,8 @@
 
 The language an account's emails are written in. Job-triggered mails
 (Normtracker, deletion warning) have no request to take a language from, so
-it is stored. Existing accounts get German, the only language mails had.
+it is stored. Existing accounts keep NULL: their language is unknown, and the
+deletion warning then goes out in German and English.
 
 Revision ID: 0039
 Revises: 0038
@@ -22,9 +23,9 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "account", sa.Column("locale", sa.String(2), nullable=False, server_default="de")
-    )
+    # NULL = language unknown (account created before it was stored); a CHECK
+    # passes NULL.
+    op.add_column("account", sa.Column("locale", sa.String(2), nullable=True))
     op.create_check_constraint("ck_account_locale", "account", "locale IN ('de', 'en')")
 
 

@@ -91,6 +91,33 @@ def test_warning_uses_the_account_locale(db_session, monkeypatch):
     assert sender.sent[0]["subject"] == "Your normly account will be deleted"
 
 
+def test_warning_of_an_account_with_unknown_language_is_bilingual(db_session, monkeypatch):
+    monkeypatch.setenv("NORMLY_PUBLIC_BASE_URL", "https://app.example.org")
+    account = _account(db_session, "warn-unknown@example.de")
+    db_session.execute(
+        sa.update(AccountORM).where(AccountORM.id == account.id).values(locale=None)
+    )
+    sender = RecordingEmailSender()
+
+    _cleanup_user_data(db_session, NOW, sender)
+
+    mail = sender.sent[0]
+    assert mail["subject"] == "Dein normly-Konto wird gelöscht / Your normly account will be deleted"
+    assert "Dein Konto wird bald gelöscht" in mail["body"]
+    assert "Your account will be deleted soon" in mail["body"]
+    assert "Your account will be deleted soon" in mail["html"]
+
+
+def test_warning_of_a_german_account_is_german_only(db_session):
+    _account(db_session, "warn-de@example.de")
+    sender = RecordingEmailSender()
+
+    _cleanup_user_data(db_session, NOW, sender)
+
+    assert sender.sent[0]["subject"] == "Dein normly-Konto wird gelöscht"
+    assert "Your account" not in sender.sent[0]["body"]
+
+
 def test_warning_without_base_url_has_no_link(db_session, monkeypatch):
     monkeypatch.delenv("NORMLY_PUBLIC_BASE_URL", raising=False)
     _account(db_session, "nolink@example.de")

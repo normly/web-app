@@ -1095,7 +1095,7 @@ class Account:
     avatar_image: bytes | None
     avatar_content_type: str | None
     notification_preference: NotificationPreference
-    locale: str
+    locale: str | None  # None = unknown (account created before it was stored)
 
 
 @dataclass(frozen=True)
@@ -1202,8 +1202,8 @@ class AccountRepository(Protocol):
 
     def abandoned_registrations_to_warn(
         self, cutoff: datetime
-    ) -> list[tuple[uuid.UUID, str, str]]:
-        """(account id, email, locale) of abandoned registrations not yet warned."""
+    ) -> list[tuple[uuid.UUID, str, str | None]]:
+        """(account id, email, locale or None if unknown) of abandoned registrations not yet warned."""
         ...
 
     def mark_deletion_warned(self, account_id: uuid.UUID, warned_at: datetime) -> None: ...

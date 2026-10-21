@@ -77,33 +77,63 @@ def format_date(value: date, locale: str) -> str:
     return value.strftime("%d.%m.%Y")
 
 
-def render_email(
-    kind: str, locale: str, *, base_url: str | None, action_url: str | None = None,
-    **params: str,
-) -> RenderedEmail:
-    locale = _supported(locale)
+def _block(kind: str, locale: str, action_url: str | None, params: dict[str, str]) -> dict:
+    """One language's copy of a mail: what the layout shows between header and footer."""
     if kind not in KINDS[locale]:
         raise ValueError(f"unknown email kind {kind!r}")
     copy = {
         key: value.format(**params) if value is not None else None
         for key, value in KINDS[locale][kind].items()
     }
-    context = {
-        **COMMON[locale],
-        "lang": locale,
-        "tokens": TOKENS,
+    return {
         "subject": copy["subject"],
         "heading": copy["heading"],
         "paragraph": copy["paragraph"],
         "button": copy["button"] if action_url else None,
         "action_url": action_url,
         "note": copy["note"],
+        "fallback_link": COMMON[locale]["fallback_link"],
+    }
+
+
+def _render(
+    blocks: list[dict], subject: str, locale: str, base_url: str | None
+) -> RenderedEmail:
+    context = {
+        **COMMON[locale],
+        "lang": locale,
+        "tokens": TOKENS,
+        "subject": subject,
+        "blocks": blocks,
         "base_url": base_url,
         "imprint_url": os.environ.get("NORMLY_IMPRINT_URL") or None,
         "privacy_url": os.environ.get("NORMLY_PRIVACY_URL") or None,
     }
     return RenderedEmail(
-        subject=copy["subject"],
+        subject=subject,
         text=_ENV.get_template("base.txt.j2").render(context),
         html=_ENV.get_template("base.html.j2").render(context),
     )
+
+
+def render_email(
+    kind: str, locale: str, *, base_url: str | None, action_url: str | None = None,
+    **params: str,
+) -> RenderedEmail:
+    locale = _supported(locale)
+    block = _block(kind, locale, action_url, params)
+    return _render([block], block["subject"], locale, base_url)
+
+
+def render_bilingual_email(
+    kind: str, *, base_url: str | None, action_url: str | None = None,
+    params: dict[str, dict[str, str]],
+) -> RenderedEmail:
+    """
+    One mail with the German and the English copy in a single layout, for a
+    recipient whose language is unknown. `params` maps each locale to its own
+    placeholder values (dates are formatted per language).
+    """
+    blocks = [_block(kind, locale, action_url, params[locale]) for locale in ("de", "en")]
+    subject = " / ".join(block["subject"] for block in blocks)
+    return _render(blocks, subject, "de", base_url)

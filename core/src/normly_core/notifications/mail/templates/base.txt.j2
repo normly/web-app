@@ -1,16 +1,23 @@
 {# SPDX-License-Identifier: AGPL-3.0-or-later #}
 {# Copyright (C) 2026 normly contributors #}
-{{ heading }}
+{% for block in blocks %}
+{% if not loop.first %}
 
-{{ paragraph }}
-{% if button %}
+---
 
-{{ button }}: {{ action_url }}
 {% endif %}
-{% if note %}
+{{ block.heading }}
 
-{{ note }}
+{{ block.paragraph }}
+{% if block.button %}
+
+{{ block.button }}: {{ block.action_url }}
 {% endif %}
+{% if block.note %}
+
+{{ block.note }}
+{% endif %}
+{% endfor %}
 
 --
 normly · {{ claim }}

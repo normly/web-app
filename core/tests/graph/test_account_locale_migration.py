@@ -20,7 +20,7 @@ def _has_locale(connection) -> bool:
     ).scalar_one() == 1
 
 
-def test_0039_round_trip_gives_existing_accounts_german(db_url, migrated_engine):
+def test_0039_round_trip_leaves_the_language_of_existing_accounts_unknown(db_url, migrated_engine):
     # Same approach as test_no_longer_available_migration.py: drives Alembic
     # against the shared database and leaves it at "head" again.
     alembic_cfg = Config(str(CORE_DIR / "alembic.ini"))
@@ -41,7 +41,7 @@ def test_0039_round_trip_gives_existing_accounts_german(db_url, migrated_engine)
             assert _has_locale(connection)
             assert connection.execute(
                 sa.text("SELECT locale FROM account WHERE id = :a"), {"a": account}
-            ).scalar_one() == "de"
+            ).scalar_one() is None
     finally:
         command.upgrade(alembic_cfg, "head")
         with migrated_engine.begin() as connection:

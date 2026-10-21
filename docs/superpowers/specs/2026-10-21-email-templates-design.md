@@ -103,9 +103,10 @@ as literals.
 
 ## Language data flow
 
-- **Migration `0039`** adds `account.locale` (`text`, NOT NULL, default
-  `'de'`, check constraint `locale IN ('de', 'en')`). Existing accounts get
-  `de`. Domain model, ORM and repository carry the field; the repository
+- **Migration `0039`** adds `account.locale` (`text`, nullable, no default,
+  check constraint `locale IN ('de', 'en')`). NULL means the language is
+  unknown: existing accounts keep NULL; accounts created from now on always
+  get a value (default `de`). Domain model, ORM and repository carry the field; the repository
   gets `update_locale`, following the existing per-field
   `update_notification_preference`. `AccountResponse` exposes `locale`.
 - **Frontend `resolveLocale(request)`** in `frontend/src/lib/i18n/`:
@@ -131,7 +132,12 @@ as literals.
   `locale`. A failed call is ignored silently — the cookie switch is what
   the user sees, the stored value catches up on the next switch.
 - **Which language a mail uses**: mails 1–5 use the request's `locale`;
-  mails 6 and 7 use `account.locale`. Mail 7 becomes monolingual.
+  mails 6 and 7 use `account.locale`. NULL behaves as `de`
+  everywhere (mail 6, `AccountResponse`) except mail 7: a NULL-locale
+  recipient gets one mail with the German and the English copy in a single
+  layout (`render_bilingual_email`, subject `German / English`), since the
+  deletion warning is the only safeguard before an account is deleted
+  (ADR-027). Otherwise mail 7 is monolingual.
 
 ## Mail content
 
@@ -197,6 +203,7 @@ variables.
 - Template errors: raised, not caught (see Call sites).
 - Unknown `locale` in a request: `400`. Missing: `de`.
 - Unknown locale in the renderer (defensive, e.g. a bad DB value): `de`.
+- `account.locale` NULL: `de`, except the deletion warning, which is bilingual.
 - Missing work metadata in mail 6: fallbacks above.
 
 ## Testing

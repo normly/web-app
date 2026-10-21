@@ -14,7 +14,7 @@ from normly_core.graph.domain import (
     TdmOptOutResult,
     WorkCreatedVia,
 )
-from normly_core.graph.postgres.orm import EdgeORM, NotificationORM, WatchlistORM
+from normly_core.graph.postgres.orm import AccountORM, EdgeORM, NotificationORM, WatchlistORM
 from normly_core.graph.postgres.repositories import (
     PostgresAccountRepository,
     PostgresDeliveryRepository,
@@ -523,3 +523,37 @@ def test_watch_mail_uses_the_account_locale_and_falls_back_to_origin_fields(
     assert mail["subject"] == "New edition: DGUV 8:2020"
     assert "DGUV 8:2026" in mail["body"]
     assert "http" not in mail["body"]
+
+
+def test_watch_mail_of_an_account_with_unknown_language_is_german(db_session, monkeypatch):
+    monkeypatch.delenv("NORMLY_PUBLIC_BASE_URL", raising=False)
+    source = _make_source(db_session)
+    delivery = _make_delivery(db_session, source.id, "email-null-locale")
+    doc_repo = PostgresDocumentRepository(db_session)
+    old = doc_repo.create_document(
+        origin_issuer="DGUV", origin_number="9", edition="2020", part=None,
+        delivery_id=delivery.id,
+    )
+    new = doc_repo.create_document(
+        origin_issuer="DGUV", origin_number="9", edition="2026", part=None,
+        delivery_id=delivery.id, work_id=old.work_id,
+    )
+    PostgresEdgeRepository(db_session).create_edge(
+        from_document_id=new.id, to_document_id=old.id, edge_type=EdgeType.REPLACES,
+        jurisdiction=None, layer=Layer.FREE, delivery_id=delivery.id,
+    )
+    account_repo = PostgresAccountRepository(db_session)
+    account = account_repo.create_account(email="null-locale@example.de", password_hash=None)
+    db_session.execute(
+        sa.update(AccountORM).where(AccountORM.id == account.id).values(locale=None)
+    )
+    account_repo.update_notification_preference(account.id, preference=NotificationPreference.EMAIL)
+    watch = PostgresWatchlistRepository(db_session).add_watch(
+        account_id=account.id, work_id=old.work_id
+    )
+    _set_created_at(db_session, WatchlistORM, watch.id, _BEFORE)
+
+    sender = RecordingEmailSender()
+    run_notify_watchers(db_session, sender)
+
+    assert sender.sent[0]["subject"].startswith("Neue Ausgabe:")

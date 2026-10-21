@@ -77,10 +77,11 @@ def _render_watch_email(
     trigger_type: NotificationTriggerType, facts: _MailFacts,
 ) -> RenderedEmail:
     base_url = os.environ.get("NORMLY_PUBLIC_BASE_URL") or None
-    designation, title = _describe(document_repo, facts.watched_document_id, account.locale)
+    locale = account.locale or "de"  # unknown language: German, as before it was stored
+    designation, title = _describe(document_repo, facts.watched_document_id, locale)
     document = designation
     if facts.linked_document_id is not None:
-        document = _describe(document_repo, facts.linked_document_id, account.locale)[0]
+        document = _describe(document_repo, facts.linked_document_id, locale)[0]
     if facts.jurisdiction:
         document = f"{document} ({facts.jurisdiction})"
     action_url = None
@@ -90,7 +91,7 @@ def _render_watch_email(
             if facts.linked_document_id is not None else f"{base_url}/"
         )
     return render_email(
-        f"watch_{trigger_type.value}", account.locale, base_url=base_url,
+        f"watch_{trigger_type.value}", locale, base_url=base_url,
         action_url=action_url, designation=designation, title=title, document=document,
     )
 
