@@ -657,3 +657,21 @@ def test_a_revoked_classification_does_not_clear(db_session, monkeypatch):
     mail = sender.sent[0]
     assert "Geheimer Titel d" not in mail["body"]
     assert "/documents/" not in mail["body"]
+
+
+def test_a_render_failure_does_not_abort_the_run(db_session, monkeypatch):
+    old, new, _ = _gated_new_edition(db_session, monkeypatch, "e")
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("template broke")
+
+    monkeypatch.setattr("normly_core.notifications.detection._render_watch_email", boom)
+
+    sender = RecordingEmailSender()
+    summary = run_notify_watchers(db_session, sender)
+
+    assert sender.sent == []
+    assert summary.notifications_created == 1 and summary.emails_sent == 0
+    notifications = db_session.execute(sa.select(NotificationORM)).scalars().all()
+    assert len(notifications) == 1
+    assert notifications[0].emailed_at is None

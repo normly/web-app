@@ -296,15 +296,24 @@ def _create_and_maybe_email(
     if account.notification_preference in (
         NotificationPreference.EMAIL, NotificationPreference.BOTH,
     ):
-        mail = _render_watch_email(document_repo, rights_repo, account, trigger_type, facts)
         try:
-            email_sender.send(
-                to=account.email, subject=mail.subject, body=mail.text, html=mail.html,
-            )
-            emailed_at = datetime.now(timezone.utc)
+            mail = _render_watch_email(document_repo, rights_repo, account, trigger_type, facts)
         except Exception:
-            # Fail-soft, best-effort, no retry -- see Global Constraints.
-            logger.exception("notify-watchers email delivery failed for %s", account.email)
+            # One broken mail must not abort the run: the job commits once at
+            # the end, so an abort would roll back the notifications of the
+            # mails already sent and mail them again next run. No address in
+            # the log.
+            logger.exception("notify-watchers email rendering failed for account %s", account.id)
+            mail = None
+        if mail is not None:
+            try:
+                email_sender.send(
+                    to=account.email, subject=mail.subject, body=mail.text, html=mail.html,
+                )
+                emailed_at = datetime.now(timezone.utc)
+            except Exception:
+                # Fail-soft, best-effort, no retry -- see Global Constraints.
+                logger.exception("notify-watchers email delivery failed for %s", account.email)
 
     return notification_repo.create(
         account_id=account.id, work_id=work_id, trigger_type=trigger_type,

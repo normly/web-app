@@ -208,7 +208,12 @@ variables.
 ## Error handling
 
 - Delivery failures: unchanged fail-soft behavior per call site.
-- Template errors: raised, not caught (see Call sites).
+- Template errors: request handlers let them surface (a request-scoped
+  `500`, no batch state involved). The notify-watchers job catches a render
+  error per mail and logs it (account id only): no send, `emailed_at` stays
+  empty, the notification is still created and the run continues. Otherwise
+  the job's single commit at the end would roll back the rows of mails
+  already sent, and they would go out again on every run.
 - Unknown `locale` in a request: `400`. Missing: `de`.
 - Unknown locale in the renderer (defensive, e.g. a bad DB value): `de`.
 - `account.locale` NULL: `de`, except the deletion warning, which is bilingual.
