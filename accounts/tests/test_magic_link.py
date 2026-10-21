@@ -15,7 +15,7 @@ from normly_core.graph.postgres.repositories import PostgresAccountRepository
 class _RaisingEmailSender:
     """Test double: simulates an unreachable SMTP relay."""
 
-    def send(self, *, to: str, subject: str, body: str) -> None:
+    def send(self, *, to: str, subject: str, body: str, html: str | None = None) -> None:
         raise OSError("simulated SMTP outage")
 
 
@@ -131,9 +131,7 @@ def test_magic_link_email_body_contains_an_absolute_link(client, email_sender):
     body = email_sender.sent[0]["body"]
     match = re.search(r"token=([^&\s]+)", body)
     assert match is not None
-    assert body.startswith(
-        "Zum Anmelden: http://localhost:3000/magic-link?token="
-    )
+    assert "http://localhost:3000/magic-link?token=" in body
     assert match.group(1)
 
 
@@ -165,3 +163,26 @@ def test_magic_link_request_still_succeeds_when_email_delivery_fails(client, db_
     assert PostgresAccountRepository(db_session).get_account_by_email(
         "outage@example.de"
     ) is None
+
+
+def test_magic_link_mails_in_the_request_language(client, email_sender):
+    client.post(
+        "/v1/accounts/magic-link/request", json={"email": "ml-en@example.de", "locale": "en"}
+    )
+    assert email_sender.sent[0]["subject"] == "Your sign-in link for normly"
+    assert "15 minutes" in email_sender.sent[0]["body"]
+
+
+def test_magic_link_confirm_creates_the_account_with_the_request_language(
+    client, email_sender, db_session
+):
+    client.post("/v1/accounts/magic-link/request", json={"email": "ml-new@example.de"})
+    token = re.search(r"token=([^&\s]+)", email_sender.sent[0]["body"]).group(1)
+
+    response = client.post(
+        "/v1/accounts/magic-link/confirm", json={"token": token, "locale": "en"}
+    )
+
+    assert response.status_code == 200
+    account = PostgresAccountRepository(db_session).get_account_by_email("ml-new@example.de")
+    assert account.locale == "en"

@@ -20,6 +20,7 @@ from normly_core.graph.postgres.repositories import (
 
 from normly_accounts.dependencies import get_email_sender, get_session
 from normly_core.notifications.email import EmailSender
+from normly_core.notifications.mail import format_duration, render_email
 from normly_accounts.routers.login import _create_session_response
 from normly_accounts.schemas import RegisterRequest, SessionResponse
 from normly_accounts.security import generate_token, hash_password
@@ -43,7 +44,8 @@ def register(
     account_repo = PostgresAccountRepository(session)
     try:
         account = account_repo.create_account(
-            email=payload.email, password_hash=hash_password(payload.password)
+            email=payload.email, password_hash=hash_password(payload.password),
+            locale=payload.locale,
         )
     except EmailAlreadyRegisteredError:
         raise HTTPException(status_code=409, detail="an account already exists for this email")
@@ -53,13 +55,14 @@ def register(
         account_id=account.id, purpose=AccountTokenPurpose.EMAIL_VERIFICATION,
         token=generate_token(), created_at=now, expires_at=now + _VERIFICATION_TOKEN_LIFETIME,
     )
+    mail = render_email(
+        "verification", payload.locale, base_url=_public_base_url(),
+        action_url=f"{_public_base_url()}/verify-email?token={token.token}",
+        validity=format_duration(_VERIFICATION_TOKEN_LIFETIME, payload.locale),
+    )
     try:
         email_sender.send(
-            to=account.email, subject="Bestätige deine E-Mail-Adresse",
-            body=(
-                f"Bitte bestätige deine E-Mail-Adresse: "
-                f"{_public_base_url()}/verify-email?token={token.token}"
-            ),
+            to=account.email, subject=mail.subject, body=mail.text, html=mail.html,
         )
     except Exception:
         # Per the design spec: registration itself must not fail when SMTP

@@ -242,3 +242,18 @@ def test_update_profile_rejects_an_invalid_notification_preference(client):
     )
     assert response.status_code == 400
     assert "notification_preference" in response.json()["detail"]
+
+
+def test_update_profile_sets_the_locale(client):
+    _, headers = _register_and_authorize(client)
+
+    response = client.patch("/v1/accounts/profile", json={"locale": "en"}, headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["locale"] == "en"
+
+
+def test_update_profile_rejects_an_unsupported_locale(client):
+    _, headers = _register_and_authorize(client)
+    response = client.patch("/v1/accounts/profile", json={"locale": "fr"}, headers=headers)
+    assert response.status_code == 400

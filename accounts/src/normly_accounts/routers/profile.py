@@ -31,6 +31,7 @@ def _account_response(account: Account) -> AccountResponse:
         has_avatar=account.avatar_image is not None,
         has_password=account.password_hash is not None,
         notification_preference=account.notification_preference.value,
+        locale=account.locale,
     )
 
 
@@ -52,6 +53,8 @@ def update_profile(
         except ValueError:
             raise HTTPException(status_code=400, detail="invalid notification_preference")
         account_repo.update_notification_preference(account.id, preference=preference)
+    if payload.locale is not None:
+        account_repo.update_locale(account.id, locale=payload.locale)
     session.commit()
     updated = account_repo.get_account_by_id(account.id)
     return _account_response(updated)

@@ -42,10 +42,7 @@ def test_email_change_body_contains_an_absolute_confirm_link_with_encoded_email(
     )
 
     body = email_sender.sent[-1]["body"]
-    assert body.startswith(
-        "Zum Bestätigen deiner neuen E-Mail-Adresse: "
-        "http://localhost:3000/confirm-email-change?token="
-    )
+    assert "http://localhost:3000/confirm-email-change?token=" in body
     token = re.search(r"token=([^&\s]+)", body).group(1)
     assert token
     # The '+' in the address must be percent-encoded in the link -- an
@@ -134,3 +131,16 @@ def test_email_change_requires_authorization(client):
         "/v1/accounts/email/change", json={"new_email": "nope@example.de"},
     )
     assert response.status_code == 401
+
+
+def test_email_change_mails_in_the_request_language(client, email_sender):
+    headers = _register_and_authorize(client)
+
+    client.post(
+        "/v1/accounts/email/change",
+        json={"new_email": "changed-en@example.de", "locale": "en"}, headers=headers,
+    )
+
+    mail = email_sender.sent[-1]
+    assert mail["subject"] == "Confirm your new email address"
+    assert "changed-en@example.de" in mail["body"]

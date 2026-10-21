@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timedelta, timezone
+from typing import Literal
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -63,6 +64,7 @@ def google_callback(
     state: str,
     code: str | None = None,
     error: str | None = None,
+    locale: Literal["de", "en"] = "de",
     session: Session = Depends(get_session),
     google_client: GoogleOAuthClient = Depends(get_google_oauth_client),
 ) -> SessionResponse:
@@ -110,7 +112,9 @@ def google_callback(
             # No account to take over, so an unverified address is harmless
             # here: it can only create a new Google-only account reachable
             # by this very Google subject.
-            account = account_repo.create_account(email=profile.email, password_hash=None)
+            account = account_repo.create_account(
+                email=profile.email, password_hash=None, locale=locale
+            )
         try:
             google_repo.link_google_identity(
                 account_id=account.id, google_subject_id=profile.subject_id
