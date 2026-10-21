@@ -437,3 +437,89 @@ def test_an_edge_created_at_the_exact_watch_timestamp_is_treated_as_history(db_s
 
     assert summary.notifications_created == 0
     assert PostgresNotificationRepository(db_session).list_for_account(account.id) == []
+
+
+def test_new_edition_mail_names_the_standard_and_links_the_new_edition(db_session, monkeypatch):
+    monkeypatch.setenv("NORMLY_PUBLIC_BASE_URL", "https://app.example.org")
+    source = _make_source(db_session)
+    delivery = _make_delivery(db_session, source.id, "email-content")
+    doc_repo = PostgresDocumentRepository(db_session)
+    old = doc_repo.create_document(
+        origin_issuer="DGUV", origin_number="7", edition="2020", part=None,
+        delivery_id=delivery.id,
+    )
+    new = doc_repo.create_document(
+        origin_issuer="DGUV", origin_number="7", edition="2026", part=None,
+        delivery_id=delivery.id, work_id=old.work_id,
+    )
+    doc_repo.add_designation(
+        document_id=old.id, issuer="DGUV", designation="DGUV Vorschrift 7", language="de",
+        edition="2020", is_primary=True, delivery_id=delivery.id,
+    )
+    doc_repo.add_designation(
+        document_id=new.id, issuer="DGUV", designation="DGUV Vorschrift 7 (2026)",
+        language="de", edition="2026", is_primary=True, delivery_id=delivery.id,
+    )
+    doc_repo.add_title(
+        document_id=old.id, language="de", title="Grundsätze der Prävention",
+        delivery_id=delivery.id,
+    )
+    PostgresEdgeRepository(db_session).create_edge(
+        from_document_id=new.id, to_document_id=old.id, edge_type=EdgeType.REPLACES,
+        jurisdiction=None, layer=Layer.FREE, delivery_id=delivery.id,
+    )
+    account_repo = PostgresAccountRepository(db_session)
+    account = account_repo.create_account(email="content-watcher@example.de", password_hash=None)
+    account_repo.update_notification_preference(account.id, preference=NotificationPreference.EMAIL)
+    watch = PostgresWatchlistRepository(db_session).add_watch(
+        account_id=account.id, work_id=old.work_id
+    )
+    _set_created_at(db_session, WatchlistORM, watch.id, _BEFORE)
+
+    sender = RecordingEmailSender()
+    run_notify_watchers(db_session, sender)
+
+    mail = sender.sent[0]
+    assert mail["subject"] == "Neue Ausgabe: DGUV Vorschrift 7"
+    assert "Grundsätze der Prävention" in mail["body"]
+    assert "DGUV Vorschrift 7 (2026)" in mail["body"]
+    assert f"https://app.example.org/documents/{new.id}" in mail["body"]
+    assert mail["html"] is not None
+
+
+def test_watch_mail_uses_the_account_locale_and_falls_back_to_origin_fields(
+    db_session, monkeypatch
+):
+    monkeypatch.delenv("NORMLY_PUBLIC_BASE_URL", raising=False)
+    source = _make_source(db_session)
+    delivery = _make_delivery(db_session, source.id, "email-en")
+    doc_repo = PostgresDocumentRepository(db_session)
+    old = doc_repo.create_document(
+        origin_issuer="DGUV", origin_number="8", edition="2020", part=None,
+        delivery_id=delivery.id,
+    )
+    new = doc_repo.create_document(
+        origin_issuer="DGUV", origin_number="8", edition="2026", part=None,
+        delivery_id=delivery.id, work_id=old.work_id,
+    )
+    PostgresEdgeRepository(db_session).create_edge(
+        from_document_id=new.id, to_document_id=old.id, edge_type=EdgeType.REPLACES,
+        jurisdiction=None, layer=Layer.FREE, delivery_id=delivery.id,
+    )
+    account_repo = PostgresAccountRepository(db_session)
+    account = account_repo.create_account(
+        email="en-watcher@example.de", password_hash=None, locale="en"
+    )
+    account_repo.update_notification_preference(account.id, preference=NotificationPreference.EMAIL)
+    watch = PostgresWatchlistRepository(db_session).add_watch(
+        account_id=account.id, work_id=old.work_id
+    )
+    _set_created_at(db_session, WatchlistORM, watch.id, _BEFORE)
+
+    sender = RecordingEmailSender()
+    run_notify_watchers(db_session, sender)
+
+    mail = sender.sent[0]
+    assert mail["subject"] == "New edition: DGUV 8:2020"
+    assert "DGUV 8:2026" in mail["body"]
+    assert "http" not in mail["body"]

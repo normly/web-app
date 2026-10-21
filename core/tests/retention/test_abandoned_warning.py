@@ -26,7 +26,7 @@ class FailingEmailSender:
     def __init__(self):
         self.calls = 0
 
-    def send(self, *, to, subject, body):
+    def send(self, *, to, subject, body, html=None):
         self.calls += 1
         raise RuntimeError("relay down")
 
@@ -59,7 +59,7 @@ def _summary(line: str) -> dict[str, int]:
     return {k: int(v) for k, v in (part.split("=") for part in line.split())}
 
 
-def test_abandoned_unwarned_account_gets_a_bilingual_warning(db_session, monkeypatch):
+def test_abandoned_unwarned_account_gets_a_warning_in_its_language(db_session, monkeypatch):
     monkeypatch.setenv("NORMLY_PUBLIC_BASE_URL", "https://app.example.org")
     account = _account(db_session, "warn@example.de")
     sender = RecordingEmailSender()
@@ -71,15 +71,24 @@ def test_abandoned_unwarned_account_gets_a_bilingual_warning(db_session, monkeyp
     assert len(sender.sent) == 1
     mail = sender.sent[0]
     assert mail["to"] == "warn@example.de"
-    assert mail["subject"] == (
-        "Dein normly-Konto wird gelöscht / Your normly account will be deleted"
-    )
-    delete_on = (NOW + NOTICE).date().isoformat()
+    assert mail["subject"] == "Dein normly-Konto wird gelöscht"
+    delete_on = (NOW + NOTICE).date().strftime("%d.%m.%Y")
     assert delete_on in mail["body"]
     assert "https://app.example.org" in mail["body"]
-    assert "Konto" in mail["body"] and "account" in mail["body"]
+    assert mail["html"] is not None
     assert _warned_at(db_session, account.id) == NOW
     assert _exists(db_session, account.id)
+
+
+def test_warning_uses_the_account_locale(db_session, monkeypatch):
+    monkeypatch.setenv("NORMLY_PUBLIC_BASE_URL", "https://app.example.org")
+    account = _account(db_session, "warn-en@example.de")
+    PostgresAccountRepository(db_session).update_locale(account.id, locale="en")
+    sender = RecordingEmailSender()
+
+    _cleanup_user_data(db_session, NOW, sender)
+
+    assert sender.sent[0]["subject"] == "Your normly account will be deleted"
 
 
 def test_warning_without_base_url_has_no_link(db_session, monkeypatch):

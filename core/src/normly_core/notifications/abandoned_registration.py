@@ -7,32 +7,21 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy.orm import Session
 
 from normly_core import retention
 from normly_core.graph.postgres.repositories import PostgresAccountRepository
 from normly_core.notifications.email import EmailSender, NullEmailSender
+from normly_core.notifications.mail import RenderedEmail, format_date, render_email
 
 logger = logging.getLogger(__name__)
 
-SUBJECT = "Dein normly-Konto wird gelöscht / Your normly account will be deleted"
-
-
-def build_warning_body(*, delete_on: str, base_url: str | None) -> str:
-    link_de = f"Melde dich bei normly an: {base_url}" if base_url else "Melde dich bei normly an."
-    link_en = f"Sign in to normly: {base_url}" if base_url else "Sign in to normly."
-    return (
-        "Hallo,\n\n"
-        "dein normly-Konto wurde nie bestätigt und seit langem nicht genutzt. "
-        f"Es wird frühestens am {delete_on} gelöscht, wenn du dich bis dahin nicht anmeldest.\n"
-        f"{link_de}\n\n"
-        "---\n\n"
-        "Hello,\n\n"
-        "your normly account was never confirmed and has not been used for a long time. "
-        f"It will be deleted on {delete_on} at the earliest unless you sign in before then.\n"
-        f"{link_en}\n"
+def build_warning_email(*, delete_on: date, base_url: str | None, locale: str) -> RenderedEmail:
+    return render_email(
+        "deletion_warning", locale, base_url=base_url, action_url=base_url,
+        date=format_date(delete_on, locale),
     )
 
 
@@ -53,13 +42,13 @@ def warn_abandoned_registrations(
         logger.warning("no SMTP relay configured: abandoned registrations are not warned, so none are deleted")
         return 0
     base_url = os.environ.get("NORMLY_PUBLIC_BASE_URL") or None
-    delete_on = (now + retention.ACCOUNT_DELETION_NOTICE_PERIOD).date().isoformat()
-    body = build_warning_body(delete_on=delete_on, base_url=base_url)
+    delete_on = (now + retention.ACCOUNT_DELETION_NOTICE_PERIOD).date()
     repo = PostgresAccountRepository(session)
     sent = 0
-    for account_id, email, _locale in repo.abandoned_registrations_to_warn(cutoff):
+    for account_id, email, locale in repo.abandoned_registrations_to_warn(cutoff):
+        mail = build_warning_email(delete_on=delete_on, base_url=base_url, locale=locale)
         try:
-            sender.send(to=email, subject=SUBJECT, body=body)
+            sender.send(to=email, subject=mail.subject, body=mail.text, html=mail.html)
         except Exception:
             # Fail-soft like notify-watchers: no address in the log.
             logger.exception("warning e-mail for account %s failed", account_id)
