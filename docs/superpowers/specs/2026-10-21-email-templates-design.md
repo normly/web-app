@@ -69,7 +69,7 @@ context so the mapping stays visible:
 
 | Token | Value | Used for |
 |---|---|---|
-| `background` (page) | `#f5f5f5` | page background |
+| `muted` | `#f5f5f5` | page background |
 | `card` | `#ffffff` | card |
 | `foreground` | `#0a0a0a` | text, wordmark |
 | `border` | `#e5e5e5` | card border |
@@ -122,8 +122,11 @@ as literals.
   magic-link confirm (creates the account for an unknown address), Google
   OAuth callback (reads the `normly_locale` cookie / `Accept-Language` from
   the callback request in the BFF and passes it on).
-- **Language switch**: when signed in, `setLocale` additionally calls
-  `PATCH /api/account/profile {locale}`; `UpdateProfileRequest` accepts
+- **Language switch**: `setLocale` additionally calls a new BFF route
+  `PUT /api/account/locale {locale}`. The session cookie is `httpOnly`, so
+  the client cannot tell whether someone is signed in; the route can. Without
+  a session cookie it answers `204` and calls nothing; with one it forwards
+  `PATCH /v1/accounts/profile {locale}`. `UpdateProfileRequest` accepts
   `locale`. A failed call is ignored silently — the cookie switch is what
   the user sees, the stored value catches up on the next switch.
 - **Which language a mail uses**: mails 1–5 use the request's `locale`;
@@ -167,9 +170,11 @@ notification logic):
   link; for a rights change without a triggering document, a document of
   the work.
 
-Fallbacks: no title → the designation is used in its place; neither → a
-generic sentence ("Ein Regelwerk auf deiner Watchlist …") with no
-placeholder residue; no document to link → the button goes to `{base}/`.
+Fallbacks: no designation → `{origin_issuer} {origin_number}:{edition}`
+(every document has these, so a designation always exists); no title → the
+designation is used in its place; no document to link → the button goes to
+`{base}/`; `NORMLY_PUBLIC_BASE_URL` unset (the jobs have no default) → no
+button, as the deletion warning does today.
 
 ## Configuration (self-hosting)
 
@@ -209,7 +214,8 @@ variables.
   document link; the deletion warning uses `account.locale`.
 - **Migration**: upgrade/downgrade, like the existing migration tests.
 - **Frontend**: `resolveLocale` unit test; BFF routes forward `locale`;
-  the language switch calls `PATCH` only when signed in.
+  `/api/account/locale` forwards only with a session cookie; the
+  language switch calls it.
 
 ## Out of scope
 
