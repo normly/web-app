@@ -2138,6 +2138,7 @@ def _account_to_domain(orm: AccountORM) -> Account:
         first_name=orm.first_name, last_name=orm.last_name,
         avatar_image=orm.avatar_image, avatar_content_type=orm.avatar_content_type,
         notification_preference=orm.notification_preference,
+        locale=orm.locale,
     )
 
 
@@ -2145,8 +2146,10 @@ class PostgresAccountRepository:
     def __init__(self, session: Session):
         self._session = session
 
-    def create_account(self, *, email: str, password_hash: str | None) -> Account:
-        orm = AccountORM(id=uuid.uuid4(), email=email, password_hash=password_hash)
+    def create_account(
+        self, *, email: str, password_hash: str | None, locale: str = "de"
+    ) -> Account:
+        orm = AccountORM(id=uuid.uuid4(), email=email, password_hash=password_hash, locale=locale)
         try:
             with self._session.begin_nested():
                 self._session.add(orm)
@@ -2213,6 +2216,11 @@ class PostgresAccountRepository:
             sa.update(AccountORM)
             .where(AccountORM.id == account_id)
             .values(notification_preference=preference)
+        )
+
+    def update_locale(self, account_id: uuid.UUID, *, locale: str) -> None:
+        self._session.execute(
+            sa.update(AccountORM).where(AccountORM.id == account_id).values(locale=locale)
         )
 
     def set_avatar(
@@ -2363,15 +2371,18 @@ class PostgresAccountRepository:
             self.delete_account(account_id)
         return len(ids)
 
-    def abandoned_registrations_to_warn(self, cutoff: datetime) -> list[tuple[uuid.UUID, str]]:
+    def abandoned_registrations_to_warn(
+        self, cutoff: datetime
+    ) -> list[tuple[uuid.UUID, str, str | None]]:
         ids = self._abandoned_registration_ids(cutoff, unwarned=True)
         if not ids:
             return []
         rows = self._session.execute(
-            select(AccountORM.id, AccountORM.email).where(AccountORM.id.in_(ids))
+            select(AccountORM.id, AccountORM.email, AccountORM.locale)
+            .where(AccountORM.id.in_(ids))
             .order_by(AccountORM.created_at)
         ).all()
-        return [(row.id, row.email) for row in rows]
+        return [(row.id, row.email, row.locale) for row in rows]
 
     def mark_deletion_warned(self, account_id: uuid.UUID, warned_at: datetime) -> None:
         self._session.execute(

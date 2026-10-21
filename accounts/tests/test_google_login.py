@@ -5,7 +5,10 @@
 from datetime import datetime, timedelta, timezone
 
 from normly_accounts.google_oauth import GoogleProfile
-from normly_core.graph.postgres.repositories import PostgresOAuthStateRepository
+from normly_core.graph.postgres.repositories import (
+    PostgresAccountRepository,
+    PostgresOAuthStateRepository,
+)
 
 
 class _FakeGoogleOAuthClient:
@@ -281,3 +284,21 @@ def test_google_callback_returns_400_when_state_is_reused(client, db_session):
         "/v1/accounts/google/callback", params={"code": "fake-code-2", "state": "one-time-state"}
     )
     assert second.status_code == 400
+
+
+def test_google_callback_stores_the_locale_on_a_new_account(client, db_session):
+    _override_google_client(
+        client.app, GoogleProfile(
+            subject_id="google-sub-locale", email="google-en@example.de", email_verified=True
+        )
+    )
+    _seed_state(db_session, "fake-state")
+
+    response = client.get(
+        "/v1/accounts/google/callback",
+        params={"code": "fake-code", "state": "fake-state", "locale": "en"},
+    )
+
+    assert response.status_code == 200
+    account = PostgresAccountRepository(db_session).get_account_by_email("google-en@example.de")
+    assert account.locale == "en"

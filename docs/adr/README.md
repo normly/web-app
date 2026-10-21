@@ -1360,7 +1360,9 @@ sign-out. Only an account without all of that, never verified and older than 30 
 counts as abandoned. This
 also hits a password account that was used and then paused for a long time,
 as soon as its sessions are removed; therefore no account is deleted silently:
-the cleanup command first sends a bilingual advance warning e-mail (date of
+the cleanup command first sends an advance warning e-mail, written in the
+account's language and in German and English where the language is unknown
+(accounts from before it was stored) (date of
 deletion, sign-in URL from `NORMLY_PUBLIC_BASE_URL`, no token) and sets
 `account.deletion_warned_at` only after successful sending. Deletion happens
 14 days after that at the earliest (strictly), and only if the account then still meets all

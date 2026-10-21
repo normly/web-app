@@ -5,13 +5,17 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, EmailStr
+
+Locale = Literal["de", "en"]
 
 
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
+    locale: Locale = "de"
 
 
 class LoginRequest(BaseModel):
@@ -27,6 +31,7 @@ class UpdateProfileRequest(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
     notification_preference: str | None = None
+    locale: Locale | None = None
 
 
 class AccountResponse(BaseModel):
@@ -38,6 +43,7 @@ class AccountResponse(BaseModel):
     has_avatar: bool
     has_password: bool
     notification_preference: str
+    locale: str
 
 
 class SessionResponse(BaseModel):
@@ -47,10 +53,12 @@ class SessionResponse(BaseModel):
 
 class PasswordResetRequestRequest(BaseModel):
     email: EmailStr
+    locale: Locale = "de"
 
 
 class VerifyEmailResendRequest(BaseModel):
     email: EmailStr
+    locale: Locale = "de"
 
 
 class PasswordResetConfirmRequest(BaseModel):
@@ -60,14 +68,17 @@ class PasswordResetConfirmRequest(BaseModel):
 
 class EmailChangeRequest(BaseModel):
     new_email: EmailStr
+    locale: Locale = "de"
 
 
 class MagicLinkRequestRequest(BaseModel):
     email: EmailStr
+    locale: Locale = "de"
 
 
 class MagicLinkConfirmRequest(BaseModel):
     token: str
+    locale: Locale = "de"
 
 
 class SessionValidationResponse(BaseModel):

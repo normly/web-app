@@ -6,11 +6,13 @@ import re
 
 from fastapi.testclient import TestClient
 
+from normly_core.graph.postgres.repositories import PostgresAccountRepository
+
 
 class _RaisingEmailSender:
     """Test double: simulates an unreachable SMTP relay."""
 
-    def send(self, *, to: str, subject: str, body: str) -> None:
+    def send(self, *, to: str, subject: str, body: str, html: str | None = None) -> None:
         raise OSError("simulated SMTP outage")
 
 
@@ -46,9 +48,7 @@ def test_register_verification_email_contains_an_absolute_link(client, email_sen
     body = email_sender.sent[0]["body"]
     match = re.search(r"token=([^&\s]+)", body)
     assert match is not None
-    assert body.startswith(
-        "Bitte bestätige deine E-Mail-Adresse: http://localhost:3000/verify-email?token="
-    )
+    assert "http://localhost:3000/verify-email?token=" in body
     assert match.group(1)
 
 
@@ -90,3 +90,35 @@ def test_register_still_returns_a_session_when_email_delivery_fails(
     body = response.json()
     assert body["account"]["email"] == "outage@example.de"
     assert "session_token" in body
+
+
+def test_register_mails_in_german_by_default_with_html(client, email_sender):
+    client.post(
+        "/v1/accounts/register",
+        json={"email": "de-default@example.de", "password": "correct horse battery staple"},
+    )
+    mail = email_sender.sent[0]
+    assert mail["subject"] == "Bestätige deine E-Mail-Adresse"
+    assert "48 Stunden" in mail["body"]
+    assert mail["html"] is not None and 'lang="de"' in mail["html"]
+
+
+def test_register_stores_the_locale_and_mails_in_it(client, email_sender, db_session):
+    response = client.post(
+        "/v1/accounts/register",
+        json={"email": "en-user@example.de", "password": "correct horse battery staple",
+              "locale": "en"},
+    )
+    assert response.json()["account"]["locale"] == "en"
+    assert email_sender.sent[0]["subject"] == "Confirm your email address"
+    account = PostgresAccountRepository(db_session).get_account_by_email("en-user@example.de")
+    assert account.locale == "en"
+
+
+def test_register_rejects_an_unsupported_locale(client):
+    response = client.post(
+        "/v1/accounts/register",
+        json={"email": "fr@example.de", "password": "correct horse battery staple",
+              "locale": "fr"},
+    )
+    assert response.status_code == 400

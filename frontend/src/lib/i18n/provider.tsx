@@ -47,6 +47,13 @@ export function LocaleProvider({
   const setLocale = React.useCallback((next: Locale) => {
     setLocaleState(next);
     document.cookie = `normly_locale=${next}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+    // Mails are written in the account's stored language; the route ignores
+    // anonymous visitors. Fire-and-forget: the cookie already switched the UI.
+    fetch("/api/account/locale", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ locale: next }),
+    }).catch(() => {});
   }, []);
 
   const t = React.useCallback(

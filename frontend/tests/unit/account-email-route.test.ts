@@ -30,7 +30,7 @@ describe("POST /api/account/email", () => {
     expect(response.status).toBe(200);
     const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(init.headers.Authorization).toBe("Bearer acct-tok");
-    expect(JSON.parse(init.body)).toEqual({ new_email: "new@example.de" });
+    expect(JSON.parse(init.body)).toEqual({ new_email: "new@example.de", locale: "de" });
   });
 
   it("returns 401 without an account session cookie", async () => {

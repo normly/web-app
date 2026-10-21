@@ -15,7 +15,7 @@ _SMTP_TIMEOUT_SECONDS = 10
 
 
 class EmailSender(Protocol):
-    def send(self, *, to: str, subject: str, body: str) -> None: ...
+    def send(self, *, to: str, subject: str, body: str, html: str | None = None) -> None: ...
 
 
 @dataclass
@@ -44,12 +44,16 @@ class SmtpEmailSender:
                 f"noreply@example.org, got {self.from_address!r}"
             )
 
-    def send(self, *, to: str, subject: str, body: str) -> None:
+    def send(self, *, to: str, subject: str, body: str, html: str | None = None) -> None:
         message = EmailMessage()
         message["From"] = self.from_address
         message["To"] = to
         message["Subject"] = subject
         message.set_content(body)
+        if html is not None:
+            # multipart/alternative: clients that render HTML show the last
+            # part, every other client falls back to the plain text.
+            message.add_alternative(html, subtype="html")
 
         # Every route is a sync `def` and so runs on Starlette's bounded
         # threadpool. Without a timeout an unresponsive relay pins a worker
@@ -66,10 +70,10 @@ class SmtpEmailSender:
 class RecordingEmailSender:
     """Test double: records sent emails instead of sending them."""
 
-    sent: list[dict[str, str]] = field(default_factory=list)
+    sent: list[dict[str, str | None]] = field(default_factory=list)
 
-    def send(self, *, to: str, subject: str, body: str) -> None:
-        self.sent.append({"to": to, "subject": subject, "body": body})
+    def send(self, *, to: str, subject: str, body: str, html: str | None = None) -> None:
+        self.sent.append({"to": to, "subject": subject, "body": body, "html": html})
 
 
 @dataclass
@@ -85,7 +89,7 @@ class NullEmailSender:
     notify-watchers' need for emailed_at to be trustworthy stored data.
     """
 
-    def send(self, *, to: str, subject: str, body: str) -> None:
+    def send(self, *, to: str, subject: str, body: str, html: str | None = None) -> None:
         raise RuntimeError(
             "no SMTP relay configured -- set NORMLY_SMTP_HOST to send real "
             "notification email"
