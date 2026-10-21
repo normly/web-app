@@ -57,7 +57,7 @@ def warn_abandoned_registrations(
     body = build_warning_body(delete_on=delete_on, base_url=base_url)
     repo = PostgresAccountRepository(session)
     sent = 0
-    for account_id, email in repo.abandoned_registrations_to_warn(cutoff):
+    for account_id, email, _locale in repo.abandoned_registrations_to_warn(cutoff):
         try:
             sender.send(to=email, subject=SUBJECT, body=body)
         except Exception:

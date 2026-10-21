@@ -464,7 +464,15 @@ class AccountORM(Base):
         server_default=NotificationPreference.NONE.value,
     )
 
-    __table_args__ = (sa.UniqueConstraint("email", name="uq_account_email"),)
+    # Language of the account's emails; 'de' or 'en' (ck_account_locale).
+    locale: Mapped[str] = mapped_column(
+        sa.String(2), nullable=False, default="de", server_default="de"
+    )
+
+    __table_args__ = (
+        sa.UniqueConstraint("email", name="uq_account_email"),
+        sa.CheckConstraint("locale IN ('de', 'en')", name="ck_account_locale"),
+    )
 
 
 class AccountSessionORM(Base):

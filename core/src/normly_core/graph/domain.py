@@ -1095,6 +1095,7 @@ class Account:
     avatar_image: bytes | None
     avatar_content_type: str | None
     notification_preference: NotificationPreference
+    locale: str
 
 
 @dataclass(frozen=True)
@@ -1151,7 +1152,9 @@ class AccountRepository(Protocol):
     account. It raises `EmailAlreadyRegisteredError` instead.
     """
 
-    def create_account(self, *, email: str, password_hash: str | None) -> Account: ...
+    def create_account(
+        self, *, email: str, password_hash: str | None, locale: str = "de"
+    ) -> Account: ...
 
     def get_account_by_id(self, account_id: uuid.UUID) -> Account | None: ...
 
@@ -1170,6 +1173,8 @@ class AccountRepository(Protocol):
     def update_notification_preference(
         self, account_id: uuid.UUID, *, preference: NotificationPreference
     ) -> None: ...
+
+    def update_locale(self, account_id: uuid.UUID, *, locale: str) -> None: ...
 
     def set_avatar(
         self, account_id: uuid.UUID, *, avatar_image: bytes, avatar_content_type: str
@@ -1195,8 +1200,10 @@ class AccountRepository(Protocol):
         """Clears the warning of accounts that are no longer abandoned."""
         ...
 
-    def abandoned_registrations_to_warn(self, cutoff: datetime) -> list[tuple[uuid.UUID, str]]:
-        """(account id, email) of abandoned registrations not yet warned."""
+    def abandoned_registrations_to_warn(
+        self, cutoff: datetime
+    ) -> list[tuple[uuid.UUID, str, str]]:
+        """(account id, email, locale) of abandoned registrations not yet warned."""
         ...
 
     def mark_deletion_warned(self, account_id: uuid.UUID, warned_at: datetime) -> None: ...
