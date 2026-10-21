@@ -90,7 +90,9 @@ Point the instance at managed services instead of the bundled ones:
   endpoint. Only open-weight models under an OSI-approved licence are used
   by the project itself ([ADR-022](../adr/README.md#adr-022-operating-environment-phase-1-and-model-origin-rule)).
 - Mail: a real SMTP relay (`NORMLY_SMTP_*`; STARTTLS is used as soon as a
-  username is set).
+  username is set). Mails link to `NORMLY_PUBLIC_BASE_URL`; set
+  `NORMLY_IMPRINT_URL` and `NORMLY_PRIVACY_URL` to your own imprint and
+  privacy policy, otherwise the mail footer carries no such links.
 
 Ports 80 and 443 must be reachable from the internet for Let's Encrypt.
 

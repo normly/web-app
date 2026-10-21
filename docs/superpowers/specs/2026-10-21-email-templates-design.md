@@ -117,7 +117,8 @@ as literals.
   verify-email resend, email change.
 - **Accounts schemas** get `locale: Literal["de", "en"] = "de"` on those
   requests. A missing value means `de` (older clients keep working); an
-  invalid value is a `422`.
+  invalid value is a `400`, the accounts service's uniform status for
+  request-validation errors.
 - **Account creation** stores the locale: registration with password,
   magic-link confirm (creates the account for an unknown address), Google
   OAuth callback (reads the `normly_locale` cookie / `Accept-Language` from
@@ -194,7 +195,7 @@ variables.
 
 - Delivery failures: unchanged fail-soft behavior per call site.
 - Template errors: raised, not caught (see Call sites).
-- Unknown `locale` in a request: `422`. Missing: `de`.
+- Unknown `locale` in a request: `400`. Missing: `de`.
 - Unknown locale in the renderer (defensive, e.g. a bad DB value): `de`.
 - Missing work metadata in mail 6: fallbacks above.
 
@@ -209,7 +210,7 @@ variables.
 - **Accounts**: existing tests adapted; new tests that `locale` is stored
   on register, magic-link confirm and Google; that the mail comes in the
   request's language; that `PATCH profile` changes `locale`; that an
-  invalid locale is a `422`.
+  invalid locale is a `400`.
 - **Core jobs**: the Normtracker mail contains designation, title and the
   document link; the deletion warning uses `account.locale`.
 - **Migration**: upgrade/downgrade, like the existing migration tests.

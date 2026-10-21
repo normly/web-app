@@ -557,7 +557,7 @@ No account is deleted silently. Each run does three things in this order:
 (1) clears the warning of accounts that are no longer abandoned (verified,
 linked to Google or signed in again); (2) deletes abandoned registrations
 warned more than 14 days ago (strictly), re-checking the whole condition under
-a row lock; (3) sends the warning e-mail (German and English, deletion date,
+a row lock; (3) sends the warning e-mail (in the account's language, deletion date,
 sign-in link from `NORMLY_PUBLIC_BASE_URL`, no token) to abandoned registrations
 not yet warned, and records `account.deletion_warned_at` only if the mail was
 sent. An account is never warned and deleted in the same run.
