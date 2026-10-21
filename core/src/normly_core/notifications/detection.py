@@ -52,10 +52,27 @@ class _MailFacts:
     jurisdiction: str | None
 
 
+def _is_cleared(rights_repo: PostgresRightsRepository, document_id: uuid.UUID) -> bool:
+    """
+    True if the document has an active classification that allows processing.
+    The rights classification is the only gate for what a mail may show of a
+    document beyond its designation: titles and links to it need clearance.
+    """
+    return any(
+        c.may_process and c.revoked_at is None
+        for c in rights_repo.list_classifications_for_document_unchecked(document_id)
+    )
+
+
 def _describe(
-    document_repo: PostgresDocumentRepository, document_id: uuid.UUID, locale: str
+    document_repo: PostgresDocumentRepository, document_id: uuid.UUID, locale: str,
+    *, show_title: bool,
 ) -> tuple[str, str]:
-    """(designation, title); falls back to the origin fields and the designation."""
+    """
+    (designation, title). The designation falls back to the origin fields. The
+    title is only read for a cleared document (`show_title`); otherwise, and
+    when none exists, the designation stands in for it.
+    """
     designations = document_repo.list_designations(document_id)
     primary = next((d for d in designations if d.is_primary), None) or (
         designations[0] if designations else None
@@ -65,7 +82,7 @@ def _describe(
     else:
         document = document_repo.get_document_unchecked(document_id)
         designation = f"{document.origin_issuer} {document.origin_number}:{document.edition}"
-    titles = document_repo.list_titles(document_id)
+    titles = document_repo.list_titles(document_id) if show_title else []
     title = next((t.title for t in titles if t.language == locale), None) or (
         titles[0].title if titles else designation
     )
@@ -73,22 +90,30 @@ def _describe(
 
 
 def _render_watch_email(
-    document_repo: PostgresDocumentRepository, account: Account,
-    trigger_type: NotificationTriggerType, facts: _MailFacts,
+    document_repo: PostgresDocumentRepository, rights_repo: PostgresRightsRepository,
+    account: Account, trigger_type: NotificationTriggerType, facts: _MailFacts,
 ) -> RenderedEmail:
     base_url = os.environ.get("NORMLY_PUBLIC_BASE_URL") or None
     locale = account.locale or "de"  # unknown language: German, as before it was stored
-    designation, title = _describe(document_repo, facts.watched_document_id, locale)
+    designation, title = _describe(
+        document_repo, facts.watched_document_id, locale,
+        show_title=_is_cleared(rights_repo, facts.watched_document_id),
+    )
     document = designation
+    link_cleared = False
     if facts.linked_document_id is not None:
-        document = _describe(document_repo, facts.linked_document_id, locale)[0]
+        # Only the designation of the linked document is used, never its title.
+        document = _describe(
+            document_repo, facts.linked_document_id, locale, show_title=False
+        )[0]
+        link_cleared = _is_cleared(rights_repo, facts.linked_document_id)
     if facts.jurisdiction:
         document = f"{document} ({facts.jurisdiction})"
     action_url = None
     if base_url is not None:
         action_url = (
             f"{base_url}/documents/{facts.linked_document_id}"
-            if facts.linked_document_id is not None else f"{base_url}/"
+            if link_cleared else f"{base_url}/"
         )
     return render_email(
         f"watch_{trigger_type.value}", locale, base_url=base_url,
@@ -144,7 +169,7 @@ def run_notify_watchers(session: Session, email_sender: EmailSender) -> NotifyWa
                     trigger_document_id=None, trigger_jurisdiction=None,
                     may_process=None, may_index_fulltext=None,
                     may_cite_passages=None, may_export_free=None,
-                    document_repo=document_repo,
+                    document_repo=document_repo, rights_repo=rights_repo,
                     facts=_MailFacts(edge.to_document_id, edge.from_document_id, edge.jurisdiction),
                 )
                 notifications_created += 1
@@ -175,7 +200,8 @@ def run_notify_watchers(session: Session, email_sender: EmailSender) -> NotifyWa
                 trigger_jurisdiction=None,
                 may_process=None, may_index_fulltext=None,
                 may_cite_passages=None, may_export_free=None,
-                document_repo=document_repo, facts=_MailFacts(document.id, None, None),
+                document_repo=document_repo, rights_repo=rights_repo,
+                facts=_MailFacts(document.id, None, None),
             )
             notifications_created += 1
             if notification.emailed_at is not None:
@@ -222,7 +248,7 @@ def run_notify_watchers(session: Session, email_sender: EmailSender) -> NotifyWa
                     may_index_fulltext=classification.may_index_fulltext,
                     may_cite_passages=classification.may_cite_passages,
                     may_export_free=classification.may_export_free,
-                    document_repo=document_repo,
+                    document_repo=document_repo, rights_repo=rights_repo,
                     facts=_MailFacts(document_id, document_id, None),
                 )
                 notifications_created += 1
@@ -263,13 +289,14 @@ def _create_and_maybe_email(
     may_cite_passages: bool | None,
     may_export_free: bool | None,
     document_repo: PostgresDocumentRepository,
+    rights_repo: PostgresRightsRepository,
     facts: _MailFacts,
 ):
     emailed_at = None
     if account.notification_preference in (
         NotificationPreference.EMAIL, NotificationPreference.BOTH,
     ):
-        mail = _render_watch_email(document_repo, account, trigger_type, facts)
+        mail = _render_watch_email(document_repo, rights_repo, account, trigger_type, facts)
         try:
             email_sender.send(
                 to=account.email, subject=mail.subject, body=mail.text, html=mail.html,

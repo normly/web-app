@@ -177,6 +177,14 @@ notification logic):
   link; for a rights change without a triggering document, a document of
   the work.
 
+Rights gate: a document is cleared when it has at least one active (not
+revoked) rights classification with `may_process=True`. Designations are
+rights-independent identity and always appear. A title is shown only for a
+cleared document, otherwise the designation stands in for it; the button
+links to `/documents/{id}` only when that document is cleared, otherwise it
+goes to `{base}/`. A document without classification is not cleared (CLAUDE.md:
+the rights classification is the only gate).
+
 Fallbacks: no designation → `{origin_issuer} {origin_number}:{edition}`
 (every document has these, so a designation always exists); no title → the
 designation is used in its place; no document to link → the button goes to

@@ -14,7 +14,13 @@ from normly_core.graph.domain import (
     TdmOptOutResult,
     WorkCreatedVia,
 )
-from normly_core.graph.postgres.orm import AccountORM, EdgeORM, NotificationORM, WatchlistORM
+from normly_core.graph.postgres.orm import (
+    AccountORM,
+    EdgeORM,
+    NotificationORM,
+    RightsClassificationORM,
+    WatchlistORM,
+)
 from normly_core.graph.postgres.repositories import (
     PostgresAccountRepository,
     PostgresDeliveryRepository,
@@ -475,6 +481,8 @@ def test_new_edition_mail_names_the_standard_and_links_the_new_edition(db_sessio
         account_id=account.id, work_id=old.work_id
     )
     _set_created_at(db_session, WatchlistORM, watch.id, _BEFORE)
+    _classify(db_session, old.id, delivery.id)
+    _classify(db_session, new.id, delivery.id)
 
     sender = RecordingEmailSender()
     run_notify_watchers(db_session, sender)
@@ -557,3 +565,95 @@ def test_watch_mail_of_an_account_with_unknown_language_is_german(db_session, mo
     run_notify_watchers(db_session, sender)
 
     assert sender.sent[0]["subject"].startswith("Neue Ausgabe:")
+
+
+def _gated_new_edition(db_session, monkeypatch, tag):
+    """A watched old edition with a title, replaced by a new edition; EMAIL watcher."""
+    monkeypatch.setenv("NORMLY_PUBLIC_BASE_URL", "https://app.example.org")
+    source = _make_source(db_session)
+    delivery = _make_delivery(db_session, source.id, f"gate-{tag}")
+    doc_repo = PostgresDocumentRepository(db_session)
+    old = doc_repo.create_document(
+        origin_issuer="DGUV", origin_number=f"1{tag}", edition="2020", part=None,
+        delivery_id=delivery.id,
+    )
+    new = doc_repo.create_document(
+        origin_issuer="DGUV", origin_number=f"1{tag}", edition="2026", part=None,
+        delivery_id=delivery.id, work_id=old.work_id,
+    )
+    doc_repo.add_designation(
+        document_id=old.id, issuer="DGUV", designation=f"DGUV Gate {tag}", language="de",
+        edition="2020", is_primary=True, delivery_id=delivery.id,
+    )
+    doc_repo.add_title(
+        document_id=old.id, language="de", title=f"Geheimer Titel {tag}",
+        delivery_id=delivery.id,
+    )
+    PostgresEdgeRepository(db_session).create_edge(
+        from_document_id=new.id, to_document_id=old.id, edge_type=EdgeType.REPLACES,
+        jurisdiction=None, layer=Layer.FREE, delivery_id=delivery.id,
+    )
+    account_repo = PostgresAccountRepository(db_session)
+    account = account_repo.create_account(email=f"gate-{tag}@example.de", password_hash=None)
+    account_repo.update_notification_preference(account.id, preference=NotificationPreference.EMAIL)
+    watch = PostgresWatchlistRepository(db_session).add_watch(
+        account_id=account.id, work_id=old.work_id
+    )
+    _set_created_at(db_session, WatchlistORM, watch.id, _BEFORE)
+    return old, new, delivery
+
+
+def test_unclassified_documents_give_no_title_and_no_link(db_session, monkeypatch):
+    old, new, _ = _gated_new_edition(db_session, monkeypatch, "a")
+
+    sender = RecordingEmailSender()
+    run_notify_watchers(db_session, sender)
+
+    mail = sender.sent[0]
+    assert "Geheimer Titel a" not in mail["body"]
+    assert "Geheimer Titel a" not in mail["html"]
+    assert "DGUV Gate a" in mail["body"]  # designations are always allowed
+    assert "/documents/" not in mail["body"] and "/documents/" not in mail["html"]
+    assert "https://app.example.org/" in mail["body"]
+
+
+def test_only_the_cleared_document_is_shown_and_linked(db_session, monkeypatch):
+    old, new, delivery = _gated_new_edition(db_session, monkeypatch, "b")
+    _classify(db_session, new.id, delivery.id)  # the watched old edition stays unclassified
+
+    sender = RecordingEmailSender()
+    run_notify_watchers(db_session, sender)
+
+    mail = sender.sent[0]
+    assert "Geheimer Titel b" not in mail["body"]
+    assert f"https://app.example.org/documents/{new.id}" in mail["body"]
+
+
+def test_a_classification_that_forbids_processing_does_not_clear(db_session, monkeypatch):
+    old, new, delivery = _gated_new_edition(db_session, monkeypatch, "c")
+    _classify(db_session, old.id, delivery.id, may_process=False)
+    _classify(db_session, new.id, delivery.id, may_process=False)
+
+    sender = RecordingEmailSender()
+    run_notify_watchers(db_session, sender)
+
+    mail = sender.sent[0]
+    assert "Geheimer Titel c" not in mail["body"]
+    assert "/documents/" not in mail["body"]
+
+
+def test_a_revoked_classification_does_not_clear(db_session, monkeypatch):
+    old, new, delivery = _gated_new_edition(db_session, monkeypatch, "d")
+    _classify(db_session, old.id, delivery.id)
+    _classify(db_session, new.id, delivery.id)
+    db_session.execute(
+        sa.update(RightsClassificationORM).values(revoked_at=datetime.now(timezone.utc))
+    )
+    db_session.flush()
+
+    sender = RecordingEmailSender()
+    run_notify_watchers(db_session, sender)
+
+    mail = sender.sent[0]
+    assert "Geheimer Titel d" not in mail["body"]
+    assert "/documents/" not in mail["body"]
