@@ -52,4 +52,9 @@ describe("ChatInput", () => {
     fireEvent.click(screen.getByRole("button", { name: "Senden" }));
     expect(onSend).not.toHaveBeenCalled();
   });
+
+  it("limits the question to the server's maximum length", () => {
+    renderWithLocale(<ChatInput onSend={() => {}} disabled={false} />);
+    expect(screen.getByRole("textbox")).toHaveAttribute("maxLength", "2000");
+  });
 });

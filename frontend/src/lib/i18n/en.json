@@ -5,6 +5,10 @@
   },
   "chat": {
     "sendButton": "Send",
+    "quotaExhausted": "You have used all your AI answers for today. Available again from {time}.",
+    "quotaExhaustedAnonymous": "You have used all AI answers available without signing in today. Sign in to get more, or try again from {time}.",
+    "poolExhausted": "AI answers are at capacity today, available again from {time}. Search and norm information (validity, successors, references) keep working.",
+    "messageTooLong": "Your question is too long. Please shorten it to at most {max} characters.",
     "inputPlaceholder": "Ask a question…",
     "loading": "Loading answer…",
     "copyButtonLabel": "Copy response",

@@ -8,6 +8,7 @@ import * as React from "react";
 import { ArrowUp } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { MAX_MESSAGE_CHARS } from "@/lib/chat-error-notice";
 import { useTranslation } from "@/lib/i18n/provider";
 
 const MAX_HEIGHT_PX = 260; // ~3x the 88px resting height this replaces (user-approved, rounded)
@@ -57,6 +58,7 @@ export function ChatInput({
       <Textarea
         ref={textareaRef}
         rows={1}
+        maxLength={MAX_MESSAGE_CHARS}
         value={value}
         onChange={(event) => setValue(event.target.value)}
         onKeyDown={(event) => {
