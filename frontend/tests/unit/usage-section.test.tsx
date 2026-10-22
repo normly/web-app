@@ -48,7 +48,9 @@ describe("UsageSection", () => {
     );
     renderSection();
 
-    await waitFor(() => expect(screen.getByText(/KI-Antworten sind heute ausgelastet/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/KI-Antworten sind derzeit ausgelastet/)).toBeInTheDocument());
+    // Signed-in users get the notice without the sign-in hint.
+    expect(screen.queryByText(/Anmeldung/)).not.toBeInTheDocument();
   });
 
   it("shows an error when loading fails", async () => {

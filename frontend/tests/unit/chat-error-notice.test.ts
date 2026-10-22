@@ -31,11 +31,24 @@ describe("chatErrorNotice", () => {
     expect(notice).toContain("Du hast heute alle KI-Antworten genutzt");
   });
 
-  it("says that search and norm information keep working when a pool is spent", async () => {
+  it("offers sign-in to an anonymous user when a pool is spent", async () => {
     for (const reason of ["pool_daily_exhausted", "pool_monthly_exhausted"]) {
       const notice = await chatErrorNotice(
         limited({ reason, resets_at: "2026-11-01T00:00:00Z", anonymous: true }), t, "de", now,
       );
+      expect(notice).toContain("KI-Antworten sind derzeit ausgelastet");
+      expect(notice).toContain("Mit Anmeldung kannst du sie weiter nutzen");
+      expect(notice).toContain("Suche und Normauskünfte");
+    }
+  });
+
+  it("does not offer sign-in to a registered user when a pool is spent", async () => {
+    for (const reason of ["pool_daily_exhausted", "pool_monthly_exhausted"]) {
+      const notice = await chatErrorNotice(
+        limited({ reason, resets_at: "2026-11-01T00:00:00Z", anonymous: false }), t, "de", now,
+      );
+      expect(notice).toContain("KI-Antworten sind derzeit ausgelastet");
+      expect(notice).not.toContain("Anmeldung");
       expect(notice).toContain("Suche und Normauskünfte");
     }
   });

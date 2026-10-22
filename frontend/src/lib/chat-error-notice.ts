@@ -37,7 +37,7 @@ export async function chatErrorNotice(
     const key: TranslationKey =
       detail.reason === "quota_exhausted"
         ? detail.anonymous ? "chat.quotaExhaustedAnonymous" : "chat.quotaExhausted"
-        : "chat.poolExhausted";
+        : detail.anonymous ? "chat.poolExhaustedAnonymous" : "chat.poolExhausted";
     return interpolate(t(key), { time });
   }
   if (response.status === 400 && detail === "message_too_long") {
