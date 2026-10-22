@@ -34,7 +34,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.api_client = ApiClient(base_url=os.environ["NORMLY_API_BASE_URL"])
     app.state.accounts_client = AccountsClient(base_url=os.environ["NORMLY_ACCOUNTS_BASE_URL"])
 
-    app.state.llm_client = build_llm_client_from_env()
+    app.state.llm_client = build_llm_client_from_env(max_output_tokens=1024)
 
     try:
         yield
