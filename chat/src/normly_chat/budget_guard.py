@@ -21,6 +21,7 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
+from normly_core import retention
 from normly_core.graph.domain import LlmPoolTotals, LlmUsageRepository
 
 from normly_chat.budget_alerts import BudgetAlert
@@ -34,9 +35,6 @@ _MONTHLY_THRESHOLDS = (50, 80, 100)
 # The per-address ceiling for anonymous questions, as a multiple of the
 # anonymous daily quota: several callers may share one address (NAT).
 _ADDRESS_QUOTA_FACTOR = 3
-# Question counters embed a caller address: today and yesterday only.
-_QUESTION_RETENTION = timedelta(days=1)
-_USAGE_RETENTION = timedelta(days=40)
 
 
 def next_day_start(now: datetime) -> datetime:
@@ -118,9 +116,10 @@ class BudgetGuard:
                         key=address_key, day=today,
                         limit=self._quota(pool) * _ADDRESS_QUOTA_FACTOR,
                     )
+                # Opportunistic; cleanup-user-data applies the same periods.
                 repository.delete_expired(
-                    question_before=today - _QUESTION_RETENTION,
-                    usage_before=today - _USAGE_RETENTION,
+                    question_before=today - retention.LLM_QUESTION_COUNT_RETENTION,
+                    usage_before=today - retention.LLM_USAGE_RETENTION,
                 )
         anonymous = pool == POOL_ANONYMOUS
         if exhaustion is not None:

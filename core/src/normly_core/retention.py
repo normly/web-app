@@ -31,3 +31,11 @@ DELETION_LOG_MAX_AGE = timedelta(days=90)
 #: Notice between the warning e-mail and the deletion of an abandoned
 #: registration.
 ACCOUNT_DELETION_NOTICE_PERIOD = timedelta(days=14)
+
+#: LLM cost-cap question counters, measured in UTC days: today and yesterday
+#: are kept, older rows deleted. They embed a caller address (ADR-029).
+LLM_QUESTION_COUNT_RETENTION = timedelta(days=1)
+
+#: LLM cost-cap token usage per pool and day, and the budget alerts sent,
+#: measured in UTC days; covers the running month and the previous one's end.
+LLM_USAGE_RETENTION = timedelta(days=40)
