@@ -1548,6 +1548,37 @@ production. Merges by every Maintainer — unreviewed changes could reach
 
 ---
 
+## ADR-029 — LLM cost caps enforced by normly
+
+**Status:** accepted
+
+**Decision:** normly bounds its own inference costs. Two cost pools
+(anonymous, registered) each have a daily and a monthly token budget,
+counted from the usage the model endpoint reports after each call. Every
+caller has a daily quota of AI answers (synthesis answers); graph answers
+are never counted. When a budget or quota is spent, the chat service answers
+429 with a reason and the reset time, and the Lead Maintainers get a mail at
+50/80/100 % of a monthly budget and when a daily budget is spent. Counting
+is server-side and fail-closed: no model call without counting.
+
+**Rationale:** STACKIT AI Model Serving offers rate limits only (requests and
+tokens per minute, pooled per project), no spending cap — checked in the
+portal on 2026-10-22. Rate limits bound the speed of spending, not the total,
+and one abuser can exhaust them for everyone. Separate pools keep anonymous
+abuse from using up what registered users get.
+
+**Knowingly accepted:** A pool can overshoot its budget by the requests in
+flight, at most `concurrent requests × 2 calls × (input cap + output cap)`.
+Address-based anonymous counting can be circumvented by changing addresses;
+the pool budget still bounds the total. The question counters (keys embed an
+account ID or an anon ID plus address) are kept two days in the database but
+are part of the daily user-data backup (`USER_TABLES`), so in backups they
+live as long as the backup retention (ADR-027).
+
+**Rejected:** A separate LLM gateway service — more to operate than needed
+now. Counting in the frontend — bypassable. Reserving tokens before a call —
+stricter, but more logic for little gain given the per-call cap.
+
 ## Open items
 
 | Topic | Status | Next step |

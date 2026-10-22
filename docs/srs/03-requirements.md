@@ -1202,13 +1202,23 @@ This section governs which functions are usable without an account and when a si
 
 ### REQ-ACC-003 — Quota for anonymous use
 
-**Statement:** Anonymous access is subject to a limited request quota per time window. Counting takes place server-side based on an assigned session attribute in combination with the client IP address, not via values stored on the client side. When the quota is reached, the user is referred to sign-in.
+**Statement:** Anonymous access is subject to a limited request quota per time window. Counting takes place server-side based on an assigned session attribute in combination with the client IP address, not via values stored on the client side. When the quota is reached, the user is referred to sign-in. Registered users have a higher quota. The quota counts AI answers (synthesis answers) per day; answers from the reference graph are not counted. When the quota is reached, the user is told when it resets; anonymous users are additionally referred to sign-in.
 
 **Rationale:** The quota limits the inference costs of anonymous use and creates an objective reason to register, without enforcing it. Client-side counting would be ineffective because the browser can be reset. Since address-based limiting remains circumventable by changing addresses, it is not a protection mechanism against bulk extraction; that task is fulfilled by REQ-SEC-004.
 
-**Acceptance criteria:** Quota configurable; counting server-side; resetting client-side data does not lift the limit; shared infrastructure with REQ-SEC-004.
+**Acceptance criteria:** Quota configurable; counting server-side; resetting client-side data does not lift the limit; shared infrastructure with REQ-SEC-004; registered quota configurable; graph answers never counted; the signed-in user can see used quota and reset time in the profile.
 
 **Acceptance test:** After the quota is exhausted, deleting the browser data does not lead to further free requests.
+
+### REQ-ACC-005 — Cost budget for language-model use
+
+**Statement:** Inference costs are bounded by a daily and a monthly token budget, separately for anonymous and registered use. A spent budget stops AI answers of that group until the reset; search and answers from the reference graph keep working. The Lead Maintainers are notified at 50, 80 and 100 % of a monthly budget and when a daily budget is spent.
+
+**Rationale:** The model provider offers no spending cap (ADR-029). Separate budgets keep anonymous abuse from affecting registered users.
+
+**Acceptance criteria:** Budgets configurable; counting server-side and fail-closed; one notification per threshold and period.
+
+**Acceptance test:** With a spent budget no model call is made, the user gets a notice with the reset time, and a graph question is still answered.
 
 ### REQ-ACC-004 — Functions requiring an account
 

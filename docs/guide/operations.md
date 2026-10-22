@@ -328,6 +328,69 @@ running, `current_tag` is unchanged. Running the same `rollback` command again i
 rebuilds the schema from the backup each time. On success the failed-rollout
 marker is cleared.
 
+## LLM cost caps
+
+normly bounds its own inference costs (ADR-029): the chat service counts the
+tokens the model endpoint reports and refuses AI answers when a quota or
+budget is spent. Questions answered from the reference graph are never
+counted. All windows are UTC.
+
+| Variable | Meaning | Starting default |
+|---|---|---|
+| `NORMLY_LLM_MAX_OUTPUT_TOKENS` | Output cap per call | 1024 |
+| `NORMLY_CHAT_MAX_MESSAGE_CHARS` | Input limit for the user message | 2000 |
+| `NORMLY_CHAT_QUOTA_ANONYMOUS_DAILY` | AI answers per anonymous user per day | 10 |
+| `NORMLY_CHAT_QUOTA_REGISTERED_DAILY` | AI answers per registered user per day | 30 |
+| `NORMLY_LLM_BUDGET_ANONYMOUS_DAILY_TOKENS` | Anonymous pool, per day | 500000 |
+| `NORMLY_LLM_BUDGET_ANONYMOUS_MONTHLY_TOKENS` | Anonymous pool, per month | 10000000 |
+| `NORMLY_LLM_BUDGET_REGISTERED_DAILY_TOKENS` | Registered pool, per day | 2000000 |
+| `NORMLY_LLM_BUDGET_REGISTERED_MONTHLY_TOKENS` | Registered pool, per month | 40000000 |
+| `NORMLY_LLM_BUDGET_ALERT_RECIPIENTS` | Comma-separated alert addresses | empty (alerts logged only) |
+
+The defaults are starting points, not measured values. Invalid values fail
+the start of the chat service.
+
+`NORMLY_LLM_BUDGET_ALERT_RECIPIENTS` holds the Lead Maintainers' addresses.
+Set it only in the VM's `.env`, never in the repository. Mail goes out once
+per pool, period and threshold: at 50, 80 and 100 % of a monthly budget and
+when a daily budget is spent.
+
+### Worst case
+
+Costs are known only after a call, so requests in flight can push a pool past
+its budget. Per pool and period the worst case is
+
+    budget + concurrent_requests × 2 calls × (input_cap + output_cap)
+
+The worst-case monthly cost is the sum of both monthly pool budgets plus that
+margin, priced at the model's output-token rate as an upper bound.
+
+### Measuring tokens per answer
+
+The measurement runs the real model on representative questions and prints
+input and output tokens per call. The chat image contains
+`chat/measurement/questions_de.txt` under `/app`:
+
+```bash
+docker compose exec chat python -m normly_chat.measure_usage chat/measurement/questions_de.txt
+```
+
+Set the output cap to twice the longest measured answer and derive the token
+budgets from the measured tokens per answer times the quotas.
+
+### Reading today's usage
+
+```bash
+docker compose exec chat python -c "
+from datetime import date; import os
+from sqlalchemy import create_engine; from sqlalchemy.orm import Session
+from normly_core.graph.postgres.repositories import PostgresLlmUsageRepository
+with Session(create_engine(os.environ['NORMLY_DATABASE_URL'])) as s:
+    r = PostgresLlmUsageRepository(s)
+    for pool in ('anonymous', 'registered'):
+        print(pool, r.pool_totals(pool=pool, day=date.today()))"
+```
+
 ## Backups
 
 `normly-backup` dumps **only the user-data tables** (`python -m
