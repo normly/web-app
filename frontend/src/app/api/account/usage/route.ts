@@ -16,6 +16,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     headers: { Authorization: `Bearer ${accountSessionToken}` },
     cache: "no-store",
   });
-  const body = await backendResponse.json();
+  const body = await backendResponse.json().catch(() => ({}));
   return NextResponse.json(body, { status: backendResponse.status });
 }

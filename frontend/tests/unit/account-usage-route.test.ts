@@ -40,4 +40,18 @@ describe("GET /api/account/usage", () => {
     });
     expect(await response.json()).toEqual(usage);
   });
+
+  it("passes a non-JSON error body on as an empty object with the status", async () => {
+    vi.stubEnv("NORMLY_API_BASE_URL", "http://api.internal");
+    vi.stubEnv("NORMLY_ACCOUNTS_BASE_URL", "http://accounts.internal");
+    vi.stubEnv("NORMLY_CHAT_BASE_URL", "http://chat.internal");
+    global.fetch = vi.fn().mockResolvedValue(new Response("Bad Gateway", { status: 502 }));
+
+    const response = await GET(new NextRequest("http://localhost/api/account/usage", {
+      headers: { cookie: "normly_account_session=account-token" },
+    }));
+
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({});
+  });
 });
