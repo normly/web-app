@@ -8,7 +8,9 @@ import uuid
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from sqlalchemy.orm import Session
 
-from normly_core.graph.domain import ChatMessage, ChatMessageCitation, ChatMessageRole
+from normly_core.graph.domain import (
+    ChatAnswerType, ChatMessage, ChatMessageCitation, ChatMessageRole,
+)
 from normly_core.graph.postgres.repositories import (
     PostgresChatRepository,
     PostgresSegmentRepository,
@@ -171,9 +173,15 @@ def create_session_title(
     if first_question is None:
         raise HTTPException(status_code=404, detail="chat session has no question yet")
 
-    # Titles cost tokens of the registered pool but no quota. A spent pool
-    # gets the fallback title without a model call, like any title failure.
-    if not guard.pool_available(POOL_REGISTERED):
+    # Titles cost tokens of the registered pool but no quota, so only a chat
+    # with an AI answer -- already limited by the quota -- gets a model title.
+    # Otherwise, and when the pool is spent, the fallback title is returned
+    # without a model call and without storing it, like any title failure.
+    has_ai_answer = any(
+        message.answer_type == ChatAnswerType.SYNTHESIS
+        for message in chat_repo.list_messages_for_session(chat_session.id)
+    )
+    if not has_ai_answer or not guard.pool_available(POOL_REGISTERED):
         return ChatSessionTitleResponse(title=fallback_title(first_question))
     title = generate_title(
         MeteredLlmClient(llm_client, guard, POOL_REGISTERED), first_question, chat_session.language,

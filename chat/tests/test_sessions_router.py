@@ -173,6 +173,7 @@ def test_delete_all_removes_only_own_sessions(client, db_session):
 
 from datetime import date, datetime, timezone
 
+import pytest
 from fastapi.testclient import TestClient
 
 from normly_core.graph.domain import ChatAnswerType, ChatMessageRole, LegalBasisCategory
@@ -208,6 +209,18 @@ def _owned_session(db_session, email, *, language="de"):
     )
     identity = ChatAccountIdentity(account_id=account.id, email=email)
     return chat_repo, chat_session, identity
+
+
+def _exchange(chat_repo, chat_session, question, answer_type):
+    now = datetime.now(timezone.utc)
+    chat_repo.create_message(
+        session_id=chat_session.id, role=ChatMessageRole.USER, content=question,
+        answer_type=None, created_at=now,
+    )
+    chat_repo.create_message(
+        session_id=chat_session.id, role=ChatMessageRole.ASSISTANT, content="Antwort.",
+        answer_type=answer_type, created_at=now,
+    )
 
 
 def _document(db_session, number):
@@ -355,10 +368,7 @@ def test_session_list_shows_the_stored_or_fallback_title(client, db_session):
 
 def test_title_endpoint_generates_stores_and_then_reuses_the_title(client, db_session):
     chat_repo, chat_session, identity = _owned_session(db_session, "title-gen@example.de")
-    chat_repo.create_message(
-        session_id=chat_session.id, role=ChatMessageRole.USER, content="Brauche ich eine Schutzbrille?",
-        answer_type=None, created_at=datetime.now(timezone.utc),
-    )
+    _exchange(chat_repo, chat_session, "Brauche ich eine Schutzbrille?", ChatAnswerType.SYNTHESIS)
     llm = _TitleLlm("Schutzbrille beim Schweißen")
     app = _app_for(client, identity, llm_client=llm)
 
@@ -382,10 +392,7 @@ def test_title_endpoint_falls_back_without_storing_when_the_model_fails(client, 
     import httpx
 
     chat_repo, chat_session, identity = _owned_session(db_session, "title-fail@example.de")
-    chat_repo.create_message(
-        session_id=chat_session.id, role=ChatMessageRole.USER, content="Kurze Frage",
-        answer_type=None, created_at=datetime.now(timezone.utc),
-    )
+    _exchange(chat_repo, chat_session, "Kurze Frage", ChatAnswerType.SYNTHESIS)
     app = _app_for(client, identity, llm_client=_TitleLlm(error=httpx.ConnectError("down")))
 
     with TestClient(app) as test_client:
@@ -402,10 +409,7 @@ def test_title_endpoint_skips_the_model_when_the_registered_pool_is_spent(client
     from normly_chat.dependencies import get_budget_guard
 
     chat_repo, chat_session, identity = _owned_session(db_session, "title-pool@example.de")
-    chat_repo.create_message(
-        session_id=chat_session.id, role=ChatMessageRole.USER, content="Kurze Frage",
-        answer_type=None, created_at=datetime.now(timezone.utc),
-    )
+    _exchange(chat_repo, chat_session, "Kurze Frage", ChatAnswerType.SYNTHESIS)
     llm = _TitleLlm("Nie benutzt")
     app = _app_for(client, identity, llm_client=llm)
     app.dependency_overrides[get_budget_guard] = lambda: _ExhaustedGuard()
@@ -418,6 +422,28 @@ def test_title_endpoint_skips_the_model_when_the_registered_pool_is_spent(client
     assert response.status_code == 200
     assert response.json() == {"title": "Kurze Frage"}
     assert llm.calls == 0
+
+
+@pytest.mark.parametrize("answer_type", [ChatAnswerType.STRUCTURAL, ChatAnswerType.FALLBACK])
+def test_title_endpoint_skips_the_model_for_a_chat_without_an_ai_answer(
+    client, db_session, answer_type,
+):
+    chat_repo, chat_session, identity = _owned_session(
+        db_session, f"title-no-ai-{answer_type.value}@example.de",
+    )
+    _exchange(chat_repo, chat_session, "Ist DIN EN ISO 9001 noch gültig?", answer_type)
+    llm = _TitleLlm("Nie benutzt")
+    app = _app_for(client, identity, llm_client=llm)
+
+    with TestClient(app) as test_client:
+        response = test_client.post(
+            f"/v1/chat/sessions/{chat_session.id}/title", headers={"Authorization": "Bearer t"},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"title": "Ist DIN EN ISO 9001 noch gültig?"}
+    assert llm.calls == 0
+    assert chat_repo.get_session_by_token(chat_session.session_token).title is None
 
 
 def test_title_endpoint_is_404_for_foreign_or_empty_sessions(client, db_session):
