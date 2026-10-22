@@ -36,7 +36,7 @@ describe("UsageSection", () => {
     renderSection();
 
     await waitFor(() => expect(screen.getByText("KI-Antworten heute: 7 von 30")).toBeInTheDocument());
-    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", String((7 / 30) * 100));
     expect(screen.getByText(/Wird zurückgesetzt um/)).toBeInTheDocument();
     expect(screen.queryByText(/ausgelastet/)).not.toBeInTheDocument();
     expect(global.fetch).toHaveBeenCalledWith("/api/account/usage");
