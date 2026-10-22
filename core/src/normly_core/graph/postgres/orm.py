@@ -842,3 +842,38 @@ class KnowledgeBaseImportORM(Base):
     imported_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
 
     __table_args__ = (sa.CheckConstraint("id = 1", name="ck_knowledge_base_import_single_row"),)
+
+
+class LlmTokenUsageORM(Base):
+    __tablename__ = "llm_token_usage"
+
+    pool: Mapped[str] = mapped_column(sa.String(16), primary_key=True)
+    day: Mapped[date] = mapped_column(sa.Date, primary_key=True)
+    input_tokens: Mapped[int] = mapped_column(sa.BigInteger, default=0)
+    output_tokens: Mapped[int] = mapped_column(sa.BigInteger, default=0)
+
+    __table_args__ = (
+        sa.CheckConstraint("pool IN ('anonymous', 'registered')", name="ck_llm_token_usage_pool"),
+    )
+
+
+class LlmQuestionCountORM(Base):
+    __tablename__ = "llm_question_count"
+
+    # Embeds an account ID or an anon ID plus caller address -- kept for two
+    # days only (see the retention in BudgetGuard).
+    key: Mapped[str] = mapped_column(primary_key=True)
+    day: Mapped[date] = mapped_column(sa.Date, primary_key=True)
+    question_count: Mapped[int] = mapped_column(default=0)
+
+    __table_args__ = (sa.Index("ix_llm_question_count_day", "day"),)
+
+
+class LlmBudgetAlertORM(Base):
+    __tablename__ = "llm_budget_alert"
+
+    # The composite key is the dedup: one alert per pool, period and threshold.
+    pool: Mapped[str] = mapped_column(sa.String(16), primary_key=True)
+    period: Mapped[str] = mapped_column(sa.String(10), primary_key=True)
+    threshold: Mapped[int] = mapped_column(primary_key=True)
+    sent_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
