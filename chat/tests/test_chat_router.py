@@ -445,3 +445,23 @@ def test_a_registered_synthesis_question_is_admitted_to_the_registered_pool(clie
 
     assert response.status_code == 200
     assert guard.admitted == [("registered", f"account:{identity.account_id}", None)]
+
+
+def test_the_client_fixture_commits_no_cost_cap_counters(client, migrated_engine):
+    import sqlalchemy as sa
+
+    client.app.dependency_overrides[get_accounts_client] = lambda: _FixedAccountsClient(None)
+    client.app.dependency_overrides[get_embedding_model] = lambda: _NoMatchEmbedding()
+
+    response = client.post(
+        "/v1/chat",
+        json={"message": _SYNTHESIS_QUESTION, "jurisdiction": "DE", "language": "de"},
+        headers={"X-Forwarded-For": "203.0.113.7"},
+    )
+
+    assert response.status_code == 200
+    with migrated_engine.connect() as connection:
+        committed = connection.execute(sa.text(
+            "SELECT count(*) FROM llm_question_count WHERE key LIKE '%203.0.113.7'"
+        )).scalar_one()
+    assert committed == 0

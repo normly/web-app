@@ -181,12 +181,14 @@ from normly_core.graph.domain import ChatAnswerType, ChatMessageRole, LegalBasis
 
 def _app_for(client, identity, *, api_client=None, llm_client=None):
     from normly_chat.dependencies import (
-        get_accounts_client, get_api_client, get_llm_client, get_session,
+        get_accounts_client, get_api_client, get_budget_guard, get_llm_client, get_session,
     )
     from normly_chat.main import create_app
 
     app = create_app()
     app.dependency_overrides[get_session] = client.app.dependency_overrides[get_session]
+    # The client fixture's admitting guard, so no counter leaves the test transaction.
+    app.dependency_overrides[get_budget_guard] = client.app.dependency_overrides[get_budget_guard]
     app.dependency_overrides[get_accounts_client] = lambda: _FakeAccountsClient(identity)
     if api_client is not None:
         app.dependency_overrides[get_api_client] = lambda: api_client
