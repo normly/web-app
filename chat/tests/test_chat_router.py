@@ -335,6 +335,7 @@ from datetime import datetime, timezone
 from normly_chat.budget_guard import BudgetExhausted
 from normly_chat.dependencies import get_budget_guard, get_embedding_model
 
+_ANON_ID = "0b6f3c1e-8d4a-4f2b-9c7e-5a1d2e3f4a5b"
 _SYNTHESIS_QUESTION = "Welche Schutzausrüstung ist beim Schweißen vorgeschrieben?"
 
 
@@ -344,8 +345,8 @@ class _RecordingGuard:
     def __init__(self):
         self.admitted = []
 
-    def admit(self, *, pool, user_key):
-        self.admitted.append((pool, user_key))
+    def admit(self, *, pool, user_key, address_key=None):
+        self.admitted.append((pool, user_key, address_key))
 
     def book(self, *, pool, result):
         pass
@@ -357,7 +358,7 @@ class _RefusingGuard:
             reason, datetime(2099, 1, 1, tzinfo=timezone.utc), anonymous,
         )
 
-    def admit(self, *, pool, user_key):
+    def admit(self, *, pool, user_key, address_key=None):
         raise self._error
 
 
@@ -414,11 +415,13 @@ def test_an_anonymous_synthesis_question_is_admitted_to_the_anonymous_pool(clien
     response = client.post(
         "/v1/chat",
         json={"message": _SYNTHESIS_QUESTION, "jurisdiction": "DE", "language": "de"},
-        headers={"X-Normly-Anon-Id": "abc", "X-Forwarded-For": "1.2.3.4"},
+        headers={"X-Normly-Anon-Id": _ANON_ID, "X-Forwarded-For": "1.2.3.4"},
     )
 
     assert response.status_code == 200
-    assert guard.admitted == [("anonymous", "anon:abc:1.2.3.4")]
+    assert guard.admitted == [
+        ("anonymous", f"anon:{_ANON_ID}:1.2.3.4", "anon-address:1.2.3.4"),
+    ]
 
 
 def test_a_registered_synthesis_question_is_admitted_to_the_registered_pool(client, db_session):
@@ -441,4 +444,4 @@ def test_a_registered_synthesis_question_is_admitted_to_the_registered_pool(clie
     )
 
     assert response.status_code == 200
-    assert guard.admitted == [("registered", f"account:{identity.account_id}")]
+    assert guard.admitted == [("registered", f"account:{identity.account_id}", None)]

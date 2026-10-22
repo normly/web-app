@@ -31,6 +31,9 @@ POOL_ANONYMOUS = "anonymous"
 POOL_REGISTERED = "registered"
 
 _MONTHLY_THRESHOLDS = (50, 80, 100)
+# The per-address ceiling for anonymous questions, as a multiple of the
+# anonymous daily quota: several callers may share one address (NAT).
+_ADDRESS_QUOTA_FACTOR = 3
 # Question counters embed a caller address: today and yesterday only.
 _QUESTION_RETENTION = timedelta(days=1)
 _USAGE_RETENTION = timedelta(days=40)
@@ -97,7 +100,7 @@ class BudgetGuard:
             return "pool_monthly_exhausted", next_month_start(now)
         return None
 
-    def admit(self, *, pool: str, user_key: str) -> None:
+    def admit(self, *, pool: str, user_key: str, address_key: str | None = None) -> None:
         now = self._now()
         today = now.date()
         with self._repositories() as repository:
@@ -108,6 +111,13 @@ class BudgetGuard:
                 _, allowed = repository.record_question(
                     key=user_key, day=today, limit=self._quota(pool),
                 )
+                # Only questions the caller's own quota admits count against
+                # the address, so one caller's refusals spare its neighbours.
+                if allowed and address_key is not None:
+                    _, allowed = repository.record_question(
+                        key=address_key, day=today,
+                        limit=self._quota(pool) * _ADDRESS_QUOTA_FACTOR,
+                    )
                 repository.delete_expired(
                     question_before=today - _QUESTION_RETENTION,
                     usage_before=today - _USAGE_RETENTION,

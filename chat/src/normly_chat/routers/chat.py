@@ -18,7 +18,7 @@ from normly_chat.accounts_client import AccountsClient
 from normly_chat.api_client import ApiClient
 from normly_chat.budget_guard import POOL_ANONYMOUS, POOL_REGISTERED, BudgetGuard
 from normly_chat.budget_settings import BudgetSettings
-from normly_chat.caller_key import anonymous_caller_key
+from normly_chat.caller_key import anonymous_caller_keys
 from normly_chat.citation_labels import CitationResolver
 from normly_chat.classify import QuestionType, classify
 from normly_chat.dependencies import (
@@ -81,9 +81,11 @@ def chat(
         # Only synthesis costs tokens; graph answers bypass the guard (ADR-008).
         if identity is not None:
             pool, user_key = POOL_REGISTERED, f"account:{identity.account_id}"
+            address_key = None
         else:
-            pool, user_key = POOL_ANONYMOUS, anonymous_caller_key(request)
-        guard.admit(pool=pool, user_key=user_key)
+            pool = POOL_ANONYMOUS
+            user_key, address_key = anonymous_caller_keys(request)
+        guard.admit(pool=pool, user_key=user_key, address_key=address_key)
         result = build_synthesis_answer(
             payload.message, payload.jurisdiction, payload.language, embedding_model,
             PostgresSegmentRepository(session), MeteredLlmClient(llm_client, guard, pool),

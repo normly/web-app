@@ -109,6 +109,55 @@ def test_admit_counts_questions_up_to_the_pool_quota():
         guard.admit(pool=POOL_REGISTERED, user_key="account:a")
 
 
+def test_rotating_the_anon_id_from_one_address_hits_the_address_ceiling():
+    repo = _InMemoryUsageRepository()
+    guard = _guard(repo)
+
+    # Anonymous quota 2, so the address ceiling is 3 x 2 = 6.
+    for n in range(6):
+        guard.admit(
+            pool=POOL_ANONYMOUS, user_key=f"anon:id-{n}:1.2.3.4",
+            address_key="anon-address:1.2.3.4",
+        )
+    with pytest.raises(BudgetExhausted) as raised:
+        guard.admit(
+            pool=POOL_ANONYMOUS, user_key="anon:id-new:1.2.3.4",
+            address_key="anon-address:1.2.3.4",
+        )
+
+    assert raised.value.reason == "quota_exhausted"
+    assert raised.value.resets_at == datetime(2026, 10, 23, tzinfo=timezone.utc)
+    assert raised.value.anonymous is True
+    # Another address is unaffected.
+    guard.admit(
+        pool=POOL_ANONYMOUS, user_key="anon:id-new:5.6.7.8",
+        address_key="anon-address:5.6.7.8",
+    )
+
+
+def test_callers_behind_one_address_each_get_their_own_quota_up_to_the_ceiling():
+    repo = _InMemoryUsageRepository()
+    guard = _guard(repo)
+    address = "anon-address:1.2.3.4"
+
+    for _ in range(2):
+        guard.admit(pool=POOL_ANONYMOUS, user_key="anon:a:1.2.3.4", address_key=address)
+    # A's own refusals do not use up the address ceiling of the others.
+    for _ in range(2):
+        with pytest.raises(BudgetExhausted):
+            guard.admit(pool=POOL_ANONYMOUS, user_key="anon:a:1.2.3.4", address_key=address)
+    for caller in ("b", "c"):
+        for _ in range(2):
+            guard.admit(
+                pool=POOL_ANONYMOUS, user_key=f"anon:{caller}:1.2.3.4", address_key=address,
+            )
+    with pytest.raises(BudgetExhausted) as raised:
+        guard.admit(pool=POOL_ANONYMOUS, user_key="anon:d:1.2.3.4", address_key=address)
+
+    assert raised.value.reason == "quota_exhausted"
+    assert repo.questions[(address, _NOW.date())] == 7
+
+
 def test_admit_refuses_when_the_daily_pool_budget_is_spent_without_counting_the_question():
     repo = _InMemoryUsageRepository()
     repo.tokens[(POOL_ANONYMOUS, _NOW.date())] = 1000
