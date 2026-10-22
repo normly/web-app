@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from normly_core.graph.domain import ChatAnswerType, ChatMessageRole
@@ -16,13 +16,20 @@ from normly_core.graph.postgres.repositories import (
 
 from normly_chat.accounts_client import AccountsClient
 from normly_chat.api_client import ApiClient
+from normly_chat.budget_guard import POOL_ANONYMOUS, POOL_REGISTERED, BudgetGuard
+from normly_chat.budget_settings import BudgetSettings
+from normly_chat.caller_key import anonymous_caller_key
 from normly_chat.citation_labels import CitationResolver
 from normly_chat.classify import QuestionType, classify
 from normly_chat.dependencies import (
-    get_accounts_client, get_api_client, get_embedding_model, get_llm_client, get_session,
+    get_accounts_client, get_api_client, get_budget_guard, get_budget_settings,
+    get_embedding_model, get_llm_client, get_session,
 )
 from normly_chat.llm_client import LlmClient
-from normly_chat.schemas import ChatRequest, ChatResponse, CitationResponse
+from normly_chat.metered_llm_client import MeteredLlmClient
+from normly_chat.schemas import (
+    BudgetExhaustedResponse, ChatRequest, ChatResponse, CitationResponse,
+)
 from normly_chat.session_resolution import resolve_session
 from normly_chat.structural import build_structural_answer
 from normly_chat.synthesis import build_synthesis_answer
@@ -32,16 +39,23 @@ chat_router = APIRouter(prefix="/v1/chat", tags=["chat"])
 _BEARER_PREFIX = "Bearer "
 
 
-@chat_router.post("", response_model=ChatResponse)
+@chat_router.post(
+    "", response_model=ChatResponse,
+    responses={429: {"model": BudgetExhaustedResponse, "description": "A cost cap is exhausted."}},
+)
 def chat(
-    payload: ChatRequest, authorization: str | None = Header(default=None),
+    request: Request, payload: ChatRequest, authorization: str | None = Header(default=None),
     session: Session = Depends(get_session), api_client: ApiClient = Depends(get_api_client),
     accounts_client: AccountsClient = Depends(get_accounts_client),
     llm_client: LlmClient = Depends(get_llm_client),
     embedding_model=Depends(get_embedding_model),
+    guard: BudgetGuard = Depends(get_budget_guard),
+    settings: BudgetSettings = Depends(get_budget_settings),
 ) -> ChatResponse:
     if not payload.message or not payload.jurisdiction:
         raise HTTPException(status_code=400, detail="message and jurisdiction are required")
+    if len(payload.message) > settings.max_message_chars:
+        raise HTTPException(status_code=400, detail="message_too_long")
 
     # RFC 7235 makes the auth scheme case-insensitive, so a client sending
     # "bearer <token>" must not silently degrade to an anonymous session.
@@ -64,9 +78,15 @@ def chat(
     labels = CitationResolver(api_client, PostgresSegmentRepository(session), payload.jurisdiction)
     question_type = classify(payload.message)
     if question_type == QuestionType.SYNTHESIS:
+        # Only synthesis costs tokens; graph answers bypass the guard (ADR-008).
+        if identity is not None:
+            pool, user_key = POOL_REGISTERED, f"account:{identity.account_id}"
+        else:
+            pool, user_key = POOL_ANONYMOUS, anonymous_caller_key(request)
+        guard.admit(pool=pool, user_key=user_key)
         result = build_synthesis_answer(
             payload.message, payload.jurisdiction, payload.language, embedding_model,
-            PostgresSegmentRepository(session), llm_client,
+            PostgresSegmentRepository(session), MeteredLlmClient(llm_client, guard, pool),
         )
     else:
         result = build_structural_answer(

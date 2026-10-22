@@ -71,10 +71,6 @@ class OpenAiCompatibleClient:
             truncated=choice.get("finish_reason") == "length",
         )
 
-    # Transitional until every caller goes through MeteredLlmClient (Task 6).
-    def chat(self, messages: list[dict]) -> str:
-        return self.complete(messages).text
-
 
 def build_llm_client_from_env(
     environ: Mapping[str, str] = os.environ, *, max_output_tokens: int,

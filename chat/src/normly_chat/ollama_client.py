@@ -43,7 +43,3 @@ class OllamaClient:
             output_tokens=body.get("eval_count", self._max_output_tokens),
             truncated=body.get("done_reason") == "length",
         )
-
-    # Transitional until every caller goes through MeteredLlmClient (Task 6).
-    def chat(self, messages: list[dict]) -> str:
-        return self.complete(messages).text

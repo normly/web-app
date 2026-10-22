@@ -247,3 +247,48 @@ def test_an_answer_of_only_markers_is_a_fallback():
 
     assert result.is_fallback is True
     assert result.paragraphs == ["Dazu finde ich in den verfügbaren Quellen keine ausreichende Grundlage."]
+
+
+from normly_chat.metered_llm_client import LlmOutputTruncated
+
+
+def test_a_truncated_answer_falls_back_without_a_faithfulness_call():
+    segment = _FakeSegment(uuid.uuid4(), uuid.uuid4(), "Schutzbrillen sind beim Schweißen Pflicht.")
+
+    class _TruncatingLlm:
+        def __init__(self):
+            self.calls = 0
+
+        def chat(self, messages):
+            self.calls += 1
+            raise LlmOutputTruncated()
+
+    llm = _TruncatingLlm()
+    result = build_synthesis_answer(
+        "Welche Schutzausrüstung beim Schweißen?", "DE", "de", _FakeEmbeddingModel(),
+        _FakeSegmentRepo([segment]), llm,
+    )
+
+    assert result.is_fallback is True
+    assert llm.calls == 1
+
+
+def test_a_truncated_faithfulness_verdict_counts_as_not_faithful():
+    segment = _FakeSegment(uuid.uuid4(), uuid.uuid4(), "Schutzbrillen sind beim Schweißen Pflicht.")
+
+    class _SecondCallTruncates:
+        def __init__(self):
+            self.calls = 0
+
+        def chat(self, messages):
+            self.calls += 1
+            if self.calls == 1:
+                return "Beim Schweißen muss eine Schutzbrille getragen werden."
+            raise LlmOutputTruncated()
+
+    result = build_synthesis_answer(
+        "Welche Schutzausrüstung beim Schweißen?", "DE", "de", _FakeEmbeddingModel(),
+        _FakeSegmentRepo([segment]), _SecondCallTruncates(),
+    )
+
+    assert result.is_fallback is True

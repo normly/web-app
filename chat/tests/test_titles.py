@@ -55,3 +55,10 @@ def test_generate_title_returns_none_on_failure_or_empty_output():
 def test_generate_title_caps_an_overlong_answer():
     title = generate_title(_Llm(" ".join(["Wort"] * 30)), "Frage", "de")
     assert len(title.split()) == 8
+
+
+from normly_chat.metered_llm_client import LlmOutputTruncated
+
+
+def test_a_truncated_title_falls_back():
+    assert generate_title(_Llm(error=LlmOutputTruncated()), "Frage", "de") is None

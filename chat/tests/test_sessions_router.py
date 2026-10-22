@@ -4,6 +4,7 @@
 import uuid
 
 from normly_chat.accounts_client import ChatAccountIdentity
+from normly_chat.llm_result import LlmResult
 
 
 class _FakeAccountsClient:
@@ -244,17 +245,22 @@ class _LabelApiClient:
         }
 
 
+class _ExhaustedGuard:
+    def pool_available(self, pool):
+        return False
+
+
 class _TitleLlm:
     def __init__(self, response=None, error=None):
         self._response = response
         self._error = error
         self.calls = 0
 
-    def chat(self, messages):
+    def complete(self, messages):
         self.calls += 1
         if self._error:
             raise self._error
-        return self._response
+        return LlmResult(text=self._response, input_tokens=5, output_tokens=3, truncated=False)
 
 
 def test_messages_endpoint_returns_paragraphs_and_resolved_citations(client, db_session):
@@ -390,6 +396,28 @@ def test_title_endpoint_falls_back_without_storing_when_the_model_fails(client, 
     assert response.status_code == 200
     assert response.json() == {"title": "Kurze Frage"}
     assert chat_repo.get_session_by_token(chat_session.session_token).title is None
+
+
+def test_title_endpoint_skips_the_model_when_the_registered_pool_is_spent(client, db_session):
+    from normly_chat.dependencies import get_budget_guard
+
+    chat_repo, chat_session, identity = _owned_session(db_session, "title-pool@example.de")
+    chat_repo.create_message(
+        session_id=chat_session.id, role=ChatMessageRole.USER, content="Kurze Frage",
+        answer_type=None, created_at=datetime.now(timezone.utc),
+    )
+    llm = _TitleLlm("Nie benutzt")
+    app = _app_for(client, identity, llm_client=llm)
+    app.dependency_overrides[get_budget_guard] = lambda: _ExhaustedGuard()
+
+    with TestClient(app) as test_client:
+        response = test_client.post(
+            f"/v1/chat/sessions/{chat_session.id}/title", headers={"Authorization": "Bearer t"},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"title": "Kurze Frage"}
+    assert llm.calls == 0
 
 
 def test_title_endpoint_is_404_for_foreign_or_empty_sessions(client, db_session):
