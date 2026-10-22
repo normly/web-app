@@ -73,6 +73,22 @@ def test_openai_compatible_client_books_conservatively_when_usage_is_missing():
     assert result.output_tokens == 512
 
 
+def test_openai_compatible_client_books_conservatively_when_usage_fields_are_null():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={
+            "choices": [{"message": {"content": "Antwort"}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": None, "completion_tokens": None},
+        })
+
+    client = OpenAiCompatibleClient(
+        "https://llm.example/v1", "m", "t", max_output_tokens=512, transport=_transport(handler),
+    )
+    result = client.complete([{"role": "user", "content": "x" * 30}])
+
+    assert result.input_tokens == 10
+    assert result.output_tokens == 512
+
+
 def test_estimate_input_tokens_rounds_up_a_third_of_all_characters():
     assert estimate_input_tokens([
         {"role": "system", "content": "abcd"}, {"role": "user", "content": "ef"},
@@ -117,6 +133,20 @@ def test_ollama_client_flags_done_reason_length_as_truncated():
 
     client = OllamaClient("http://ollama:11434", "m", max_output_tokens=300, transport=_transport(handler))
     assert client.complete([{"role": "user", "content": "x"}]).truncated is True
+
+
+def test_ollama_client_books_conservatively_when_its_counters_are_null():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={
+            "message": {"content": "Antwort"}, "done_reason": "stop",
+            "prompt_eval_count": None, "eval_count": None,
+        })
+
+    client = OllamaClient("http://ollama:11434", "m", max_output_tokens=300, transport=_transport(handler))
+    result = client.complete([{"role": "user", "content": "x" * 30}])
+
+    assert result.input_tokens == 10
+    assert result.output_tokens == 300
 
 
 def test_openai_compatible_client_raises_on_http_error():

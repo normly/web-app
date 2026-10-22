@@ -18,7 +18,7 @@ from typing import Protocol
 
 import httpx
 
-from normly_chat.llm_result import LlmResult, estimate_input_tokens
+from normly_chat.llm_result import LlmResult, estimate_input_tokens, reported_tokens
 from normly_chat.ollama_client import OllamaClient
 
 PROVIDER_ENV_VAR = "NORMLY_LLM_PROVIDER"
@@ -62,12 +62,15 @@ class OpenAiCompatibleClient:
         body = response.json()
         choice = body["choices"][0]
         usage = body.get("usage") or {}
-        # Missing usage is booked conservatively: the full output cap plus an
-        # estimate of the prompt, so a silent provider can never undercount.
+        # Missing or null usage is booked conservatively: the full output cap
+        # plus an estimate of the prompt, so a silent provider can never
+        # undercount.
         return LlmResult(
             text=choice["message"]["content"],
-            input_tokens=usage.get("prompt_tokens", estimate_input_tokens(messages)),
-            output_tokens=usage.get("completion_tokens", self._max_output_tokens),
+            input_tokens=reported_tokens(
+                usage.get("prompt_tokens"), estimate_input_tokens(messages),
+            ),
+            output_tokens=reported_tokens(usage.get("completion_tokens"), self._max_output_tokens),
             truncated=choice.get("finish_reason") == "length",
         )
 

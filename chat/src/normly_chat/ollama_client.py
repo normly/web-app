@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import httpx
 
-from normly_chat.llm_result import LlmResult, estimate_input_tokens
+from normly_chat.llm_result import LlmResult, estimate_input_tokens, reported_tokens
 
 
 class OllamaClient:
@@ -39,7 +39,9 @@ class OllamaClient:
         body = response.json()
         return LlmResult(
             text=body["message"]["content"],
-            input_tokens=body.get("prompt_eval_count", estimate_input_tokens(messages)),
-            output_tokens=body.get("eval_count", self._max_output_tokens),
+            input_tokens=reported_tokens(
+                body.get("prompt_eval_count"), estimate_input_tokens(messages),
+            ),
+            output_tokens=reported_tokens(body.get("eval_count"), self._max_output_tokens),
             truncated=body.get("done_reason") == "length",
         )

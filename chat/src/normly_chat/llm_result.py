@@ -26,3 +26,10 @@ class LlmResult:
 def estimate_input_tokens(messages: list[dict]) -> int:
     characters = sum(len(message.get("content") or "") for message in messages)
     return math.ceil(characters / _CHARS_PER_TOKEN)
+
+
+def reported_tokens(value: object, fallback: int) -> int:
+    """A provider's token count, or the fallback when it is absent or null."""
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    return fallback
