@@ -75,7 +75,9 @@ than needed now) and checks in the frontend BFF (bypassable, not server-side).
   - `question_count(key, day)` — for the usage view.
   - `claim_alert(pool, period, threshold) -> bool` — insert with a unique
     constraint; true only for the caller that created the row.
-  - `delete_before(...)` — retention, run opportunistically.
+  - `delete_expired(...)` — retention, run by `cleanup-user-data` and
+    opportunistically on admission; the periods are named constants in
+    `core/src/normly_core/retention.py` (ADR-027).
 - **`BudgetGuard` (chat/)** — admission and booking, no SQL. Admission checks
   the pool's day and month totals against the budget, then records the
   question against the user's quota. Booking adds tokens after each call and
@@ -91,7 +93,8 @@ than needed now) and checks in the frontend BFF (bypassable, not server-side).
 - `llm_token_usage(pool, day, input_tokens, output_tokens)`, primary key
   `(pool, day)`. No personal data. Retention: 40 days.
 - `llm_question_count(key, day, count)`, primary key `(key, day)`. The key
-  embeds an account ID or an anon ID plus address. Retention: 2 days.
+  embeds an account ID, an anon ID plus address, or an address alone.
+  Retention: today and yesterday (UTC days).
 - `llm_budget_alert(pool, period, threshold, sent_at)`, unique
   `(pool, period, threshold)`; `period` is `YYYY-MM` or `YYYY-MM-DD`.
   Retention: 40 days.
@@ -112,15 +115,20 @@ All tables live in the encrypted PostgreSQL instance like every other table.
    2. Pool month total ≥ monthly budget → 429 `pool_monthly_exhausted`.
    3. Record the question for the user key; over the daily quota →
       429 `quota_exhausted`.
+   4. Anonymous only, if step 3 allowed it: record the question for the
+      address key as well; over three times the anonymous daily quota →
+      429 `quota_exhausted` (same reason and reset).
 5. Answer call, then booking. `finish_reason = length` → fallback text (the
    faithfulness call is skipped).
 6. Faithfulness call, then booking.
 
 Session titles (`POST /v1/chat/sessions/{id}/title`, registered users only)
-also call the model. Their tokens are booked to the `registered` pool but do
-not count against the user's quota. When the `registered` pool is exhausted
+call the model only when the session contains at least one AI answer
+(`answer_type = synthesis`), which the quota already limits. Their tokens are
+booked to the `registered` pool but do not count against the user's quota.
+For a chat without an AI answer, or when the `registered` pool is exhausted,
 the model is not called and the truncated-question fallback title is
-returned, as on any other title failure.
+returned without being stored, as on any other title failure.
 
 A question counts against the quota once admitted, even if a STACKIT call
 fails afterwards — no refunds, which keeps the counter simple.
@@ -128,9 +136,14 @@ fails afterwards — no refunds, which keeps the counter simple.
 If the database is unreachable during admission or booking, the request fails
 (fail-closed): no model call without counting.
 
-User keys: account ID for registered users; for anonymous users
-`<anon id>:<origin address>`, derived exactly as in
-`api/src/normly_api/rate_limit.py`. The frontend chat route
+User keys: `account:<id>` for registered users; for anonymous users
+`anon:<anon id>:<origin address>`, derived as in
+`api/src/normly_api/rate_limit.py`, plus the address key
+`anon-address:<origin address>`. The anon ID is a client cookie, so the
+address key bounds what rotating it gains; several callers behind one address
+(NAT) share its ceiling. The anon ID is accepted only as a UUID; an invalid
+or absent one is dropped (key `anon:<origin address>`), which also bounds the
+key length. The frontend chat route
 (`frontend/src/app/api/chat/route.ts`) does not forward
 `X-Normly-Anon-Id` and `X-Forwarded-For` to the chat service today; it must,
 using `frontend/src/lib/rate-limit-headers.ts`.
@@ -227,7 +240,7 @@ components in the style of the existing sections:
 - shadcn `Progress` (added via the shadcn CLI) labelled
   "KI-Antworten heute: 7 von 30" / "AI answers today: 7 of 30"
 - reset line: "Wird zurückgesetzt um 02:00 (in 5 Std.)" in local time
-- when the pool is exhausted, a notice: "KI-Antworten sind heute
+- when the pool is exhausted, a notice: "KI-Antworten sind derzeit
   ausgelastet, wieder ab 02:00. Suche und Normauskünfte (Gültigkeit,
   Nachfolger, Verweise) funktionieren weiterhin."
 - `Skeleton` while loading
@@ -237,7 +250,12 @@ notice.
 
 **Chat notice on 429:** a localized message chosen by `reason`, with the
 reset time. Anonymous users additionally get the hint to sign in
-(REQ-ACC-003). Wording follows the usage view ("KI-Antworten", "Suche und
+(REQ-ACC-003), for a spent quota and for a spent pool: "KI-Antworten sind
+derzeit ausgelastet, wieder ab 02:00. Mit Anmeldung kannst du sie weiter
+nutzen. Suche und Normauskünfte (Gültigkeit, Nachfolger, Verweise)
+funktionieren weiterhin." / "AI answers are currently at capacity, available
+again from 02:00. Sign in to keep using them. Search and norm information
+(validity, successors, references) keep working." Wording follows the usage view ("KI-Antworten", "Suche und
 Normauskünfte … funktionieren weiterhin"). English: "AI answers".
 
 ## Testing
