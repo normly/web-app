@@ -185,11 +185,34 @@ margin, priced at the model's output-token rate as an upper bound.
 | `NORMLY_CHAT_MAX_MESSAGE_CHARS` | Input limit for the user message | 2000 |
 | `NORMLY_CHAT_QUOTA_ANONYMOUS_DAILY` | AI answers per anonymous user per day | 10 |
 | `NORMLY_CHAT_QUOTA_REGISTERED_DAILY` | AI answers per registered user per day | 30 |
-| `NORMLY_LLM_BUDGET_ANONYMOUS_DAILY_TOKENS` | Anonymous pool, per day | 500000 |
-| `NORMLY_LLM_BUDGET_ANONYMOUS_MONTHLY_TOKENS` | Anonymous pool, per month | 10000000 |
-| `NORMLY_LLM_BUDGET_REGISTERED_DAILY_TOKENS` | Registered pool, per day | 2000000 |
-| `NORMLY_LLM_BUDGET_REGISTERED_MONTHLY_TOKENS` | Registered pool, per month | 40000000 |
+| `NORMLY_LLM_BUDGET_ANONYMOUS_DAILY_TOKENS` | Anonymous pool, per day | 1500000 |
+| `NORMLY_LLM_BUDGET_ANONYMOUS_MONTHLY_TOKENS` | Anonymous pool, per month | 20000000 |
+| `NORMLY_LLM_BUDGET_REGISTERED_DAILY_TOKENS` | Registered pool, per day | 3000000 |
+| `NORMLY_LLM_BUDGET_REGISTERED_MONTHLY_TOKENS` | Registered pool, per month | 50000000 |
 | `NORMLY_LLM_BUDGET_ALERT_RECIPIENTS` | Comma-separated alert addresses | empty (alerts logged only) |
+
+### Starting values (2026-10-22)
+
+The knowledge base in production is still empty, so the real model cannot be
+measured yet. The user set a ceiling of at most 50 EUR per month for both
+pools together.
+
+- Price assumption: 0.65 EUR per million tokens, applied to all tokens
+  (STACKIT's last published output price for most models, October 2025;
+  input was 0.45 EUR, so this over-estimates).
+- 50 EUR / 0.65 EUR is about 77 M tokens; minus about 10 % reserve for
+  in-flight overshoot and price deviation gives 70 M tokens per month, split
+  20 M anonymous and 50 M registered.
+- Rough cost per AI answer: 10,000-30,000 tokens (up to 5 retrieved sections
+  of 1,000-3,000 tokens each, two calls per answer). That is about 700-2,000
+  anonymous and 1,700-5,000 registered answers per month.
+- The daily caps limit one day to at most about 1/13 (anonymous) or 1/17
+  (registered) of the month.
+
+These are unmeasured starting values. Re-measure with
+`python -m normly_chat.measure_usage` once the knowledge-base dump is
+imported, and adjust via the environment variables on the VM (no release
+needed). Verify the price against the STACKIT price list.
 
 The defaults are starting points, not measured values. A measurement module
 (`python -m normly_chat.measure_usage`, runnable wherever the chat service's
@@ -197,8 +220,8 @@ environment is set — locally with a STACKIT key or in the chat container on
 the VM) measures the real STACKIT model with representative questions: input and output tokens per call and per synthesis answer. The
 output cap is set to twice the longest measured answer, and the token
 budgets are derived from the measured tokens per answer times the quotas.
-The measured values and the derivation are recorded in this spec before the
-defaults are finalized.
+The measured values and the derivation are recorded in this spec after the
+knowledge-base import.
 
 Recipient addresses are set on the VM, never in the repository.
 `MAINTAINERS.md` lists the Lead Maintainers by name only and stays that way.

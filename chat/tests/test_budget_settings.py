@@ -13,8 +13,8 @@ def test_defaults_apply_when_nothing_is_set():
     assert settings.max_message_chars == 2000
     assert settings.anonymous_daily_quota == 10
     assert settings.registered_daily_quota == 30
-    assert settings.pools["anonymous"] == PoolBudget(daily_tokens=500_000, monthly_tokens=10_000_000)
-    assert settings.pools["registered"] == PoolBudget(daily_tokens=2_000_000, monthly_tokens=40_000_000)
+    assert settings.pools["anonymous"] == PoolBudget(daily_tokens=1_500_000, monthly_tokens=20_000_000)
+    assert settings.pools["registered"] == PoolBudget(daily_tokens=3_000_000, monthly_tokens=50_000_000)
     assert settings.alert_recipients == ()
 
 

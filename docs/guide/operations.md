@@ -341,11 +341,13 @@ counted. All windows are UTC.
 | `NORMLY_CHAT_MAX_MESSAGE_CHARS` | Input limit for the user message | 2000 |
 | `NORMLY_CHAT_QUOTA_ANONYMOUS_DAILY` | AI answers per anonymous user per day | 10 |
 | `NORMLY_CHAT_QUOTA_REGISTERED_DAILY` | AI answers per registered user per day | 30 |
-| `NORMLY_LLM_BUDGET_ANONYMOUS_DAILY_TOKENS` | Anonymous pool, per day | 500000 |
-| `NORMLY_LLM_BUDGET_ANONYMOUS_MONTHLY_TOKENS` | Anonymous pool, per month | 10000000 |
-| `NORMLY_LLM_BUDGET_REGISTERED_DAILY_TOKENS` | Registered pool, per day | 2000000 |
-| `NORMLY_LLM_BUDGET_REGISTERED_MONTHLY_TOKENS` | Registered pool, per month | 40000000 |
+| `NORMLY_LLM_BUDGET_ANONYMOUS_DAILY_TOKENS` | Anonymous pool, per day | 1500000 |
+| `NORMLY_LLM_BUDGET_ANONYMOUS_MONTHLY_TOKENS` | Anonymous pool, per month | 20000000 |
+| `NORMLY_LLM_BUDGET_REGISTERED_DAILY_TOKENS` | Registered pool, per day | 3000000 |
+| `NORMLY_LLM_BUDGET_REGISTERED_MONTHLY_TOKENS` | Registered pool, per month | 50000000 |
 | `NORMLY_LLM_BUDGET_ALERT_RECIPIENTS` | Comma-separated alert addresses | empty (alerts logged only) |
+
+The budget defaults correspond to roughly 50 EUR per month at the assumed price of 0.65 EUR per million tokens.
 
 The defaults are starting points, not measured values. Invalid values fail
 the start of the chat service.

@@ -1554,7 +1554,8 @@ production. Merges by every Maintainer — unreviewed changes could reach
 
 **Decision:** normly bounds its own inference costs. Two cost pools
 (anonymous, registered) each have a daily and a monthly token budget,
-counted from the usage the model endpoint reports after each call. Every
+counted from the usage the model endpoint reports after each call. The
+starting budgets correspond to about 50 EUR per month in total. Every
 caller has a daily quota of AI answers (synthesis answers); graph answers
 are never counted. When a budget or quota is spent, the chat service answers
 429 with a reason and the reset time, and the Lead Maintainers get a mail at
@@ -1584,8 +1585,8 @@ flight, at most `concurrent requests × 2 calls × (input cap + output cap)`.
 Rotating the anon-ID cookie no longer yields a fresh quota, since the
 address counter bounds it; changing addresses still does, bounded by the
 pool budget. Callers behind one shared address (NAT) share its ceiling. The
-question counters (keys embed an
-account ID or an anon ID plus address) are kept two days in the database but
+question counters (keys embed an account ID, an anon ID plus address, or the
+address alone as `anon-address:<address>`) are kept two days in the database but
 are part of the daily user-data backup (`USER_TABLES`), so in backups they
 live as long as the backup retention (ADR-027).
 
