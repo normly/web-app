@@ -8,7 +8,9 @@ import uuid
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from sqlalchemy.orm import Session
 
-from normly_core.graph.domain import ChatMessage, ChatMessageCitation, ChatMessageRole
+from normly_core.graph.domain import (
+    ChatAnswerType, ChatMessage, ChatMessageCitation, ChatMessageRole,
+)
 from normly_core.graph.postgres.repositories import (
     PostgresChatRepository,
     PostgresSegmentRepository,
@@ -16,12 +18,14 @@ from normly_core.graph.postgres.repositories import (
 
 from normly_chat.accounts_client import AccountsClient
 from normly_chat.api_client import ApiClient
+from normly_chat.budget_guard import POOL_REGISTERED, BudgetGuard
 from normly_chat.citation_labels import CitationResolver
 from normly_chat.dependencies import (
-    get_accounts_client, get_api_client, get_llm_client, get_session,
+    get_accounts_client, get_api_client, get_budget_guard, get_llm_client, get_session,
 )
 from normly_chat.llm_client import LlmClient
 from normly_chat.markers import split_paragraphs
+from normly_chat.metered_llm_client import MeteredLlmClient
 from normly_chat.schemas import (
     ChatMessageResponse,
     ChatSessionMessagesResponse,
@@ -155,6 +159,7 @@ def create_session_title(
     session: Session = Depends(get_session),
     accounts_client: AccountsClient = Depends(get_accounts_client),
     llm_client: LlmClient = Depends(get_llm_client),
+    guard: BudgetGuard = Depends(get_budget_guard),
 ) -> ChatSessionTitleResponse:
     account_id = _require_account(authorization, accounts_client)
     chat_repo = PostgresChatRepository(session)
@@ -168,7 +173,19 @@ def create_session_title(
     if first_question is None:
         raise HTTPException(status_code=404, detail="chat session has no question yet")
 
-    title = generate_title(llm_client, first_question, chat_session.language)
+    # Titles cost tokens of the registered pool but no quota, so only a chat
+    # with an AI answer -- already limited by the quota -- gets a model title.
+    # Otherwise, and when the pool is spent, the fallback title is returned
+    # without a model call and without storing it, like any title failure.
+    has_ai_answer = any(
+        message.answer_type == ChatAnswerType.SYNTHESIS
+        for message in chat_repo.list_messages_for_session(chat_session.id)
+    )
+    if not has_ai_answer or not guard.pool_available(POOL_REGISTERED):
+        return ChatSessionTitleResponse(title=fallback_title(first_question))
+    title = generate_title(
+        MeteredLlmClient(llm_client, guard, POOL_REGISTERED), first_question, chat_session.language,
+    )
     if title is None:
         # Nothing stored: a later call may still get a model title.
         return ChatSessionTitleResponse(title=fallback_title(first_question))

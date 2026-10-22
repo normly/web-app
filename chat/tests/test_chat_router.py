@@ -328,3 +328,140 @@ def test_a_stored_answer_keeps_its_paragraph_index_and_returns_the_session_id(cl
     answer = chat_repo.list_messages_for_session(chat_session.id)[1]
     [citation] = chat_repo.citations_for_messages([answer.id])[answer.id]
     assert citation.paragraph_index == 0
+
+
+from datetime import datetime, timezone
+
+from normly_chat.budget_guard import BudgetExhausted
+from normly_chat.dependencies import get_budget_guard, get_embedding_model
+
+_ANON_ID = "0b6f3c1e-8d4a-4f2b-9c7e-5a1d2e3f4a5b"
+_SYNTHESIS_QUESTION = "Welche Schutzausrüstung ist beim Schweißen vorgeschrieben?"
+
+
+class _RecordingGuard:
+    """Admits everything and records who was admitted."""
+
+    def __init__(self):
+        self.admitted = []
+
+    def admit(self, *, pool, user_key, address_key=None):
+        self.admitted.append((pool, user_key, address_key))
+
+    def book(self, *, pool, result):
+        pass
+
+
+class _RefusingGuard:
+    def __init__(self, reason, anonymous=True):
+        self._error = BudgetExhausted(
+            reason, datetime(2099, 1, 1, tzinfo=timezone.utc), anonymous,
+        )
+
+    def admit(self, *, pool, user_key, address_key=None):
+        raise self._error
+
+
+class _NoMatchEmbedding:
+    def embed_query(self, text):
+        # A zero vector matches no segment in the empty test database, so
+        # synthesis falls back without a model call.
+        return [0.0] * 1024
+
+
+def test_an_oversized_message_is_rejected_before_anything_else(client):
+    response = client.post("/v1/chat", json={
+        "message": "x" * 2001, "jurisdiction": "DE", "language": "de",
+    })
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "message_too_long"}
+
+
+@pytest.mark.parametrize("reason", ["quota_exhausted", "pool_daily_exhausted", "pool_monthly_exhausted"])
+def test_an_exhausted_budget_answers_429_with_reason_and_reset(client, reason):
+    client.app.dependency_overrides[get_accounts_client] = lambda: _FixedAccountsClient(None)
+    client.app.dependency_overrides[get_budget_guard] = lambda: _RefusingGuard(reason)
+
+    response = client.post("/v1/chat", json={
+        "message": _SYNTHESIS_QUESTION, "jurisdiction": "DE", "language": "de",
+    })
+
+    assert response.status_code == 429
+    assert response.json() == {"detail": {
+        "reason": reason, "resets_at": "2099-01-01T00:00:00Z", "anonymous": True,
+    }}
+    assert int(response.headers["retry-after"]) > 0
+
+
+def test_a_structural_question_never_reaches_the_guard(client):
+    client.app.dependency_overrides[get_api_client] = lambda: _NoDocumentApiClient()
+    client.app.dependency_overrides[get_accounts_client] = lambda: _FixedAccountsClient(None)
+    client.app.dependency_overrides[get_budget_guard] = lambda: _RefusingGuard("pool_daily_exhausted")
+
+    response = client.post("/v1/chat", json={
+        "message": "Ist DIN EN ISO 9001 noch gültig?", "jurisdiction": "DE", "language": "de",
+    })
+
+    assert response.status_code == 200
+
+
+def test_an_anonymous_synthesis_question_is_admitted_to_the_anonymous_pool(client):
+    guard = _RecordingGuard()
+    client.app.dependency_overrides[get_accounts_client] = lambda: _FixedAccountsClient(None)
+    client.app.dependency_overrides[get_budget_guard] = lambda: guard
+    client.app.dependency_overrides[get_embedding_model] = lambda: _NoMatchEmbedding()
+
+    response = client.post(
+        "/v1/chat",
+        json={"message": _SYNTHESIS_QUESTION, "jurisdiction": "DE", "language": "de"},
+        headers={"X-Normly-Anon-Id": _ANON_ID, "X-Forwarded-For": "1.2.3.4"},
+    )
+
+    assert response.status_code == 200
+    assert guard.admitted == [
+        ("anonymous", f"anon:{_ANON_ID}:1.2.3.4", "anon-address:1.2.3.4"),
+    ]
+
+
+def test_a_registered_synthesis_question_is_admitted_to_the_registered_pool(client, db_session):
+    from normly_chat.accounts_client import ChatAccountIdentity
+    from normly_core.graph.postgres.repositories import PostgresAccountRepository
+
+    account = PostgresAccountRepository(db_session).create_account(
+        email="chat-registered-pool@example.de", password_hash=None,
+    )
+    identity = ChatAccountIdentity(account_id=account.id, email=account.email)
+    guard = _RecordingGuard()
+    client.app.dependency_overrides[get_accounts_client] = lambda: _FixedAccountsClient(identity)
+    client.app.dependency_overrides[get_budget_guard] = lambda: guard
+    client.app.dependency_overrides[get_embedding_model] = lambda: _NoMatchEmbedding()
+
+    response = client.post(
+        "/v1/chat",
+        json={"message": _SYNTHESIS_QUESTION, "jurisdiction": "DE", "language": "de"},
+        headers={"Authorization": "Bearer valid"},
+    )
+
+    assert response.status_code == 200
+    assert guard.admitted == [("registered", f"account:{identity.account_id}", None)]
+
+
+def test_the_client_fixture_commits_no_cost_cap_counters(client, migrated_engine):
+    import sqlalchemy as sa
+
+    client.app.dependency_overrides[get_accounts_client] = lambda: _FixedAccountsClient(None)
+    client.app.dependency_overrides[get_embedding_model] = lambda: _NoMatchEmbedding()
+
+    response = client.post(
+        "/v1/chat",
+        json={"message": _SYNTHESIS_QUESTION, "jurisdiction": "DE", "language": "de"},
+        headers={"X-Forwarded-For": "203.0.113.7"},
+    )
+
+    assert response.status_code == 200
+    with migrated_engine.connect() as connection:
+        committed = connection.execute(sa.text(
+            "SELECT count(*) FROM llm_question_count WHERE key LIKE '%203.0.113.7'"
+        )).scalar_one()
+    assert committed == 0

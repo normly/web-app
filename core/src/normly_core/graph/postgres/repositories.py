@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
 from normly_core.graph.domain import (
+    LlmPoolTotals,
     Account,
     AccountGoogleIdentity,
     AccountSession,
@@ -56,6 +57,9 @@ from normly_core.graph.domain import (
     WorkStructureEntry,
 )
 from normly_core.graph.postgres.orm import (
+    LlmBudgetAlertORM,
+    LlmQuestionCountORM,
+    LlmTokenUsageORM,
     AccountGoogleIdentityORM,
     AccountORM,
     AccountSessionORM,
@@ -2885,5 +2889,97 @@ class PostgresRateLimitRepository:
         # scheduled job.
         self._session.execute(
             sa.delete(RateLimitBucketORM).where(RateLimitBucketORM.window_start < cutoff)
+        )
+        self._session.flush()
+
+
+class PostgresLlmUsageRepository:
+    """Counters for the LLM cost caps. Flushes, never commits."""
+
+    def __init__(self, session: Session):
+        self._session = session
+
+    def add_tokens(
+        self, *, pool: str, day: date, input_tokens: int, output_tokens: int,
+    ) -> LlmPoolTotals:
+        stmt = (
+            pg_insert(LlmTokenUsageORM)
+            .values(pool=pool, day=day, input_tokens=input_tokens, output_tokens=output_tokens)
+            .on_conflict_do_update(
+                index_elements=["pool", "day"],
+                set_={
+                    "input_tokens": LlmTokenUsageORM.input_tokens + input_tokens,
+                    "output_tokens": LlmTokenUsageORM.output_tokens + output_tokens,
+                },
+            )
+        )
+        self._session.execute(stmt)
+        self._session.flush()
+        return self.pool_totals(pool=pool, day=day)
+
+    def pool_totals(self, *, pool: str, day: date) -> LlmPoolTotals:
+        rows = self._session.execute(
+            select(
+                LlmTokenUsageORM.day,
+                LlmTokenUsageORM.input_tokens + LlmTokenUsageORM.output_tokens,
+            ).where(
+                LlmTokenUsageORM.pool == pool,
+                LlmTokenUsageORM.day >= day.replace(day=1),
+                LlmTokenUsageORM.day <= day,
+            )
+        ).all()
+        return LlmPoolTotals(
+            day_tokens=sum(total for row_day, total in rows if row_day == day),
+            month_tokens=sum(total for _, total in rows),
+        )
+
+    def record_question(self, *, key: str, day: date, limit: int) -> tuple[int, bool]:
+        # Atomic under concurrent requests, like PostgresRateLimitRepository.
+        stmt = (
+            pg_insert(LlmQuestionCountORM)
+            .values(key=key, day=day, question_count=1)
+            .on_conflict_do_update(
+                index_elements=["key", "day"],
+                set_={"question_count": LlmQuestionCountORM.question_count + 1},
+            )
+            .returning(LlmQuestionCountORM.question_count)
+        )
+        count = self._session.execute(stmt).scalar_one()
+        self._session.flush()
+        return count, count <= limit
+
+    def question_count(self, *, key: str, day: date) -> int:
+        count = self._session.execute(
+            select(LlmQuestionCountORM.question_count).where(
+                LlmQuestionCountORM.key == key, LlmQuestionCountORM.day == day,
+            )
+        ).scalar_one_or_none()
+        return count or 0
+
+    def claim_alert(self, *, pool: str, period: str, threshold: int, now: datetime) -> bool:
+        # Exactly one caller gets the inserted row back; everyone else
+        # conflicts and sends nothing.
+        stmt = (
+            pg_insert(LlmBudgetAlertORM)
+            .values(pool=pool, period=period, threshold=threshold, sent_at=now)
+            .on_conflict_do_nothing()
+            .returning(LlmBudgetAlertORM.pool)
+        )
+        claimed = self._session.execute(stmt).first() is not None
+        self._session.flush()
+        return claimed
+
+    def delete_expired(self, *, question_before: date, usage_before: date) -> None:
+        self._session.execute(
+            sa.delete(LlmQuestionCountORM).where(LlmQuestionCountORM.day < question_before)
+        )
+        self._session.execute(
+            sa.delete(LlmTokenUsageORM).where(LlmTokenUsageORM.day < usage_before)
+        )
+        cutoff = datetime(
+            usage_before.year, usage_before.month, usage_before.day, tzinfo=timezone.utc,
+        )
+        self._session.execute(
+            sa.delete(LlmBudgetAlertORM).where(LlmBudgetAlertORM.sent_at < cutoff)
         )
         self._session.flush()

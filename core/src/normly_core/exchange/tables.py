@@ -49,6 +49,9 @@ USER_TABLES: tuple[str, ...] = (
     "chat_message",
     "chat_message_citation",
     "rate_limit_bucket",
+    "llm_token_usage",
+    "llm_question_count",
+    "llm_budget_alert",
 )
 
 PIPELINE_STATE_TABLES: tuple[str, ...] = ("identity_resolution_case",)

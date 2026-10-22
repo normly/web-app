@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from normly_core.pipeline.embeddings import MODEL_NAME as _EMBEDDING_MODEL_NAME
 
 from normly_chat.markers import number_context, parse_marked_answer
+from normly_chat.metered_llm_client import LlmOutputTruncated
 
 _FALLBACK_TEXT = {
     "de": "Dazu finde ich in den verfügbaren Quellen keine ausreichende Grundlage.",
@@ -77,13 +78,17 @@ _AFFIRMATIVE_ANSWERS = {"de": "ja"}
 
 
 def _is_faithful(answer_text: str, context: str, llm_client) -> bool:
-    check_response = llm_client.chat([
-        {
-            "role": "system",
-            "content": f"{_FAITHFULNESS_PROMPT['de']}\n\nKontext:\n{context}",
-        },
-        {"role": "user", "content": answer_text},
-    ])
+    try:
+        check_response = llm_client.chat([
+            {
+                "role": "system",
+                "content": f"{_FAITHFULNESS_PROMPT['de']}\n\nKontext:\n{context}",
+            },
+            {"role": "user", "content": answer_text},
+        ])
+    except LlmOutputTruncated:
+        # A verdict cut off at the cap is no verdict: fail closed.
+        return False
     first_word = check_response.strip().lower().split()[0] if check_response.strip() else ""
     return first_word.startswith(_AFFIRMATIVE_ANSWERS["de"])
 
@@ -106,7 +111,11 @@ def build_synthesis_answer(
         {"role": "system", "content": f"{_SYSTEM_PROMPT[language]}\n\nKontext:\n{numbered_context}"},
         {"role": "user", "content": message},
     ]
-    raw_answer = llm_client.chat(messages)
+    try:
+        raw_answer = llm_client.chat(messages)
+    except LlmOutputTruncated:
+        # A cut-off answer is never shown as if it were complete.
+        return _fallback(language, ollama_calls=1)
     ollama_calls = 1
 
     paragraphs = parse_marked_answer(raw_answer, len(segments))

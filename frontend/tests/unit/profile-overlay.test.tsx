@@ -86,4 +86,20 @@ describe("ProfileOverlay", () => {
       "aria-current",
     );
   });
+
+  it("loads the usage when the Nutzung nav item is clicked", async () => {
+    global.fetch = vi.fn().mockResolvedValue(new Response(
+        JSON.stringify({
+          used: 1, limit: 30, resets_at: "2099-01-01T00:00:00Z",
+          pool_exhausted: false, pool_resets_at: null,
+        }),
+        { status: 200 },
+      ));
+    renderOverlay(ACCOUNT);
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Name und Profilbild" })).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Nutzung" }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith("/api/account/usage"));
+  });
 });

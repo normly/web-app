@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 
 import pytest
+import sqlalchemy as sa
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
@@ -79,6 +80,23 @@ def db_session(migrated_engine):
     connection.close()
 
 
+class _AdmittingGuard:
+    """Admits every question and books nothing.
+
+    The real BudgetGuard commits its counters in sessions of its own,
+    outside the test transaction, so they would leak between tests.
+    """
+
+    def admit(self, *, pool, user_key, address_key=None):
+        pass
+
+    def book(self, *, pool, result):
+        pass
+
+    def pool_available(self, pool):
+        return True
+
+
 @pytest.fixture()
 def client(db_url, monkeypatch, db_session):
     monkeypatch.setenv("NORMLY_DATABASE_URL", db_url)
@@ -86,11 +104,13 @@ def client(db_url, monkeypatch, db_session):
     monkeypatch.setenv("NORMLY_ACCOUNTS_BASE_URL", "http://localhost:8002")
     monkeypatch.setenv("NORMLY_LLM_BASE_URL", "http://localhost:11434")
     monkeypatch.setenv("NORMLY_LLM_MODEL", "test-model")
-    from normly_chat.dependencies import get_session
+    from normly_chat.dependencies import get_budget_guard, get_session
     from normly_chat.main import create_app
 
     app = create_app()
     app.dependency_overrides[get_session] = lambda: db_session
+    # Tests that need a specific guard override this again.
+    app.dependency_overrides[get_budget_guard] = lambda: _AdmittingGuard()
 
     with TestClient(app) as test_client:
         yield test_client
@@ -127,7 +147,9 @@ def accounts_process(db_url):
 
 
 @pytest.fixture()
-def e2e_client(db_url, monkeypatch, db_session, api_process, accounts_process):
+def e2e_client(
+    db_url, monkeypatch, db_session, api_process, accounts_process, migrated_engine,
+):
     monkeypatch.setenv("NORMLY_DATABASE_URL", db_url)
     monkeypatch.setenv("NORMLY_API_BASE_URL", api_process)
     monkeypatch.setenv("NORMLY_ACCOUNTS_BASE_URL", accounts_process)
@@ -142,5 +164,13 @@ def e2e_client(db_url, monkeypatch, db_session, api_process, accounts_process):
     app = create_app()
     app.dependency_overrides[get_session] = lambda: db_session
 
-    with TestClient(app) as test_client:
-        yield test_client
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        # The real guard commits outside the test transaction. DELETE, not
+        # TRUNCATE: db_session's transaction is still open here, and a lock it
+        # holds on these tables would block TRUNCATE's exclusive lock.
+        with migrated_engine.begin() as connection:
+            for table in ("llm_token_usage", "llm_question_count", "llm_budget_alert"):
+                connection.execute(sa.text(f"DELETE FROM {table}"))

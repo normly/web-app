@@ -72,5 +72,23 @@ class DeletedSessionsResponse(BaseModel):
     deleted: int
 
 
+class BudgetExhaustedDetail(BaseModel):
+    reason: Literal["quota_exhausted", "pool_daily_exhausted", "pool_monthly_exhausted"]
+    resets_at: datetime
+    anonymous: bool
+
+
+class BudgetExhaustedResponse(BaseModel):
+    detail: BudgetExhaustedDetail
+
+
+class ChatUsageResponse(BaseModel):
+    used: int
+    limit: int
+    resets_at: datetime
+    pool_exhausted: bool
+    pool_resets_at: datetime | None
+
+
 class ErrorResponse(BaseModel):
     detail: str
