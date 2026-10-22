@@ -50,14 +50,20 @@ than needed now) and checks in the frontend BFF (bypassable, not server-side).
 
 ### Units
 
-- **`LlmClient` (chat/)** — `chat()` returns an `LlmResult(text,
-  input_tokens, output_tokens, finish_reason)` instead of a bare string.
-  Both clients send the output cap (`max_tokens` for OpenAI-compatible,
-  `options.num_predict` for Ollama) and map the provider's fields
-  (`usage.prompt_tokens`/`completion_tokens`, `finish_reason`; Ollama
-  `prompt_eval_count`/`eval_count`, `done_reason`). If usage is missing, the
-  client reports the output cap as output tokens and `ceil(chars / 3)` of the
-  prompt as input tokens — conservative.
+- **`LlmClient` (chat/)** — both providers expose `complete(messages) ->
+  LlmResult(text, input_tokens, output_tokens, truncated)` instead of
+  `chat() -> str`. They send the output cap (`max_tokens` for
+  OpenAI-compatible, `options.num_predict` for Ollama) and map the provider's
+  fields (`usage.prompt_tokens`/`completion_tokens`, `finish_reason ==
+  "length"`; Ollama `prompt_eval_count`/`eval_count`, `done_reason ==
+  "length"`). If usage is missing, the client reports the output cap as
+  output tokens and `ceil(chars / 3)` of the prompt as input tokens —
+  conservative.
+- **`MeteredLlmClient` (chat/)** — the only object synthesis and title code
+  receive. Its `chat(messages) -> str` calls `complete`, books the tokens to
+  the request's pool, and raises `LlmOutputTruncated` when the output was cut
+  off. Synthesis and titles keep their `chat() -> str` interface; a provider
+  can no longer be called without booking.
 - **`LlmUsageRepository` (core/, Postgres implementation)** — the only place
   that touches the new tables (ADR-006):
   - `add_tokens(pool, day, input_tokens, output_tokens)` — atomic UPSERT into
@@ -95,7 +101,9 @@ All tables live in the encrypted PostgreSQL instance like every other table.
 ### Request flow (`POST /v1/chat`)
 
 1. Validate the request. Messages longer than the input limit are rejected
-   with 400 and a clear message — never truncated silently.
+   with 400 `{"detail": "message_too_long"}` — never truncated silently. The
+   chat input field carries the same limit as `maxLength`, so the 400 is a
+   backstop; the frontend shows a localized notice if it happens.
 2. Classify the question as today. Structural → answer as today, no guard.
 3. Synthesis → pick the pool: `registered` with a valid account identity,
    otherwise `anonymous`.
@@ -107,6 +115,12 @@ All tables live in the encrypted PostgreSQL instance like every other table.
 5. Answer call, then booking. `finish_reason = length` → fallback text (the
    faithfulness call is skipped).
 6. Faithfulness call, then booking.
+
+Session titles (`POST /v1/chat/sessions/{id}/title`, registered users only)
+also call the model. Their tokens are booked to the `registered` pool but do
+not count against the user's quota. When the `registered` pool is exhausted
+the model is not called and the truncated-question fallback title is
+returned, as on any other title failure.
 
 A question counts against the quota once admitted, even if a STACKIT call
 fails afterwards — no refunds, which keeps the counter simple.
@@ -164,9 +178,10 @@ margin, priced at the model's output-token rate as an upper bound.
 | `NORMLY_LLM_BUDGET_REGISTERED_MONTHLY_TOKENS` | Registered pool, per month | 40000000 |
 | `NORMLY_LLM_BUDGET_ALERT_RECIPIENTS` | Comma-separated alert addresses | empty (alerts logged only) |
 
-The defaults are starting points, not measured values. The first
-implementation task measures the real STACKIT model with representative
-questions: input and output tokens per call and per synthesis answer. The
+The defaults are starting points, not measured values. A measurement module
+(`python -m normly_chat.measure_usage`, runnable wherever the chat service's
+environment is set — locally with a STACKIT key or in the chat container on
+the VM) measures the real STACKIT model with representative questions: input and output tokens per call and per synthesis answer. The
 output cap is set to twice the longest measured answer, and the token
 budgets are derived from the measured tokens per answer times the quotas.
 The measured values and the derivation are recorded in this spec before the
@@ -250,7 +265,9 @@ Normauskünfte … funktionieren weiterhin"). English: "AI answers".
   REQ-SEC-004.
 - `docs/guide/operations.md`: the new environment variables, alert
   recipients, how to read the counters.
-- `docs/reference/chat.md`: the 429 body and the usage endpoint.
+- OpenAPI of the chat service: the 429 response on `POST /v1/chat` and the
+  usage endpoint (`docs/reference/chat.md` is generated from the code).
+- `.env.example`: the new variables, commented, with their defaults.
 - Issue #40: remove the chat-history item and item 6.
 
 ## Out of scope
