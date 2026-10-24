@@ -77,6 +77,28 @@ describe("auth Route Handlers", () => {
     });
     const response = await magicLinkRequest(request);
     expect(response.status).toBe(200);
+    const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(JSON.parse(init.body)).toEqual({ email: "a@example.de", locale: "de" });
+  });
+
+  it("magic-link request forwards the locale cookie", async () => {
+    vi.stubEnv("NORMLY_API_BASE_URL", "http://api.internal");
+    vi.stubEnv("NORMLY_ACCOUNTS_BASE_URL", "http://accounts.internal");
+    vi.stubEnv("NORMLY_CHAT_BASE_URL", "http://chat.internal");
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ status: "if_the_account_exists_an_email_was_sent" }), {
+        status: 200,
+      }),
+    );
+
+    const request = new NextRequest("http://localhost/api/auth/magic-link/request", {
+      method: "POST",
+      body: JSON.stringify({ email: "a@example.de" }),
+      headers: { "content-type": "application/json", cookie: "normly_locale=en" },
+    });
+    await magicLinkRequest(request);
+    const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(JSON.parse(init.body)).toEqual({ email: "a@example.de", locale: "en" });
   });
 
   it("session check returns null-account for a missing cookie without calling the backend", async () => {

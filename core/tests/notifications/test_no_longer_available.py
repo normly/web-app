@@ -168,7 +168,7 @@ def test_email_preference_sends_mail_with_the_new_subject(db_session):
     assert summary.notifications_created == 1
     assert summary.emails_sent == 1
     assert len(sender.sent) == 1
-    assert sender.sent[0]["subject"] == "Ein beobachtetes Regelwerk ist nicht mehr verfügbar"
+    assert sender.sent[0]["subject"].startswith("Nicht mehr verfügbar: ")
     assert sender.sent[0]["to"] == account.email
     (notification,) = _notifications(db_session, account)
     assert notification.emailed_at is not None

@@ -4,8 +4,11 @@
 
 import io
 
+import sqlalchemy as sa
+
 from PIL import Image
 
+from normly_core.graph.postgres.orm import AccountORM
 from normly_core.graph.postgres.repositories import (
     PostgresAccountRepository,
     PostgresAccountSessionRepository,
@@ -242,3 +245,30 @@ def test_update_profile_rejects_an_invalid_notification_preference(client):
     )
     assert response.status_code == 400
     assert "notification_preference" in response.json()["detail"]
+
+
+def test_update_profile_sets_the_locale(client):
+    _, headers = _register_and_authorize(client)
+
+    response = client.patch("/v1/accounts/profile", json={"locale": "en"}, headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["locale"] == "en"
+
+
+def test_update_profile_rejects_an_unsupported_locale(client):
+    _, headers = _register_and_authorize(client)
+    response = client.patch("/v1/accounts/profile", json={"locale": "fr"}, headers=headers)
+    assert response.status_code == 400
+
+
+def test_account_with_unknown_language_is_reported_as_german(client, db_session):
+    _, headers = _register_and_authorize(client)
+    db_session.execute(sa.update(AccountORM).values(locale=None))
+
+    response = client.patch(
+        "/v1/accounts/profile", json={"first_name": "Jamie"}, headers=headers
+    )
+
+    assert response.status_code == 200
+    assert response.json()["locale"] == "de"

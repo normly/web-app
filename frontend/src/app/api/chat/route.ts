@@ -3,13 +3,18 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getBackendUrls } from "@/lib/backend-urls";
+import { rateLimitHeaders } from "@/lib/rate-limit-headers";
 import { applySessionCookies, clearChatSessionCookie, readSessionCookies } from "@/lib/session-cookies";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const payload = await request.json();
   const { chatSessionToken, accountSessionToken } = readSessionCookies(request);
 
-  const headers: Record<string, string> = { "content-type": "application/json" };
+  // The anonymous caller key for chat/'s quota, the same headers api/ gets.
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    ...rateLimitHeaders(request),
+  };
   if (accountSessionToken) {
     headers.Authorization = `Bearer ${accountSessionToken}`;
   }

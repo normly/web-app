@@ -13,6 +13,7 @@ dependencies = [
     "docling>=2.123,<3.0",
     "pyarrow>=17,<20",
     "cryptography>=43,<46",
+    "jinja2>=3.1,<4.0",
     # torch/torchvision are only needed transitively (sentence-transformers,
     # docling), but are listed here so the uv workspace's index source for
     # them applies: [tool.uv.sources] only binds direct requirements. Upstream

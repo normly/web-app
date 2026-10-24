@@ -1,16 +1,22 @@
 # Maintainers
 
-Responsibilities by area. Pull requests need approval from the person
-responsible for the respective area.
+Responsibilities by area. Only Lead Maintainers merge; Maintainers review
+and approve requirements in their area. Details in
+[CONTRIBUTING.md](CONTRIBUTING.md) and [GOVERNANCE.md](GOVERNANCE.md).
+
+## Lead Maintainers
+
+- Jan Wokittel ([@Sn4kez](https://github.com/Sn4kez))
+- Tobias Haarhoff ([@TobiasHaarhoff](https://github.com/TobiasHaarhoff))
+
+## Areas
 
 | Area | Responsible |
 |---|---|
-| Overall project, technical lead | *(to be added)* |
-| Core and API | *(to be added)* |
-| Reference graph and data model | *(to be added)* |
-| Processing chain and sources | *(to be added)* |
-| Infrastructure and shipping | *(to be added)* |
+| Core and API | Tobias Haarhoff |
+| Reference graph and data model | Tobias Haarhoff |
+| Processing chain and sources | Jan Wokittel |
+| Infrastructure and shipping | Jan Wokittel |
 
-Admission to this group is by the existing maintainers after a sustained
-contribution over a longer period. Details in
-[GOVERNANCE.md](GOVERNANCE.md).
+Admission as a Maintainer is by the Lead Maintainers after a sustained
+contribution over a longer period.

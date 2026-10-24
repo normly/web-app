@@ -33,7 +33,7 @@ publicly.
 
 ## Reporting violations
 
-Report to **conduct@normly.ai**. Reports are handled confidentially.
+Report to **mail@normly.ai**. Reports are handled confidentially.
 
 We acknowledge receipt within 3 business days, investigate the matter, and
 hear both sides. Depending on severity, consequences range from a

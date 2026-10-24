@@ -206,3 +206,4 @@ Split into chapters so that readers can read selectively instead of the whole do
 | [`REQ-ACC-002`](03-requirements.md#req-acc-002-content-limitation-of-anonymous-access) | Content limitation of anonymous access | 3.16 |
 | [`REQ-ACC-003`](03-requirements.md#req-acc-003-quota-for-anonymous-use) | Quota for anonymous use | 3.16 |
 | [`REQ-ACC-004`](03-requirements.md#req-acc-004-functions-requiring-an-account) | Functions requiring an account | 3.16 |
+| [`REQ-ACC-005`](03-requirements.md#req-acc-005-cost-budget-for-language-model-use) | Cost budget for language-model use | 3.16 |

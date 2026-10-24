@@ -26,6 +26,9 @@ from normly_core.graph.postgres.orm import (
     ChatMessageCitationORM,
     ChatMessageORM,
     ChatSessionORM,
+    LlmBudgetAlertORM,
+    LlmQuestionCountORM,
+    LlmTokenUsageORM,
     NotificationORM,
     NotifiedEdgeORM,
     NotifiedRetirementORM,
@@ -42,6 +45,7 @@ from normly_core.graph.postgres.repositories import (
     PostgresDeliveryRepository,
     PostgresDocumentRepository,
     PostgresEdgeRepository,
+    PostgresLlmUsageRepository,
     PostgresNotificationRepository,
     PostgresNotifiedEdgeRepository,
     PostgresNotifiedRetirementRepository,
@@ -49,7 +53,8 @@ from normly_core.graph.postgres.repositories import (
     PostgresSourceRepository,
     PostgresWorkRepository,
 )
-from normly_core.pipeline.cli import main
+from normly_core.notifications.email import NullEmailSender
+from normly_core.pipeline.cli import _cleanup_user_data, main
 
 NOW = datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
 EPS = timedelta(seconds=1)
@@ -405,6 +410,37 @@ def test_delete_chat_sessions_for_account(db_session):
 
     assert set(db_session.execute(sa.select(ChatSessionORM.id)).scalars()) == {other.id}
     assert _log(db_session) == {("chat_session", a.id), ("chat_session", b.id)}
+
+
+# --- cost-cap counters ------------------------------------------------------
+
+def test_cleanup_removes_expired_cost_cap_counters(db_session):
+    repo = PostgresLlmUsageRepository(db_session)
+    today = NOW.date()
+    question_cutoff = today - retention.LLM_QUESTION_COUNT_RETENTION
+    usage_cutoff = today - retention.LLM_USAGE_RETENTION
+    for day in (question_cutoff - timedelta(days=1), question_cutoff, today):
+        repo.record_question(key="anon-address:1.2.3.4", day=day, limit=10)
+    for day in (usage_cutoff - timedelta(days=1), usage_cutoff):
+        repo.add_tokens(pool="anonymous", day=day, input_tokens=1, output_tokens=0)
+    for threshold, day in ((50, usage_cutoff - timedelta(days=1)), (80, usage_cutoff)):
+        repo.claim_alert(
+            pool="anonymous", period="2026-08", threshold=threshold,
+            now=datetime(day.year, day.month, day.day, tzinfo=timezone.utc),
+        )
+
+    for _ in range(2):  # idempotent
+        _cleanup_user_data(db_session, NOW, NullEmailSender())
+
+        assert set(db_session.execute(sa.select(LlmQuestionCountORM.day)).scalars()) == {
+            question_cutoff, today,
+        }
+        assert db_session.execute(sa.select(LlmTokenUsageORM.day)).scalars().all() == [
+            usage_cutoff,
+        ]
+        assert db_session.execute(
+            sa.select(LlmBudgetAlertORM.threshold)
+        ).scalars().all() == [80]
 
 
 # --- CLI --------------------------------------------------------------------

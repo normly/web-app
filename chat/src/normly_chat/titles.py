@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import httpx
 
+from normly_chat.metered_llm_client import LlmOutputTruncated
+
 _FALLBACK_MAX_CHARS = 60
 _MAX_TITLE_WORDS = 8
 _QUOTES = "\"'„“”‚‘’«»"
@@ -44,7 +46,7 @@ def generate_title(llm_client, question: str, language: str) -> str | None:
             {"role": "system", "content": prompt},
             {"role": "user", "content": question},
         ])
-    except (httpx.HTTPError, KeyError, IndexError, ValueError):
+    except (httpx.HTTPError, KeyError, IndexError, ValueError, LlmOutputTruncated):
         # The title is a convenience: a failed model call must not fail the
         # request, the caller falls back to the truncated question.
         return None

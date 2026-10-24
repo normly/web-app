@@ -40,7 +40,7 @@ A factual statement of origin remains permissible:
 ## Requests
 
 For anything that does not clearly fall under "Allowed without asking":
-**trademark@normly.ai**
+**mail@normly.ai**
 
 We are generous with good-faith use. Better to ask before you put effort into
 something that we have to object to afterwards.

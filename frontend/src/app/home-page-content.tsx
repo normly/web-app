@@ -14,6 +14,7 @@ import * as React from "react";
 import { MessageList } from "@/components/chat/message-list";
 import { ChatInput } from "@/components/chat/chat-input";
 import { ChatShell } from "@/components/chat/chat-shell";
+import { chatErrorNotice } from "@/lib/chat-error-notice";
 import { useTranslation } from "@/lib/i18n/provider";
 import { useJurisdiction } from "@/lib/jurisdiction/provider";
 import {
@@ -136,8 +137,9 @@ export function HomePageContent() {
       });
       const viewUnchanged = viewGeneration.current === generation;
       if (!response.ok) {
+        const notice = await chatErrorNotice(response, t, locale);
         if (viewUnchanged) {
-          setMessages((prev) => [...prev, { role: "assistant", content: t("chat.errorAnswer") }]);
+          setMessages((prev) => [...prev, { role: "assistant", content: notice }]);
         }
         return;
       }

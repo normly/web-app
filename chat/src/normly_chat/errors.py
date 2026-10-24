@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import math
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -12,6 +14,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
+from normly_chat.budget_guard import BudgetExhausted
 from normly_chat.schemas import ErrorResponse
 
 COMMON_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
@@ -39,6 +42,19 @@ def register_exception_handlers(app: FastAPI) -> None:
         locations = sorted({_describe_location(error) for error in exc.errors()})
         detail = "invalid or missing parameter: " + ", ".join(locations)
         return JSONResponse(status_code=400, content={"detail": detail})
+
+    @app.exception_handler(BudgetExhausted)
+    async def _budget_exhausted_as_429(request: Request, exc: BudgetExhausted) -> JSONResponse:
+        seconds = math.ceil((exc.resets_at - datetime.now(timezone.utc)).total_seconds())
+        return JSONResponse(
+            status_code=429,
+            content={"detail": {
+                "reason": exc.reason,
+                "resets_at": exc.resets_at.isoformat().replace("+00:00", "Z"),
+                "anonymous": exc.anonymous,
+            }},
+            headers={"Retry-After": str(max(1, seconds))},
+        )
 
     # Only genuinely infrastructure-level failures become 503. A programming
     # error (a KeyError, a None dereference) must NOT be dressed up as

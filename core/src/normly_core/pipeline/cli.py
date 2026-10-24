@@ -20,6 +20,7 @@ from normly_core.graph.postgres.repositories import (
     PostgresAccountTokenRepository,
     PostgresChatRepository,
     PostgresDeletionLogRepository,
+    PostgresLlmUsageRepository,
     PostgresNotificationRepository,
     PostgresSourceRepository,
 )
@@ -110,6 +111,13 @@ def _cleanup_user_data(session: Session, now: datetime, email_sender: EmailSende
     read = notifications.delete_read_before(now - retention.READ_NOTIFICATION_MAX_AGE)
     unread = notifications.delete_unread_before(now - retention.UNREAD_NOTIFICATION_MAX_AGE)
     anonymous_chats = PostgresChatRepository(session).delete_anonymous_chat_sessions()
+    # Also run opportunistically by chat/'s BudgetGuard; this keeps them
+    # bounded on days without AI answers.
+    today = now.astimezone(timezone.utc).date()
+    PostgresLlmUsageRepository(session).delete_expired(
+        question_before=today - retention.LLM_QUESTION_COUNT_RETENTION,
+        usage_before=today - retention.LLM_USAGE_RETENTION,
+    )
     # Last: this run's own entries are far newer than the cutoff.
     log = PostgresDeletionLogRepository(session).delete_older_than(
         now - retention.DELETION_LOG_MAX_AGE

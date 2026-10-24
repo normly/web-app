@@ -11,44 +11,66 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
 from normly_core.graph.domain import (
+    LlmPoolTotals,
     Account,
+    AccountGoogleIdentityRepository,
     AccountGoogleIdentity,
+    AccountRepository,
+    AccountSessionRepository,
     AccountSession,
+    AccountTokenRepository,
     AccountToken,
     AccountTokenPurpose,
     ChatAnswerType,
+    ChatRepository,
     ChatMessage,
     ChatMessageCitation,
     ChatMessageRole,
     ChatSession,
     ContradictoryWorkMergeError,
+    DeliveryRepository,
     Delivery,
+    DocumentEmbeddingRepository,
     Document,
     DocumentDesignation,
     DocumentEmbedding,
+    DocumentRepository,
     DocumentTitle,
+    EdgeRepository,
     Edge,
     EdgeType,
     Embedding,
+    EmbeddingRepository,
     EmailAlreadyRegisteredError,
     GoogleIdentityAlreadyLinkedError,
     IdentityResolutionCase,
     IdentityResolutionCaseType,
     IdentityResolutionStatus,
+    IdentityResolutionRepository,
+    NotifiedEdgeRepository,
     LegalBasisCategory,
     Layer,
     Notification,
+    NotificationRepository,
     NotificationPreference,
     NotificationTriggerType,
     OAuthState,
+    OAuthStateRepository,
+    RateLimitRepository,
     RightsClassification,
+    RightsNotificationBaselineRepository,
     RightsNotificationBaseline,
+    RightsRepository,
     Segment,
+    SegmentRepository,
     Source,
+    SourceRepository,
     TdmOptOutResult,
     Watchlist,
+    WatchlistRepository,
     WithdrawnDeliveryError,
     Work,
+    WorkRepository,
     WorkCreatedVia,
     WorkSearchHit,
     WorkStatus,
@@ -56,6 +78,9 @@ from normly_core.graph.domain import (
     WorkStructureEntry,
 )
 from normly_core.graph.postgres.orm import (
+    LlmBudgetAlertORM,
+    LlmQuestionCountORM,
+    LlmTokenUsageORM,
     AccountGoogleIdentityORM,
     AccountORM,
     AccountSessionORM,
@@ -174,7 +199,7 @@ def _source_to_domain(orm: SourceORM) -> Source:
     )
 
 
-class PostgresSourceRepository:
+class PostgresSourceRepository(SourceRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -242,7 +267,7 @@ def _delivery_to_domain(orm: DeliveryORM) -> Delivery:
     )
 
 
-class PostgresDeliveryRepository:
+class PostgresDeliveryRepository(DeliveryRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -392,7 +417,7 @@ def _title_to_domain(orm: DocumentTitleORM) -> DocumentTitle:
     )
 
 
-class PostgresDocumentRepository:
+class PostgresDocumentRepository(DocumentRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -905,7 +930,7 @@ def _work_to_domain(orm: WorkORM) -> Work:
     )
 
 
-class PostgresWorkRepository:
+class PostgresWorkRepository(WorkRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -931,7 +956,7 @@ def _watchlist_to_domain(orm: WatchlistORM) -> Watchlist:
     )
 
 
-class PostgresWatchlistRepository:
+class PostgresWatchlistRepository(WatchlistRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -994,7 +1019,7 @@ def _notification_to_domain(orm: NotificationORM) -> Notification:
     )
 
 
-class PostgresNotificationRepository:
+class PostgresNotificationRepository(NotificationRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -1097,7 +1122,7 @@ def _rights_to_domain(orm: RightsClassificationORM) -> RightsClassification:
     )
 
 
-class PostgresRightsRepository:
+class PostgresRightsRepository(RightsRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -1172,7 +1197,7 @@ def _rights_notification_baseline_to_domain(
     )
 
 
-class PostgresRightsNotificationBaselineRepository:
+class PostgresRightsNotificationBaselineRepository(RightsNotificationBaselineRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -1217,7 +1242,7 @@ class PostgresRightsNotificationBaselineRepository:
         return _rights_notification_baseline_to_domain(merged)
 
 
-class PostgresNotifiedEdgeRepository:
+class PostgresNotifiedEdgeRepository(NotifiedEdgeRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -1329,7 +1354,7 @@ def _work_structure_entry_to_domain(
     )
 
 
-class PostgresEdgeRepository:
+class PostgresEdgeRepository(EdgeRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -1721,7 +1746,7 @@ def _segment_to_domain(orm: SegmentORM) -> Segment:
 _CHAT_SEGMENT_MAX_COSINE_DISTANCE = 0.75
 
 
-class PostgresSegmentRepository:
+class PostgresSegmentRepository(SegmentRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -1889,7 +1914,7 @@ def _embedding_to_domain(orm: EmbeddingORM) -> Embedding:
     )
 
 
-class PostgresEmbeddingRepository:
+class PostgresEmbeddingRepository(EmbeddingRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -1966,7 +1991,7 @@ def _document_embedding_to_domain(orm: DocumentEmbeddingORM) -> DocumentEmbeddin
     )
 
 
-class PostgresDocumentEmbeddingRepository:
+class PostgresDocumentEmbeddingRepository(DocumentEmbeddingRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -2025,7 +2050,7 @@ def _identity_case_to_domain(orm: IdentityResolutionCaseORM) -> IdentityResoluti
     )
 
 
-class PostgresIdentityResolutionRepository:
+class PostgresIdentityResolutionRepository(IdentityResolutionRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -2138,15 +2163,18 @@ def _account_to_domain(orm: AccountORM) -> Account:
         first_name=orm.first_name, last_name=orm.last_name,
         avatar_image=orm.avatar_image, avatar_content_type=orm.avatar_content_type,
         notification_preference=orm.notification_preference,
+        locale=orm.locale,
     )
 
 
-class PostgresAccountRepository:
+class PostgresAccountRepository(AccountRepository):
     def __init__(self, session: Session):
         self._session = session
 
-    def create_account(self, *, email: str, password_hash: str | None) -> Account:
-        orm = AccountORM(id=uuid.uuid4(), email=email, password_hash=password_hash)
+    def create_account(
+        self, *, email: str, password_hash: str | None, locale: str = "de"
+    ) -> Account:
+        orm = AccountORM(id=uuid.uuid4(), email=email, password_hash=password_hash, locale=locale)
         try:
             with self._session.begin_nested():
                 self._session.add(orm)
@@ -2213,6 +2241,11 @@ class PostgresAccountRepository:
             sa.update(AccountORM)
             .where(AccountORM.id == account_id)
             .values(notification_preference=preference)
+        )
+
+    def update_locale(self, account_id: uuid.UUID, *, locale: str) -> None:
+        self._session.execute(
+            sa.update(AccountORM).where(AccountORM.id == account_id).values(locale=locale)
         )
 
     def set_avatar(
@@ -2363,15 +2396,18 @@ class PostgresAccountRepository:
             self.delete_account(account_id)
         return len(ids)
 
-    def abandoned_registrations_to_warn(self, cutoff: datetime) -> list[tuple[uuid.UUID, str]]:
+    def abandoned_registrations_to_warn(
+        self, cutoff: datetime
+    ) -> list[tuple[uuid.UUID, str, str | None]]:
         ids = self._abandoned_registration_ids(cutoff, unwarned=True)
         if not ids:
             return []
         rows = self._session.execute(
-            select(AccountORM.id, AccountORM.email).where(AccountORM.id.in_(ids))
+            select(AccountORM.id, AccountORM.email, AccountORM.locale)
+            .where(AccountORM.id.in_(ids))
             .order_by(AccountORM.created_at)
         ).all()
-        return [(row.id, row.email) for row in rows]
+        return [(row.id, row.email, row.locale) for row in rows]
 
     def mark_deletion_warned(self, account_id: uuid.UUID, warned_at: datetime) -> None:
         self._session.execute(
@@ -2408,7 +2444,7 @@ class PostgresDeletionLogRepository:
         return result.rowcount
 
 
-class PostgresAccountGoogleIdentityRepository:
+class PostgresAccountGoogleIdentityRepository(AccountGoogleIdentityRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -2476,7 +2512,7 @@ def _account_session_to_domain(orm: AccountSessionORM) -> AccountSession:
     )
 
 
-class PostgresAccountSessionRepository:
+class PostgresAccountSessionRepository(AccountSessionRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -2557,7 +2593,7 @@ def _account_token_to_domain(orm: AccountTokenORM) -> AccountToken:
     )
 
 
-class PostgresAccountTokenRepository:
+class PostgresAccountTokenRepository(AccountTokenRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -2618,7 +2654,7 @@ def _oauth_state_to_domain(orm: OAuthStateORM) -> OAuthState:
     )
 
 
-class PostgresOAuthStateRepository:
+class PostgresOAuthStateRepository(OAuthStateRepository):
     def __init__(self, session: Session) -> None:
         self._session = session
 
@@ -2681,7 +2717,7 @@ def _chat_message_citation_to_domain(orm: ChatMessageCitationORM) -> ChatMessage
     )
 
 
-class PostgresChatRepository:
+class PostgresChatRepository(ChatRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -2844,7 +2880,7 @@ class PostgresChatRepository:
         return self._delete_sessions_where(ChatSessionORM.account_id == account_id)
 
 
-class PostgresRateLimitRepository:
+class PostgresRateLimitRepository(RateLimitRepository):
     def __init__(self, session: Session):
         self._session = session
 
@@ -2874,5 +2910,97 @@ class PostgresRateLimitRepository:
         # scheduled job.
         self._session.execute(
             sa.delete(RateLimitBucketORM).where(RateLimitBucketORM.window_start < cutoff)
+        )
+        self._session.flush()
+
+
+class PostgresLlmUsageRepository:
+    """Counters for the LLM cost caps. Flushes, never commits."""
+
+    def __init__(self, session: Session):
+        self._session = session
+
+    def add_tokens(
+        self, *, pool: str, day: date, input_tokens: int, output_tokens: int,
+    ) -> LlmPoolTotals:
+        stmt = (
+            pg_insert(LlmTokenUsageORM)
+            .values(pool=pool, day=day, input_tokens=input_tokens, output_tokens=output_tokens)
+            .on_conflict_do_update(
+                index_elements=["pool", "day"],
+                set_={
+                    "input_tokens": LlmTokenUsageORM.input_tokens + input_tokens,
+                    "output_tokens": LlmTokenUsageORM.output_tokens + output_tokens,
+                },
+            )
+        )
+        self._session.execute(stmt)
+        self._session.flush()
+        return self.pool_totals(pool=pool, day=day)
+
+    def pool_totals(self, *, pool: str, day: date) -> LlmPoolTotals:
+        rows = self._session.execute(
+            select(
+                LlmTokenUsageORM.day,
+                LlmTokenUsageORM.input_tokens + LlmTokenUsageORM.output_tokens,
+            ).where(
+                LlmTokenUsageORM.pool == pool,
+                LlmTokenUsageORM.day >= day.replace(day=1),
+                LlmTokenUsageORM.day <= day,
+            )
+        ).all()
+        return LlmPoolTotals(
+            day_tokens=sum(total for row_day, total in rows if row_day == day),
+            month_tokens=sum(total for _, total in rows),
+        )
+
+    def record_question(self, *, key: str, day: date, limit: int) -> tuple[int, bool]:
+        # Atomic under concurrent requests, like PostgresRateLimitRepository.
+        stmt = (
+            pg_insert(LlmQuestionCountORM)
+            .values(key=key, day=day, question_count=1)
+            .on_conflict_do_update(
+                index_elements=["key", "day"],
+                set_={"question_count": LlmQuestionCountORM.question_count + 1},
+            )
+            .returning(LlmQuestionCountORM.question_count)
+        )
+        count = self._session.execute(stmt).scalar_one()
+        self._session.flush()
+        return count, count <= limit
+
+    def question_count(self, *, key: str, day: date) -> int:
+        count = self._session.execute(
+            select(LlmQuestionCountORM.question_count).where(
+                LlmQuestionCountORM.key == key, LlmQuestionCountORM.day == day,
+            )
+        ).scalar_one_or_none()
+        return count or 0
+
+    def claim_alert(self, *, pool: str, period: str, threshold: int, now: datetime) -> bool:
+        # Exactly one caller gets the inserted row back; everyone else
+        # conflicts and sends nothing.
+        stmt = (
+            pg_insert(LlmBudgetAlertORM)
+            .values(pool=pool, period=period, threshold=threshold, sent_at=now)
+            .on_conflict_do_nothing()
+            .returning(LlmBudgetAlertORM.pool)
+        )
+        claimed = self._session.execute(stmt).first() is not None
+        self._session.flush()
+        return claimed
+
+    def delete_expired(self, *, question_before: date, usage_before: date) -> None:
+        self._session.execute(
+            sa.delete(LlmQuestionCountORM).where(LlmQuestionCountORM.day < question_before)
+        )
+        self._session.execute(
+            sa.delete(LlmTokenUsageORM).where(LlmTokenUsageORM.day < usage_before)
+        )
+        cutoff = datetime(
+            usage_before.year, usage_before.month, usage_before.day, tzinfo=timezone.utc,
+        )
+        self._session.execute(
+            sa.delete(LlmBudgetAlertORM).where(LlmBudgetAlertORM.sent_at < cutoff)
         )
         self._session.flush()

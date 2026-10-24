@@ -1095,6 +1095,7 @@ class Account:
     avatar_image: bytes | None
     avatar_content_type: str | None
     notification_preference: NotificationPreference
+    locale: str | None  # None = unknown (account created before it was stored)
 
 
 @dataclass(frozen=True)
@@ -1151,7 +1152,9 @@ class AccountRepository(Protocol):
     account. It raises `EmailAlreadyRegisteredError` instead.
     """
 
-    def create_account(self, *, email: str, password_hash: str | None) -> Account: ...
+    def create_account(
+        self, *, email: str, password_hash: str | None, locale: str = "de"
+    ) -> Account: ...
 
     def get_account_by_id(self, account_id: uuid.UUID) -> Account | None: ...
 
@@ -1170,6 +1173,8 @@ class AccountRepository(Protocol):
     def update_notification_preference(
         self, account_id: uuid.UUID, *, preference: NotificationPreference
     ) -> None: ...
+
+    def update_locale(self, account_id: uuid.UUID, *, locale: str) -> None: ...
 
     def set_avatar(
         self, account_id: uuid.UUID, *, avatar_image: bytes, avatar_content_type: str
@@ -1195,8 +1200,10 @@ class AccountRepository(Protocol):
         """Clears the warning of accounts that are no longer abandoned."""
         ...
 
-    def abandoned_registrations_to_warn(self, cutoff: datetime) -> list[tuple[uuid.UUID, str]]:
-        """(account id, email) of abandoned registrations not yet warned."""
+    def abandoned_registrations_to_warn(
+        self, cutoff: datetime
+    ) -> list[tuple[uuid.UUID, str, str | None]]:
+        """(account id, email, locale or None if unknown) of abandoned registrations not yet warned."""
         ...
 
     def mark_deletion_warned(self, account_id: uuid.UUID, warned_at: datetime) -> None: ...
@@ -1419,3 +1426,29 @@ class KnowledgeExchangeRepository(Protocol):
         ...
 
     def imported_version(self) -> ImportRecord | None: ...
+
+
+@dataclass(frozen=True)
+class LlmPoolTotals:
+    """Tokens (input + output) a cost pool has used today and this month."""
+
+    day_tokens: int
+    month_tokens: int
+
+
+class LlmUsageRepository(Protocol):
+    """Counters for the LLM cost caps (issue #40). Never commits."""
+
+    def add_tokens(
+        self, *, pool: str, day: date, input_tokens: int, output_tokens: int,
+    ) -> LlmPoolTotals: ...
+
+    def pool_totals(self, *, pool: str, day: date) -> LlmPoolTotals: ...
+
+    def record_question(self, *, key: str, day: date, limit: int) -> tuple[int, bool]: ...
+
+    def question_count(self, *, key: str, day: date) -> int: ...
+
+    def claim_alert(self, *, pool: str, period: str, threshold: int, now: datetime) -> bool: ...
+
+    def delete_expired(self, *, question_before: date, usage_before: date) -> None: ...

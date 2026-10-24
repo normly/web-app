@@ -19,6 +19,7 @@ from normly_core.graph.postgres.repositories import (
 
 from normly_accounts.dependencies import get_email_sender, get_session
 from normly_core.notifications.email import EmailSender
+from normly_core.notifications.mail import format_duration, render_email
 from normly_accounts.routers.login import _create_session_response
 from normly_accounts.schemas import MagicLinkConfirmRequest, MagicLinkRequestRequest, \
     SessionResponse
@@ -61,10 +62,14 @@ def request_magic_link(
             email=payload.email, purpose=AccountTokenPurpose.MAGIC_LINK,
             token=generate_token(), created_at=now, expires_at=expires_at,
         )
+    mail = render_email(
+        "magic_link", payload.locale, base_url=_public_base_url(),
+        action_url=f"{_public_base_url()}/magic-link?token={token.token}",
+        validity=format_duration(_MAGIC_LINK_TOKEN_LIFETIME, payload.locale),
+    )
     try:
         email_sender.send(
-            to=payload.email, subject="Dein Login-Link",
-            body=f"Zum Anmelden: {_public_base_url()}/magic-link?token={token.token}",
+            to=payload.email, subject=mail.subject, body=mail.text, html=mail.html,
         )
     except Exception:
         # Per the design spec: the magic-link request itself must not fail
@@ -99,7 +104,8 @@ def confirm_magic_link(
         account = account_repo.get_account_by_email(consumed.email)
         if account is None:
             account = account_repo.create_account(
-                email=consumed.email, password_hash=None
+                email=consumed.email, password_hash=None,
+                locale=payload.locale,
             )
 
     if account.email_verified_at is None:

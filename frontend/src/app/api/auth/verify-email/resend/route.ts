@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getBackendUrls } from "@/lib/backend-urls";
+import { localeFromRequest } from "@/lib/i18n/resolve-locale";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const payload = await request.json();
@@ -11,7 +12,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     `${getBackendUrls().accounts}/v1/accounts/verify-email/resend`,
     {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, locale: localeFromRequest(request) }),
     },
   );
   const body = await backendResponse.json();

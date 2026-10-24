@@ -19,6 +19,7 @@ from normly_core.graph.postgres.repositories import (
 
 from normly_accounts.dependencies import get_email_sender, get_session
 from normly_core.notifications.email import EmailSender
+from normly_core.notifications.mail import format_duration, render_email
 from normly_accounts.schemas import PasswordResetConfirmRequest, PasswordResetRequestRequest
 from normly_accounts.security import generate_token, hash_password
 
@@ -45,13 +46,14 @@ def request_password_reset(
             account_id=account.id, purpose=AccountTokenPurpose.PASSWORD_RESET,
             token=generate_token(), created_at=now, expires_at=now + _RESET_TOKEN_LIFETIME,
         )
+        mail = render_email(
+            "password_reset", payload.locale, base_url=_public_base_url(),
+            action_url=f"{_public_base_url()}/reset-password?token={token.token}",
+            validity=format_duration(_RESET_TOKEN_LIFETIME, payload.locale),
+        )
         try:
             email_sender.send(
-                to=account.email, subject="Passwort zurücksetzen",
-                body=(
-                    f"Zum Zurücksetzen deines Passworts: "
-                    f"{_public_base_url()}/reset-password?token={token.token}"
-                ),
+                to=account.email, subject=mail.subject, body=mail.text, html=mail.html,
             )
         except Exception:
             # Per the design spec: the reset-request call itself must not
