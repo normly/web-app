@@ -16,7 +16,7 @@ established English equivalent.
   EN ISO 9001 and BS EN ISO 9001 are the same Work; national adoptions and
   translations are relationships and attributes, respectively, not separate
   Works. See
-  the "Identifiers" section in `CLAUDE.md`.
+  the [Identifiers section in `AGENTS.md`](https://github.com/normly/web-app/blob/develop/AGENTS.md#identifiers).
 
 **Trägerorganisation**
 : Holds the brand, open data, and source code; responsible for the free

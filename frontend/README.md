@@ -1,8 +1,8 @@
 # normly frontend
 
 Next.js App Router shell and chat UI (`standalone` output, installable PWA).
-For the full design rationale see
-`docs/superpowers/specs/2026-08-21-frontend-shell-and-chat-design.md`.
+For the frontend's place in the system and its service boundaries, see the
+[architecture overview](../docs/guide/architecture.md).
 
 ## Environment variables
 

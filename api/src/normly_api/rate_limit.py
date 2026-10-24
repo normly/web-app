@@ -34,7 +34,7 @@ _BUCKET_RETENTION = timedelta(minutes=10)
 
 
 def _client_origin_address(request: Request) -> str:
-    # Trusts X-Forwarded-For from the immediate reverse proxy, per CLAUDE.md's
+    # Trusts X-Forwarded-For from the immediate reverse proxy, per AGENTS.md's
     # "behind any reverse proxy" deployment assumption -- this is only
     # safe because the proxy is the sole path to this service; a caller
     # reaching api/ directly could otherwise spoof this header. Falls back to

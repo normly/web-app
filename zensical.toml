@@ -8,6 +8,8 @@ nav = [
   { "Home" = "index.md" },
   { "Guide" = [
     "guide/getting-started.md",
+    "guide/developer-onboarding.md",
+    "guide/architecture.md",
     "guide/self-hosting.md",
     "guide/releasing.md",
     "guide/operations.md",

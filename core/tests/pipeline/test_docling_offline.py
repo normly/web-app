@@ -24,7 +24,7 @@ _ARTIFACTS_PATH_ENV = "NORMLY_DOCLING_ARTIFACTS_PATH"
         "/opt/models/docling) to run this test -- it proves extraction "
         "needs no network access once models are pre-fetched, matching the "
         "production deployment requirement (no runtime access to external "
-        "model sources, CLAUDE.md's STACKIT-only constraint)."
+        "model sources, AGENTS.md's offline-model constraint)."
     ),
 )
 def test_extraction_makes_no_network_connection_when_models_are_pre_fetched():
