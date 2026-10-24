@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 normly contributors
+name: Data error
+description: A wrong reference, an outdated validity status, a missing supersession.
+labels: ["bug"]
+body:
+  - type: input
+    id: document
+    attributes:
+      label: Affected norm or standard
+      placeholder: DIN EN ISO 9001:2015
+    validations:
+      required: true
+  - type: textarea
+    id: wrong
+    attributes:
+      label: What is wrong
+    validations:
+      required: true
+  - type: textarea
+    id: correct
+    attributes:
+      label: What is correct
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Source
+      description: Where the correct information can be checked — official gazette, publisher page, legal text. Do not paste copyrighted full texts.
+    validations:
+      required: true

@@ -5,12 +5,17 @@
   },
   "chat": {
     "sendButton": "Send",
+    "quotaExhausted": "You have used all your AI answers for today. Available again from {time}.",
+    "quotaExhaustedAnonymous": "You have used all AI answers available without signing in today. Sign in to get more, or try again from {time}.",
+    "poolExhausted": "AI answers are currently at capacity, available again from {time}. Search and norm information (validity, successors, references) keep working.",
+    "poolExhaustedAnonymous": "AI answers are currently at capacity, available again from {time}. Sign in to keep using them. Search and norm information (validity, successors, references) keep working.",
+    "messageTooLong": "Your question is too long. Please shorten it to at most {max} characters.",
     "inputPlaceholder": "Ask a question…",
     "loading": "Loading answer…",
-    "citationSource": "Source",
     "copyButtonLabel": "Copy response",
     "copiedLabel": "Copied",
-    "aiDisclaimer": "normly uses AI and can make mistakes. Please check its responses."
+    "aiDisclaimer": "normly uses AI and can make mistakes. Please check its responses.",
+    "errorAnswer": "The answer could not be created right now. Please try again."
   },
   "auth": {
     "loginTab": "Log in",
@@ -123,7 +128,10 @@
     "mayExportFree": "Free export permitted",
     "addToWatchlist": "Add to watchlist",
     "removeFromWatchlist": "Remove from watchlist",
-    "watchlistToggleError": "The action could not be completed. Please try again."
+    "watchlistToggleError": "The action could not be completed. Please try again.",
+    "textHeading": "Text",
+    "textNotShown": "The text of this document cannot be shown here.",
+    "textOriginalSource": "Open the original source"
   },
   "account": {
     "pageTitle": "Account",
@@ -162,6 +170,11 @@
     "revokeSessionButton": "End session",
     "sessionsLoadError": "Sessions could not be loaded. Please try again.",
     "sessionRevokeError": "The session could not be ended. Please try again.",
+    "usageTitle": "Usage",
+    "usageDescription": "How many AI answers you can still get today.",
+    "usageAiAnswersToday": "AI answers today: {used} of {limit}",
+    "usageResetsAt": "Resets at {time} ({relative})",
+    "usageLoadError": "Usage could not be loaded.",
     "exportTitle": "Export data",
     "exportDescription": "Download your account details and full chat history as a file.",
     "exportButton": "Download export",

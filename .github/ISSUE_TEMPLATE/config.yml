@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 normly contributors
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/normly/web-app/blob/main/SECURITY.md
+    about: Please do not report vulnerabilities as an issue — follow SECURITY.md.

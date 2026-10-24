@@ -93,7 +93,8 @@ def export_account_data(
     exported_sessions = [
         ExportChatSession(
             id=chat_session.id, jurisdiction=chat_session.jurisdiction,
-            language=chat_session.language, created_at=chat_session.created_at,
+            language=chat_session.language, title=chat_session.title,
+            created_at=chat_session.created_at,
             messages=[
                 ExportChatMessage(
                     role=m.role.value, content=m.content,
@@ -103,6 +104,7 @@ def export_account_data(
                         ExportCitation(
                             document=_document_ref(cited_documents[c.document_id]),
                             segment_id=c.segment_id,
+                            paragraph_index=c.paragraph_index,
                         )
                         for c in citations_by_message.get(m.id, [])
                     ],

@@ -3,8 +3,8 @@
 // Copyright (C) 2026 normly contributors
 
 // App-shell caching only -- no push-event handler. Real Web Push delivery
-// depends on Google FCM / Apple APNs (see the design spec's "Entschieden
-// mit dem Auftraggeber" Punkt 5), deliberately out of scope. A future
+// depends on Google FCM / Apple APNs (see the design spec's "Decided
+// with the owner" item 5), deliberately out of scope. A future
 // push handler would live in this same file without needing a rewrite.
 //
 // Plain JavaScript, not TypeScript: this file is served as-is from

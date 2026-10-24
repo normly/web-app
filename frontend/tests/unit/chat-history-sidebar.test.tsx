@@ -124,9 +124,8 @@ describe("ChatHistorySidebar", () => {
     expect(within(findGroupContaining("Vor 7 Tagen")).getByText(sevenDaysAgoText)).toBeInTheDocument();
     expect(within(findGroupContaining("Älter")).getByText(eightDaysAgoText)).toBeInTheDocument();
 
-    // History items are genuinely non-interactive -- no click-to-resume,
-    // ever (see Global Constraints) -- so there must be no <a> anywhere
-    // in the sidebar.
+    // Sessions open through buttons, never links, so the session token
+    // cannot end up in an href.
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
     // The raw session_token must never leak into the rendered DOM: only
     // the formatted created_at timestamp is shown, never the credential
@@ -155,8 +154,8 @@ describe("ChatHistorySidebar", () => {
   // always the first entry (identical new Date() values made this flaky).
   const baseTime = Date.now();
   const twoSessions = [
-    { id: "s-1", session_token: "tok-one", jurisdiction: "DE", language: "de", created_at: new Date(baseTime).toISOString() },
-    { id: "s-2", session_token: "tok-two", jurisdiction: "DE", language: "de", created_at: new Date(baseTime - 60_000).toISOString() },
+    { id: "s-1", jurisdiction: "DE", language: "de", created_at: new Date(baseTime).toISOString() },
+    { id: "s-2", jurisdiction: "DE", language: "de", created_at: new Date(baseTime - 60_000).toISOString() },
   ];
 
   function mockFetch(deleteResponse: () => Response) {
@@ -233,5 +232,58 @@ describe("ChatHistorySidebar", () => {
     renderSidebar();
     await screen.findByText("Noch keine Chats vorhanden.");
     expect(screen.queryByRole("button", { name: "Alle Verläufe löschen" })).not.toBeInTheDocument();
+  });
+
+  it("shows the title when there is one and opens the session on click", async () => {
+    const onOpenSession = vi.fn();
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          { id: "s1", jurisdiction: "DE", language: "de", title: "Schutzbrillen", created_at: new Date().toISOString() },
+        ]),
+        { status: 200 },
+      ),
+    );
+    render(
+      <LocaleProvider initialLocale="de">
+        <SidebarProvider>
+          <ChatHistorySidebar onNewChat={vi.fn()} onOpenSession={onOpenSession} activeSessionId="s1" />
+        </SidebarProvider>
+      </LocaleProvider>,
+    );
+
+    const button = await screen.findByRole("button", { name: "Schutzbrillen" });
+    expect(button).toHaveAttribute("aria-current", "true");
+    fireEvent.click(button);
+    expect(onOpenSession).toHaveBeenCalledWith("s1");
+  });
+
+  it("reports the deleted session id", async () => {
+    const onSessionsDeleted = vi.fn();
+    global.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (init?.method === "DELETE") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify([
+            { id: "s1", jurisdiction: "DE", language: "de", title: "Eins", created_at: new Date().toISOString() },
+          ]),
+          { status: 200 },
+        ),
+      );
+    });
+    render(
+      <LocaleProvider initialLocale="de">
+        <SidebarProvider>
+          <ChatHistorySidebar onNewChat={vi.fn()} onSessionsDeleted={onSessionsDeleted} />
+        </SidebarProvider>
+      </LocaleProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Verlauf löschen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Endgültig löschen" }));
+
+    await waitFor(() => expect(onSessionsDeleted).toHaveBeenCalledWith("s1"));
   });
 });

@@ -7,6 +7,9 @@ from dataclasses import dataclass, field
 
 from normly_core.pipeline.embeddings import MODEL_NAME as _EMBEDDING_MODEL_NAME
 
+from normly_chat.markers import number_context, parse_marked_answer
+from normly_chat.metered_llm_client import LlmOutputTruncated
+
 _FALLBACK_TEXT = {
     "de": "Dazu finde ich in den verfügbaren Quellen keine ausreichende Grundlage.",
     "en": "I don't find sufficient grounding in the available sources for that.",
@@ -17,15 +20,20 @@ _VERBATIM_OVERLAP_WORDS = 15
 
 @dataclass(frozen=True)
 class SynthesisAnswer:
-    text: str
+    paragraphs: list[str]
     citations: list[dict] = field(default_factory=list)
     is_fallback: bool = False
     ollama_calls: int = 0
 
+    @property
+    def text(self) -> str:
+        return "\n\n".join(self.paragraphs)
+
 
 def _fallback(language: str, ollama_calls: int = 0) -> SynthesisAnswer:
     return SynthesisAnswer(
-        text=_FALLBACK_TEXT[language], citations=[], is_fallback=True, ollama_calls=ollama_calls,
+        paragraphs=[_FALLBACK_TEXT[language]], citations=[], is_fallback=True,
+        ollama_calls=ollama_calls,
     )
 
 
@@ -43,12 +51,16 @@ def _has_verbatim_overlap(answer: str, context: str) -> bool:
 
 _SYSTEM_PROMPT = {
     "de": (
-        "Du beantwortest Fragen ausschließlich auf Grundlage des folgenden Kontexts. "
-        "Paraphrasiere, gib den Kontext nicht wortwörtlich wieder. Antworte auf Deutsch."
+        "Du beantwortest Fragen ausschließlich auf Grundlage der folgenden nummerierten "
+        "Kontextabschnitte. Paraphrasiere, gib den Kontext nicht wortwörtlich wieder. "
+        "Antworte auf Deutsch. Trenne Absätze durch eine Leerzeile und belege jeden Absatz "
+        "mit den Nummern der Abschnitte, auf die er sich stützt, zum Beispiel [1] oder [2][3]."
     ),
     "en": (
-        "You answer questions using only the following context. "
-        "Paraphrase, do not reproduce the context verbatim. Answer in English."
+        "You answer questions using only the following numbered context passages. "
+        "Paraphrase, do not reproduce the context verbatim. Answer in English. "
+        "Separate paragraphs with a blank line and back every paragraph with the numbers "
+        "of the passages it relies on, for example [1] or [2][3]."
     ),
 }
 
@@ -66,13 +78,17 @@ _AFFIRMATIVE_ANSWERS = {"de": "ja"}
 
 
 def _is_faithful(answer_text: str, context: str, llm_client) -> bool:
-    check_response = llm_client.chat([
-        {
-            "role": "system",
-            "content": f"{_FAITHFULNESS_PROMPT['de']}\n\nKontext:\n{context}",
-        },
-        {"role": "user", "content": answer_text},
-    ])
+    try:
+        check_response = llm_client.chat([
+            {
+                "role": "system",
+                "content": f"{_FAITHFULNESS_PROMPT['de']}\n\nKontext:\n{context}",
+            },
+            {"role": "user", "content": answer_text},
+        ])
+    except LlmOutputTruncated:
+        # A verdict cut off at the cap is no verdict: fail closed.
+        return False
     first_word = check_response.strip().lower().split()[0] if check_response.strip() else ""
     return first_word.startswith(_AFFIRMATIVE_ANSWERS["de"])
 
@@ -87,13 +103,25 @@ def build_synthesis_answer(
     if not segments:
         return _fallback(language)
 
+    # The checks compare against the plain passages; only the model sees the
+    # numbers it needs to set markers.
     context = "\n\n".join(segment.text for segment in segments)
+    numbered_context = number_context([segment.text for segment in segments])
     messages = [
-        {"role": "system", "content": f"{_SYSTEM_PROMPT[language]}\n\nKontext:\n{context}"},
+        {"role": "system", "content": f"{_SYSTEM_PROMPT[language]}\n\nKontext:\n{numbered_context}"},
         {"role": "user", "content": message},
     ]
-    answer_text = llm_client.chat(messages)
+    try:
+        raw_answer = llm_client.chat(messages)
+    except LlmOutputTruncated:
+        # A cut-off answer is never shown as if it were complete.
+        return _fallback(language, ollama_calls=1)
     ollama_calls = 1
+
+    paragraphs = parse_marked_answer(raw_answer, len(segments))
+    if not paragraphs:
+        return _fallback(language, ollama_calls=ollama_calls)
+    answer_text = "\n\n".join(paragraph.text for paragraph in paragraphs)
 
     if _has_verbatim_overlap(answer_text, context):
         return _fallback(language, ollama_calls=ollama_calls)
@@ -103,7 +131,24 @@ def build_synthesis_answer(
         return _fallback(language, ollama_calls=ollama_calls)
     ollama_calls += 1
 
-    citations = [
-        {"document_id": segment.document_id, "segment_id": segment.id} for segment in segments
-    ]
-    return SynthesisAnswer(text=answer_text, citations=citations, ollama_calls=ollama_calls)
+    if any(paragraph.sources for paragraph in paragraphs):
+        citations = [
+            {
+                "document_id": segments[source].document_id,
+                "segment_id": segments[source].id,
+                "paragraph_index": index,
+            }
+            for index, paragraph in enumerate(paragraphs)
+            for source in paragraph.sources
+        ]
+    else:
+        # No usable marker at all: the answer still never stands without a
+        # source, so every passage it was built from backs the whole answer.
+        citations = [
+            {"document_id": segment.document_id, "segment_id": segment.id, "paragraph_index": None}
+            for segment in segments
+        ]
+    return SynthesisAnswer(
+        paragraphs=[paragraph.text for paragraph in paragraphs],
+        citations=citations, ollama_calls=ollama_calls,
+    )

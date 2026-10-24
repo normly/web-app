@@ -355,7 +355,7 @@ class RateLimitRepository(Protocol):
     A generic, jurisdiction-independent request counter used to enforce
     REQ-ACC-003's anonymous quota. Not part of the graph model, but kept in
     the same repository layer as everything else that touches the database,
-    per CLAUDE.md's "Datenbankzugriff nur über die Repository-Schicht".
+    per CLAUDE.md's "Database access only through the repository layer".
     """
 
     def record_and_check(
@@ -554,6 +554,18 @@ class SegmentRepository(Protocol):
     def list_segments_for_jurisdiction(
         self, document_id: uuid.UUID, jurisdiction: str
     ) -> list[Segment]: ...
+
+    def list_citable_segments_for_jurisdiction(
+        self, document_id: uuid.UUID, jurisdiction: str
+    ) -> list[Segment]:
+        """Segments whose text may be shown to a reader (may_cite_passages)."""
+        ...
+
+    def list_segment_headings_for_jurisdiction(
+        self, segment_ids: list[uuid.UUID], jurisdiction: str
+    ) -> dict[uuid.UUID, str | None]:
+        """Headings of the visible segments among segment_ids; others are absent."""
+        ...
 
     def find_similar_segments_for_jurisdiction(
         self, query_vector: list[float], jurisdiction: str, model_name: str, limit: int = 5,
@@ -956,6 +968,7 @@ class ChatSession:
     jurisdiction: str
     language: str
     created_at: datetime
+    title: str | None = None
 
 
 @dataclass(frozen=True)
@@ -974,6 +987,7 @@ class ChatMessageCitation:
     message_id: uuid.UUID
     document_id: uuid.UUID
     segment_id: uuid.UUID | None
+    paragraph_index: int | None = None
 
 
 class ChatRepository(Protocol):
@@ -993,6 +1007,20 @@ class ChatRepository(Protocol):
     ) -> ChatSession: ...
 
     def get_session_by_token(self, session_token: str) -> ChatSession | None: ...
+
+    def get_session_for_account(
+        self, session_id: uuid.UUID, account_id: uuid.UUID
+    ) -> ChatSession | None:
+        """The session only if it belongs to account_id; None for unknown and foreign ids alike."""
+        ...
+
+    def set_session_title(self, session_id: uuid.UUID, title: str) -> None: ...
+
+    def first_user_messages_for_sessions(
+        self, session_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, str]:
+        """The earliest user message per session; sessions without one are absent."""
+        ...
 
     def list_sessions_for_account(self, account_id: uuid.UUID) -> list[ChatSession]: ...
 
@@ -1022,7 +1050,7 @@ class ChatRepository(Protocol):
 
     def add_citation(
         self, *, message_id: uuid.UUID, document_id: uuid.UUID,
-        segment_id: uuid.UUID | None,
+        segment_id: uuid.UUID | None, paragraph_index: int | None = None,
     ) -> ChatMessageCitation: ...
 
     def citations_for_messages(
@@ -1067,6 +1095,7 @@ class Account:
     avatar_image: bytes | None
     avatar_content_type: str | None
     notification_preference: NotificationPreference
+    locale: str | None  # None = unknown (account created before it was stored)
 
 
 @dataclass(frozen=True)
@@ -1123,7 +1152,9 @@ class AccountRepository(Protocol):
     account. It raises `EmailAlreadyRegisteredError` instead.
     """
 
-    def create_account(self, *, email: str, password_hash: str | None) -> Account: ...
+    def create_account(
+        self, *, email: str, password_hash: str | None, locale: str = "de"
+    ) -> Account: ...
 
     def get_account_by_id(self, account_id: uuid.UUID) -> Account | None: ...
 
@@ -1142,6 +1173,8 @@ class AccountRepository(Protocol):
     def update_notification_preference(
         self, account_id: uuid.UUID, *, preference: NotificationPreference
     ) -> None: ...
+
+    def update_locale(self, account_id: uuid.UUID, *, locale: str) -> None: ...
 
     def set_avatar(
         self, account_id: uuid.UUID, *, avatar_image: bytes, avatar_content_type: str
@@ -1167,8 +1200,10 @@ class AccountRepository(Protocol):
         """Clears the warning of accounts that are no longer abandoned."""
         ...
 
-    def abandoned_registrations_to_warn(self, cutoff: datetime) -> list[tuple[uuid.UUID, str]]:
-        """(account id, email) of abandoned registrations not yet warned."""
+    def abandoned_registrations_to_warn(
+        self, cutoff: datetime
+    ) -> list[tuple[uuid.UUID, str, str | None]]:
+        """(account id, email, locale or None if unknown) of abandoned registrations not yet warned."""
         ...
 
     def mark_deletion_warned(self, account_id: uuid.UUID, warned_at: datetime) -> None: ...
@@ -1391,3 +1426,29 @@ class KnowledgeExchangeRepository(Protocol):
         ...
 
     def imported_version(self) -> ImportRecord | None: ...
+
+
+@dataclass(frozen=True)
+class LlmPoolTotals:
+    """Tokens (input + output) a cost pool has used today and this month."""
+
+    day_tokens: int
+    month_tokens: int
+
+
+class LlmUsageRepository(Protocol):
+    """Counters for the LLM cost caps (issue #40). Never commits."""
+
+    def add_tokens(
+        self, *, pool: str, day: date, input_tokens: int, output_tokens: int,
+    ) -> LlmPoolTotals: ...
+
+    def pool_totals(self, *, pool: str, day: date) -> LlmPoolTotals: ...
+
+    def record_question(self, *, key: str, day: date, limit: int) -> tuple[int, bool]: ...
+
+    def question_count(self, *, key: str, day: date) -> int: ...
+
+    def claim_alert(self, *, pool: str, period: str, threshold: int, now: datetime) -> bool: ...
+
+    def delete_expired(self, *, question_before: date, usage_before: date) -> None: ...

@@ -1,227 +1,226 @@
-# Design: Accounts — E-Mail/Passwort, Google-Login und Magic-Link (v1)
+# Design: Accounts — Email/Password, Google Login and Magic Link (v1)
 
-**Datum:** 2026-08-20
-**Status:** zur Durchsicht
-**Teilprojekt:** viertes von mehreren zur Umsetzung des normly-MVP (freier Kern)
+**Date:** 2026-08-20
+**Status:** for review
+**Sub-project:** fourth of several for implementing the normly MVP (free core)
 
-## Kontext
+## Context
 
-Die ersten drei Teilprojekte (Datenmodell & Referenzgraph-Schema, Ingestion-Pipeline,
-Backend-API) haben einen befüllten Referenzgraph und eine öffentliche, anonym nutzbare
-Lese-API gebaut. Das bereits genehmigte, aber zurückgestellte LLM-Chat-Design
-(`2026-08-20-llm-chat-design.md` — Zählung wird bei Bedarf noch angepasst, siehe dortigen
-Hinweis) sah zunächst rein anonyme Sitzungen vor. Der Auftraggeber möchte echte
-Konto-Funktionalität von Anfang an, nicht erst nachträglich nachrüsten — dieses Teilprojekt
-liefert sie, bevor der Chat darauf aufbaut.
+The first three sub-projects (data model & reference graph schema, ingestion pipeline,
+backend API) built a populated reference graph and a public read API usable
+anonymously. The already approved but deferred LLM chat design
+(`2026-08-20-llm-chat-design.md` — the numbering will still be adjusted if needed, see the note
+there) initially provided for purely anonymous sessions. The owner wants real
+account functionality from the start, not retrofitted later — this sub-project
+delivers it before the chat builds on it.
 
-REQ-ACC-004 zählt abschließend auf, wofür ein Konto nötig ist: erhöhte Kontingente,
-gespeicherte Verläufe, Uploads, lizenzierte Inhalte, Offline-Nutzung, kostenpflichtige
-Dienste. REQ-INT-003 verlangt SSO für Organisationen (OAuth2/SAML) sowie „Email, mit Google"
-als weitere Login-Wege. SRS Kapitel 3.3.2 nennt zusätzlich MFA und Magic-Link/OTP als
-Sicherheitsthemen. Das ist zusammen zu groß für ein Teilprojekt.
+REQ-ACC-004 lists exhaustively what an account is needed for: higher quotas,
+saved histories, uploads, licensed content, offline use, paid
+services. REQ-INT-003 requires SSO for organizations (OAuth2/SAML) as well as "email or with Google"
+as further login paths. SRS section 3.3.2 additionally names MFA and magic link/OTP as
+security topics. Taken together, that is too large for one sub-project.
 
-**Entschieden mit dem Auftraggeber:**
+**Decided with the owner:**
 
-1. Umfang: E-Mail/Passwort-Registrierung (bcrypt-gehashte Passwörter), Google-OAuth-Login,
-   sowie Magic-Link-Login (passwortloser Login per E-Mail-Link, SRS 3.3.2s „denkbar" wird
-   hier umgesetzt). Generisches Organisations-SSO (OAuth2/SAML für beliebige
-   Fremd-Identitätsanbieter) und MFA bleiben eigene, spätere Teilprojekte.
-2. Architektur: eigenes Top-Level-Paket `accounts/`, eigene Tabellen im bestehenden
-   `core`-Schema. Andere Dienste (künftig `chat/`, spätere Uploads) prüfen Sitzungstoken gegen
-   `accounts/` statt Auth-Logik zu duplizieren.
-3. Sitzungsmechanik: serverseitige, opake Session-Tokens (DB-Lookup) — dasselbe Muster wie
-   der anonyme `session_token` im LLM-Chat-Design, sofort widerrufbar (Logout, Sperrung), kein
+1. Scope: email/password registration (bcrypt-hashed passwords), Google OAuth login,
+   and magic-link login (passwordless login via an email link; SRS 3.3.2's "conceivable" is
+   implemented here). Generic organization SSO (OAuth2/SAML for arbitrary
+   third-party identity providers) and MFA remain separate, later sub-projects.
+2. Architecture: a separate top-level package `accounts/`, separate tables in the existing
+   `core` schema. Other services (in future `chat/`, later uploads) check session tokens against
+   `accounts/` instead of duplicating auth logic.
+3. Session mechanics: server-side, opaque session tokens (DB lookup) — the same pattern as
+   the anonymous `session_token` in the LLM chat design, revocable immediately (logout, blocking), no
    JWT.
-4. E-Mail-Versand (Verifizierung, Passwort-Reset): EU-Anbieter oder selbst betriebener
-   SMTP-Relay auf STACKIT — konsistent mit CLAUDE.mds „keine US-Dienste für Betrieb"
-   (SendGrid/Mailgun/AWS SES sind US-Anbieter). Konkreter Anbieter ist eine spätere,
-   austauschbare Deployment-Entscheidung hinter einer Abstraktionsschicht.
-5. Anonyme Nutzung bleibt für freie Inhalte weiterhin uneingeschränkt möglich (ADR-017/
-   REQ-ACC-001) — dieses Teilprojekt fügt eine Option hinzu, ersetzt nichts.
+4. Email sending (verification, password reset): an EU provider or a self-operated
+   SMTP relay on STACKIT — consistent with CLAUDE.md's "No US services for operations"
+   (SendGrid/Mailgun/AWS SES are US providers). The concrete provider is a later,
+   swappable deployment decision behind an abstraction layer.
+5. Anonymous use remains fully possible for free content (ADR-017/
+   REQ-ACC-001) — this sub-project adds an option, it replaces nothing.
 
-## Ziel dieses Teilprojekts
+## Goal of this sub-project
 
-Nutzer können sich per E-Mail/Passwort, Google-Konto oder passwortlosem Magic-Link
-registrieren und anmelden. Andere
-Dienste können einen Sitzungstoken gegen einen Endpunkt dieses Dienstes prüfen und die
-zugehörige Konto-Identität erhalten. Passwort-Reset und E-Mail-Verifizierung funktionieren
-über einen EU-/selbst-gehosteten E-Mail-Versand.
+Users can register and sign in via email/password, a Google account or a passwordless magic
+link. Other
+services can check a session token against an endpoint of this service and receive the
+associated account identity. Password reset and email verification work
+via EU/self-hosted email sending.
 
-## Nicht-Ziele
+## Non-goals
 
-- **Organisations-SSO** (REQ-INT-003, OAuth2/SAML für Fremd-Identitätsanbieter) — eigenes,
-  späteres Teilprojekt; pro Organisation eigener Konfigurationsaufwand.
-- **Multi-Faktor-Authentifizierung** (SRS 3.3.2) — spätere Sicherheitserweiterung, das
-  Datenmodell blockiert eine Nachrüstung nicht strukturell.
-- **Login-Versuchsbegrenzung/Brute-Force-Schutz** — eigene Infrastrukturentscheidung, gleiche
-  Begründung wie die bereits in den vorigen Teilprojekten zurückgestellte Ratenbegrenzung
+- **Organization SSO** (REQ-INT-003, OAuth2/SAML for third-party identity providers) — a separate,
+  later sub-project; separate configuration effort per organization.
+- **Multi-factor authentication** (SRS 3.3.2) — a later security extension; the
+  data model does not structurally block adding it later.
+- **Login attempt limiting/brute-force protection** — a separate infrastructure decision, same
+  rationale as the rate limiting already deferred in the previous sub-projects
   (REQ-SEC-004).
-- **Kontingent-Erhöhung für angemeldete Konten, kontogebundene Verläufe/Merklisten selbst.**
-  Dieses Teilprojekt liefert nur die Konto-Grundlage (Registrierung, Login, Sitzungsprüfung);
-  welche Funktionen ein Konto konkret freischaltet, entscheiden die jeweiligen
-  Fach-Teilprojekte (Chat, Uploads, …), die `accounts/`s Sitzungsprüfung konsumieren.
-- **Konto-Löschung/DSGVO-Auskunft/-Export.** Wichtig, aber ein eigenes Thema mit eigenen
-  Anforderungen — hier nicht spezifiziert.
+- **Quota increase for signed-in accounts, account-bound histories/bookmark lists themselves.**
+  This sub-project only delivers the account foundation (registration, login, session check);
+  which functions an account concretely unlocks is decided by the respective
+  domain sub-projects (chat, uploads, …) that consume `accounts/`'s session check.
+- **Account deletion/GDPR (DSGVO) access request/export.** Important, but a separate topic with its own
+  requirements — not specified here.
 
-## Architektur
+## Architecture
 
-### Paketstruktur
+### Package structure
 
-Zwei Ansätze wurden abgewogen:
+Two approaches were weighed:
 
-1. **Eigenes `accounts/`-Verzeichnis, eigene Tabellen, eigener HTTP-Dienst.**
-2. Teil von `api/` — verworfen: bricht `api/`s bereits geprüfte „rein lesend"-Eigenschaft
-   (Registrierung/Login sind Schreibzugriffe), gleiche Begründung wie beim LLM-Chat-Design.
+1. **Separate `accounts/` directory, separate tables, separate HTTP service.**
+2. Part of `api/` — rejected: breaks `api/`'s already reviewed "read-only" property
+   (registration/login are write accesses), same rationale as in the LLM chat design.
 
-**Entschieden: Ansatz 1.**
+**Decided: approach 1.**
 
 ```
 accounts/
-  pyproject.toml        # eigenes Paket, hängt von normly_core ab
+  pyproject.toml        # own package, depends on normly_core
   src/normly_accounts/
-    main.py              # FastAPI-App, mountet /v1/accounts
-    dependencies.py       # DB-Session, SMTP-Client, Google-OAuth-Client
-    security.py            # Passwort-Hashing (bcrypt), Token-Erzeugung
-    schemas.py               # Pydantic-Modelle
-    email.py                  # EmailSender-Abstraktion + SMTP-Implementierung
+    main.py              # FastAPI app, mounts /v1/accounts
+    dependencies.py       # DB session, SMTP client, Google OAuth client
+    security.py            # password hashing (bcrypt), token generation
+    schemas.py               # Pydantic models
+    email.py                  # EmailSender abstraction + SMTP implementation
     routers/
-      registration.py          # Registrierung, E-Mail-Verifizierung
-      login.py                   # Login, Logout, Passwort-Reset
-      google.py                    # Google-OAuth-Flow
-      session.py                    # Token-Validierung für andere Dienste
+      registration.py          # registration, email verification
+      login.py                   # login, logout, password reset
+      google.py                    # Google OAuth flow
+      session.py                    # token validation for other services
   tests/
 ```
 
-Andere Dienste rufen `GET /v1/accounts/session` wie einen gewöhnlichen HTTP-Endpunkt auf —
-kein direkter Python-Import, gleiches Dogfooding-Prinzip wie zwischen `chat/` und `api/`
-vorgesehen.
+Other services call `GET /v1/accounts/session` like an ordinary HTTP endpoint —
+no direct Python import, the same dogfooding principle as planned between `chat/` and `api/`.
 
-### Datenmodell (neue Tabellen im bestehenden `core`-Schema)
+### Data model (new tables in the existing `core` schema)
 
-| Tabelle | Spalten | Zweck |
+| Table | Columns | Purpose |
 |---|---|---|
-| `account` | `id` (PK), `email` (eindeutig), `password_hash` (nullable), `email_verified_at` (nullable), `created_at` | Kern-Identität |
-| `account_session` | `id` (PK), `account_id` (FK), `session_token` (eindeutig, opak), `created_at`, `expires_at` | Aktive Sitzungen |
-| `account_google_identity` | `account_id` (FK), `google_subject_id` (eindeutig) | Verknüpfung Google-Konto ↔ normly-Konto |
-| `account_token` | `id` (PK), `account_id` (FK), `purpose` (`password_reset`/`email_verification`/`magic_link`), `token` (eindeutig, opak, einmalig), `created_at`, `expires_at`, `used_at` (nullable) | Einmal-Tokens für Reset/Verifizierung/Magic-Link |
+| `account` | `id` (PK), `email` (unique), `password_hash` (nullable), `email_verified_at` (nullable), `created_at` | Core identity |
+| `account_session` | `id` (PK), `account_id` (FK), `session_token` (unique, opaque), `created_at`, `expires_at` | Active sessions |
+| `account_google_identity` | `account_id` (FK), `google_subject_id` (unique) | Link between Google account ↔ normly account |
+| `account_token` | `id` (PK), `account_id` (FK), `purpose` (`password_reset`/`email_verification`/`magic_link`), `token` (unique, opaque, single-use), `created_at`, `expires_at`, `used_at` (nullable) | Single-use tokens for reset/verification/magic link |
 
-Sitzungen laufen 30 Tage nach der letzten Nutzung ab (`expires_at` wird bei jeder erfolgreichen
-`/session`-Prüfung verlängert — „sliding window", kein hartes Fixdatum), damit aktive Nutzer
-nicht mitten in der Nutzung ausgeloggt werden, inaktive Sitzungen aber nicht unbegrenzt gültig
-bleiben.
+Sessions expire 30 days after last use (`expires_at` is extended on every successful
+`/session` check — a "sliding window", not a hard fixed date), so that active users
+are not logged out in the middle of use, while inactive sessions do not stay valid
+indefinitely.
 
-`password_hash` ist nullable — ein Konto, das ausschließlich über Google oder Magic-Link
-angelegt wurde, hat keins. Registrierung erlaubt sofortigen Login ohne abgeschlossene
-E-Mail-Verifizierung; `email_verified_at` hält den Status für spätere, striktere Gates fest
-(YAGNI: kein Blockieren in diesem Teilprojekt) — ein per Magic-Link angelegtes Konto gilt
-sofort als verifiziert, da der Login-Vorgang selbst schon den E-Mail-Zugriff beweist.
-`account_token` deckt Passwort-Reset, E-Mail-Verifizierung und Magic-Link über ein
-`purpose`-Feld ab statt dreier fast identischer Tabellen; die Gültigkeitsdauer ist je
-`purpose` unterschiedlich (Magic-Link kurz, 15 Minuten — soll sofort genutzt werden; Reset und
-Verifizierung länger, siehe Testkonzept).
+`password_hash` is nullable — an account created exclusively via Google or magic link
+has none. Registration allows immediate login without completed
+email verification; `email_verified_at` records the status for later, stricter gates
+(YAGNI: no blocking in this sub-project) — an account created via magic link counts
+as verified immediately, since the login process itself already proves access to the email.
+`account_token` covers password reset, email verification and magic link via a
+`purpose` field instead of three almost identical tables; the validity period differs per
+`purpose` (magic link short, 15 minutes — meant to be used immediately; reset and
+verification longer, see Test concept).
 
-Repository-Zugriff nach demselben Muster wie überall im Projekt: Protocol in `domain.py`,
-Postgres-Implementierung in `repositories.py`, Alembic-Migration für die vier Tabellen.
+Repository access follows the same pattern as everywhere in the project: Protocol in `domain.py`,
+Postgres implementation in `repositories.py`, Alembic migration for the four tables.
 
-## Endpunkte (v1)
+## Endpoints (v1)
 
-| Endpunkt | Zweck |
+| Endpoint | Purpose |
 |---|---|
-| `POST /v1/accounts/register` | E-Mail + Passwort → Konto anlegen, Verifizierungs-Mail versenden, Session zurückgeben |
-| `POST /v1/accounts/login` | E-Mail + Passwort → Session |
-| `POST /v1/accounts/logout` | Session widerrufen |
-| `POST /v1/accounts/password-reset/request` | E-Mail → Reset-Mail versenden |
-| `POST /v1/accounts/password-reset/confirm` | Token + neues Passwort → Passwort ändern |
-| `GET /v1/accounts/verify-email?token=` | E-Mail-Verifizierung abschließen |
-| `GET /v1/accounts/google/login` | Redirect zu Googles Consent-Screen |
-| `GET /v1/accounts/google/callback` | Google-Antwort verarbeiten, Konto anlegen/verknüpfen, Session zurückgeben |
-| `POST /v1/accounts/magic-link/request` | E-Mail → Magic-Link-Mail versenden |
-| `POST /v1/accounts/magic-link/confirm` | Token → Konto anlegen (falls neu) oder anmelden, Session zurückgeben |
-| `GET /v1/accounts/session` | Token-Validierung für andere Dienste |
+| `POST /v1/accounts/register` | Email + password → create account, send verification mail, return session |
+| `POST /v1/accounts/login` | Email + password → session |
+| `POST /v1/accounts/logout` | Revoke session |
+| `POST /v1/accounts/password-reset/request` | Email → send reset mail |
+| `POST /v1/accounts/password-reset/confirm` | Token + new password → change password |
+| `GET /v1/accounts/verify-email?token=` | Complete email verification |
+| `GET /v1/accounts/google/login` | Redirect to Google's consent screen |
+| `GET /v1/accounts/google/callback` | Process Google's response, create/link account, return session |
+| `POST /v1/accounts/magic-link/request` | Email → send magic-link mail |
+| `POST /v1/accounts/magic-link/confirm` | Token → create account (if new) or sign in, return session |
+| `GET /v1/accounts/session` | Token validation for other services |
 
-### Google-OAuth-Fluss
+### Google OAuth flow
 
-Standard Authorization-Code-Flow. `google/login` leitet zu Googles Consent-Screen um.
-`google/callback` tauscht den erhaltenen Code gegen ein Google-Profil (E-Mail,
-`subject_id`) — legt bei unbekannter `subject_id` ein neues Konto an, oder verknüpft
-`account_google_identity` mit einem bestehenden Konto derselben E-Mail-Adresse, falls
-vorhanden. Erstellt eine Session. Das Redirect-Verhalten nach dem Callback (wohin der Browser
-geschickt wird) bleibt bewusst der Frontend-Seite überlassen — API-first, wie bei allen
-bisherigen Teilprojekten.
+Standard authorization code flow. `google/login` redirects to Google's consent screen.
+`google/callback` exchanges the received code for a Google profile (email,
+`subject_id`) — creates a new account for an unknown `subject_id`, or links
+`account_google_identity` to an existing account with the same email address, if
+one exists. Creates a session. The redirect behavior after the callback (where the browser
+is sent) is deliberately left to the frontend side — API-first, as in all
+previous sub-projects.
 
-### Magic-Link-Fluss
+### Magic link flow
 
-`magic-link/request` nimmt eine E-Mail-Adresse entgegen und verschickt — unabhängig davon, ob
-dazu bereits ein Konto existiert — einen `account_token` mit `purpose=magic_link` per Mail
-(die Antwort verrät nicht, ob die Adresse bekannt ist, gleicher Enumeration-Schutz wie beim
-Login). Existiert noch kein Konto zu dieser E-Mail, wird beim `confirm`-Schritt eines angelegt
-(symmetrisch zu Googles Verhalten) statt eines separaten Fehlers — Magic-Link ist damit sowohl
-Login- als auch Registrierungsweg. `magic-link/confirm` nimmt den Token als
-POST-Body-Parameter entgegen, nicht als GET-Query-Parameter — bewusst, damit ein bloßes Öffnen
-des Links durch E-Mail-Client-Link-Vorschauen/Scanner den Token nicht versehentlich verbraucht;
-das Frontend liest den Token aus der URL und schickt ihn per POST.
+`magic-link/request` accepts an email address and — regardless of whether
+an account already exists for it — sends an `account_token` with `purpose=magic_link` by mail
+(the response does not reveal whether the address is known, the same enumeration protection as for
+login). If no account exists yet for this email, one is created at the `confirm` step
+(symmetrical to Google's behavior) instead of a separate error — magic link is thus both
+a login and a registration path. `magic-link/confirm` accepts the token as a
+POST body parameter, not as a GET query parameter — deliberately, so that merely opening
+the link through email-client link previews/scanners does not accidentally consume the token;
+the frontend reads the token from the URL and sends it via POST.
 
-## Fehlerbehandlung
+## Error handling
 
-| Fall | Verhalten |
+| Case | Behavior |
 |---|---|
-| E-Mail bereits registriert | 409 — UX erfordert diese Auskunft bei der Registrierung |
-| Login mit falschen Zugangsdaten | 401, generische Meldung — keine Unterscheidung „E-Mail unbekannt" vs. „Passwort falsch" (Enumeration-Schutz) |
-| Abgelaufener/ungültiger/bereits verwendeter Reset-, Verifizierungs- oder Magic-Link-Token | 400 |
-| Google-OAuth abgelehnt/fehlgeschlagen | 400, Fehlerzustand im Redirect |
-| Unbekannter/abgelaufener `session_token` bei `/session` | 401 |
-| E-Mail-Versand (SMTP) nicht erreichbar | 503, kein Detail-Leak; Registrierung/Reset-Anfrage selbst schlägt NICHT fehl — Konto/Token werden angelegt, Mail-Versand wird separat nachgeholt oder geloggt (siehe Offene Punkte: kein Retry-Mechanismus in diesem Teilprojekt) |
-| Datenbankverbindung down | 503, kein Detail-Leak |
+| Email already registered | 409 — UX requires this information at registration |
+| Login with wrong credentials | 401, generic message — no distinction between "email unknown" vs. "password wrong" (enumeration protection) |
+| Expired/invalid/already used reset, verification or magic-link token | 400 |
+| Google OAuth rejected/failed | 400, error state in the redirect |
+| Unknown/expired `session_token` at `/session` | 401 |
+| Email sending (SMTP) unreachable | 503, no detail leak; the registration/reset request itself does NOT fail — account/token are created, mail sending is caught up separately or logged (see Open items: no retry mechanism in this sub-project) |
+| Database connection down | 503, no detail leak |
 
-## Testkonzept
+## Test concept
 
-- Echtes PostgreSQL (Testcontainer-Muster wie überall im Projekt).
-- Echtes bcrypt-Hashing — kein Mocking nötig, ausreichend schnell für Tests.
-- **Google OAuth**: nur der Token-Austausch/Profilabruf gegen Googles API wird gezielt
-  gemockt (ein HTTP-Call, nicht die eigene Verknüpfungs-/Kontenlogik) — eine echte
-  Google-Testverbindung ist in einer automatisierten Suite nicht sinnvoll herstellbar, gleiche
-  Begründung wie beim DB-down-Test im Backend-API-Teilprojekt.
-- **E-Mail-Versand** hinter der `EmailSender`-Abstraktion — Tests nutzen eine
-  Test-Implementierung, die versendete Mails aufzeichnet, statt echte Mails zu verschicken.
-- Registrierung → Login → Logout End-to-End gegen echte Session-Tabellen.
-- Passwort-Reset- und Verifizierungs-Token: Ablauf, Einmaligkeit (`used_at`),
-  ungültige/abgelaufene Token explizit getestet.
-- Google-Konto-Verknüpfung: neues Google-Konto legt neues normly-Konto an; Google-Login mit
-  bereits per E-Mail/Passwort registrierter Adresse verknüpft statt dupliziert.
-- Magic-Link: `request` für unbekannte wie bekannte E-Mail-Adressen liefert dieselbe Antwort
-  (Enumeration-Schutz); `confirm` mit gültigem Token legt bei unbekannter E-Mail ein neues,
-  bereits verifiziertes Konto an; `confirm` mit abgelaufenem oder bereits verwendetem Token
-  schlägt fehl; ein zweiter `confirm`-Versuch mit demselben Token nach erfolgreicher erster
-  Nutzung schlägt ebenfalls fehl (Einmaligkeit).
-- `GET /v1/accounts/session`: gültiger Token liefert `account_id`, abgelaufener/unbekannter
-  Token liefert 401 — das ist der Vertrag, auf den sich künftige Dienste (`chat/` u. a.)
-  verlassen.
+- Real PostgreSQL (Testcontainer pattern as everywhere in the project).
+- Real bcrypt hashing — no mocking needed, fast enough for tests.
+- **Google OAuth**: only the token exchange/profile retrieval against Google's API is
+  mocked in a targeted way (one HTTP call, not our own linking/account logic) — a real
+  Google test connection cannot sensibly be established in an automated suite, same
+  rationale as for the DB-down test in the backend API sub-project.
+- **Email sending** behind the `EmailSender` abstraction — tests use a
+  test implementation that records sent mails instead of sending real mails.
+- Registration → login → logout end-to-end against real session tables.
+- Password reset and verification tokens: expiry, single use (`used_at`),
+  invalid/expired tokens explicitly tested.
+- Google account linking: a new Google account creates a new normly account; Google login with
+  an address already registered via email/password links instead of duplicating.
+- Magic link: `request` for unknown and known email addresses returns the same response
+  (enumeration protection); `confirm` with a valid token creates a new,
+  already verified account for an unknown email; `confirm` with an expired or already used token
+  fails; a second `confirm` attempt with the same token after successful first
+  use also fails (single use).
+- `GET /v1/accounts/session`: a valid token returns `account_id`, an expired/unknown
+  token returns 401 — this is the contract that future services (`chat/` and others)
+  rely on.
 
-## Bezug zu Requirements und ADRs
+## Relation to requirements and ADRs
 
-| Requirement/ADR | Abdeckung in diesem Design |
+| Requirement/ADR | Coverage in this design |
 |---|---|
-| REQ-ACC-004 | Liefert die Konto-Grundlage, auf der kontopflichtige Funktionen später aufbauen |
-| REQ-INT-003 (Teilmenge) | E-Mail/Passwort und Google-Login; Organisations-SSO ist Folgearbeit |
-| SRS 3.3.2 (Magic-Link/OTP) | Passwortloser Login über einmalige, kurzlebige E-Mail-Token umgesetzt |
-| ADR-017 / REQ-ACC-001 | Anonyme Nutzung bleibt unverändert möglich — Konto ist eine zusätzliche Option, keine Voraussetzung |
-| CLAUDE.md „keine US-Dienste für Betrieb" | E-Mail-Versand über EU-/selbst gehosteten SMTP-Relay statt US-Transaktions-E-Mail-Dienst |
-| SRS 3.3.2 (Passwort-Hashing) | bcrypt für `account.password_hash` |
+| REQ-ACC-004 | Delivers the account foundation on which functions requiring an account later build |
+| REQ-INT-003 (subset) | Email/password and Google login; organization SSO is follow-up work |
+| SRS 3.3.2 (magic link/OTP) | Passwordless login via single-use, short-lived email tokens implemented |
+| ADR-017 / REQ-ACC-001 | Anonymous use remains possible unchanged — an account is an additional option, not a prerequisite |
+| CLAUDE.md "No US services for operations" | Email sending via an EU/self-hosted SMTP relay instead of a US transactional email service |
+| SRS 3.3.2 (password hashing) | bcrypt for `account.password_hash` |
 
-## Offene Punkte / Folgearbeiten
+## Open items / follow-up work
 
-- **Organisations-SSO** (OAuth2/SAML für Fremd-Identitätsanbieter) und **MFA** — eigene,
-  spätere Teilprojekte.
-- **Login-Versuchsbegrenzung/Brute-Force-Schutz** — eigene Infrastrukturentscheidung, wie die
-  bereits zurückgestellte Ratenbegrenzung in den vorigen Teilprojekten.
-- **Kein Retry-Mechanismus für fehlgeschlagenen E-Mail-Versand.** Wenn der SMTP-Relay beim
-  Versenden einer Verifizierungs- oder Reset-Mail down ist, wird das aktuell nur geloggt —
-  keine Warteschlange/kein automatischer erneuter Versuch. Für den Start ausreichend, sobald
-  es zum echten Problem wird nachzuziehen.
-- **Konto-Löschung, DSGVO-Auskunft/-Export** — eigenes Thema, hier nicht spezifiziert.
-- **Konkreter E-Mail-Anbieter/SMTP-Konfiguration** — spätere Deployment-Entscheidung, analog
-  zu den vorigen Teilprojekten (z. B. Datenbank-Hosting, LLM-Provisionierung).
-- **LLM-Chat-Design muss nachgezogen werden**, sobald dieses Teilprojekt steht:
-  `chat_session` sollte dann optional eine echte `account_id` verknüpfen können
-  (`GET /v1/accounts/session` liefert die Identität), anonyme Nutzung bleibt zusätzlich
-  bestehen.
+- **Organization SSO** (OAuth2/SAML for third-party identity providers) and **MFA** — separate,
+  later sub-projects.
+- **Login attempt limiting/brute-force protection** — a separate infrastructure decision, like the
+  rate limiting already deferred in the previous sub-projects.
+- **No retry mechanism for failed email sending.** If the SMTP relay is down when
+  sending a verification or reset mail, this is currently only logged —
+  no queue/no automatic retry. Sufficient for the start; to be added as soon as
+  it becomes a real problem.
+- **Account deletion, GDPR access request/export** — a separate topic, not specified here.
+- **Concrete email provider/SMTP configuration** — a later deployment decision, analogous
+  to the previous sub-projects (e.g. database hosting, LLM provisioning).
+- **The LLM chat design must be updated** as soon as this sub-project is in place:
+  `chat_session` should then optionally be able to link a real `account_id`
+  (`GET /v1/accounts/session` returns the identity); anonymous use additionally remains
+  available.

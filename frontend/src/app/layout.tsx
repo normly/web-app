@@ -7,6 +7,7 @@ import { cookies, headers } from "next/headers";
 import { getInstanceConfig } from "@/lib/config";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import { LocaleProvider, type Locale } from "@/lib/i18n/provider";
+import { LOCALE_COOKIE, resolveLocale } from "@/lib/i18n/resolve-locale";
 import { JurisdictionProvider } from "@/lib/jurisdiction/provider";
 import { JURISDICTIONS, type Jurisdiction } from "@/lib/jurisdiction/constants";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -24,12 +25,10 @@ export function generateMetadata(): Metadata {
 }
 
 async function resolveInitialLocale(): Promise<Locale> {
-  const cookieLocale = (await cookies()).get("normly_locale")?.value;
-  if (cookieLocale === "de" || cookieLocale === "en") {
-    return cookieLocale;
-  }
-  const acceptLanguage = (await headers()).get("accept-language") ?? "";
-  return acceptLanguage.toLowerCase().startsWith("en") ? "en" : "de";
+  return resolveLocale(
+    (await cookies()).get(LOCALE_COOKIE)?.value,
+    (await headers()).get("accept-language"),
+  );
 }
 
 async function resolveInitialJurisdiction(): Promise<Jurisdiction> {

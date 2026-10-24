@@ -286,7 +286,7 @@ def list_sessions(
 ) -> list[ChatSessionSummary]:
     # Unlike the main /v1/chat endpoint, an account token is REQUIRED here,
     # not optional -- listing sessions is inherently an account-only
-    # operation (REQ-ACC-004 lists "gespeicherte Verläufe" as account-gated).
+    # operation (REQ-ACC-004 lists "saved histories" as account-gated).
     if authorization is None or not (
         authorization[:len(_BEARER_PREFIX)].lower() == _BEARER_PREFIX.lower()
     ):
@@ -570,8 +570,8 @@ open point, not solved here.
 // Copyright (C) 2026 normly contributors
 
 // App-shell caching only -- no push-event handler. Real Web Push delivery
-// depends on Google FCM / Apple APNs (see the design spec's "Entschieden
-// mit dem Auftraggeber" Punkt 5), deliberately out of scope. A future
+// depends on Google FCM / Apple APNs (see the design spec's "Decided
+// with the owner" item 5), deliberately out of scope. A future
 // push handler would live in this same file without needing a rewrite.
 //
 // Plain JavaScript, not TypeScript: this file is served as-is from
@@ -3360,35 +3360,35 @@ git commit -s -m "test: add end-to-end chat/history flows and a WCAG 2.1 AA chec
 
 **Spec coverage:**
 
-| Spec-Abschnitt | Task |
+| Spec section | Task |
 |---|---|
-| `REQ-UI-001` (eigenständige Oberfläche, Theming) | Task 4 |
-| `REQ-UI-002` (Chat-Interaktion, Ladezustand) | Task 8 |
-| `REQ-UI-003` (Quellenverlinkung) | Task 8 |
-| `REQ-UI-004` (WCAG 2.1 AA) | Task 3 (Radix-Basis), Task 12 (axe-core-Prüfung) |
-| `REQ-UI-005` (Chat-Historie) | Task 1 (Backend-Voraussetzung), Task 11 |
-| `REQ-ACC-001`/`004` (anonym nutzbar, Historie kontopflichtig) | Task 9/10 (optionaler Login), Task 11 (Login-Pflicht nur für `/chats`) |
-| `REQ-MOB-001`/`003` (PWA, Abstraktionsschicht) | Task 2 |
-| Internationalisierung (DE/EN) | Task 5 |
-| BFF/httpOnly-Cookie-Architektur | Task 6, 7, 9, 11 |
-| Theming/White-Label | Task 4 |
+| `REQ-UI-001` (standalone interface, theming) | Task 4 |
+| `REQ-UI-002` (chat interaction, loading state) | Task 8 |
+| `REQ-UI-003` (source linking) | Task 8 |
+| `REQ-UI-004` (WCAG 2.1 AA) | Task 3 (Radix base), Task 12 (axe-core check) |
+| `REQ-UI-005` (chat history) | Task 1 (backend prerequisite), Task 11 |
+| `REQ-ACC-001`/`004` (usable anonymously, history requires an account) | Task 9/10 (optional login), Task 11 (login required only for `/chats`) |
+| `REQ-MOB-001`/`003` (PWA, abstraction layer) | Task 2 |
+| Internationalization (DE/EN) | Task 5 |
+| BFF/httpOnly cookie architecture | Task 6, 7, 9, 11 |
+| Theming/white-label configuration | Task 4 |
 
-Keine Lücke gefunden — jeder Abschnitt der Spec hat eine Entsprechung in mindestens einem
+No gap found — every section of the spec has a counterpart in at least one
 Task.
 
-**Placeholder-Scan:** Kein „TBD"/„TODO" gefunden. Ein bewusster, benannter Nachtrag statt eines
-Platzhalters: Task 12s voller Synthese-Antwort-Test gegen ein echtes LLM ist explizit als
-außerhalb dieses Plans liegend benannt (kein Ollama-Zugang in dieser Umgebung verifizierbar),
-mit demselben Muster wie `chat/`s eigener Kapstein-Test — kein „TODO", sondern eine begründete,
-dokumentierte Abgrenzung.
+**Placeholder scan:** No "TBD"/"TODO" found. A deliberate, named addendum instead of a
+placeholder: Task 12's full synthesis-answer test against a real LLM is explicitly named as
+lying outside this plan (no Ollama access verifiable in this environment),
+with the same pattern as `chat/`'s own capstone test — not a "TODO" but a justified,
+documented delimitation.
 
-**Typkonsistenz:** `ChatSessionSummary` (Task 1, Python-Pydantic-Schema) und die
-TypeScript-Interface-Form in Task 11 (`ChatSessionSummary`) tragen dieselben Feldnamen
-(`id`, `session_token`, `jurisdiction`, `language`, `created_at`) — geprüft gegen die
-tatsächliche `chat/`-Antwortform. `useTranslation()`s `t`-Funktion wird in jeder UI-Komponente
-ab Task 8 konsistent verwendet, nie ein hartkodierter deutscher String. Die Cookie-Namen
-(`normly_session`, `normly_account_session`, `normly_locale`) stimmen zwischen Spec, Task 5
-und Task 6 überein.
+**Type consistency:** `ChatSessionSummary` (Task 1, Python Pydantic schema) and the
+TypeScript interface shape in Task 11 (`ChatSessionSummary`) carry the same field names
+(`id`, `session_token`, `jurisdiction`, `language`, `created_at`) — checked against the
+actual `chat/` response shape. `useTranslation()`'s `t` function is used consistently in every UI component
+from Task 8 on, never a hardcoded German string. The cookie names
+(`normly_session`, `normly_account_session`, `normly_locale`) match between the spec, Task 5
+and Task 6.
 
 ---
 

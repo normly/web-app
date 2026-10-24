@@ -18,6 +18,7 @@ from normly_core.graph.postgres.repositories import (
 
 from normly_accounts.dependencies import get_email_sender, get_session
 from normly_core.notifications.email import EmailSender
+from normly_core.notifications.mail import format_duration, render_email
 from normly_accounts.schemas import VerifyEmailResendRequest
 from normly_accounts.security import generate_token
 
@@ -59,13 +60,14 @@ def resend_verification_email(
             account_id=account.id, purpose=AccountTokenPurpose.EMAIL_VERIFICATION,
             token=generate_token(), created_at=now, expires_at=now + _VERIFICATION_TOKEN_LIFETIME,
         )
+        mail = render_email(
+            "verification", payload.locale, base_url=_public_base_url(),
+            action_url=f"{_public_base_url()}/verify-email?token={token.token}",
+            validity=format_duration(_VERIFICATION_TOKEN_LIFETIME, payload.locale),
+        )
         try:
             email_sender.send(
-                to=account.email, subject="Bestätige deine E-Mail-Adresse",
-                body=(
-                    f"Bitte bestätige deine E-Mail-Adresse: "
-                    f"{_public_base_url()}/verify-email?token={token.token}"
-                ),
+                to=account.email, subject=mail.subject, body=mail.text, html=mail.html,
             )
         except Exception:
             # Same rationale as every other best-effort send in this

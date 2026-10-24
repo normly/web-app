@@ -4,7 +4,7 @@
 
 **Goal:** Close a "response sent before DB commit" hazard across 17 `accounts/` endpoints, replace an unwitting-passes-either-way regression test with one that actually proves real durability, and fix two small, independent, low-risk `core/` data-correctness gaps.
 
-**Architecture:** Three tasks. Task 1 applies one mechanical fix pattern (an explicit `session.commit()` before returning) across 17 endpoints in `accounts/`. Task 2 hardens the test suite that verifies this class of fix, using a corrected understanding of what a `TestClient`-based test can and cannot prove (see the spec's own "Wichtige Korrektur" section — read `docs/superpowers/specs/2026-09-10-accounts-commit-timing-design.md` for the full rationale before starting Task 2). Task 3 is two small, `core/`-only, completely independent fixes bundled into this same plan because they're equally mechanical/low-risk.
+**Architecture:** Three tasks. Task 1 applies one mechanical fix pattern (an explicit `session.commit()` before returning) across 17 endpoints in `accounts/`. Task 2 hardens the test suite that verifies this class of fix, using a corrected understanding of what a `TestClient`-based test can and cannot prove (see the spec's own "Important correction" section — read `docs/superpowers/specs/2026-09-10-accounts-commit-timing-design.md` for the full rationale before starting Task 2). Task 3 is two small, `core/`-only, completely independent fixes bundled into this same plan because they're equally mechanical/low-risk.
 
 **Tech Stack:** FastAPI + SQLAlchemy (`accounts/`, `core/`), pytest + testcontainers.
 

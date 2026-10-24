@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
 from normly_core.graph.domain import (
+    LlmPoolTotals,
     Account,
     AccountGoogleIdentityRepository,
     AccountGoogleIdentity,
@@ -77,6 +78,9 @@ from normly_core.graph.domain import (
     WorkStructureEntry,
 )
 from normly_core.graph.postgres.orm import (
+    LlmBudgetAlertORM,
+    LlmQuestionCountORM,
+    LlmTokenUsageORM,
     AccountGoogleIdentityORM,
     AccountORM,
     AccountSessionORM,
@@ -1819,6 +1823,54 @@ class PostgresSegmentRepository(SegmentRepository):
         ).scalars()
         return [_segment_to_domain(row) for row in rows]
 
+    def list_citable_segments_for_jurisdiction(
+        self, document_id: uuid.UUID, jurisdiction: str
+    ) -> list[Segment]:
+        # Showing a passage to a reader is a stricter question than indexing
+        # it for search: EUR-Lex texts, for example, are indexable but not
+        # citable. may_index_fulltext stays in the gate because segments only
+        # exist where indexing was permitted when they were written.
+        rows = self._session.execute(
+            select(SegmentORM)
+            .join(
+                RightsClassificationORM,
+                RightsClassificationORM.document_id == SegmentORM.document_id,
+            )
+            .where(
+                SegmentORM.document_id == document_id,
+                RightsClassificationORM.jurisdiction == jurisdiction,
+                RightsClassificationORM.may_process.is_(True),
+                RightsClassificationORM.may_index_fulltext.is_(True),
+                RightsClassificationORM.may_cite_passages.is_(True),
+                RightsClassificationORM.revoked_at.is_(None),
+            )
+            .order_by(SegmentORM.sequence_number)
+        ).scalars()
+        return [_segment_to_domain(row) for row in rows]
+
+    def list_segment_headings_for_jurisdiction(
+        self, segment_ids: list[uuid.UUID], jurisdiction: str
+    ) -> dict[uuid.UUID, str | None]:
+        # Same read gate as list_segments_for_jurisdiction: chat citations
+        # point at segments that synthesis read under exactly this gate.
+        if not segment_ids:
+            return {}
+        rows = self._session.execute(
+            select(SegmentORM.id, SegmentORM.heading)
+            .join(
+                RightsClassificationORM,
+                RightsClassificationORM.document_id == SegmentORM.document_id,
+            )
+            .where(
+                SegmentORM.id.in_(segment_ids),
+                RightsClassificationORM.jurisdiction == jurisdiction,
+                RightsClassificationORM.may_process.is_(True),
+                RightsClassificationORM.may_index_fulltext.is_(True),
+                RightsClassificationORM.revoked_at.is_(None),
+            )
+        ).all()
+        return {segment_id: heading for segment_id, heading in rows}
+
     def find_similar_segments_for_jurisdiction(
         self, query_vector: list[float], jurisdiction: str, model_name: str, limit: int = 5,
     ) -> list[Segment]:
@@ -2111,6 +2163,7 @@ def _account_to_domain(orm: AccountORM) -> Account:
         first_name=orm.first_name, last_name=orm.last_name,
         avatar_image=orm.avatar_image, avatar_content_type=orm.avatar_content_type,
         notification_preference=orm.notification_preference,
+        locale=orm.locale,
     )
 
 
@@ -2118,8 +2171,10 @@ class PostgresAccountRepository(AccountRepository):
     def __init__(self, session: Session):
         self._session = session
 
-    def create_account(self, *, email: str, password_hash: str | None) -> Account:
-        orm = AccountORM(id=uuid.uuid4(), email=email, password_hash=password_hash)
+    def create_account(
+        self, *, email: str, password_hash: str | None, locale: str = "de"
+    ) -> Account:
+        orm = AccountORM(id=uuid.uuid4(), email=email, password_hash=password_hash, locale=locale)
         try:
             with self._session.begin_nested():
                 self._session.add(orm)
@@ -2186,6 +2241,11 @@ class PostgresAccountRepository(AccountRepository):
             sa.update(AccountORM)
             .where(AccountORM.id == account_id)
             .values(notification_preference=preference)
+        )
+
+    def update_locale(self, account_id: uuid.UUID, *, locale: str) -> None:
+        self._session.execute(
+            sa.update(AccountORM).where(AccountORM.id == account_id).values(locale=locale)
         )
 
     def set_avatar(
@@ -2336,15 +2396,18 @@ class PostgresAccountRepository(AccountRepository):
             self.delete_account(account_id)
         return len(ids)
 
-    def abandoned_registrations_to_warn(self, cutoff: datetime) -> list[tuple[uuid.UUID, str]]:
+    def abandoned_registrations_to_warn(
+        self, cutoff: datetime
+    ) -> list[tuple[uuid.UUID, str, str | None]]:
         ids = self._abandoned_registration_ids(cutoff, unwarned=True)
         if not ids:
             return []
         rows = self._session.execute(
-            select(AccountORM.id, AccountORM.email).where(AccountORM.id.in_(ids))
+            select(AccountORM.id, AccountORM.email, AccountORM.locale)
+            .where(AccountORM.id.in_(ids))
             .order_by(AccountORM.created_at)
         ).all()
-        return [(row.id, row.email) for row in rows]
+        return [(row.id, row.email, row.locale) for row in rows]
 
     def mark_deletion_warned(self, account_id: uuid.UUID, warned_at: datetime) -> None:
         self._session.execute(
@@ -2636,6 +2699,7 @@ def _chat_session_to_domain(orm: ChatSessionORM) -> ChatSession:
     return ChatSession(
         id=orm.id, session_token=orm.session_token, account_id=orm.account_id,
         jurisdiction=orm.jurisdiction, language=orm.language, created_at=orm.created_at,
+        title=orm.title,
     )
 
 
@@ -2649,7 +2713,7 @@ def _chat_message_to_domain(orm: ChatMessageORM) -> ChatMessage:
 def _chat_message_citation_to_domain(orm: ChatMessageCitationORM) -> ChatMessageCitation:
     return ChatMessageCitation(
         id=orm.id, message_id=orm.message_id, document_id=orm.document_id,
-        segment_id=orm.segment_id,
+        segment_id=orm.segment_id, paragraph_index=orm.paragraph_index,
     )
 
 
@@ -2675,6 +2739,42 @@ class PostgresChatRepository(ChatRepository):
         ).scalar_one_or_none()
         return _chat_session_to_domain(orm) if orm else None
 
+    def get_session_for_account(
+        self, session_id: uuid.UUID, account_id: uuid.UUID
+    ) -> ChatSession | None:
+        # Scoped by account_id in the WHERE clause, like delete_chat_session:
+        # a foreign id answers exactly like an unknown one.
+        orm = self._session.execute(
+            select(ChatSessionORM).where(
+                ChatSessionORM.id == session_id, ChatSessionORM.account_id == account_id,
+            )
+        ).scalar_one_or_none()
+        return _chat_session_to_domain(orm) if orm else None
+
+    def set_session_title(self, session_id: uuid.UUID, title: str) -> None:
+        self._session.execute(
+            sa.update(ChatSessionORM).where(ChatSessionORM.id == session_id).values(title=title)
+        )
+        self._session.flush()
+
+    def first_user_messages_for_sessions(
+        self, session_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, str]:
+        if not session_ids:
+            return {}
+        rows = self._session.execute(
+            select(ChatMessageORM.session_id, ChatMessageORM.content)
+            .where(
+                ChatMessageORM.session_id.in_(session_ids),
+                ChatMessageORM.role == ChatMessageRole.USER,
+            )
+            .order_by(ChatMessageORM.session_id, ChatMessageORM.created_at)
+        ).all()
+        first: dict[uuid.UUID, str] = {}
+        for session_id, content in rows:
+            first.setdefault(session_id, content)
+        return first
+
     def list_sessions_for_account(self, account_id: uuid.UUID) -> list[ChatSession]:
         rows = self._session.execute(
             select(ChatSessionORM)
@@ -2696,20 +2796,26 @@ class PostgresChatRepository(ChatRepository):
         return _chat_message_to_domain(orm)
 
     def list_messages_for_session(self, session_id: uuid.UUID) -> list[ChatMessage]:
+        # routers/chat.py stores a question and its answer with the same
+        # timestamp, so created_at alone leaves their order to the database.
+        # The question always comes first.
         rows = self._session.execute(
             select(ChatMessageORM)
             .where(ChatMessageORM.session_id == session_id)
-            .order_by(ChatMessageORM.created_at)
+            .order_by(
+                ChatMessageORM.created_at,
+                sa.case((ChatMessageORM.role == ChatMessageRole.USER, 0), else_=1),
+            )
         ).scalars()
         return [_chat_message_to_domain(row) for row in rows]
 
     def add_citation(
         self, *, message_id: uuid.UUID, document_id: uuid.UUID,
-        segment_id: uuid.UUID | None,
+        segment_id: uuid.UUID | None, paragraph_index: int | None = None,
     ) -> ChatMessageCitation:
         orm = ChatMessageCitationORM(
             id=uuid.uuid4(), message_id=message_id, document_id=document_id,
-            segment_id=segment_id,
+            segment_id=segment_id, paragraph_index=paragraph_index,
         )
         self._session.add(orm)
         self._session.flush()
@@ -2804,5 +2910,97 @@ class PostgresRateLimitRepository(RateLimitRepository):
         # scheduled job.
         self._session.execute(
             sa.delete(RateLimitBucketORM).where(RateLimitBucketORM.window_start < cutoff)
+        )
+        self._session.flush()
+
+
+class PostgresLlmUsageRepository:
+    """Counters for the LLM cost caps. Flushes, never commits."""
+
+    def __init__(self, session: Session):
+        self._session = session
+
+    def add_tokens(
+        self, *, pool: str, day: date, input_tokens: int, output_tokens: int,
+    ) -> LlmPoolTotals:
+        stmt = (
+            pg_insert(LlmTokenUsageORM)
+            .values(pool=pool, day=day, input_tokens=input_tokens, output_tokens=output_tokens)
+            .on_conflict_do_update(
+                index_elements=["pool", "day"],
+                set_={
+                    "input_tokens": LlmTokenUsageORM.input_tokens + input_tokens,
+                    "output_tokens": LlmTokenUsageORM.output_tokens + output_tokens,
+                },
+            )
+        )
+        self._session.execute(stmt)
+        self._session.flush()
+        return self.pool_totals(pool=pool, day=day)
+
+    def pool_totals(self, *, pool: str, day: date) -> LlmPoolTotals:
+        rows = self._session.execute(
+            select(
+                LlmTokenUsageORM.day,
+                LlmTokenUsageORM.input_tokens + LlmTokenUsageORM.output_tokens,
+            ).where(
+                LlmTokenUsageORM.pool == pool,
+                LlmTokenUsageORM.day >= day.replace(day=1),
+                LlmTokenUsageORM.day <= day,
+            )
+        ).all()
+        return LlmPoolTotals(
+            day_tokens=sum(total for row_day, total in rows if row_day == day),
+            month_tokens=sum(total for _, total in rows),
+        )
+
+    def record_question(self, *, key: str, day: date, limit: int) -> tuple[int, bool]:
+        # Atomic under concurrent requests, like PostgresRateLimitRepository.
+        stmt = (
+            pg_insert(LlmQuestionCountORM)
+            .values(key=key, day=day, question_count=1)
+            .on_conflict_do_update(
+                index_elements=["key", "day"],
+                set_={"question_count": LlmQuestionCountORM.question_count + 1},
+            )
+            .returning(LlmQuestionCountORM.question_count)
+        )
+        count = self._session.execute(stmt).scalar_one()
+        self._session.flush()
+        return count, count <= limit
+
+    def question_count(self, *, key: str, day: date) -> int:
+        count = self._session.execute(
+            select(LlmQuestionCountORM.question_count).where(
+                LlmQuestionCountORM.key == key, LlmQuestionCountORM.day == day,
+            )
+        ).scalar_one_or_none()
+        return count or 0
+
+    def claim_alert(self, *, pool: str, period: str, threshold: int, now: datetime) -> bool:
+        # Exactly one caller gets the inserted row back; everyone else
+        # conflicts and sends nothing.
+        stmt = (
+            pg_insert(LlmBudgetAlertORM)
+            .values(pool=pool, period=period, threshold=threshold, sent_at=now)
+            .on_conflict_do_nothing()
+            .returning(LlmBudgetAlertORM.pool)
+        )
+        claimed = self._session.execute(stmt).first() is not None
+        self._session.flush()
+        return claimed
+
+    def delete_expired(self, *, question_before: date, usage_before: date) -> None:
+        self._session.execute(
+            sa.delete(LlmQuestionCountORM).where(LlmQuestionCountORM.day < question_before)
+        )
+        self._session.execute(
+            sa.delete(LlmTokenUsageORM).where(LlmTokenUsageORM.day < usage_before)
+        )
+        cutoff = datetime(
+            usage_before.year, usage_before.month, usage_before.day, tzinfo=timezone.utc,
+        )
+        self._session.execute(
+            sa.delete(LlmBudgetAlertORM).where(LlmBudgetAlertORM.sent_at < cutoff)
         )
         self._session.flush()

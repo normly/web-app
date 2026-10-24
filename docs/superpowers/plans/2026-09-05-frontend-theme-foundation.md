@@ -26,8 +26,8 @@ matters, see Task 1), `next-themes` (new dependency), existing
 ## Global Constraints
 
 - Design spec: `docs/superpowers/specs/2026-09-05-frontend-shadcn-redesign-design.md`
-  — this plan implements only that spec's section 1 ("Theme-Fundament").
-- **No Mandanten-Branding-Farbe.** `NORMLY_BRAND_COLOR_HSL` and
+  — this plan implements only that spec's section 1 ("Theme foundation").
+- **No tenant branding color.** `NORMLY_BRAND_COLOR_HSL` and
   `frontend/src/lib/config.ts`'s `getInstanceConfig()` stay in the code
   completely unchanged (REQ-DIST-003), but nothing added in this plan
   reads or references `--brand`/`--brand-foreground` — those two variables
@@ -97,8 +97,8 @@ Replace the entire file with:
 
 :root {
   /* Dormant multi-tenant branding override (REQ-DIST-003) -- not wired
-     into any component (2026-09-05 frontend redesign: "keine
-     Mandantenfarben mehr"), kept only so NORMLY_BRAND_COLOR_HSL keeps
+     into any component (2026-09-05 frontend redesign: "no
+     tenant branding color"), kept only so NORMLY_BRAND_COLOR_HSL keeps
      working the day this gets reconnected. Do not remove without a
      separate decision on REQ-DIST-003 itself. */
   --brand: 222 89% 55%;

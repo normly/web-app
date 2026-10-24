@@ -26,7 +26,7 @@ installed in `.venv-docs/`), no new tooling.
   ADR-019, `docs/srs/*.md`, `CONTRIBUTING.md`, `SECURITY.md`,
   `GOVERNANCE.md`, `TRADEMARK.md`, `CODE_OF_CONDUCT.md` are explicitly
   **not** touched by this plan — a separate, later project.
-- `CLAUDE.md` stays German — only the "Sprache" section's stated rule
+- `CLAUDE.md` stays German — only the "Language" section's stated rule
   changes, not the file's own language.
 - ADR-020 is written in German — transitional, consistent with ADR-001
   through ADR-019 in the same file, until that file's own later
@@ -48,7 +48,7 @@ installed in `.venv-docs/`), no new tooling.
 - Commits need `Signed-off-by` (DCO) — `git commit -s`.
 - No `--strict` build (unchanged from the original site plan — see
   `docs/superpowers/specs/2026-09-11-zensical-documentation-site-design.md`,
-  "Warum kein `--strict`"). Plain `zensical build` must still exit 0 with
+  "Why no `--strict`"). Plain `zensical build` must still exit 0 with
   exactly the same 3 known, out-of-scope warnings as before (from
   `docs/superpowers/specs/*.md`'s `[[wiki-link]]` convention) — translating
   content must not introduce new warnings.
@@ -66,99 +66,99 @@ installed in `.venv-docs/`), no new tooling.
   independent of it (they don't need CLAUDE.md or ADR-020 to build the
   site, they just implement what those documents describe).
 
-- [ ] **Step 1: Edit CLAUDE.md's "Sprache" section**
+- [ ] **Step 1: Edit CLAUDE.md's "Language" section**
 
-Find this section (near the end of the file):
+Find this section (near the end of the file; wording at the time):
 
 ```markdown
-## Sprache
+## Language
 
-Code, Bezeichner und Commits auf Englisch. Fachbegriffe aus dem Normenwesen
-behalten ihren deutschen Begriff, wo es keine etablierte Entsprechung gibt
-(z. B. `Normenausschuss`). Dokumentation und Nutzeroberfläche auf Deutsch,
-Mehrsprachigkeit vorgesehen.
+Code, identifiers and commits in English. Terms from the standards domain
+keep their German term where there is no established equivalent
+(e.g. `Normenausschuss`). Documentation and user interface in German,
+multilingualism planned.
 ```
 
-Replace it with:
+Replace it with (wording at the time):
 
 ```markdown
-## Sprache
+## Language
 
-Code, Bezeichner und Commits auf Englisch. **Dokumentation ebenfalls auf
-Englisch** (`docs/`-Inhalte, Code-Referenz, Guides) — internationale
-Reichweite hat Vorrang. Fachbegriffe aus dem Normenwesen behalten ihren
-deutschen Begriff, wo es keine etablierte Entsprechung gibt (z. B.
-`Normenausschuss`), unabhängig von der Sprache der umgebenden Doku. Diese
-Datei (CLAUDE.md) bleibt auf Deutsch. Die App-eigene Sprachumschaltung
-(Deutsch/Englisch für Endnutzer) ist davon unberührt. → ADR-020
+Code, identifiers and commits in English. **Documentation in English as
+well** (`docs/` content, code reference, guides) — international
+reach takes priority. Terms from the standards domain keep their
+German term where there is no established equivalent (e.g.
+`Normenausschuss`), regardless of the language of the surrounding docs. This
+file (CLAUDE.md) stays in German. The app's own language switch
+(German/English for end users) is unaffected by this. → ADR-020
 
-Nicht rückwirkend: bestehender deutscher Content (README.md, docs/adr/,
+Not retroactive: existing German content (README.md, docs/adr/,
 docs/srs/, CONTRIBUTING.md, SECURITY.md, GOVERNANCE.md, TRADEMARK.md,
-CODE_OF_CONDUCT.md) bleibt vorerst unverändert — Migration ist ein
-eigenes, späteres Projekt.
+CODE_OF_CONDUCT.md) stays unchanged for now — migration is a
+separate, later project.
 ```
 
 - [ ] **Step 2: Add ADR-020 to `docs/adr/README.md`**
 
 Find the end of the ADR-019 section — it currently reads (near the end of
-the file, right before a `---` separator and `## Offene Punkte`):
+the file, right before a `---` separator and `## Open items`):
 
 ```markdown
-**Verworfen:** Beibehaltung von GitHub als reine, weiterhin manuell
-gepflegte Beitragsfassade ohne Automatisierung (löst das
-Pflegeaufwand-Problem nicht, verzögert die Entscheidung nur).
+**Rejected:** Keeping GitHub as a pure contribution facade, still maintained
+manually, without automation (does not solve the
+maintenance-effort problem, only delays the decision).
 
 ---
 
-## Offene Punkte
+## Open items
 ```
 
-Insert a new ADR-020 section between the `---` and `## Offene Punkte`, so
-it reads:
+Insert a new ADR-020 section between the `---` and `## Open items`, so
+it reads (wording at the time):
 
 ```markdown
-**Verworfen:** Beibehaltung von GitHub als reine, weiterhin manuell
-gepflegte Beitragsfassade ohne Automatisierung (löst das
-Pflegeaufwand-Problem nicht, verzögert die Entscheidung nur).
+**Rejected:** Keeping GitHub as a pure contribution facade, still maintained
+manually, without automation (does not solve the
+maintenance-effort problem, only delays the decision).
 
 ---
 
-## ADR-020 — Dokumentation auf Englisch statt Deutsch
+## ADR-020 — Documentation in English instead of German
 
-**Status:** beschlossen
+**Status:** accepted
 
-**Entscheidung:** Neue Dokumentation (`docs/`-Inhalte, Code-Referenz,
-Guides) wird ab sofort auf Englisch verfasst statt auf Deutsch. Nicht
-rückwirkend — bestehender deutscher Content (README.md, `docs/adr/`,
+**Decision:** New documentation (`docs/` content, code reference,
+guides) is written in English instead of German with immediate effect. Not
+retroactive — existing German content (README.md, `docs/adr/`,
 `docs/srs/`, `CONTRIBUTING.md`, `SECURITY.md`, `GOVERNANCE.md`,
-`TRADEMARK.md`, `CODE_OF_CONDUCT.md`) wird nicht migriert; das ist ein
-eigenes, späteres Projekt.
+`TRADEMARK.md`, `CODE_OF_CONDUCT.md`) is not migrated; that is a
+separate, later project.
 
-**Begründung:** Englisch ist der De-facto-Standard für
-Open-Source-Dokumentation. Er ermöglicht internationalen Beitragenden
-Teilnahme, unabhängig vom deutschsprachigen Kernteam — passend zum
-Open-Core-Modell (ADR-001) und dem Anspruch, dass der freie Kern von
-außen mitgetragen werden kann. Die ursprüngliche Regel (Dokumentation auf
-Deutsch) stand dem im Weg.
+**Rationale:** English is the de facto standard for
+open-source documentation. It enables international contributors to
+participate, independently of the German-speaking core team — in line with the
+open-core model (ADR-001) and the aim that the free core can be
+co-sustained from outside. The original rule (documentation in
+German) stood in the way of this.
 
-**Nicht betroffen:** Code, Bezeichner und Commits waren schon vorher
-Englisch (unverändert). Die App-eigene Sprachumschaltung
-(`LocaleProvider`, Deutsch/Englisch für Endnutzer) ist eine
-Laufzeit-Funktion, keine Projektdokumentation, und bleibt unverändert.
-Die Fachbegriffs-Ausnahme für Normenwesen-Begriffe ohne etablierte
-englische Entsprechung (z. B. `Normenausschuss`) gilt unabhängig von der
-Sprache weiter.
+**Not affected:** Code, identifiers and commits were already in
+English before (unchanged). The app's own language switch
+(`LocaleProvider`, German/English for end users) is a
+runtime function, not project documentation, and remains unchanged.
+The technical-term exception for terms from the standards domain without an established
+English equivalent (e.g. `Normenausschuss`) continues to apply regardless of the
+language.
 
-**Konsequenz:** CLAUDE.md's Abschnitt „Sprache" ist entsprechend
-angepasst. Der bereits offene, noch nicht gemergte Merge Request für die
-Zensical-Dokumentations-Site
+**Consequence:** CLAUDE.md's "Language" section has been adjusted
+accordingly. The merge request for the
+Zensical documentation site that is already open but not yet merged
 (`docs/superpowers/plans/2026-09-11-zensical-documentation-site.md`)
-wird vor dem Merge auf Englisch umgeschrieben, da er als „ab jetzt"
-zählt.
+is rewritten in English before the merge, since it counts as "from now
+on".
 
 ---
 
-## Offene Punkte
+## Open items
 ```
 
 - [ ] **Step 3: Verify both files are well-formed**
@@ -213,8 +213,8 @@ nav = [
     "guide/self-hosting.md",
   ] },
   { "Concepts" = [
-    "concepts/normen-graph.md",
-    "concepts/lizenzmodell.md",
+    "concepts/norm-graph.md",
+    "concepts/license-model.md",
   ] },
   { "Architekturentscheidungen" = "adr/README.md" },
   { "Anforderungen (SRS)" = "srs/README.md" },
@@ -242,8 +242,8 @@ nav = [
     "guide/self-hosting.md",
   ] },
   { "Concepts" = [
-    "concepts/normen-graph.md",
-    "concepts/lizenzmodell.md",
+    "concepts/norm-graph.md",
+    "concepts/license-model.md",
   ] },
   { "Architecture decisions" = "adr/README.md" },
   { "Requirements (SRS)" = "srs/README.md" },
@@ -285,7 +285,7 @@ standard.
 
 - **[Guide](guide/getting-started.md)** — getting started for users and
   operators
-- **[Concepts](concepts/normen-graph.md)** — the underlying principles
+- **[Concepts](concepts/norm-graph.md)** — the underlying principles
   (graph first, license model)
 - **[Architecture decisions](adr/README.md)** — why it's built the way
   it's built
@@ -359,7 +359,7 @@ repository root is the right starting point, not this page.
 # Self-Hosting
 
 !!! warning "No runnable version yet"
-    Delivery is planned per [ADR-010](../adr/README.md#adr-010-auslieferung-als-container-daten-getrennt-vom-image)
+    Delivery is planned per [ADR-010](../adr/README.md#adr-010-shipping-as-a-container-data-separate-from-the-image)
     as signed container images plus a Compose setup, with the knowledge
     base as an independently versioned dump. This page will describe the
     actual path once there's a first release that does it — speculation
@@ -397,19 +397,20 @@ git commit -s -m "docs: translate Guide section to English"
 ### Task 4: Translate the Concepts section
 
 **Files:**
-- Modify: `docs/concepts/normen-graph.md`
-- Modify: `docs/concepts/lizenzmodell.md`
+- Modify: `docs/concepts/norm-graph.md`
+- Modify: `docs/concepts/license-model.md`
 
 **Interfaces:**
 - Consumes: nothing new from Task 3.
 
 Work from: `/home/snake/Dokumente/Projekte/01_normly/normly-app/.worktrees/docs-zensical-documentation-site`
 
-Note: the filenames stay German (`normen-graph.md`, `lizenzmodell.md`) —
-only the content and the display text of links pointing at them change.
+Note: the filenames stay German at this point (then `normen-graph.md` and
+`lizenzmodell.md`; renamed in the 2026-10 English migration) — only the content
+and the display text of links pointing at them change.
 Don't rename the files; other pages link to them by these exact paths.
 
-- [ ] **Step 1: Replace `docs/concepts/normen-graph.md`**
+- [ ] **Step 1: Replace `docs/concepts/norm-graph.md`**
 
 ```markdown
 # Graph first, model only when needed
@@ -424,7 +425,7 @@ deterministically, in milliseconds, at no token cost. A model call here
 would be more expensive, slower, and more error-prone. Hallucinations are
 especially costly for validity and replacement questions.
 
-Details and trade-offs: [ADR-008](../adr/README.md#adr-008-graph-first-anfrageverarbeitung).
+Details and trade-offs: [ADR-008](../adr/README.md#adr-008-graph-first-query-processing).
 
 ## Data storage
 
@@ -434,16 +435,16 @@ systems that would need to be kept in sync. Database access goes
 exclusively through the repository layer; the underlying storage
 technology stays swappable.
 
-Details: [ADR-006](../adr/README.md#adr-006-postgresql-statt-neo4j-fur-den-referenzgraph).
+Details: [ADR-006](../adr/README.md#adr-006-postgresql-instead-of-neo4j-for-the-reference-graph).
 
 ## Open and layered at once
 
 The reference graph itself is open (ODbL) — layered into a free and a
 commercial part, not withheld. What's free is described in
-[License Model](lizenzmodell.md).
+[License Model](license-model.md).
 ```
 
-- [ ] **Step 2: Replace `docs/concepts/lizenzmodell.md`**
+- [ ] **Step 2: Replace `docs/concepts/license-model.md`**
 
 ```markdown
 # License Model
@@ -461,9 +462,9 @@ The AGPL applies when someone modifies and operates the server itself. A
 third-party system that talks to a normly instance over the HTTP API is a
 separate program and unaffected — integrations are explicitly welcome.
 
-Rationale for the license choice: [ADR-002](../adr/README.md#adr-002-lizenzmodell-agpl-30-apache-20-odbl).
+Rationale for the license choice: [ADR-002](../adr/README.md#adr-002-license-model-agpl-30-apache-20-odbl).
 Why the graph stays open despite licensing:
-[ADR-007](../adr/README.md#adr-007-referenzgraph-bleibt-offen).
+[ADR-007](../adr/README.md#adr-007-reference-graph-stays-open).
 
 ## Rights classification by category
 
@@ -478,10 +479,10 @@ Every data source gets a category before it's processed at all:
 
 No assignable category means: not ingested. Category D is never used for
 commercially exploited catalogs (DIN Media/Nautos and similar) — see
-[ADR-012](../adr/README.md#adr-012-kein-scraping-kommerziell-verwerteter-katalogbestande).
+[ADR-012](../adr/README.md#adr-012-no-scraping-of-commercially-exploited-catalog-collections).
 
 Classification applies **per jurisdiction**, not globally — § 5 UrhG only
-applies in Germany. Details: [ADR-011](../adr/README.md#adr-011-internationalisierung-von-beginn-an).
+applies in Germany. Details: [ADR-011](../adr/README.md#adr-011-internationalization-from-the-start).
 
 ## Separate data storage per publisher
 
@@ -489,7 +490,7 @@ Licensed holdings (Category C) are stored separately per publisher, each
 with its own data encryption key. This enables cryptographic deletion at
 contract end — even in backups, where selective deletion is otherwise
 practically infeasible. Details:
-[ADR-014](../adr/README.md#adr-014-verschlusselung-kryptographisches-loschen-je-herausgeber).
+[ADR-014](../adr/README.md#adr-014-encryption-cryptographic-erasure-per-publisher).
 ```
 
 Note: `§ 5 UrhG` and `§ 44b Abs. 3` are references to specific sections of
@@ -571,7 +572,7 @@ established English equivalent.
 : Holds the brand, open data, and source code; responsible for the free
   core and relationships with publishers and the community. Separate from
   a future commercial entity — see
-  [ADR-001](adr/README.md#adr-001-open-core-modell-statt-white-label-produkt).
+  [ADR-001](adr/README.md#adr-001-open-core-model-instead-of-a-white-label-product).
 
 **Normenausschuss vs. publisher**
 : The publisher (e.g. DIN, VDI, DGUV) releases a standard; the
@@ -580,7 +581,7 @@ established English equivalent.
 
 **Category A–D**
 : Rights classification per source, see
-  [License Model](concepts/lizenzmodell.md#rechteklassifikation-nach-kategorie).
+  [License Model](concepts/license-model.md#rechteklassifikation-nach-kategorie).
 ```
 
 Judgment call worth understanding, not re-litigating: `Referenzgraph` (the
@@ -588,7 +589,7 @@ original German term) is translated here to "Reference graph", *not* kept
 under the domain-term exception — unlike `Normenausschuss` and
 `Trägerorganisation`, "reference graph" already has an established
 English equivalent, the one already used consistently throughout
-`index.md`, `normen-graph.md`, and `lizenzmodell.md` (translated in Tasks
+`index.md`, `norm-graph.md`, and `license-model.md` (translated in Tasks
 2 and 4). Keeping the glossary entry itself in German would be
 inconsistent with how the term is used everywhere else in the same site.
 `Normenausschuss` and `Trägerorganisation` stay German because they don't

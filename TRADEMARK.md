@@ -1,51 +1,51 @@
-# Markenrichtlinie
+# Trademark Policy
 
-## Warum es diese Richtlinie gibt
+## Why this policy exists
 
-Der Quellcode von normly steht unter der AGPL-3.0 — du darfst ihn verändern und
-weitergeben. Die **Marke** `normly` ist davon nicht erfasst.
+The source code of normly is licensed under the AGPL-3.0 — you may modify and
+redistribute it. The **trademark** `normly` is not covered by that.
 
-Das ist kein Widerspruch zur Offenheit, sondern ihre Voraussetzung: Wer eine
-normly-Instanz nutzt, soll sich darauf verlassen können, woher die Antworten
-kommen. Bei Aussagen über den anerkannten Stand der Technik ist die Herkunft
-nicht nebensächlich.
+This does not contradict openness; it is its precondition: anyone who uses a
+normly instance should be able to rely on where the answers come from. For
+statements about the recognized state of the art, provenance is not a side
+issue.
 
-## Erlaubt ohne Rückfrage
+## Allowed without asking
 
-- Sagen, dass deine Software auf normly aufbaut oder mit normly funktioniert
-  (»basiert auf normly«, »kompatibel mit normly«)
-- Den Namen in Dokumentation, Vorträgen, Artikeln und Schulungen nennen
-- Auf das Projekt verlinken, Logo in unverändertem Zustand zur Verlinkung nutzen
-- Unveränderte offizielle Container-Images und Releases weitergeben
+- Saying that your software builds on normly or works with normly
+  ("based on normly", "compatible with normly")
+- Mentioning the name in documentation, talks, articles and training courses
+- Linking to the project, using the logo in unmodified form for linking
+- Redistributing unmodified official container images and releases
 
-## Nicht erlaubt ohne schriftliche Zustimmung
+## Not allowed without written consent
 
-- Eine **veränderte** Fassung weiterhin als »normly« bezeichnen
-- Namen oder Logo so verwenden, dass ein offizieller Zusammenhang oder eine
-  Unterstützung durch das Projekt suggeriert wird
-- `normly` in Produkt-, Firmen- oder Domainnamen führen, auch in
-  Zusammensetzungen (`normly-pro`, `mein-normly.de`)
-- Namen oder Logo als Bestandteil eines eigenen Logos verwenden
-- Das Logo verändern: Farben, Proportionen, Schriftzug
+- Continuing to call a **modified** version "normly"
+- Using the name or logo in a way that suggests an official connection with, or
+  endorsement by, the project
+- Using `normly` in product, company or domain names, including in
+  compounds (`normly-pro`, `mein-normly.de`)
+- Using the name or logo as part of your own logo
+- Modifying the logo: colors, proportions, lettering
 
-## Wenn du forkst
+## If you fork
 
-Fork und Weitergabe erlaubt die AGPL ausdrücklich — dafür brauchst du keine
-Erlaubnis. Gib deiner Fassung dann aber einen eigenen Namen und entferne Logo
-und Wortmarke.
+The AGPL expressly permits forking and redistribution — you do not need
+permission for that. In that case, however, give your version its own name and
+remove the logo and the word mark.
 
-Zulässig bleibt eine sachliche Herkunftsangabe:
-»XYZ, ein Fork von normly«.
+A factual statement of origin remains permissible:
+"XYZ, a fork of normly".
 
-## Anfragen
+## Requests
 
-Für alles, was nicht eindeutig unter »erlaubt ohne Rückfrage« fällt:
-**trademark@normly.ai**
+For anything that does not clearly fall under "Allowed without asking":
+**mail@normly.ai**
 
-Wir sind bei gutgläubiger Nutzung großzügig. Frag lieber, bevor du Aufwand in
-etwas steckst, das wir hinterher beanstanden müssen.
+We are generous with good-faith use. Better to ask before you put effort into
+something that we have to object to afterwards.
 
 ---
 
-<sub>Diese Richtlinie ergänzt die Lizenzbedingungen und schränkt die durch die
-AGPL-3.0 gewährten Rechte am Quellcode nicht ein.</sub>
+<sub>This policy supplements the license terms and does not restrict the rights
+to the source code granted by the AGPL-3.0.</sub>

@@ -60,6 +60,6 @@ describe("POST /api/auth/verify-email/resend", () => {
     expect(response.status).toBe(200);
     const [url, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(url).toContain("/v1/accounts/verify-email/resend");
-    expect(JSON.parse(init.body as string)).toEqual({ email: "a@example.de" });
+    expect(JSON.parse(init.body as string)).toEqual({ email: "a@example.de", locale: "de" });
   });
 });

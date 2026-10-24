@@ -11,6 +11,7 @@ import { NotificationPreferenceSection } from "@/components/account/notification
 import { EmailSection } from "@/components/account/email-section";
 import { PasswordSection } from "@/components/account/password-section";
 import { SessionsSection } from "@/components/account/sessions-section";
+import { UsageSection } from "@/components/account/usage-section";
 import { ExportSection } from "@/components/account/export-section";
 import { DeleteAccountSection } from "@/components/account/delete-account-section";
 import { useTranslation } from "@/lib/i18n/provider";
@@ -18,7 +19,7 @@ import { cn } from "@/lib/utils";
 import type { AccountSummary } from "@/lib/account-response";
 import type { TranslationKey } from "@/lib/i18n/dictionary-keys";
 
-type SectionId = "profile" | "notifications" | "email" | "password" | "sessions" | "data";
+type SectionId = "profile" | "notifications" | "email" | "password" | "sessions" | "usage" | "data";
 
 const SECTIONS: { id: SectionId; labelKey: TranslationKey }[] = [
   { id: "profile", labelKey: "account.nameAvatarTitle" },
@@ -26,6 +27,7 @@ const SECTIONS: { id: SectionId; labelKey: TranslationKey }[] = [
   { id: "email", labelKey: "account.emailTitle" },
   { id: "password", labelKey: "account.passwordTitle" },
   { id: "sessions", labelKey: "account.sessionsTitle" },
+  { id: "usage", labelKey: "account.usageTitle" },
   { id: "data", labelKey: "account.dataSectionTitle" },
 ];
 
@@ -93,6 +95,7 @@ export function ProfileOverlay({
               {activeSection === "email" && <EmailSection account={account} />}
               {activeSection === "password" && <PasswordSection />}
               {activeSection === "sessions" && <SessionsSection />}
+              {activeSection === "usage" && <UsageSection />}
               {activeSection === "data" && (
                 <div className="flex flex-col gap-6">
                   <ExportSection />

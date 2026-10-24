@@ -1,4 +1,4 @@
-# BAuA-Adapter (TRGS/TRBS/TRBA) Implementation Plan
+# BAuA Adapter (TRGS/TRBS/TRBA) Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -28,19 +28,19 @@ no new dependency), `reportlab` (dev-only, test fixtures), `pytest`.
   copyright line, exactly matching `dguv.py`'s first two lines (CLAUDE.md).
 - Every commit needs `Signed-off-by: normly <anonymous-jw@pm.me>` (DCO, CLAUDE.md).
 - One `BauaAdapter` covers all three series (TRGS, TRBS, TRBA) under a single registry
-  entry, publisher `"BAuA"` — not three adapters (spec, "Ziel dieses Teilprojekts").
-- Legal basis category is **A** (amtliches Werk, § 5 UrhG "amtliche Bekanntmachungen")
-  — same tier as the existing `"dguv"`/`"eur-lex"` registry entries (spec,
-  "Rechtegrundlage: Kategorie A").
+  entry, publisher `"BAuA"` — not three adapters (spec, "Goal of this sub-project").
+- Legal basis category is **A** (official work under § 5 UrhG, the German Copyright
+  Act: "amtliche Bekanntmachungen", i.e. official notices) — same tier as the existing
+  `"dguv"`/`"eur-lex"` registry entries (spec, "Legal basis: category A").
 - `extract_structure()` returns exactly one segment holding the full document text,
-  `heading=None` — no numbered-section splitting in this pass (spec, "Entscheidung:
-  Struktur-Tiefe Phase 1"). Do not add heading detection as part of this plan.
+  `heading=None` — no numbered-section splitting in this pass (spec, "Decision:
+  structure depth phase 1"). Do not add heading detection as part of this plan.
 - File-glob convention: `baua_trgs_*.pdf`, `baua_trbs_*.pdf`, `baua_trba_*.pdf` (spec,
-  "Dateikonvention").
+  "File convention").
 - No committed binary fixture PDFs for this adapter (deviates slightly from the DGUV/
   EUR-Lex precedent of one committed fixture each) — Phase 1 has no persistent
   "verify Docling's real element-classification behavior" assertion to anchor a fixed
-  file against (see the DGUV design spec's "Empirischer Befund", which does not apply
+  file against (see the DGUV design spec's "Empirical finding", which does not apply
   here since Phase 1 never inspects element types, only item text). All BAuA test
   fixtures are generated at test time with `reportlab`, same helper pattern
   `test_dguv_adapter.py` already uses.
@@ -146,9 +146,9 @@ from normly_core.pipeline.docling_extraction import (
 from normly_core.pipeline.domain import RawRecord, RawSection, RightsRule
 
 # BAuA's three technical-rule series share one designation shape: a series
-# prefix, a running number, and an optional "Teil N" suffix for a
-# multi-part rule (e.g. "TRGS 500 Teil 1"). See design spec, "Designation-
-# Erkennung".
+# prefix, a running number, and an optional "Teil N" ("part N") suffix for a
+# multi-part rule (e.g. "TRGS 500 Teil 1"). See design spec, "Designation
+# detection".
 _DESIGNATION_PATTERN = re.compile(
     r"^(TRGS|TRBS|TRBA)\s+(\d+(?:\s+Teil\s+\d+)?)\s*(.*)$"
 )
@@ -156,7 +156,7 @@ _DESIGNATION_PATTERN = re.compile(
 # A title's own first line is short. Phase 1 deliberately runs no
 # sentence-boundary heuristic (see design spec) -- but a continuously-set
 # publication (see docs/superpowers/specs/2026-08-30-docling-migration-design.md,
-# "Empirischer Befund") merges the *entire* page into one Docling text item,
+# "Empirical finding") merges the *entire* page into one Docling text item,
 # and without any bound the pattern's `(.*)$` tail would then capture the
 # whole document as its "title". A bare length cap is not a sentence
 # heuristic: it only ever costs a missed title (falls back to `None`, same
@@ -228,7 +228,7 @@ class BauaAdapter:
         )
 
     def extract_structure(self, record: RawRecord) -> list[RawSection]:
-        # Phase 1 (design spec, "Entscheidung: Struktur-Tiefe Phase 1"): one
+        # Phase 1 (design spec, "Decision: structure depth phase 1"): one
         # segment holding the whole document, no numbered-section splitting
         # yet -- deliberately deferred, not forgotten.
         if record.full_text is None:
@@ -237,9 +237,9 @@ class BauaAdapter:
 
     def classify_rights(self, record: RawRecord) -> RightsRule:
         # Narrower than the Protocol's `RightsRule | None` on purpose: every
-        # TRGS/TRBS/TRBA is an amtliche Bekanntmachung, so this source is
-        # always classifiable and never hands the runner a "cannot
-        # classify". See design spec, "Rechtegrundlage: Kategorie A".
+        # TRGS/TRBS/TRBA is an amtliche Bekanntmachung (official announcement), so
+        # this source is always classifiable and never hands the runner a "cannot
+        # classify". See design spec, "Legal basis: category A".
         return RightsRule(
             jurisdiction="DE", may_process=True, may_index_fulltext=True,
             may_cite_passages=True, may_export_free=True,
@@ -308,8 +308,8 @@ Signed-off-by: normly <anonymous-jw@pm.me>"
 ```python
 def test_fetch_reads_all_three_series_and_ignores_other_sources_files(tmp_path):
     """`--directory` means the directory, not one hardcoded filename in it,
-    and the three series share one adapter (design spec, "Ziel dieses
-    Teilprojekts")."""
+    and the three series share one adapter (design spec, "Goal of this
+    sub-project")."""
     _write_publication_pdf(
         tmp_path / "baua_trgs_900.pdf", ["TRGS 900", "Arbeitsplatzgrenzwerte", "", "Text."]
     )
@@ -358,7 +358,7 @@ def test_fetch_leaves_title_unset_when_docling_merges_the_whole_page(tmp_path):
     makes Docling merge the entire page into one text item -- verified
     behavior for this document family, see
     docs/superpowers/specs/2026-08-30-docling-migration-design.md,
-    "Empirischer Befund". Without a bound, the designation pattern's `(.*)$`
+    "Empirical finding". Without a bound, the designation pattern's `(.*)$`
     tail would then capture the rest of the document as its "title". The
     length cap must fail toward `title=None`, never toward a fabricated
     title -- and `full_text` must keep everything regardless."""
@@ -595,9 +595,9 @@ existing `"dguv"` entry):
     "baua": SourceRegistryEntry(
         publisher="BAuA",
         retrieval_path="https://www.baua.de/DE/Angebote/Regelwerk",
-        # TRGS/TRBS/TRBA sind amtliche Bekanntmachungen einer
-        # Bundesoberbehörde (BAuA im GMBl) -- § 5 UrhG, wie die DGUV- und
-        # EUR-Lex-Einträge. Siehe design spec, "Rechtegrundlage: Kategorie A".
+        # TRGS/TRBS/TRBA are official announcements of a higher
+        # federal authority (BAuA in the GMBl) -- § 5 UrhG, like the DGUV and
+        # EUR-Lex entries. See design spec, "Legal basis: category A".
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="DE",
         reviewed_at=date(2026, 9, 1),
@@ -653,7 +653,7 @@ Signed-off-by: normly <anonymous-jw@pm.me>"
 
 - Run the full `core` test suite once more (`cd core && python -m pytest -v`) to
   confirm nothing outside `tests/pipeline/` regressed.
-- Update `docs/superpowers/specs/2026-09-01-baua-adapter-design.md`'s "Offene Punkte"
+- Update `docs/superpowers/specs/2026-09-01-baua-adapter-design.md`'s "Open items / follow-up work"
   is already accurate as written (real-document verification and automated procurement
   remain open) — no spec edit needed unless implementation surfaced a new deviation.
 - Update the `project_baua_adapter_brainstorm` memory to reflect completion once this

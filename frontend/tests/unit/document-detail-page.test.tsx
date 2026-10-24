@@ -65,6 +65,8 @@ function mockFetch(
     account?: object | null;
     watchlist?: object[];
     watchlistToggleStatus?: number;
+    segments?: object[];
+    segmentsStatus?: number;
   } = {},
 ) {
   global.fetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
@@ -82,6 +84,11 @@ function mockFetch(
       }
       return Promise.resolve(
         new Response(JSON.stringify(overrides.watchlist ?? []), { status: 200 }),
+      );
+    }
+    if (url.includes(`/api/documents/${DOCUMENT_ID}/segments`)) {
+      return Promise.resolve(
+        new Response(JSON.stringify(overrides.segments ?? []), { status: overrides.segmentsStatus ?? 200 }),
       );
     }
     if (url.includes(`/api/documents/${DOCUMENT_ID}/edges`)) {
@@ -395,6 +402,59 @@ describe("DocumentDetailContent", () => {
     expect(screen.getByTestId("watchlist-toggle")).toHaveAttribute(
       "aria-label", "Zur Watchlist hinzufügen",
     );
+  });
+});
+
+describe("DocumentDetailContent text section", () => {
+  afterEach(() => {
+    global.fetch = originalFetch;
+    window.location.hash = "";
+  });
+
+  const SEGMENTS = [
+    { id: "seg-1", sequence_number: 1, heading: "§ 1 Geltungsbereich", text: "Gilt für alle." },
+    { id: "seg-2", sequence_number: 2, heading: "§ 2 Pflichten", text: "Der Unternehmer muss." },
+  ];
+
+  it("renders each segment with its anchor", async () => {
+    mockFetch({ segments: SEGMENTS });
+    renderDetail(DOCUMENT_ID);
+
+    expect(await screen.findByText("§ 1 Geltungsbereich")).toBeInTheDocument();
+    expect(document.getElementById("segment-seg-2")).toHaveTextContent("Der Unternehmer muss.");
+  });
+
+  it("highlights the segment named in the URL hash", async () => {
+    window.location.hash = "#segment-seg-2";
+    mockFetch({ segments: SEGMENTS });
+    renderDetail(DOCUMENT_ID);
+
+    await screen.findByText("§ 2 Pflichten");
+    await waitFor(() =>
+      expect(document.getElementById("segment-seg-2")).toHaveAttribute("aria-current", "true"),
+    );
+    expect(document.getElementById("segment-seg-1")).not.toHaveAttribute("aria-current");
+  });
+
+  it("explains when the text cannot be shown and links the original source", async () => {
+    mockFetch({ segments: [] });
+    renderDetail(DOCUMENT_ID);
+
+    expect(
+      await screen.findByText(/Der Text dieses Dokuments kann hier nicht angezeigt werden\./),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Zur Originalquelle" })).toHaveAttribute(
+      "href",
+      expect.stringMatching(/^https?:\/\//),
+    );
+  });
+
+  it("hides the text section when the segments request fails", async () => {
+    mockFetch({ segmentsStatus: 503 });
+    renderDetail(DOCUMENT_ID);
+
+    await screen.findByRole("heading", { level: 2 });
+    expect(screen.queryByText("Text")).not.toBeInTheDocument();
   });
 });
 

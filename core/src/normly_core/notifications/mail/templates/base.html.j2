@@ -1,0 +1,56 @@
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{# Copyright (C) 2026 normly contributors #}
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html dir="ltr" lang="{{ lang }}">
+<head>
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type"/>
+<meta name="x-apple-disable-message-reformatting"/>
+<title>{{ subject }}</title>
+</head>
+<body style="margin:0;background-color:{{ tokens.muted }};font-family:system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;color:{{ tokens.foreground }}">
+<div style="display:none;overflow:hidden;line-height:1px;opacity:0;max-height:0;max-width:0">{{ blocks[0].paragraph }}</div>
+<table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;padding:32px 16px">
+<tbody><tr><td>
+<table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="padding-bottom:24px">
+<tbody><tr><td>
+{% if base_url %}
+<a href="{{ base_url }}" style="color:{{ tokens.foreground }};font-size:20px;font-weight:600;text-decoration:none" target="_blank">normly</a>
+{% else %}
+<span style="color:{{ tokens.foreground }};font-size:20px;font-weight:600">normly</span>
+{% endif %}
+</td></tr></tbody>
+</table>
+<table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background-color:{{ tokens.card }};border:1px solid {{ tokens.border }};border-radius:{{ tokens.radius }};padding:32px">
+<tbody><tr><td>
+{% for block in blocks %}
+{% if not loop.first %}
+<hr style="margin:32px 0;border:0;border-top:1px solid {{ tokens.border }}"/>
+{% endif %}
+<p style="margin:0 0 16px;font-size:20px;font-weight:600">{{ block.heading }}</p>
+<p style="margin:0 0 24px;font-size:15px;line-height:24px">{{ block.paragraph }}</p>
+{% if block.button %}
+<a href="{{ block.action_url }}" style="display:inline-block;background:{{ tokens.primary }};color:{{ tokens.primary_foreground }};padding:10px 20px;border-radius:{{ tokens.radius }};font-size:14px;font-weight:500;text-decoration:none" target="_blank">{{ block.button }}</a>
+<p style="margin:24px 0 0;font-size:13px;line-height:20px;color:{{ tokens.muted_foreground }}">{{ block.fallback_link }}<br/><a href="{{ block.action_url }}" style="color:{{ tokens.muted_foreground }};text-decoration:underline;word-break:break-all" target="_blank">{{ block.action_url }}</a></p>
+{% endif %}
+{% if block.note %}
+<p style="margin:16px 0 0;font-size:13px;line-height:20px;color:{{ tokens.muted_foreground }}">{{ block.note }}</p>
+{% endif %}
+{% endfor %}
+</td></tr></tbody>
+</table>
+<table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="padding-top:24px">
+<tbody><tr><td>
+<p style="font-size:12px;line-height:18px;margin:0;color:{{ tokens.muted_foreground }}">normly · {{ claim }}
+{% if imprint_url or privacy_url %}
+<br/>
+{% if imprint_url %}<a href="{{ imprint_url }}" style="color:{{ tokens.muted_foreground }};text-decoration:underline" target="_blank">{{ imprint }}</a>{% endif %}
+{% if imprint_url and privacy_url %} · {% endif %}
+{% if privacy_url %}<a href="{{ privacy_url }}" style="color:{{ tokens.muted_foreground }};text-decoration:underline" target="_blank">{{ privacy }}</a>{% endif %}
+{% endif %}
+</p>
+</td></tr></tbody>
+</table>
+</td></tr></tbody>
+</table>
+</body>
+</html>

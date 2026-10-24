@@ -1,0 +1,13 @@
+# One question per line. Lines starting with # are ignored.
+Welche Schutzausrüstung ist beim Schweißen vorgeschrieben?
+Wie oft müssen ortsveränderliche elektrische Betriebsmittel geprüft werden?
+Welche Anforderungen gelten für Fluchtwege in Arbeitsstätten?
+Was muss eine Gefährdungsbeurteilung enthalten?
+Wann ist ein Gehörschutz zu tragen?
+Welche Pflichten hat der Arbeitgeber bei der Unterweisung der Beschäftigten?
+Wie sind Leitern vor der Benutzung zu prüfen?
+Welche Beleuchtungsstärke ist für Büroarbeitsplätze vorgesehen?
+Was gilt für die Lagerung brennbarer Flüssigkeiten?
+Welche Erste-Hilfe-Einrichtungen muss ein Betrieb vorhalten?
+Wie lange dürfen Beschäftigte ohne Pause am Bildschirm arbeiten?
+Welche Maßnahmen schützen vor Absturz bei Arbeiten auf Dächern?

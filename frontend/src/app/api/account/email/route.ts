@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getBackendUrls } from "@/lib/backend-urls";
+import { localeFromRequest } from "@/lib/i18n/resolve-locale";
 import { readSessionCookies } from "@/lib/session-cookies";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     headers: {
       "content-type": "application/json", Authorization: `Bearer ${accountSessionToken}`,
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, locale: localeFromRequest(request) }),
   });
   const body = await backendResponse.json();
   return NextResponse.json(body, { status: backendResponse.status });

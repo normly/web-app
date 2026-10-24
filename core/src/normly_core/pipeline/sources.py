@@ -4,9 +4,9 @@
 """
 The source registry the pipeline ingests from.
 
-Every source needs a registry entry with a legal-basis category before a single
-byte of it may be processed ("Jede Quelle braucht einen Registereintrag mit
-Kategorie"). This module is where that entry is declared for the adapters the
+Every source needs a register entry with a legal-basis category before a single
+byte of it may be processed ("Every source needs a register entry with a
+category"). This module is where that entry is declared for the adapters the
 CLI ships with, and `resolve_source` is what turns the declaration into the
 `Source` row every delivery's lineage points at.
 
@@ -40,9 +40,9 @@ SOURCE_REGISTRY: dict[str, SourceRegistryEntry] = {
     "eur-lex": SourceRegistryEntry(
         publisher="EUR-Lex",
         retrieval_path="https://single-market-economy.ec.europa.eu",
-        # Commission summary lists of harmonised standards are amtliche Werke:
-        # the list itself is published by the Union, no standard full text is
-        # part of it.
+        # Commission summary lists of harmonised standards are amtliche Werke
+        # (official works): the list itself is published by the Union, no
+        # standard full text is part of it.
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="EU",
         reviewed_at=date(2026, 1, 15),
@@ -51,7 +51,7 @@ SOURCE_REGISTRY: dict[str, SourceRegistryEntry] = {
     "dguv": SourceRegistryEntry(
         publisher="DGUV",
         retrieval_path="https://www.dguv.de/publikationen",
-        # DGUV-Vorschriften are amtliche Werke under § 5 UrhG.
+        # DGUV-Vorschriften (DGUV regulations) are amtliche Werke under § 5 UrhG.
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="DE",
         reviewed_at=date(2026, 1, 15),
@@ -60,9 +60,9 @@ SOURCE_REGISTRY: dict[str, SourceRegistryEntry] = {
     "baua": SourceRegistryEntry(
         publisher="BAuA",
         retrieval_path="https://www.baua.de/DE/Angebote/Regelwerk",
-        # TRGS/TRBS/TRBA sind amtliche Bekanntmachungen einer
-        # Bundesoberbehörde (BAuA im GMBl) -- § 5 UrhG, wie die DGUV- und
-        # EUR-Lex-Einträge. Siehe design spec, "Rechtegrundlage: Kategorie A".
+        # TRGS/TRBS/TRBA are official announcements of a higher
+        # federal authority (BAuA in the GMBl) -- § 5 UrhG, like the DGUV and
+        # EUR-Lex entries. See design spec, "Legal basis: category A".
         legal_basis_category=LegalBasisCategory.A,
         jurisdiction="DE",
         reviewed_at=date(2026, 9, 1),

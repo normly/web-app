@@ -339,3 +339,33 @@ def test_update_notification_preference(db_session):
     )
     updated = PostgresAccountRepository(db_session).get_account_by_id(account.id)
     assert updated.notification_preference == NotificationPreference.BOTH
+
+
+def test_create_account_defaults_to_german(db_session):
+    account = PostgresAccountRepository(db_session).create_account(
+        email="locale-default@example.de", password_hash=None
+    )
+    assert account.locale == "de"
+
+
+def test_create_account_stores_the_given_locale(db_session):
+    repo = PostgresAccountRepository(db_session)
+    account = repo.create_account(email="locale-en@example.de", password_hash=None, locale="en")
+    assert repo.get_account_by_id(account.id).locale == "en"
+
+
+def test_update_locale(db_session):
+    repo = PostgresAccountRepository(db_session)
+    account = repo.create_account(email="locale-update@example.de", password_hash=None)
+    repo.update_locale(account.id, locale="en")
+    db_session.expire_all()
+    assert repo.get_account_by_id(account.id).locale == "en"
+
+
+def test_the_database_rejects_an_unsupported_locale(db_session):
+    repo = PostgresAccountRepository(db_session)
+    account = repo.create_account(email="locale-bad@example.de", password_hash=None)
+    with pytest.raises(IntegrityError):
+        with db_session.begin_nested():
+            repo.update_locale(account.id, locale="fr")
+            db_session.flush()

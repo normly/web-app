@@ -1,4 +1,4 @@
-# Referenzgraph-Suche/-Browsing Implementation Plan
+# Reference Graph Search/Browsing Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -176,7 +176,7 @@ class RateLimitRepository(Protocol):
     A generic, jurisdiction-independent request counter used to enforce
     REQ-ACC-003's anonymous quota. Not part of the graph model, but kept in
     the same repository layer as everything else that touches the database,
-    per CLAUDE.md's "Datenbankzugriff nur über die Repository-Schicht".
+    per CLAUDE.md's "Database access only through the repository layer".
     """
 
     def record_and_check(
@@ -328,7 +328,7 @@ _REQUESTS_PER_WINDOW = 60
 
 def _client_origin_address(request: Request) -> str:
     # Trusts X-Forwarded-For from the immediate reverse proxy, per CLAUDE.md's
-    # "hinter beliebigem Reverse Proxy" deployment assumption -- this is only
+    # "behind any reverse proxy" deployment assumption -- this is only
     # safe because the proxy is the sole path to this service; a caller
     # reaching api/ directly could otherwise spoof this header. Falls back to
     # the direct connection address when absent (e.g. local/test requests).
@@ -2524,23 +2524,23 @@ git commit -s -m "test: add end-to-end search-and-detail coverage"
 
 **Spec coverage:**
 
-| Spec-Abschnitt | Task |
+| Spec section | Task |
 |---|---|
-| Funktionsumfang: Suche + Detailseite + Graph-Browsing + Browse-nach-Herausgeber | Task 2 (Endpunkt deckt beides), Task 7, Task 8 |
-| Ratenbegrenzung (REQ-ACC-003, Herkunftsadresse) | Task 1 |
-| Sitzungsmerkmal für Ratenbegrenzung (`normly_anon_id`) | Task 3 (Vergabe), Task 1 (Nutzung im Schlüssel), Task 5 (Weiterleitung) |
-| Jurisdiktion als app-weiter Zustand, behebt fest kodiertes "DE" im Chat | Task 4 |
-| Neue BFF-Route-Handler (search/edges/validity) mit korrektem Encoding | Task 5 |
-| Neue UI-Bausteine (Pagination, Badge) | Task 6 |
-| i18n (Suche, Kantentyp-Bezeichnungen, Gültigkeitsstatus) | Task 6 |
-| `/search`-Seite | Task 7 |
-| `/documents/[id]`-Detailseite mit klickbaren Verweisen | Task 8 |
-| Fehlerbehandlung (429, leere Trefferliste, 404, nicht erreichbar) | Task 7 (429, leer), Task 8 (404) |
-| Testkonzept (core/api/frontend/e2e) | jede Task trägt ihre eigenen Tests; Task 9 bündelt e2e + Regression |
+| Scope: search + detail page + graph browsing + browse by publisher | Task 2 (endpoint covers both), Task 7, Task 8 |
+| Rate limiting (REQ-ACC-003, client IP address) | Task 1 |
+| Session identifier for rate limiting (`normly_anon_id`) | Task 3 (issuance), Task 1 (use in the key), Task 5 (forwarding) |
+| Jurisdiction as app-wide state, fixes the hardcoded "DE" in the chat | Task 4 |
+| New BFF route handlers (search/edges/validity) with correct encoding | Task 5 |
+| New UI building blocks (Pagination, Badge) | Task 6 |
+| i18n (search, edge type labels, validity status) | Task 6 |
+| `/search` page | Task 7 |
+| `/documents/[id]` detail page with clickable references | Task 8 |
+| Error handling (429, empty result list, 404, unreachable) | Task 7 (429, empty), Task 8 (404) |
+| Test concept (core/api/frontend/e2e) | every task carries its own tests; Task 9 bundles e2e + regression |
 
 No gap found — every section of the approved spec maps to at least one task.
 
-**Placeholder scan:** No "TBD"/"TODO" found. The spec's own "Offene Punkte" (full
+**Placeholder scan:** No "TBD"/"TODO" found. The spec's own "Open items" (full
 anomaly detection, jurisdictions beyond DE/EU, full-text index) are out of this
 plan's scope by explicit spec decision, not placeholders left behind by this plan.
 

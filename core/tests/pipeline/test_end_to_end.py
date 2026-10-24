@@ -130,7 +130,7 @@ def test_eur_lex_does_not_create_a_replaces_edge_for_an_unresolvable_successor(d
     exist, and no reference_target_not_found case should be enqueued either
     (Task 1 attaches no reference at all when the successor cannot be
     resolved within the currently-parsed table data, per the spec's
-    "no rätselraten" rule -- this differs from the DGUV free-text case in
+    "no guessing" rule -- this differs from the DGUV free-text case in
     Task 2, which DOES attempt resolution and falls through to a curator
     case when it fails)."""
     from normly_core.graph.domain import EdgeType
@@ -168,7 +168,7 @@ def test_running_the_same_adapter_twice_skips_unchanged_records(db_session):
 
 
 def test_dguv_replaces_edge_is_created_for_a_modern_designation_predecessor(db_session, tmp_path):
-    """A publication that retires an already-known, modern-numbered
+    """A publication that withdraws an already-known, modern-numbered
     Vorschrift by its full designation resolves cleanly: unlike Task 1's
     multi-predecessor EUR-Lex case, this is the clean single-predecessor
     path -- a real, unambiguous Work merge.
@@ -341,7 +341,7 @@ def test_dguv_edition_lineage_and_inkrafttreten_predecessor_mechanisms_do_not_do
     shares its predecessor's exact designation (so Task 4's edition-lineage
     mechanism in identity.resolve()/runner.py fires) AND its own
     Inkrafttreten/Außerkrafttreten section names that SAME bare designation
-    as the document it retires (so the pre-existing Inkrafttreten-based
+    as the document it withdraws (so the pre-existing Inkrafttreten-based
     mechanism in references.py would ALSO try to fire). Before the fix,
     references.py's edition-blind find_by_designation lookup for that
     self-naming reference would nondeterministically resolve to either the

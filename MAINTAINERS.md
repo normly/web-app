@@ -1,16 +1,22 @@
-# Maintainende
+# Maintainers
 
-Zuständigkeiten je Bereich. Bei Pull Requests wird die Freigabe der jeweils
-zuständigen Person benötigt.
+Responsibilities by area. Only Lead Maintainers merge; Maintainers review
+and approve requirements in their area. Details in
+[CONTRIBUTING.md](CONTRIBUTING.md) and [GOVERNANCE.md](GOVERNANCE.md).
 
-| Bereich | Zuständig |
+## Lead Maintainers
+
+- Jan Wokittel ([@Sn4kez](https://github.com/Sn4kez))
+- Tobias Haarhoff ([@TobiasHaarhoff](https://github.com/TobiasHaarhoff))
+
+## Areas
+
+| Area | Responsible |
 |---|---|
-| Gesamtprojekt, technische Leitung | *(zu ergänzen)* |
-| Kern und API | *(zu ergänzen)* |
-| Referenzgraph und Datenmodell | *(zu ergänzen)* |
-| Verarbeitungskette und Quellen | *(zu ergänzen)* |
-| Infrastruktur und Auslieferung | *(zu ergänzen)* |
+| Core and API | Tobias Haarhoff |
+| Reference graph and data model | Tobias Haarhoff |
+| Processing chain and sources | Jan Wokittel |
+| Infrastructure and shipping | Jan Wokittel |
 
-Aufnahme in diesen Kreis erfolgt durch die bestehenden Maintainenden nach
-nachhaltigem Beitrag über einen längeren Zeitraum. Näheres in
-[GOVERNANCE.md](GOVERNANCE.md).
+Admission as a Maintainer is by the Lead Maintainers after a sustained
+contribution over a longer period.

@@ -9,6 +9,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { PanelLeft } from "lucide-react"
 
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useTranslation } from "@/lib/i18n/provider"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -185,6 +186,7 @@ const Sidebar = React.forwardRef<
     ref
   ) => {
     const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+    const { t } = useTranslation()
 
     if (collapsible === "none") {
       return (
@@ -214,15 +216,11 @@ const Sidebar = React.forwardRef<
               } as React.CSSProperties
             }
             side={side}
+            closeLabel={t("common.close")}
           >
             <SheetHeader className="sr-only">
-              {/* Deliberate hand-edit of this generated primitive: German UI
-                  is a hard CLAUDE.md requirement, and this sr-only Sheet
-                  title/description has no i18n access from here (see
-                  Finding 4 in the app-shell final review). Hardcoded, not
-                  wired to useTranslation() -- out of scope for this fix. */}
-              <SheetTitle>Seitenleiste</SheetTitle>
-              <SheetDescription>Zeigt die mobile Seitenleiste an.</SheetDescription>
+              <SheetTitle>{t("nav.sidebarTitle")}</SheetTitle>
+              <SheetDescription>{t("nav.sidebarDescription")}</SheetDescription>
             </SheetHeader>
             <div className="flex h-full w-full flex-col">{children}</div>
           </SheetContent>

@@ -2,6 +2,7 @@
 # Copyright (C) 2026 normly contributors
 
 import os
+import uuid
 
 import pytest
 
@@ -20,3 +21,7 @@ def api_client():
 
 def test_search_document_returns_none_for_an_unknown_designation(api_client):
     assert api_client.search_document("DIN", "no such designation", "DE") is None
+
+
+def test_get_document_returns_none_for_an_unknown_id(api_client):
+    assert api_client.get_document(uuid.uuid4(), "DE") is None

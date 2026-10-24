@@ -480,7 +480,7 @@ class PostgresKnowledgeExchangeRepository:
                 )
             )
 
-    # --- tombstone support (ADR-026, Erweiterung 2) -------------------------
+    # --- tombstone support (ADR-026, extension 2) ---------------------------
 
     def export_tombstone_support(self) -> dict[str, list[dict[str, Any]]]:
         connection = self._session.connection()

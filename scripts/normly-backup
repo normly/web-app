@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 normly contributors
 #
-# Encrypted backup of the user-data tables (TP4 spec, Teil 2).
+# Encrypted backup of the user-data tables (TP4 spec, Part 2).
 #
 #   normly-backup run [--kind daily|pre-<tag>]   dump, encrypt, upload; the
 #                                                last stdout line is the base name

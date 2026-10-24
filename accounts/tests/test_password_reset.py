@@ -14,7 +14,7 @@ def _register(client, email, password):
 class _RaisingEmailSender:
     """Test double: simulates an unreachable SMTP relay."""
 
-    def send(self, *, to: str, subject: str, body: str) -> None:
+    def send(self, *, to: str, subject: str, body: str, html: str | None = None) -> None:
         raise OSError("simulated SMTP outage")
 
 
@@ -40,9 +40,7 @@ def test_password_reset_email_body_contains_an_absolute_reset_link(client, email
     body = email_sender.sent[0]["body"]
     match = re.search(r"token=([^&\s]+)", body)
     assert match is not None
-    assert body.startswith(
-        f"Zum Zurücksetzen deines Passworts: http://localhost:3000/reset-password?token="
-    )
+    assert "http://localhost:3000/reset-password?token=" in body
     assert match.group(1)
 
 
@@ -165,7 +163,7 @@ def test_password_reset_request_still_succeeds_when_email_delivery_fails(client,
         )
 
     # A failed send must not fail the request -- the spec is explicit that
-    # registration/reset requests "schlagen NICHT fehl" when SMTP is down;
+    # registration/reset requests "do NOT fail" when SMTP is down;
     # the token is already persisted, delivery is a separate concern.
     assert response.status_code == 200
     assert response.json() == {"status": "if_the_account_exists_an_email_was_sent"}
@@ -198,3 +196,19 @@ def test_password_reset_request_is_indistinguishable_for_known_vs_unknown_addres
 
     assert known.status_code == unknown.status_code == 200
     assert known.json() == unknown.json()
+
+
+def test_password_reset_mails_in_the_request_language(client, email_sender):
+    client.post(
+        "/v1/accounts/register",
+        json={"email": "reset-en@example.de", "password": "correct horse battery staple"},
+    )
+    email_sender.sent.clear()
+
+    client.post(
+        "/v1/accounts/password-reset/request",
+        json={"email": "reset-en@example.de", "locale": "en"},
+    )
+
+    assert email_sender.sent[0]["subject"] == "Reset your password"
+    assert "1 hour" in email_sender.sent[0]["body"]

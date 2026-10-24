@@ -17,17 +17,13 @@ standard.
 
 - **[Guide](guide/getting-started.md)** — getting started for users and
   operators
-- **[Concepts](concepts/normen-graph.md)** — the underlying principles
+- **[Concepts](concepts/norm-graph.md)** — the underlying principles
   (graph first, license model)
 - **[Architecture decisions](adr/README.md)** — why it's built the way
   it's built
 - **[Requirements](srs/README.md)** — the 78 requirements (SRS/SDD)
 - **[Code reference](reference/core.md)** — generated automatically from
   docstrings, for contributors
-
-Architecture decisions and Requirements are currently German-only; the
-rest of the site is in English, and full translation is tracked
-separately.
 
 ## Licenses
 

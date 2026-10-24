@@ -2,9 +2,9 @@
 
 **AI-powered norms and standards, open to everyone.**
 
-normly makes knowledge about standards and Regelwerke as freely accessible as
+normly makes knowledge about norms and standards as freely accessible as
 the law allows — and builds an open, machine-readable reference graph on top
-of it: which Regelwerke reference each other, what was superseded by what,
+of it: which standards reference each other, what was superseded by what,
 and which legal provision references which standard.
 
 > ⚠️ **Early development stage.** This repository is under construction.
@@ -13,7 +13,7 @@ and which legal provision references which standard.
 ## Why
 
 Anyone who wants to know which standard applies to a task, whether it's still
-valid, and what it superseded, finds no good answer today. Regelwerke are
+valid, and what it superseded, finds no good answer today. Standards are
 scattered across different publishers, their cross-references are nowhere
 captured in a machine-readable way, and many freely available texts —
 accident-prevention regulations, technical rules, EU directives — are public
@@ -60,6 +60,40 @@ separate program and unaffected — integrations are explicitly welcome.
 
 ## Contributing
 
+Every contribution follows the same path: **issue → requirement → branch →
+pull request → merge by a Lead Maintainer.** Branch off `develop` as
+`feature/<issue>-…` or `fix/<issue>-…`, open the PR against `develop`;
+critical fixes go as `hotfix/<issue>-…` against `main`. Releases are merged
+from `develop` into `main` and tagged.
+
+```mermaid
+gitGraph
+    commit id: "v0.4.0" tag: "v0.4.0"
+    branch develop
+    checkout develop
+    commit id: "…"
+    branch feature/42-mcp-server
+    checkout feature/42-mcp-server
+    commit id: "spec REQ-MCP-001"
+    commit id: "feat(mcp)"
+    checkout develop
+    branch fix/51-graph-cycle
+    checkout fix/51-graph-cycle
+    commit id: "fix(graph)"
+    checkout develop
+    merge fix/51-graph-cycle id: "PR #52 squash"
+    merge feature/42-mcp-server id: "PR #45 squash"
+    checkout main
+    merge develop id: "release" tag: "v0.5.0"
+    branch hotfix/60-auth
+    checkout hotfix/60-auth
+    commit id: "fix(auth)"
+    checkout main
+    merge hotfix/60-auth id: "hotfix" tag: "v0.5.1"
+    checkout develop
+    merge main id: "back-merge"
+```
+
 Contributions go through the **Developer Certificate of Origin** (DCO), not
 a transfer of rights. Every commit needs a `Signed-off-by` line:
 
@@ -67,8 +101,9 @@ a transfer of rights. Every commit needs a `Signed-off-by` line:
 git commit -s -m "feat: short description"
 ```
 
-Details in [CONTRIBUTING.md](CONTRIBUTING.md). Please **do not** report
-security vulnerabilities as an issue — see [SECURITY.md](SECURITY.md).
+Details — roles, requirements, merge rules, working with AI — in
+[CONTRIBUTING.md](CONTRIBUTING.md). Please **do not** report security
+vulnerabilities as an issue — see [SECURITY.md](SECURITY.md).
 
 ## Where the code lives
 
@@ -87,8 +122,8 @@ reproducible (ADR-023); see [docs/guide/self-hosting.md](docs/guide/self-hosting
 |---|---|
 | [docs/srs/](docs/srs/) | Requirements (SRS/SDD), 78 requirements |
 | [docs/adr/](docs/adr/) | Architecture decisions with rationale |
-| [docs/normly_Verarbeitungskette.svg](docs/normly_Verarbeitungskette.svg) | From source to delivery |
-| [docs/normly_Entwicklungsphasen.svg](docs/normly_Entwicklungsphasen.svg) | Phase plan |
+| [docs/normly_processing-chain.svg](docs/normly_processing-chain.svg) | From source to delivery |
+| [docs/normly_development-phases.svg](docs/normly_development-phases.svg) | Phase plan |
 | [CLAUDE.md](CLAUDE.md) | Working instructions for AI-assisted development |
 
 If you want to understand **why** something is the way it is: `docs/adr/`

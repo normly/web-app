@@ -101,3 +101,17 @@ def test_resend_verification_email_returns_the_same_response_for_an_unknown_addr
     assert known_response.json() == {
         "status": "if_the_account_exists_and_is_unverified_an_email_was_sent"
     }
+
+
+def test_resend_mails_in_the_request_language(client, email_sender):
+    client.post(
+        "/v1/accounts/register",
+        json={"email": "resend-en@example.de", "password": "correct horse battery staple"},
+    )
+    email_sender.sent.clear()
+
+    client.post(
+        "/v1/accounts/verify-email/resend", json={"email": "resend-en@example.de", "locale": "en"}
+    )
+
+    assert email_sender.sent[0]["subject"] == "Confirm your email address"

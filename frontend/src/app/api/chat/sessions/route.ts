@@ -21,8 +21,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!backendResponse.ok) {
     return NextResponse.json([], { status: backendResponse.status });
   }
-  const body = await backendResponse.json();
-  return NextResponse.json(body);
+  const sessions: { session_token?: string }[] = await backendResponse.json();
+  // The session tokens are credentials and stay on the server.
+  return NextResponse.json(sessions.map(({ session_token: _token, ...session }) => session));
 }
 
 export async function DELETE(request: NextRequest): Promise<NextResponse> {

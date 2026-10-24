@@ -89,3 +89,22 @@ def test_invalid_account_token_is_treated_as_no_token(db_session):
     assert is_new is False
     assert session.id == existing.id
     assert session.account_id is None
+
+
+def test_a_session_of_another_jurisdiction_is_not_continued(db_session):
+    repo = PostgresChatRepository(db_session)
+    account_id = _make_account(db_session, "juris@example.de").id
+    existing = repo.create_session(
+        session_token="tok-juris", jurisdiction="DE", language="de",
+        created_at=datetime.now(timezone.utc), account_id=account_id,
+    )
+    identity = ChatAccountIdentity(account_id=account_id, email="juris@example.de")
+
+    switched, switched_is_new = resolve_session("tok-juris", identity, "AT", "de", repo)
+    assert switched_is_new is True
+    assert switched.id != existing.id
+    assert switched.jurisdiction == "AT"
+
+    same, same_is_new = resolve_session("tok-juris", identity, "DE", "de", repo)
+    assert same_is_new is False
+    assert same.id == existing.id

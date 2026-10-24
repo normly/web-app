@@ -1,4 +1,4 @@
-# Backend-API (deterministische Graph-Anfragen, v1) Implementation Plan
+# Backend API (Deterministic Graph Queries, v1) Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -1120,7 +1120,7 @@ def test_validity_returns_404_for_an_unknown_document_id(client, db_session):
 `withdrawn` is intentionally not covered by its own test here: `WITHDRAWN_BY` follows the
 exact same edge-inspection pattern as `REPLACES` (see Step 3), and Task 13's EUR-Lex fixture
 already deliberately does not model withdrawal-with-successor (see the ingestion-pipeline
-spec's Offene Punkte) — there is no real withdrawal edge anywhere in the ingested data yet to
+spec's "Open items / follow-up work") — there is no real withdrawal edge anywhere in the ingested data yet to
 build a meaningfully different fixture against. If a future adapter starts producing
 `WITHDRAWN_BY` edges, add the test then, against real data, rather than a synthetic one now.
 
@@ -1406,7 +1406,7 @@ git commit -s -m "feat: add GET /v1/export endpoint"
 **Interfaces:**
 - Consumes: `ErrorResponse` (Task 2).
 - Produces: nothing consumed by later tasks — this is the last piece closing the design
-  spec's Fehlerbehandlung table.
+  spec's Error handling table.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1497,7 +1497,7 @@ def register_exception_handlers(app: FastAPI) -> None:
 
 The catch-all `Exception` handler deliberately never includes `str(exc)` in the response
 body — an internal error message (e.g. a connection string, a stack detail) is exactly the
-kind of "kein Detail-Leak" the design spec's error table calls for.
+kind of "no detail leak" the design spec's error table calls for.
 
 - [ ] **Step 4: Wire the handlers into the app**
 
@@ -1671,33 +1671,33 @@ git commit -s -m "test: verify OpenAPI completeness and full end-to-end read pat
 
 **Spec coverage:**
 
-| Spec-Abschnitt | Task |
+| Spec section | Task |
 |---|---|
-| `api/`-Paketstruktur, FastAPI, Apache-2.0-`license_info` | Task 1 |
-| Schema-Grenze (Pydantic statt Domain-Dataclasses) | Task 2 |
-| `GET /v1/documents` (Suche) | Task 3 |
-| `GET /v1/documents/{id}` (Detail, inkl. Quelle/URL) | Task 4 |
+| `api/` package structure, FastAPI, Apache-2.0 `license_info` | Task 1 |
+| Schema boundary (Pydantic instead of domain dataclasses) | Task 2 |
+| `GET /v1/documents` (search) | Task 3 |
+| `GET /v1/documents/{id}` (detail, incl. source/URL) | Task 4 |
 | `GET /v1/documents/{id}/edges` | Task 5 |
 | `GET /v1/documents/{id}/validity` | Task 6 |
 | `GET /v1/export` | Task 7 |
-| Fehlerbehandlung (404/400/503/`format`) | Tasks 3-8 (404s per-endpoint, 400/503 centralized in Task 8) |
-| „Das eine Tor" (kein zweiter Prüfpfad) | Tasks 3-7, jeweils `get_document_for_jurisdiction`/`list_documents_for_jurisdiction`/`list_edges_for_jurisdiction` vor jeder Anreicherung |
-| Testkonzept (echtes Postgres, `/openapi.json`-Prüfung, Rechte-Asymmetrie) | Task 1 (Infrastruktur), Task 9 (OpenAPI + Kapstein-Test), Tasks 3/4/5/7 (Asymmetrie je Endpunkt) |
+| Error handling (404/400/503/`format`) | Tasks 3-8 (404s per-endpoint, 400/503 centralized in Task 8) |
+| "The one gate" (no second check path) | Tasks 3-7, each `get_document_for_jurisdiction`/`list_documents_for_jurisdiction`/`list_edges_for_jurisdiction` before any enrichment |
+| Test concept (real Postgres, `/openapi.json` check, rights asymmetry) | Task 1 (infrastructure), Task 9 (OpenAPI + capstone test), Tasks 3/4/5/7 (asymmetry per endpoint) |
 
-Keine Lücke gefunden.
+No gap found.
 
-**Placeholder-Scan:** Kein „TBD"/„TODO"/„similar to Task N" gefunden. Der einzige bewusst
-offengelassene Punkt ist Task 3 Schritt 5/Task 8 Schritt 2 (400-vs-422), explizit als
-zwischenzeitlich fehlschlagender, dokumentierter Zustand markiert, nicht als Lücke in der
-Spezifikation.
+**Placeholder scan:** No "TBD"/"TODO"/"similar to Task N" found. The only point deliberately
+left open is Task 3 Step 5/Task 8 Step 2 (400-vs-422), explicitly marked as an
+interim failing, documented state, not as a gap in the
+specification.
 
-**Typkonsistenz:** Repository-/Domänen-Namen aus `normly_core` (`Document`, `Edge`, `Source`,
+**Type consistency:** repository/domain names from `normly_core` (`Document`, `Edge`, `Source`,
 `Delivery`, `get_document_for_jurisdiction`, `list_documents_for_jurisdiction`,
 `list_edges_for_jurisdiction`, `get_document_unchecked`, `get_delivery`, `get_source`)
-stimmen mit ihrer Verwendung über alle Tasks hinweg überein — geprüft gegen die tatsächlichen
-Protocol-/Implementierungssignaturen in `core/src/normly_core/graph/domain.py` und
-`core/src/normly_core/graph/postgres/repositories.py`. `_document_to_response` (Task 3) wird
-unverändert in Task 7 wiederverwendet, keine Signaturabweichung.
+match their use across all tasks — checked against the actual
+Protocol/implementation signatures in `core/src/normly_core/graph/domain.py` and
+`core/src/normly_core/graph/postgres/repositories.py`. `_document_to_response` (Task 3) is
+reused unchanged in Task 7, no signature deviation.
 
 ---
 

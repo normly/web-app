@@ -1,218 +1,218 @@
-# Design: Image-Pipeline (STACKIT-Deployment, Teilprojekt 2/4)
+# Design: Image pipeline (STACKIT deployment, sub-project 2/4)
 
-Stand: 2026-10-08 · Status: umgesetzt und live verifiziert (PR #14, Merge
-ea70cc8, Release `v0.1.0`, 2026-10-08; Ergebnisse am Ende dieses Dokuments). Roadmap und Grundsatzentscheidungen E1–E8:
+As of: 2026-10-08 · Status: implemented and verified live (PR #14, merge
+ea70cc8, release `v0.1.0`, 2026-10-08; results at the end of this document). Roadmap and fundamental decisions E1–E8:
 `docs/superpowers/specs/2026-09-23-stackit-deployment-roadmap-design.md`.
-Vorgänger: `docs/superpowers/specs/2026-10-01-tp1-containerisation-design.md`
-(gemerged als PR #12, 2026-10-08).
+Predecessor: `docs/superpowers/specs/2026-10-01-tp1-containerisation-design.md`
+(merged as PR #12, 2026-10-08).
 
-## Ziel
+## Goal
 
-Die fünf Container-Images aus TP1 werden nicht mehr nur auf der STACKIT-VM
-gebaut, sondern zentral in GitHub Actions gebaut, signiert und mit
-Versions-Tags in der GitHub Container Registry (GHCR) veröffentlicht
-(REQ-DIST-004, REQ-GIT-005, ADR-010, ADR-021). Derselbe Git-Tag liefert
-dasselbe Image: Abhängigkeiten, Basis-Images und Modellgewichte sind
-festgeschrieben (REQ-BUILD-001).
+The five container images from TP1 are no longer built only on the STACKIT VM,
+but built centrally in GitHub Actions, signed and published with
+version tags in the GitHub Container Registry (GHCR)
+(REQ-DIST-004, REQ-GIT-005, ADR-010, ADR-021). The same Git tag yields
+the same image: dependencies, base images and model weights are
+pinned (REQ-BUILD-001).
 
-Damit entsteht, was heute fehlt:
+This creates what is missing today:
 
-- **Rollback-Punkt.** Heute überschreibt jeder Build auf der VM
-  `normly-api:local`; ein vorheriges Image gibt es nicht (REQ-INST-004
-  verlangt es).
-- **Self-Hosting ohne eigenen Build.** ADR-010 verspricht öffentlich
-  beziehbare, signierte Images; `docs/guide/self-hosting.md` sagt heute
-  „No published images yet".
-- **Nachvollziehbarkeit.** Ein laufendes Image lässt sich Commit, Workflow
-  und Signatur zuordnen.
-- **Entlastung der VM.** Ein reiner Betriebsserver zieht fertige Images
-  statt Quellcode, Build-Werkzeuge und rund 5 GB Build-Schicht vorzuhalten
-  (Voraussetzung für die Verkleinerung aus TP1a).
+- **Rollback point.** Today every build on the VM overwrites
+  `normly-api:local`; there is no previous image (REQ-INST-004
+  requires one).
+- **Self-hosting without an own build.** ADR-010 promises publicly
+  obtainable, signed images; `docs/guide/self-hosting.md` says today
+  "No published images yet".
+- **Traceability.** A running image can be attributed to a commit, workflow
+  and signature.
+- **Relief for the VM.** A pure operations server pulls finished images
+  instead of keeping source code, build tools and around 5 GB of build layer
+  (prerequisite for the downsizing from TP1a).
 
-Nicht Teil dieses Teilprojekts: die Umstellung der VM von „selbst bauen"
-auf „Tag ziehen", Rollout- und Rollback-Skript, Signaturprüfung als
-Pflichtschritt vor dem Start, Datenstand-Import (alles TP4). Das
-Live-System auf `app.normly.ai` bleibt von TP2 unberührt.
+Not part of this sub-project: switching the VM from "build itself"
+to "pull a tag", rollout and rollback script, signature verification as a
+mandatory step before start, data version import (all TP4). The
+live system on `app.normly.ai` remains untouched by TP2.
 
-## Entscheidungen des Nutzers (2026-10-08, nicht neu verhandeln)
+## The owner's decisions (2026-10-08, not to be renegotiated)
 
-### D1 — Signatur: cosign keyless über GitHub-OIDC
+### D1 — Signature: cosign keyless via GitHub OIDC
 
-Jedes gepushte Image wird über seinen Digest mit cosign signiert. Der
-Workflow erhält pro Lauf ein kurzlebiges Zertifikat von Sigstore (Fulcio),
-die Signatur landet im Transparenzprotokoll (Rekor). Kein privater
-Schlüssel wird je erzeugt, gespeichert oder rotiert. Das Zertifikat bindet
-die Signatur an Repository, Workflow-Datei und Commit.
+Every pushed image is signed with cosign via its digest. The
+workflow receives a short-lived certificate from Sigstore (Fulcio) per run;
+the signature lands in the transparency log (Rekor). No private
+key is ever generated, stored or rotated. The certificate binds
+the signature to repository, workflow file and commit.
 
-**Begründung des Nutzers:** Der Vertrauensanker — die öffentliche
-Sigstore-Infrastruktur — wird von der **Linux Foundation betrieben, einer
-Non-Profit-Organisation**. Das unterscheidet ihn qualitativ von den
-kommerziellen US-Diensten in der Build-Kette, die ADR-021 für den freien
-Kern erlaubt (GitHub Actions, GHCR). Eine weitere Abhängigkeit von einem
-gemeinnützigen Betreiber wiegt leichter als die Schlüsselpflege der
-Alternative.
+**The owner's rationale:** The trust anchor — the public
+Sigstore infrastructure — is **operated by the Linux Foundation, a
+non-profit organization**. This distinguishes it qualitatively from the
+commercial US services in the build chain that ADR-021 permits for the free
+core (GitHub Actions, GHCR). A further dependency on a
+non-profit operator weighs less than the key management of the
+alternative.
 
-**Verworfen:** eigenes cosign-Schlüsselpaar (privater Schlüssel als
-GitHub-Secret, öffentlicher im Repo). Keine Sigstore-Abhängigkeit, dafür
-Rotation, sichere Ablage außerhalb von GitHub und bei Schlüsselverlust
-Neusignierung aller Images.
+**Rejected:** own cosign key pair (private key as a
+GitHub secret, public key in the repo). No Sigstore dependency, but instead
+rotation, secure storage outside GitHub and, on key loss,
+re-signing of all images.
 
-### D2 — Eine Version für alle fünf Images, Git-Tag als einzige Quelle
+### D2 — One version for all five images, Git tag as the single source
 
-Ein Git-Tag `vX.Y.Z` erzeugt alle fünf Images aus demselben Commit mit
-demselben Versions-Tag. Es gibt keine Version je Paket.
+A Git tag `vX.Y.Z` produces all five images from the same commit with
+the same version tag. There is no version per package.
 
-**Begründung des Nutzers:** Die Services sind nur in einer gemeinsamen
-Kombination gegeneinander getestet; `api` und `chat` teilen sich sogar das
-Basis-Image. Ein Rollback in TP4 heißt dann „alle Images auf 0.1.0", ein
-Handgriff, und welche Kombination zusammen getestet wurde, ist am Tag
-ablesbar. Die Versionsfelder in den vier `pyproject.toml` und in
-`frontend/package.json` werden im Release-Commit von Hand auf denselben
-Wert gesetzt; der Workflow bricht ab, wenn Tag und `core`-Version nicht
-übereinstimmen.
+**The owner's rationale:** The services are tested against each other only in one shared
+combination; `api` and `chat` even share the
+base image. A rollback in TP4 then means "all images to 0.1.0", a
+single step, and which combination was tested together can be read from the tag.
+The version fields in the four `pyproject.toml` and in
+`frontend/package.json` are set by hand to the same
+value in the release commit; the workflow aborts if tag and `core` version do not
+match.
 
-**Verworfen:** eigene Version je Paket. Erlaubt, nur das Frontend neu zu
-veröffentlichen, braucht aber je Release einen Tag je Paket, und die
-getestete Kombination ist nicht mehr ablesbar.
+**Rejected:** own version per package. Allows republishing only the frontend,
+but needs one tag per package per release, and the
+tested combination can no longer be read off.
 
-**Erster Release-Tag:** `v0.1.0` auf den Stand nach dem Merge dieses
-Teilprojekts, damit TP4 von Anfang an einen Rollback-Punkt hat.
+**First release tag:** `v0.1.0` on the state after the merge of this
+sub-project, so that TP4 has a rollback point from the start.
 
-### D3 — Gebaut wird nur bei Merge auf `main`, bei Release-Tags und manuell
+### D3 — Builds happen only on merge to `main`, on release tags and manually
 
-Pull Requests lösen weiterhin nur die Test-Pipeline aus. Ein kaputtes
-Dockerfile fällt erst nach dem Merge auf, aber laut und ohne Schaden:
-`edge` bleibt auf dem letzten funktionierenden Stand, ein Release-Tag
-schlägt sichtbar fehl.
+Pull requests continue to trigger only the test pipeline. A broken
+Dockerfile only shows up after the merge, but loudly and without harm:
+`edge` stays on the last working state, a release tag
+fails visibly.
 
-**Begründung:** Zum Zeitpunkt der Entscheidung war das Repo privat, die
-Organisation auf dem Free-Plan (2.000 Actions-Minuten im Monat); ein
-voller Build dauert geschätzt 10 bis 15 Minuten. **Nachtrag 2026-10-08:**
-Der Nutzer hat das Repository nach der Freigabe der Spec auf öffentlich
-gestellt; Actions-Minuten sind damit unbegrenzt. Die Entscheidung bleibt
-trotzdem bestehen: weniger Läufe heißt weniger Wartezeit je PR und
-weniger Rauschen, und ein PR-Build ohne Push liefert ohnehin kein
-Artefakt. Wiedervorlage, falls kaputte Dockerfiles auf `main` zum
-wiederkehrenden Problem werden.
+**Rationale:** At the time of the decision the repo was private, the
+organization on the Free plan (2,000 Actions minutes per month); a
+full build takes an estimated 10 to 15 minutes. **Addendum 2026-10-08:**
+The owner set the repository to public after the spec was approved;
+Actions minutes are therefore unlimited. The decision stands
+nevertheless: fewer runs means less waiting time per PR and
+less noise, and a PR build without a push yields no
+artifact anyway. Revisit if broken Dockerfiles on `main` become a
+recurring problem.
 
-**Verworfen:** zusätzlicher Build ohne Push bei Pull Requests, die
-Dockerfile, Compose oder Abhängigkeiten ändern. Fängt Build-Fehler vor dem
-Merge, kostet aber je PR einen vollen Build, und ein Pfadfilter übersieht
-Codeänderungen, die den Build trotzdem brechen.
+**Rejected:** additional build without push on pull requests that
+change the Dockerfile, Compose or dependencies. Catches build errors before the
+merge, but costs a full build per PR, and a path filter misses
+code changes that break the build nevertheless.
 
-### D4 — Reproduzierbarkeit vollständig in TP2
+### D4 — Reproducibility completely in TP2
 
-Alle drei aus TP1 übertragenen Punkte werden hier erledigt: Lock-Datei für
-die Python-Abhängigkeiten, Torch nur aus dem CPU-Index, Modellgewichte mit
-fester Revision in eigener Build-Stufe. Nicht vertagt.
+All three items carried over from TP1 are done here: lock file for
+the Python dependencies, Torch only from the CPU index, model weights with a
+fixed revision in a build stage of their own. Not postponed.
 
-## Bestandsaufnahme (2026-10-08, aus dem Repo abgelesen)
+## Inventory (2026-10-08, read from the repo)
 
-- `docker/python.Dockerfile`: eine Datei, Stufe `base` (python:3.12-slim,
-  `core`-Abhängigkeiten per `pip install --extra-index-url` CPU-Torch,
-  e5-Gewichte per `SentenceTransformer(...).save()`), darauf die Targets
-  `api`, `chat`, `accounts`, `pipeline` (letzteres lädt zusätzlich die
-  Docling-Modelle per `docling-tools models download`).
-- `frontend/Dockerfile`: node:22-alpine, drei Stufen, `standalone`-Output.
-- `compose.yaml`: alle Services mit `build:` und lokalem Tag
-  (`normly-api:local` usw.); `migrate` und `pipeline` teilen sich
+- `docker/python.Dockerfile`: one file, stage `base` (python:3.12-slim,
+  `core` dependencies via `pip install --extra-index-url` CPU Torch,
+  e5 weights via `SentenceTransformer(...).save()`), on top of it the targets
+  `api`, `chat`, `accounts`, `pipeline` (the latter additionally downloads the
+  Docling models via `docling-tools models download`).
+- `frontend/Dockerfile`: node:22-alpine, three stages, `standalone` output.
+- `compose.yaml`: all services with `build:` and a local tag
+  (`normly-api:local` etc.); `migrate` and `pipeline` share
   `normly-pipeline:local`.
-- `.github/workflows/ci.yml`: sechs Test-Jobs, je `pip install -e ../core
-  -e .[dev]`; kein Image-Build.
-- Kein Git-Tag im Repo; alle Pakete stehen auf `0.1.0`.
-- Modellgewichte heute ohne feste Revision: e5 lädt `main`; Docling lädt
-  das Layout-Modell `docling-project/docling-layout-heron` und dessen
-  ONNX-Variante von `main`, die Tableformer-Modelle
-  `docling-project/docling-models` per Tag `v2.3.0`. Die Download-CLI
-  bietet keine Option zum Pinnen.
-- Python-Abhängigkeiten nur als Bereiche in `pyproject.toml`; die drei
-  Dienst-Pakete vermerken im Kommentar, dass die technische Absicherung
-  gegen eine Auflösung von `normly-core` über einen Index noch aussteht.
-- GitHub: Organisation auf dem Free-Plan. Repository seit 2026-10-08
-  **öffentlich** (während des Brainstormings noch privat), damit
-  Actions-Minuten unbegrenzt. GHCR-Speicher ist nur für öffentliche
-  Pakete kostenlos; ein privates Paket mit rund 5 GB je Python-Image
-  läge sofort über dem Freikontingent. Die Roadmap-Entscheidung „Paket
-  öffentlich" ist damit Voraussetzung, nicht nur Komfort. Der Nutzer hat
-  bestätigt, dass die Organisation öffentliche Pakete zulässt.
+- `.github/workflows/ci.yml`: six test jobs, each `pip install -e ../core
+  -e .[dev]`; no image build.
+- No Git tag in the repo; all packages are at `0.1.0`.
+- Model weights today without a fixed revision: e5 downloads `main`; Docling downloads
+  the layout model `docling-project/docling-layout-heron` and its
+  ONNX variant from `main`, the Tableformer models
+  `docling-project/docling-models` via tag `v2.3.0`. The download CLI
+  offers no option for pinning.
+- Python dependencies only as ranges in `pyproject.toml`; the three
+  service packages note in a comment that the technical safeguard
+  against resolving `normly-core` via an index is still pending.
+- GitHub: organization on the Free plan. Repository **public** since 2026-10-08
+  (still private during the brainstorming), hence
+  unlimited Actions minutes. GHCR storage is free only for public
+  packages; a private package with around 5 GB per Python image
+  would immediately exceed the free quota. The roadmap decision "package
+  public" is thus a prerequisite, not just a convenience. The owner has
+  confirmed that the organization allows public packages.
 
-## Build-Pipeline
+## Build pipeline
 
 ### Workflow `.github/workflows/images.yml`
 
-Getrennt von `ci.yml`. Auslöser: `push` auf `main`, `push` eines Tags
-`v*`, `workflow_dispatch`. Berechtigungen auf Job-Ebene: `contents: read`,
-`packages: write` (GHCR), `id-token: write` (keyless Signatur). Alles über
-das eingebaute `GITHUB_TOKEN`, kein PAT.
+Separate from `ci.yml`. Triggers: `push` to `main`, `push` of a tag
+`v*`, `workflow_dispatch`. Permissions at job level: `contents: read`,
+`packages: write` (GHCR), `id-token: write` (keyless signature). Everything via
+the built-in `GITHUB_TOKEN`, no PAT.
 
-Ein Job, Ablauf:
+One job, sequence:
 
 1. Checkout.
-2. Bei Tag-Auslöser: Version aus dem Tag lesen (`v0.1.0` → `0.1.0`) und
-   gegen `core/pyproject.toml` prüfen; bei Abweichung abbrechen (D2).
-3. Plattenplatz schaffen: nicht benötigte vorinstallierte Werkzeuge des
-   Runners entfernen (Android-SDK, .NET, Haskell, CodeQL-Bundles). Der
-   GitHub-Runner hat rund 14 GB frei, die Basisschicht allein ist rund
-   5 GB, dazu kommt der Cache-Export.
-4. Buildx-Builder anlegen, Login an GHCR mit `GITHUB_TOKEN`.
-5. Tag-Liste berechnen (siehe Tagging) und als Bake-Variable übergeben.
-6. `docker buildx bake --push` über `docker-bake.hcl`.
-7. Signatur: für jedes der fünf Images `cosign sign --yes <image>@<digest>`
-   mit dem Digest aus dem Bake-Metadaten-Output. Signiert wird der Digest,
-   nie ein beweglicher Tag.
-8. Zusammenfassung im Job-Summary: Image-Digests, Tags, Laufzeit.
+2. On a tag trigger: read the version from the tag (`v0.1.0` → `0.1.0`) and
+   check it against `core/pyproject.toml`; abort on a mismatch (D2).
+3. Free up disk space: remove preinstalled tools of the runner
+   that are not needed (Android SDK, .NET, Haskell, CodeQL bundles). The
+   GitHub runner has around 14 GB free, the base layer alone is around
+   5 GB, plus the cache export.
+4. Create a Buildx builder, log in to GHCR with `GITHUB_TOKEN`.
+5. Compute the tag list (see Tagging) and pass it as a Bake variable.
+6. `docker buildx bake --push` via `docker-bake.hcl`.
+7. Signature: for each of the five images `cosign sign --yes <image>@<digest>`
+   with the digest from the Bake metadata output. The digest is signed,
+   never a moving tag.
+8. Summary in the job summary: image digests, tags, run time.
 
-Marketplace-Actions nur dort, wo sie Arbeit sparen und von Docker,
-Sigstore oder GitHub selbst stammen: `actions/checkout`,
+Marketplace actions only where they save work and come from Docker,
+Sigstore or GitHub itself: `actions/checkout`,
 `docker/setup-buildx-action`, `docker/login-action`, `docker/bake-action`,
-`sigstore/cosign-installer`. Alle per Major-Tag mit Kommentar, welche
-Version beim Schreiben galt.
+`sigstore/cosign-installer`. All by major tag with a comment stating which
+version was current at the time of writing.
 
-### `docker-bake.hcl` im Repo-Root
+### `docker-bake.hcl` in the repo root
 
-Eine Bake-Datei definiert die fünf Targets und ist die einzige
-Build-Definition für die CI. `compose.yaml` behält seine `build:`-Blöcke
-für den lokalen Build; beide zeigen auf dieselben Dockerfiles und Targets.
+One Bake file defines the five targets and is the only
+build definition for the CI. `compose.yaml` keeps its `build:` blocks
+for the local build; both point to the same Dockerfiles and targets.
 
-- Gruppe `default` = `api`, `chat`, `accounts`, `pipeline`, `frontend`.
-- Die vier Python-Targets teilen Kontext (Repo-Root) und Dockerfile; ein
-  einziger Bake-Aufruf baut sie in einer BuildKit-Sitzung, die identische
-  Stufen dedupliziert. Die Basisschicht wird also einmal gebaut und einmal
-  hochgeladen, die Registry speichert sie einmal.
-- Nur `linux/amd64`. Die VM ist x86_64; Multi-Arch wäre doppelte Build-Zeit
-  ohne Abnehmer. Wiedervorlage, sobald ein ARM-Betreiber auftaucht.
-- Variablen: `REGISTRY` (Standard `ghcr.io/normly/web-app`) und `TAGS`
-  (Liste, von der CI gesetzt; lokal Standard `local`). Die
-  Modellrevisionen sind keine Bake-Variablen, sie stehen als
-  `ARG`-Vorgaben im Dockerfile (siehe Reproduzierbarkeit).
-- Layer-Cache in der Registry: je Target `cache-from`/`cache-to` vom Typ
-  `registry` unter `ghcr.io/normly/web-app/cache:<target>` mit `mode=max`.
-  Nicht der GitHub-Actions-Cache: der ist auf 10 GB je Repository
-  begrenzt. Ein Folge-Build, der nur Anwendungscode ändert, überspringt
-  damit Torch-Installation und Modell-Download.
-- Attestationen: BuildKit erzeugt je Image eine SLSA-Provenance und eine
-  SBOM (`attest` mit `type=provenance,mode=max` und `type=sbom`) und
-  schiebt sie neben das Image. REQ-GIT-005 verlangt beides je Release;
-  mit Buildx kostet es eine Zeile.
+- Group `default` = `api`, `chat`, `accounts`, `pipeline`, `frontend`.
+- The four Python targets share context (repo root) and Dockerfile; a
+  single Bake invocation builds them in one BuildKit session, which deduplicates identical
+  stages. The base layer is thus built once and
+  uploaded once, and the registry stores it once.
+- Only `linux/amd64`. The VM is x86_64; multi-arch would be double the build time
+  without a taker. Revisit as soon as an ARM operator turns up.
+- Variables: `REGISTRY` (default `ghcr.io/normly/web-app`) and `TAGS`
+  (list, set by the CI; locally default `local`). The
+  model revisions are not Bake variables; they are
+  `ARG` defaults in the Dockerfile (see Reproducibility).
+- Layer cache in the registry: per target `cache-from`/`cache-to` of type
+  `registry` under `ghcr.io/normly/web-app/cache:<target>` with `mode=max`.
+  Not the GitHub Actions cache: that is limited to 10 GB per repository.
+  A follow-up build that only changes application code thus skips
+  the Torch installation and the model download.
+- Attestations: BuildKit produces an SLSA provenance and an
+  SBOM per image (`attest` with `type=provenance,mode=max` and `type=sbom`) and
+  pushes them next to the image. REQ-GIT-005 requires both per release;
+  with Buildx it costs one line.
 
 ### Tagging
 
-Image-Namen: `ghcr.io/normly/web-app/api`, `.../chat`, `.../accounts`,
+Image names: `ghcr.io/normly/web-app/api`, `.../chat`, `.../accounts`,
 `.../pipeline`, `.../frontend`.
 
-| Auslöser | Tags |
+| Trigger | Tags |
 |---|---|
-| Push auf `main` | `edge`, `sha-<7 Zeichen>` |
-| Git-Tag `vX.Y.Z` | `X.Y.Z`, `X.Y`, `latest`, `sha-<7 Zeichen>` |
-| `workflow_dispatch` | wie der Branch bzw. Tag, auf dem er gestartet wird |
+| Push to `main` | `edge`, `sha-<7 characters>` |
+| Git tag `vX.Y.Z` | `X.Y.Z`, `X.Y`, `latest`, `sha-<7 characters>` |
+| `workflow_dispatch` | like the branch or tag on which it is started |
 
-`latest` zeigt immer auf das jüngste Release, nie auf `edge`. `X.Y`
-wandert mit dem jüngsten Patch-Release der Minor-Linie. Der Betreiber
-entscheidet, wie beweglich sein Pin sein soll.
+`latest` always points to the newest release, never to `edge`. `X.Y`
+moves with the newest patch release of the minor line. The operator
+decides how far their pin should be allowed to move.
 
-### Signaturprüfung durch Betreiber
+### Signature verification by operators
 
-Ein Betreiber prüft ohne GitHub-Konto:
+An operator verifies without a GitHub account:
 
 ```bash
 cosign verify \
@@ -221,25 +221,25 @@ cosign verify \
   ghcr.io/normly/web-app/api:0.1.0
 ```
 
-Der Aufruf steht wörtlich in `docs/guide/self-hosting.md`. Die Prüfung als
-Pflichtschritt vor dem Start auf der VM (Abnahmekriterium REQ-GIT-005:
-unsigniertes Artefakt wird abgewiesen) gehört zum Rollout-Skript aus TP4.
+The invocation appears verbatim in `docs/guide/self-hosting.md`. The verification as a
+mandatory step before start on the VM (acceptance test REQ-GIT-005:
+an unsigned artifact is rejected) belongs to the rollout script from TP4.
 
-### Öffentliche Pakete
+### Public packages
 
-Nach dem ersten erfolgreichen Push müssen sechs Pakete (fünf Images, ein
-Cache-Paket) in den GitHub-Paketeinstellungen von Hand auf öffentlich
-gestellt werden. Falls die Organisation das Anlegen öffentlicher Pakete
-nicht erlaubt, ist das vorher in den Org-Einstellungen unter Packages
-freizuschalten. Beides geht nur im Portal, nicht aus dem Workflow; beides
-steht als Pflichtschritt in der Verifikation und in
+After the first successful push, six packages (five images, one
+cache package) must be set to public by hand in the GitHub package settings.
+If the organization does not allow creating public packages,
+this has to be enabled beforehand in the org settings under Packages.
+Both are possible only in the portal, not from the workflow; both
+are listed as a mandatory step in the verification and in
 `docs/guide/releasing.md`.
 
-## Compose-Anbindung
+## Compose integration
 
-`compose.yaml` behält die `build:`-Blöcke. Die Image-Namen wechseln:
+`compose.yaml` keeps the `build:` blocks. The image names change:
 
-| heute | neu |
+| today | new |
 |---|---|
 | `normly-api:local` | `ghcr.io/normly/web-app/api:${NORMLY_IMAGE_TAG:-edge}` |
 | `normly-chat:local` | `ghcr.io/normly/web-app/chat:${NORMLY_IMAGE_TAG:-edge}` |
@@ -247,27 +247,27 @@ steht als Pflichtschritt in der Verifikation und in
 | `normly-pipeline:local` (migrate, pipeline) | `ghcr.io/normly/web-app/pipeline:${NORMLY_IMAGE_TAG:-edge}` |
 | `normly-frontend:local` | `ghcr.io/normly/web-app/frontend:${NORMLY_IMAGE_TAG:-edge}` |
 
-Wirkung: `docker compose up -d` zieht die veröffentlichten Images, wenn
-sie lokal fehlen; `docker compose pull` aktualisiert sie; `docker compose
-up -d --build` baut weiter lokal und tagt das Ergebnis unter demselben
-Namen (harmlos, der lokale Build gewinnt dann bis zum nächsten `pull`).
-Keine zweite Compose-Datei, kein Override.
+Effect: `docker compose up -d` pulls the published images if
+they are missing locally; `docker compose pull` updates them; `docker compose
+up -d --build` continues to build locally and tags the result under the same
+name (harmless, the local build then wins until the next `pull`).
+No second Compose file, no override.
 
-`.env.example` bekommt `NORMLY_IMAGE_TAG` mit Erklärung der Tag-Familien.
-`compose.yaml` erhält im Kopfkommentar den Hinweis, dass `docker-bake.hcl`
-die CI-Build-Definition ist und beide Dateien dieselben Targets benennen.
+`.env.example` gets `NORMLY_IMAGE_TAG` with an explanation of the tag families.
+`compose.yaml` gets a note in its header comment that `docker-bake.hcl`
+is the CI build definition and both files name the same targets.
 
-Die VM läuft weiter aus `/opt/normly/src` mit lokalem Build, bis TP4 sie
-auf `pull` umstellt. Der Wechsel der Image-Namen in `compose.yaml` ändert
-dort erst etwas, wenn der nächste `git pull` plus `up -d --build` läuft;
-auch dann baut die VM lokal unter dem neuen Namen weiter.
+The VM continues to run from `/opt/normly/src` with a local build until TP4 switches it
+to `pull`. The change of the image names in `compose.yaml` only changes something
+there once the next `git pull` plus `up -d --build` runs;
+even then the VM continues to build locally under the new name.
 
-## Reproduzierbare Builds
+## Reproducible builds
 
-### Lock-Datei mit uv
+### Lock file with uv
 
-Ein `pyproject.toml` im Repo-Root erklärt die vier Python-Pakete zum
-uv-Workspace:
+A `pyproject.toml` in the repo root declares the four Python packages to be a
+uv workspace:
 
 ```toml
 [tool.uv.workspace]
@@ -283,252 +283,250 @@ url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 ```
 
-Dazu eine einzige `uv.lock` im Repo-Root, versioniert. Wirkung:
+Plus a single `uv.lock` in the repo root, under version control. Effect:
 
-- `normly-core` wird ausdrücklich aus dem Checkout aufgelöst, nie von
-  einem Index. Das schließt die Typosquat-Lücke, die
-  `api/pyproject.toml`, `chat/pyproject.toml` und
-  `accounts/pyproject.toml` heute im Kommentar als offen vermerken; die
-  Kommentare werden entsprechend gekürzt.
-- Torch (transitiv über sentence-transformers) kommt ausschließlich aus
-  dem CPU-Index, alle anderen Pakete ausschließlich von PyPI. Heute gilt
-  `--extra-index-url` für jedes Paket.
-- Eine Lock-Datei statt vier; Auflösung in Sekunden.
-- `[project] version` in den vier Paketen bleibt die Quelle für die
-  Versionsprüfung des Workflows (D2). Das Root-`pyproject.toml` hat
-  keinen `[project]`-Abschnitt, es ist ein rein virtueller
-  Workspace-Anker und wird nie als Paket gebaut oder installiert.
+- `normly-core` is resolved explicitly from the checkout, never from
+  an index. This closes the typosquat gap that
+  `api/pyproject.toml`, `chat/pyproject.toml` and
+  `accounts/pyproject.toml` today note as open in a comment; the
+  comments are shortened accordingly.
+- Torch (transitively via sentence-transformers) comes exclusively from
+  the CPU index, all other packages exclusively from PyPI. Today
+  `--extra-index-url` applies to every package.
+- One lock file instead of four; resolution in seconds.
+- `[project] version` in the four packages remains the source for the
+  workflow's version check (D2). The root `pyproject.toml` has
+  no `[project]` section; it is a purely virtual
+  workspace anchor and is never built or installed as a package.
 
-**Verworfen:** pip-tools mit `requirements.txt` je Paket. Hält die
-Per-Paket-Venvs, erzeugt aber vier Lock-Dateien, deren Auflösungen
-auseinanderlaufen können, und löst weder die Index-Trennung für Torch noch
-die `normly-core`-Auflösung sauber.
+**Rejected:** pip-tools with a `requirements.txt` per package. Keeps the
+per-package venvs, but produces four lock files whose resolutions
+can drift apart, and solves neither the index separation for Torch nor
+the `normly-core` resolution cleanly.
 
-### Folgen für Entwicklung und CI
+### Consequences for development and CI
 
-- **Eine Entwicklungsumgebung** im Repo-Root (`.venv`), eingerichtet mit
-  `uv sync --all-packages --all-extras`. Die bisherigen `.venv` je Paket
-  bleiben lokal liegen, werden aber nicht mehr gepflegt; `.gitignore`
-  kennt beide. `CONTRIBUTING.md` beschreibt den neuen Weg (uv installieren,
-  `uv sync`, `uv run pytest` im jeweiligen Paket).
-- **`ci.yml`:** die vier Python-Jobs wechseln von `pip install -e ../core
-  -e .[dev]` auf `uv sync --locked --package normly-<name> --extra dev`
-  und `uv run --package normly-<name> pytest`. `--locked` schlägt fehl,
-  wenn `uv.lock` nicht zu den `pyproject.toml` passt (Korrektur nach
-  Gesamtdurchsicht 2026-10-08: `--frozen` prüft nicht, `--locked` prüft) — damit ist die
-  Lock-Datei in jedem PR geprüft, ohne eigenen Job. uv kommt per
-  `astral-sh/setup-uv` mit gepinnter uv-Version; `test-core` behält den
-  `libgl1`-Schritt und seine bekannte rote DGUV-Signatur (nicht Teil
-  dieses Teilprojekts).
-- **Chat-End-to-End-Tests** (`chat/tests/conftest.py`, heute per
-  `api/.venv/bin/uvicorn` und `accounts/.venv/bin/uvicorn`): starten die
-  Nachbardienste über `sys.executable -m uvicorn` aus der gemeinsamen
-  Umgebung. Damit entfällt der Grund für ihren Ausschluss in der CI
-  (`--ignore=tests/test_structural_end_to_end.py`); der Ausschluss wird
-  aufgehoben, falls die vier Tests in der CI grün laufen, sonst bleibt er
-  mit aktualisiertem Kommentar.
-- Die frontend-Seite ist mit `package-lock.json` und `npm ci` bereits
-  gelockt; dort ändert sich nichts.
+- **One development environment** in the repo root (`.venv`), set up with
+  `uv sync --all-packages --all-extras`. The previous `.venv` per package
+  remain locally, but are no longer maintained; `.gitignore`
+  knows both. `CONTRIBUTING.md` describes the new route (install uv,
+  `uv sync`, `uv run pytest` in the respective package).
+- **`ci.yml`:** the four Python jobs switch from `pip install -e ../core
+  -e .[dev]` to `uv sync --locked --package normly-<name> --extra dev`
+  and `uv run --package normly-<name> pytest`. `--locked` fails
+  if `uv.lock` does not match the `pyproject.toml` (correction after the
+  overall review 2026-10-08: `--frozen` does not check, `--locked` checks) — this way the
+  lock file is checked in every PR, without a job of its own. uv comes via
+  `astral-sh/setup-uv` with a pinned uv version; `test-core` keeps the
+  `libgl1` step and its known red DGUV signature (not part of
+  this sub-project).
+- **Chat end-to-end tests** (`chat/tests/conftest.py`, today via
+  `api/.venv/bin/uvicorn` and `accounts/.venv/bin/uvicorn`): start the
+  neighboring services via `sys.executable -m uvicorn` from the shared
+  environment. This removes the reason for their exclusion in the CI
+  (`--ignore=tests/test_structural_end_to_end.py`); the exclusion is
+  lifted if the four tests run green in the CI, otherwise it stays
+  with an updated comment.
+- The frontend side is already locked with `package-lock.json` and `npm ci`;
+  nothing changes there.
 
 ### Dockerfile
 
-`docker/python.Dockerfile`, neue Stufenfolge:
+`docker/python.Dockerfile`, new stage sequence:
 
-1. `deps`: `python:3.12-slim` per Digest gepinnt; uv per `COPY --from`
-   aus `ghcr.io/astral-sh/uv:<version>` (ebenfalls per Digest). Kopiert
-   nur `pyproject.toml`, `uv.lock` und die vier Paket-`pyproject.toml`,
-   dann `uv sync --locked --no-dev --no-install-workspace --package
-   normly-core` in `/app/.venv`. Diese Schicht ändert sich nur, wenn die
-   Lock-Datei sich ändert.
-2. `weights`: lädt die Modellgewichte mit `huggingface_hub.snapshot_download`
-   bei fester Revision (siehe Tabelle) nach `/opt/models`, in Doclings
-   Ordnerkonvention (`<repo_id mit / → -->`), und ersetzt damit sowohl den
-   `SentenceTransformer(...).save()`-Aufruf als auch `docling-tools models
-   download`. Für e5 wird nur das Nötige geladen (`ignore_patterns` für
-   `onnx/`, `openvino/` und die `.bin`-Duplikate der safetensors-Gewichte);
-   das Repo liegt im sentence-transformers-Format, `SentenceTransformer`
-   liest es direkt vom Pfad. Eigene Stufe, damit ein Wechsel der
-   Lock-Datei die Gewichte nicht neu lädt und umgekehrt.
+1. `deps`: `python:3.12-slim` pinned by digest; uv via `COPY --from`
+   from `ghcr.io/astral-sh/uv:<version>` (also by digest). Copies
+   only `pyproject.toml`, `uv.lock` and the four package `pyproject.toml`,
+   then `uv sync --locked --no-dev --no-install-workspace --package
+   normly-core` into `/app/.venv`. This layer changes only when the
+   lock file changes.
+2. `weights`: downloads the model weights with `huggingface_hub.snapshot_download`
+   at a fixed revision (see table) to `/opt/models`, in Docling's
+   folder convention (`<repo_id with / → -->`), thereby replacing both the
+   `SentenceTransformer(...).save()` call and `docling-tools models
+   download`. For e5 only what is needed is downloaded (`ignore_patterns` for
+   `onnx/`, `openvino/` and the `.bin` duplicates of the safetensors weights);
+   the repo is in sentence-transformers format, `SentenceTransformer`
+   reads it directly from the path. A stage of its own, so that a change of the
+   lock file does not re-download the weights and vice versa.
 3. `base`: `deps` plus `COPY --from=weights /opt/models /opt/models` plus
-   `core`-Quellcode, installiert mit `uv sync --locked --no-dev --package
-   normly-core`. Benutzer `normly` wie bisher.
-4. `api`, `chat`, `accounts`, `pipeline`: wie bisher, nur mit `uv sync
-   --locked --no-dev --package normly-<name>` statt `pip install`.
-   `pipeline` lädt keine Modelle mehr selbst; `NORMLY_DOCLING_ARTIFACTS_PATH`
-   zeigt auf `/opt/models/docling` aus der `weights`-Stufe.
+   `core` source code, installed with `uv sync --locked --no-dev --package
+   normly-core`. User `normly` as before.
+4. `api`, `chat`, `accounts`, `pipeline`: as before, only with `uv sync
+   --locked --no-dev --package normly-<name>` instead of `pip install`.
+   `pipeline` no longer downloads models itself; `NORMLY_DOCLING_ARTIFACTS_PATH`
+   points to `/opt/models/docling` from the `weights` stage.
 
-uv bleibt als einzelne statische Binärdatei (rund 40 MB) in den Images
-liegen, weil jede Target-Stufe es für ihren `uv sync` braucht und eine
-eigene Laufzeit-Stufe je Target die Dockerfile-Struktur aus TP1
-verdoppeln würde. Bewusst in Kauf genommen.
+uv remains in the images as a single static binary (around 40 MB),
+because each target stage needs it for its `uv sync`, and a
+runtime stage of its own per target would double the Dockerfile structure from TP1.
+Deliberately accepted.
 
-`frontend/Dockerfile`: `node:22-alpine` per Digest gepinnt; sonst
-unverändert.
+`frontend/Dockerfile`: `node:22-alpine` pinned by digest; otherwise
+unchanged.
 
-### Modellgewichte mit fester Revision
+### Model weights with a fixed revision
 
-| Modell | Hugging-Face-Repo | heute | neu |
+| Model | Hugging Face repo | today | new |
 |---|---|---|---|
-| Embedding e5 | `intfloat/multilingual-e5-large` | `main` | Commit-SHA |
-| Docling Layout | `docling-project/docling-layout-heron` | `main` | Commit-SHA |
-| Docling Layout ONNX | `docling-project/docling-layout-heron-onnx` | `main` | Commit-SHA |
-| Docling Tableformer | `docling-project/docling-models` | Tag `v2.3.0` | Commit-SHA |
+| Embedding e5 | `intfloat/multilingual-e5-large` | `main` | commit SHA |
+| Docling Layout | `docling-project/docling-layout-heron` | `main` | commit SHA |
+| Docling Layout ONNX | `docling-project/docling-layout-heron-onnx` | `main` | commit SHA |
+| Docling Tableformer | `docling-project/docling-models` | tag `v2.3.0` | commit SHA |
 
-Die vier Revisionen stehen an genau einer Stelle: als `ARG`-Vorgaben mit
-Datumskommentar in `docker/python.Dockerfile`, direkt vor der
-`weights`-Stufe. Weder `docker-bake.hcl` noch `compose.yaml` überschreiben
-sie, beide Build-Wege laden damit dieselben Gewichte. Die konkreten SHAs
-ermittelt der Implementierungsplan zum Zeitpunkt des Schreibens (jeweils
-der Commit, auf den `main` bzw. `v2.3.0` an dem Tag zeigt).
+The four revisions are in exactly one place: as `ARG` defaults with a
+date comment in `docker/python.Dockerfile`, directly before the
+`weights` stage. Neither `docker-bake.hcl` nor `compose.yaml` overrides
+them; both build routes thus download the same weights. The concrete SHAs
+are determined by the implementation plan at the time of writing (in each case
+the commit that `main` or `v2.3.0` points to on that day).
 
-Wirkung: ein Wechsel der Gewichte ist ein bewusster Commit mit sichtbarem
-Diff. Derselbe Git-Tag liefert dieselben Embeddings, die Voraussetzung
-dafür, dass der versionierte Datenstand aus TP4 zum Image passt.
+Effect: a change of the weights is a deliberate commit with a visible
+diff. The same Git tag yields the same embeddings, the prerequisite
+for the versioned data version from TP4 to match the image.
 
-Die Docstring-Anleitung in `core/src/normly_core/pipeline/docling_extraction.py`
-(„docling-tools models download …") wird auf den neuen Bezug per
-`snapshot_download` mit Revision angepasst; `tests/pipeline/test_docling_offline.py`
-bleibt der Nachweis, dass zur Laufzeit kein Netzwerkzugriff stattfindet.
+The docstring instructions in `core/src/normly_core/pipeline/docling_extraction.py`
+("docling-tools models download …") are adapted to the new retrieval via
+`snapshot_download` with revision; `tests/pipeline/test_docling_offline.py`
+remains the proof that no network access takes place at runtime.
 
-## Dokumentation
+## Documentation
 
-- **ADR-023 „Image-Veröffentlichung: GHCR, keyless Signatur, eine Version,
-  Lock-Datei"** in `docs/adr/README.md`. Status beschlossen (2026-10-08).
-  Entscheidung: D1–D4 in Kurzform. Begründung: Linux Foundation als
-  Non-Profit-Betreiber des Vertrauensankers; Monorepo-Kombination als
-  Testeinheit; sparsame Build-Auslöser; Reproduzierbarkeit als
-  Voraussetzung für den Datenstand-Abgleich. Verworfen: eigener Schlüssel,
-  Version je Paket, PR-Builds, pip-tools. Konsequenz: Verweise aus
+- **ADR-023 "Image publication: GHCR, keyless signing, one version,
+  lock file"** in `docs/adr/README.md`. Status accepted (2026-10-08).
+  Decision: D1–D4 in short form. Rationale: Linux Foundation as the
+  non-profit operator of the trust anchor; monorepo combination as the
+  unit of testing; sparing build triggers; reproducibility as a
+  prerequisite for matching the data version. Rejected: own key,
+  version per package, PR builds, pip-tools. Consequence: references from
   REQ-BUILD-001, REQ-DIST-004, REQ-GIT-005.
-- **`docs/srs/03-anforderungen.md`:** REQ-BUILD-001 und REQ-DIST-004
-  erhalten unter „Weitere Informationen" den Verweis auf ADR-023.
-  REQ-GIT-005 nennt im Akzeptanzkriterium noch die STACKIT Container
-  Registry; der Satz wird auf GHCR (ADR-021) umgestellt und bekommt den
-  Hinweis, dass die Prüfung als Pflichtschritt vor dem Start Teil von TP4
-  ist.
-- **`docs/guide/self-hosting.md`:** Pull-Weg wird Standard
-  (`docker compose pull && docker compose up -d`), lokaler Build die
-  Alternative. Anforderungen: der Hinweis auf 45 GB Build-Cache gilt nur
-  noch für den lokalen Build. Neuer Abschnitt „Verifying image signatures"
-  mit dem `cosign verify`-Aufruf und einem Satz zu Provenance und SBOM.
-  „Known gaps" verliert den Punkt „No published images yet".
-- **`docs/guide/releasing.md`** (neu, Englisch, in der Zensical-Navigation
-  nach Self-Hosting): Versionsfelder anheben (vier `pyproject.toml`,
-  `package.json`, `package-lock.json`), Release-Commit, annotierten Tag
-  setzen, Tag pushen, Lauf beobachten, beim ersten Mal Pakete öffentlich
-  stellen; Modellrevisionen ändern; was `edge`, `X.Y` und `latest`
-  bedeuten.
-- **`CONTRIBUTING.md`:** Abschnitt zur Entwicklungsumgebung mit uv.
-- **`README.md`:** ein Satz, dass Images auf GHCR liegen, mit Link auf
-  Self-Hosting.
-- **Roadmap-Spec:** TP2-Abschnitt bekommt einen Verweis auf diese Spec und
-  den Vermerk „umgesetzt“ nach der Verifikation.
+- **`docs/srs/03-requirements.md`:** REQ-BUILD-001 and REQ-DIST-004
+  get the reference to ADR-023 under "Further information".
+  REQ-GIT-005 still names the STACKIT Container
+  Registry in its acceptance criteria; the sentence is switched to GHCR (ADR-021) and gets the
+  note that the verification as a mandatory step before start is part of TP4.
+- **`docs/guide/self-hosting.md`:** the pull route becomes the default
+  (`docker compose pull && docker compose up -d`), the local build the
+  alternative. Requirements: the note about 45 GB of build cache applies only
+  to the local build. New section "Verifying image signatures"
+  with the `cosign verify` invocation and a sentence on provenance and SBOM.
+  "Known gaps" loses the item "No published images yet".
+- **`docs/guide/releasing.md`** (new, English, in the Zensical navigation
+  after Self-Hosting): bump the version fields (four `pyproject.toml`,
+  `package.json`, `package-lock.json`), release commit, set an annotated tag,
+  push the tag, watch the run, set the packages to public the first time;
+  change model revisions; what `edge`, `X.Y` and `latest`
+  mean.
+- **`CONTRIBUTING.md`:** section on the development environment with uv.
+- **`README.md`:** a sentence that images are on GHCR, with a link to
+  self-hosting.
+- **Roadmap spec:** the TP2 section gets a reference to this spec and
+  the note "implemented" after the verification.
 
-## Verifikation
+## Verification
 
-Nichts gilt als fertig, bevor es nicht einmal echt gelaufen ist. Jeder
-Push, der einen Workflow auslöst, wird vorher mit dem Nutzer abgestimmt
-(gewohnte Regel aus den STACKIT-Zeiten; Minuten sind seit der
-Veröffentlichung des Repos zwar frei, Läufe auf `main` wirken aber nach
-außen sichtbar).
+Nothing counts as done before it has actually run once. Every
+push that triggers a workflow is agreed with the owner beforehand
+(the usual rule from the STACKIT days; minutes have been free since the
+repo was made public, but runs on `main` are visible
+from outside).
 
-1. **Lokal, vor dem PR:** `uv lock` erzeugt die Lock-Datei; `uv sync
-   --all-packages --all-extras`; alle vier Python-Testsuiten und
-   `npm test` grün; `docker buildx bake` baut alle fünf Images lokal;
-   `docker compose up -d --build` startet den Stack wie in TP1 verifiziert
-   (bundled-Profil); die Chat-End-to-End-Tests laufen aus der gemeinsamen
-   Umgebung.
-2. **Erster `main`-Lauf nach dem Merge:** pusht `edge` und `sha-…` für
-   alle fünf Images, Signaturen und Attestationen. Aus dem Protokoll
-   notieren: Gesamtlaufzeit, freier Plattenplatz vor dem Build, Größe der
-   gepushten Images. Pakete öffentlich stellen.
-3. **Signaturprüfung von außen:** `cosign verify` wie in der Doku, ohne
-   GitHub-Anmeldung, gegen ein öffentliches Paket; zusätzlich
-   `docker buildx imagetools inspect` zeigt Provenance und SBOM.
-4. **Pull-Weg:** auf einem Rechner mit leerem Image-Cache
+1. **Locally, before the PR:** `uv lock` produces the lock file; `uv sync
+   --all-packages --all-extras`; all four Python test suites and
+   `npm test` green; `docker buildx bake` builds all five images locally;
+   `docker compose up -d --build` starts the stack as verified in TP1
+   (bundled profile); the chat end-to-end tests run from the shared
+   environment.
+2. **First `main` run after the merge:** pushes `edge` and `sha-…` for
+   all five images, signatures and attestations. Note from the log:
+   total run time, free disk space before the build, size of the
+   pushed images. Set the packages to public.
+3. **Signature verification from outside:** `cosign verify` as in the docs, without
+   GitHub sign-in, against a public package; additionally
+   `docker buildx imagetools inspect` shows provenance and SBOM.
+4. **Pull route:** on a machine with an empty image cache
    `NORMLY_IMAGE_TAG=edge`, `docker compose pull`, `docker compose up -d`,
-   Stack läuft ohne lokalen Build.
-5. **Release:** Versionsfelder auf `0.1.0` (stehen bereits so), Tag
-   `v0.1.0`, Push des Tags. Der Lauf liefert `0.1.0`, `0.1`, `latest`;
-   die Versionsprüfung (D2) hat durchgelassen. Laufzeit mit Lauf 2
-   vergleichen: der Registry-Cache muss greifen.
-6. **Negativprobe der Versionsprüfung:** ein Tag `v9.9.9` auf denselben
-   Commit lässt den Lauf im zweiten Schritt abbrechen, bevor ein Build
-   beginnt (unter einer Minute); Tag danach lokal und auf GitHub löschen.
+   the stack runs without a local build.
+5. **Release:** version fields at `0.1.0` (already set so), tag
+   `v0.1.0`, push of the tag. The run delivers `0.1.0`, `0.1`, `latest`;
+   the version check (D2) let it pass. Compare the run time with
+   run 2: the registry cache must take effect.
+6. **Negative test of the version check:** a tag `v9.9.9` on the same
+   commit makes the run abort in the second step, before a build
+   begins (under one minute); then delete the tag locally and on GitHub.
 
-## Risiken und offene Punkte
+## Risks and open items
 
-- **Plattenplatz auf dem Runner.** Reicht der freigeräumte Platz nicht,
-  ist die Rückfallebene, die Python-Targets und das Frontend in zwei Jobs
-  zu trennen oder den Cache-Export auf `mode=min` zu setzen. Entscheidet
-  der erste echte Lauf.
-- **Org-Einstellung für öffentliche Pakete.** Vom Nutzer am 2026-10-08
-  bestätigt: erlaubt. Bleibt als Pflichtschritt nach dem ersten Push
-  (Sichtbarkeit je Paket umstellen).
-- **Hugging-Face-Verfügbarkeit beim Build.** Nur zur Build-Zeit kontaktiert
-  (wie bisher); mit festen Revisionen reagiert der Build auf ein
-  gelöschtes Repo mit einem klaren Fehler statt stillschweigend anderen
-  Gewichten. Spiegelung in STACKIT Object Storage bleibt eine Option für
+- **Disk space on the runner.** If the freed space is not enough,
+  the fallback is to split the Python targets and the frontend into two jobs
+  or to set the cache export to `mode=min`. The first real run
+  decides.
+- **Org setting for public packages.** Confirmed by the owner on 2026-10-08:
+  allowed. Remains a mandatory step after the first push
+  (switch visibility per package).
+- **Hugging Face availability at build time.** Contacted only at build time
+  (as before); with fixed revisions the build reacts to a
+  deleted repo with a clear error instead of silently different
+  weights. Mirroring in STACKIT Object Storage remains an option for
   TP4.
-- **Zwei Build-Definitionen** (`compose.yaml`, `docker-bake.hcl`) für
-  dieselben Targets. Bewusst in Kauf genommen: beide sind kurz, und ein
-  Bake-Overlay über die Compose-Datei hätte das Doppel-Target
-  `migrate`/`pipeline` und die Profile-Logik mitgeschleppt.
-- **Drift der Versionsfelder.** Der Workflow prüft nur `core`; die drei
-  anderen `pyproject.toml` und `package.json` könnten abweichen.
-  Akzeptiert, `releasing.md` nennt alle fünf Stellen; eine Prüfung aller
-  fünf ist eine Zeile mehr und kann im Plan ergänzt werden.
+- **Two build definitions** (`compose.yaml`, `docker-bake.hcl`) for
+  the same targets. Deliberately accepted: both are short, and a
+  Bake overlay over the Compose file would have dragged along the double target
+  `migrate`/`pipeline` and the profile logic.
+- **Drift of the version fields.** The workflow checks only `core`; the three
+  other `pyproject.toml` and `package.json` could diverge.
+  Accepted, `releasing.md` names all five places; a check of all
+  five is one more line and can be added in the plan.
 
-## Übertrag an spätere Teilprojekte
+## Carried over to later sub-projects
 
-- **TP4:** VM auf `docker compose pull` umstellen, Rollout-/Rollback-Skript
-  mit `NORMLY_IMAGE_TAG`, `cosign verify` als Pflichtschritt vor dem Start
-  (Abnahmekriterium REQ-GIT-005), Datenstand-Dump mit Verweis auf die
-  Modellrevision des erzeugenden Images.
-- **TP1a:** profitiert von der Entlastung der VM; unabhängig von TP2
-  baubar.
-- **Wartung:** `uv lock --upgrade` als wiederkehrende Aufgabe; die sieben
-  npm-Funde aus TP1 bleiben ein eigener Wartungs-PR.
+- **TP4:** switch the VM to `docker compose pull`, rollout/rollback script
+  with `NORMLY_IMAGE_TAG`, `cosign verify` as a mandatory step before start
+  (acceptance test REQ-GIT-005), data version dump with a reference to the
+  model revision of the producing image.
+- **TP1a:** benefits from the relief for the VM; can be built independently of TP2.
+- **Maintenance:** `uv lock --upgrade` as a recurring task; the seven
+  npm findings from TP1 remain a maintenance PR of their own.
 
-## Verifikation 2026-10-08 (Task 8, nach dem Merge von PR #14)
+## Verification 2026-10-08 (Task 8, after the merge of PR #14)
 
-Alle Schritte des Verifikationsplans sind gelaufen; gemessen, nicht angenommen.
+All steps of the verification plan have run; measured, not assumed.
 
-| Schritt | Ergebnis |
+| Step | Result |
 |---|---|
-| PR #14, Test-Pipeline | fünf Jobs grün; `test-core` rot mit den bekannten vier DGUV-Tests (vgl. CI-Spec 2026-09-02); `uv sync --locked` in allen Jobs ohne Lock-Fehler (147 Pakete aufgelöst, 135 installiert) |
-| Erster `Images`-Lauf auf `main` (Merge ea70cc8) | erfolgreich, **9 min 25 s**, kalt (kein Registry-Cache); Runner hatte nach dem Aufräumen 110 GB frei, Plattenplatz ist kein Engpass |
-| Zweiter Lauf auf `main` (README-Commit 9937b92, kurz danach) | wartete dank Concurrency-Gruppe auf den ersten, dann **5 min 09 s** mit Registry-Cache |
-| Öffentliche Pakete | alle sechs (`api`, `chat`, `accounts`, `pipeline`, `frontend`, `cache`) waren **ohne manuellen Schritt** anonym lesbar (HTTP 200 auf das Manifest): GitHub verknüpft Pakete über das `org.opencontainers.image.source`-Label mit dem öffentlichen Repo und übernimmt dessen Sichtbarkeit. Der Handgriff aus `releasing.md` bleibt als Rückfallebene dokumentiert |
-| Signaturprüfung von außen | `cosign verify` (v3.1.3, ohne GitHub-Anmeldung) bestätigt `api:edge`: Zertifikat vom Workflow `images.yml`, Eintrag im Transparenzprotokoll; SBOM (SPDX, syft 1.51.0) und SLSA-Provenance am Image vorhanden |
-| Pull-Weg | lokal: `docker compose pull` zieht fünf Images (Python-Images je 7,5 GB auf Platte, Frontend 337 MB); `docker compose up -d` mit `NORMLY_IMAGE_TAG=edge`: `migrate` Exit 0, api/accounts/chat healthy, Frontend HTTP 200, ohne lokalen Build |
-| Release `v0.1.0` (annotierter Tag auf ea70cc8) | erfolgreich, **4 min 32 s**; Versionsprüfung aller fünf Felder bestanden; `0.1.0`, `0.1`, `latest`, `sha-ea70cc8` zeigen auf denselben Digest (`api`: `sha256:e67d62a7…`) |
-| Negativprobe `v9.9.9` | Lauf bricht nach **7 s** im Schritt "Check that a release tag matches the package versions" ab, eine `::error::`-Zeile je Versionsfeld, kein Build; Tag lokal und auf GitHub gelöscht |
+| PR #14, test pipeline | five jobs green; `test-core` red with the known four DGUV tests (cf. CI spec 2026-09-02); `uv sync --locked` in all jobs without lock errors (147 packages resolved, 135 installed) |
+| First `Images` run on `main` (merge ea70cc8) | successful, **9 min 25 s**, cold (no registry cache); after the cleanup the runner had 110 GB free, disk space is not a bottleneck |
+| Second run on `main` (README commit 9937b92, shortly afterwards) | waited for the first thanks to the concurrency group, then **5 min 09 s** with registry cache |
+| Public packages | all six (`api`, `chat`, `accounts`, `pipeline`, `frontend`, `cache`) were anonymously readable **without a manual step** (HTTP 200 on the manifest): GitHub links packages to the public repo via the `org.opencontainers.image.source` label and adopts its visibility. The manual step from `releasing.md` remains documented as a fallback |
+| Signature verification from outside | `cosign verify` (v3.1.3, without GitHub sign-in) confirms `api:edge`: certificate from the workflow `images.yml`, entry in the transparency log; SBOM (SPDX, syft 1.51.0) and SLSA provenance present on the image |
+| Pull route | locally: `docker compose pull` pulls five images (Python images 7.5 GB each on disk, frontend 337 MB); `docker compose up -d` with `NORMLY_IMAGE_TAG=edge`: `migrate` exit 0, api/accounts/chat healthy, frontend HTTP 200, without a local build |
+| Release `v0.1.0` (annotated tag on ea70cc8) | successful, **4 min 32 s**; version check of all five fields passed; `0.1.0`, `0.1`, `latest`, `sha-ea70cc8` point to the same digest (`api`: `sha256:e67d62a7…`) |
+| Negative test `v9.9.9` | run aborts after **7 s** in the step "Check that a release tag matches the package versions", one `::error::` line per version field, no build; tag deleted locally and on GitHub |
 
-**Befunde:**
+**Findings:**
 
-- Das Release-Image aus ea70cc8 hat einen anderen Digest als das `edge`-Image
-  aus demselben Commit (`sha256:96d067d4…` vs. `sha256:e67d62a7…`). Bestätigt
-  den offenen Punkt aus ADR-023 und REQ-BUILD-001: gleiche Eingaben, aber
-  keine bit-identischen Images (Zeitstempel in Schichten, apt-Pakete).
-- Die Concurrency-Gruppe aus der Gesamtdurchsicht hat sich am ersten Abend
-  bewährt: zwei Pushes auf `main` innerhalb von zwei Minuten liefen seriell.
-- Die Runner-Plattenplatz-Bereinigung war mit 145 GB Root-Volume nicht
-  nötig, schadet aber nicht; bleibt drin.
+- The release image from ea70cc8 has a different digest than the `edge` image
+  from the same commit (`sha256:96d067d4…` vs. `sha256:e67d62a7…`). Confirms
+  the open item from ADR-023 and REQ-BUILD-001: same inputs, but
+  no bit-identical images (timestamps in layers, apt packages).
+- The concurrency group from the overall review proved itself on the first evening:
+  two pushes to `main` within two minutes ran serially.
+- The runner disk space cleanup was not necessary with a 145 GB root volume,
+  but does no harm; it stays in.
 
-**Folgearbeiten (nicht Teil von TP2):**
+**Follow-up work (not part of TP2):**
 
-- `test-core` rot: **geklärt 2026-10-08.** Nicht die Modellrevision (lokaler
-  Cache und CI hatten dieselben Commits), sondern fehlende Systemschriften:
-  die Fixture bettet Helvetica nicht ein, pdfium rendert im fontlosen
-  Container mit einer Ersatzschrift, und das Layout-Modell stuft die
-  Titelzeile als `page_header` (FURNITURE) ein. Nachgewiesen durch
-  Einzelvariablen-Tests (Locale, Threads, Determinismus: kein Effekt;
-  `fonts-liberation` installiert: identisch zum Host, 30/30 Tests grün).
-  Fix: `fonts-liberation` in CI-Job und Image; eigener PR.
-- Gewichte-Stufe auf ein schlankes Eltern-Image umstellen (Lock-Änderung
-  lädt heute die Gewichte neu); `api`/`chat`/`accounts` ohne Docling-Modelle;
-  `uv` aus den Laufzeit-Images; SBOM-Scanner-Image pinnen; `latest` nur
-  setzen, wenn der Tag der höchste ist.
-- TP4: VM auf `docker compose pull` umstellen, `cosign verify` als
-  Pflichtschritt vor dem Start.
+- `test-core` red: **resolved 2026-10-08.** Not the model revision (local
+  cache and CI had the same commits), but missing system fonts:
+  the fixture does not embed Helvetica, pdfium renders with a substitute font in the font-less
+  container, and the layout model classifies the
+  title line as `page_header` (FURNITURE). Proven by
+  single-variable tests (locale, threads, determinism: no effect;
+  `fonts-liberation` installed: identical to the host, 30/30 tests green).
+  Fix: `fonts-liberation` in CI job and image; a PR of its own.
+- Switch the weights stage to a lean parent image (a lock change
+  re-downloads the weights today); `api`/`chat`/`accounts` without Docling models;
+  `uv` out of the runtime images; pin the SBOM scanner image; set `latest` only
+  if the tag is the highest.
+- TP4: switch the VM to `docker compose pull`, `cosign verify` as a
+  mandatory step before start.

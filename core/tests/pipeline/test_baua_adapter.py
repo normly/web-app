@@ -101,8 +101,8 @@ def test_fetch_normalizes_irregular_whitespace_before_matching_designation(tmp_p
 
 def test_fetch_reads_all_three_series_and_ignores_other_sources_files(tmp_path):
     """`--directory` means the directory, not one hardcoded filename in it,
-    and the three series share one adapter (design spec, "Ziel dieses
-    Teilprojekts")."""
+    and the three series share one adapter (design spec, "Goal of this
+    sub-project")."""
     _write_publication_pdf(
         tmp_path / "baua_trgs_900.pdf", ["TRGS 900", "Arbeitsplatzgrenzwerte", "", "Text."]
     )

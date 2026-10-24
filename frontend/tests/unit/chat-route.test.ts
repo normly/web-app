@@ -43,6 +43,7 @@ describe("POST /api/chat", () => {
       expect.objectContaining({ method: "POST" }),
     );
     expect(body.answer).toBe("Beispielantwort");
+    expect(body.session_token).toBeUndefined();
     expect(response.cookies.get("normly_session")?.value).toBe("new-session-token");
   });
 
@@ -194,5 +195,48 @@ describe("POST /api/chat", () => {
 
     expect(response.status).toBe(503);
     expect(response.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("forwards the anonymous caller headers to chat/", async () => {
+    vi.stubEnv("NORMLY_API_BASE_URL", "http://api.internal");
+    vi.stubEnv("NORMLY_ACCOUNTS_BASE_URL", "http://accounts.internal");
+    vi.stubEnv("NORMLY_CHAT_BASE_URL", "http://chat.internal");
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ answer: "a", answer_type: "synthesis", citations: [] }), { status: 200 }),
+    );
+
+    const request = new NextRequest("http://localhost/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ jurisdiction: "DE", language: "de", message: "Frage" }),
+      headers: {
+        "content-type": "application/json",
+        cookie: "normly_anon_id=anon-123",
+        "x-forwarded-for": "1.2.3.4",
+      },
+    });
+    await POST(request);
+
+    const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(init.headers).toMatchObject({
+      "X-Normly-Anon-Id": "anon-123",
+      "X-Forwarded-For": "1.2.3.4",
+    });
+  });
+
+  it("passes a 429 body through unchanged", async () => {
+    vi.stubEnv("NORMLY_API_BASE_URL", "http://api.internal");
+    vi.stubEnv("NORMLY_ACCOUNTS_BASE_URL", "http://accounts.internal");
+    vi.stubEnv("NORMLY_CHAT_BASE_URL", "http://chat.internal");
+    const detail = { reason: "quota_exhausted", resets_at: "2026-10-23T00:00:00Z", anonymous: true };
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ detail }), { status: 429 }));
+
+    const response = await POST(new NextRequest("http://localhost/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ jurisdiction: "DE", language: "de", message: "Frage" }),
+      headers: { "content-type": "application/json" },
+    }));
+
+    expect(response.status).toBe(429);
+    expect(await response.json()).toEqual({ detail });
   });
 });

@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 normly contributors
+name: Bug
+description: Something in normly does not work as described.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. …\n2. …"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or instance
+      description: Release tag, image tag (e.g. edge, 0.2.0) or the URL of the instance.
+  - type: input
+    id: requirement
+    attributes:
+      label: Affected requirement
+      description: REQ ID from docs/srs/03-requirements.md, if known.
+      placeholder: REQ-UI-001

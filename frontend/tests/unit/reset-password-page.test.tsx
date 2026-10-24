@@ -38,6 +38,7 @@ describe("ResetPasswordContent", () => {
         screen.getByText("Dein Passwort wurde geändert. Du kannst dich jetzt anmelden."),
       ).toBeInTheDocument(),
     );
+    expect(screen.getByRole("link", { name: "Anmelden" })).toHaveAttribute("href", "/login");
     const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(JSON.parse(init.body)).toEqual({ token: "valid-token", new_password: "new secret" });
   });

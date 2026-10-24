@@ -1,4 +1,4 @@
-# Frontend Auth-Seiten Implementation Plan
+# Frontend Auth Pages Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -11,9 +11,9 @@
 ## Global Constraints
 
 - Design spec: `docs/superpowers/specs/2026-09-05-frontend-shadcn-redesign-design.md`
-  — this plan implements only the "### Auth-Seiten" section (lines
-  144-170). It does NOT touch `AppShell`'s Chat/Suche nav, `PageHeader`,
-  the chat page, the profile overlay, or Suche/Dokument-Detail.
+  — this plan implements only the "### Auth pages" section (lines
+  144-170). It does NOT touch `AppShell`'s Chat/Search nav, `PageHeader`,
+  the chat page, the profile overlay, or search/document detail.
 - **Two small, deliberate backend touches, decided with the user up front
   — not scope creep, both confirmed explicitly:**
   1. `magic_link.py`'s and `registration.py`'s verification emails
@@ -32,7 +32,7 @@
      adds `POST /v1/accounts/verify-email/resend` (email in, generic
      enumeration-safe response out), mirroring `password-reset/request`'s
      existing shape exactly. This is the one place this plan's own
-     Global Constraints allow "keine neuen Backend-Endpunkte" to bend —
+     Global Constraints allow "no new backend endpoints" to bend —
      confirmed with the user, who chose to build the endpoint rather
      than ship a resend button with nothing behind it.
 - **No new frontend form logic.** `LoginForm`, `RegisterForm`,
@@ -53,7 +53,7 @@
 - **One shared decorative photo, hotlinked from shadcnblocks' own CDN**,
   reused across all four split-layout pages (`https://deifkwefumgah.cloudfront.net/shadcnblocks/image-set/placeholder/images/6-3x4.jpg`)
   — this app has no real photography of its own for these pages, and the
-  spec explicitly calls for "Split mit Foto" layouts; treated the same
+  spec explicitly calls for "Split with photo" layouts; treated the same
   way Plan 2 accepted a hotlinked demo logo for `application-shell2` as
   an interim, decorative-only asset. `alt=""` on the image (purely
   decorative, conveys nothing).
@@ -1769,5 +1769,5 @@ residual (Task 8, Step 10) in the PR description — wait for the CI
 pipeline's `test-frontend` AND `test-accounts` jobs to both go green
 (this plan is the first in this redesign to touch backend Python code),
 then ask the user to merge (same confirm-first rule applies). Plan 6
-(Suche & Dokument-Detail) remains in this redesign; it does not depend on
+(search & document detail) remains in this redesign; it does not depend on
 this plan.

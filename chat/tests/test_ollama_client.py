@@ -18,12 +18,13 @@ def ollama_client():
     return OllamaClient(
         base_url=os.environ["NORMLY_TEST_OLLAMA_BASE_URL"],
         model=os.environ.get("NORMLY_TEST_OLLAMA_MODEL", "gemma4:e4b"),
+        max_output_tokens=256,
     )
 
 
-def test_chat_returns_a_non_empty_string(ollama_client):
-    answer = ollama_client.chat(
+def test_complete_returns_a_non_empty_answer_with_usage(ollama_client):
+    result = ollama_client.complete(
         [{"role": "user", "content": "Antworte nur mit dem Wort: Test"}]
     )
-    assert isinstance(answer, str)
-    assert len(answer) > 0
+    assert result.text
+    assert result.output_tokens > 0

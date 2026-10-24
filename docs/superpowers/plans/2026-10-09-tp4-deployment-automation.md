@@ -1,61 +1,61 @@
-# TP4 Deployment-Automatisierung — Implementierungsplan
+# TP4 deployment automation — implementation plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Neue Versionen werden pull-basiert auf die VM ausgerollt und lassen sich zurücknehmen, Nutzerdaten werden verschlüsselt gesichert, und der freie Wissensbestand wird als signierter, schemaunabhängiger Parquet-Dump im Object Storage verteilt und importiert.
+**Goal:** New versions are rolled out pull-based to the VM and can be rolled back, user data is backed up encrypted, and the free knowledge base is distributed and imported as a signed, schema-independent Parquet dump in Object Storage.
 
-**Architecture:** Drei getrennt abnehmbare Teile. (A) Austauschformat im Kern: `normly_core.exchange` (Tabellengruppen, Manifest, Ed25519-Signatur, Parquet-Export/-Import) über eine neue Repository-Schnittstelle `KnowledgeExchangeRepository`. (B) `normly-backup` (Bash + stdlib-Python für die Aufbewahrung). (C) `normly-deploy` (Bash) mit `cosign verify`, Pre-Rollout-Sicherung, Rollback durch Schema-Neuaufbau. Deploy-Dateien (Compose, Caddyfile, Skripte) reisen im signierten `pipeline`-Image.
+**Architecture:** Three separately acceptable parts. (A) Exchange format in the core: `normly_core.exchange` (table groups, manifest, Ed25519 signature, Parquet export/import) via a new repository interface `KnowledgeExchangeRepository`. (B) `normly-backup` (Bash + stdlib Python for the retention). (C) `normly-deploy` (Bash) with `cosign verify`, pre-rollout backup, rollback by rebuilding the schema. Deploy files (Compose, Caddyfile, scripts) travel in the signed `pipeline` image.
 
 **Tech Stack:** Python 3.11+, SQLAlchemy 2 Core, Alembic, pyarrow (Parquet), cryptography (Ed25519), pytest + testcontainers; Bash, age, rclone, cosign, pg_dump/psql/pg_restore, systemd.
 
-Spec: `docs/superpowers/specs/2026-10-09-tp4-deployment-automation-design.md` (Entscheidungen D1–D6 gelten unverändert).
+Spec: `docs/superpowers/specs/2026-10-09-tp4-deployment-automation-design.md` (decisions D1–D6 apply unchanged).
 
 ## Global Constraints
 
-- Quelldateien tragen einen Lizenzheader: `SPDX-License-Identifier: AGPL-3.0-or-later` und `Copyright (C) 2026 normly contributors` (Kern, Skripte, Deploy-Dateien).
-- Commits: Englisch, Conventional Commits, `-s` (DCO, Signed-off-by des Menschen), Trailer `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`; **nie** `git config` ausführen; kein Push und kein PR ohne Rückfrage (CI ist abgerechnet).
-- Datenbankzugriff nur über die Repository-Schicht (ADR-006): kein SQL in `normly_core/exchange/`. `test_architecture.py` verlangt für jede Protocol-Methode mit Präfix `get_`/`list_` einen `jurisdiction`-Parameter — die neue Schnittstelle benutzt deshalb **keine** Methoden mit diesen Präfixen.
-- Rechteklassifikation ist das einzige Tor: fehlende Klassifikation heißt nicht exportieren; nur Quellen der Kategorien A, B, D, nie `commercial_catalog`.
-- Verarbeitungsschritte idempotent; jedes abgeleitete Artefakt trägt `delivery_id` (Abstammung bleibt in jeder Exportzeile erhalten).
-- Alles Persistierte verschlüsselt; der private `age`-Schlüssel und der private Signaturschlüssel liegen **nie** auf der VM und nie im Repository.
-- Keine Secrets im Code, auch nicht in Tests (Tests erzeugen Schlüssel zur Laufzeit).
-- Dokumentation (`docs/guide/`) auf Englisch; ADRs, Spec, Plan auf Deutsch (ADR-020).
-- Python-Tests laufen mit `cd core && ../.venv/bin/pytest <pfad>`; Docker muss laufen (testcontainers).
-- Dump-Layout: `<version>/manifest.json`, `<version>/manifest.json.sig` (64 Rohbytes Ed25519), `<version>/tables/<tabelle>/part-NNNN.parquet`.
-- Tabellenreihenfolge im Wissensbestand ist FK-sicher (Eltern zuerst): `source, delivery, work, document, document_designation, document_title, rights_classification, edge, segment, embedding, document_embedding`.
-- Objekt-Layout im Backup-Bucket: `backups/<YYYYMMDDTHHMMSSZ>-<kind>.dump.age` (+ `.meta.json`, `.sha256`), `kind` = `daily` oder `pre-<tag>`.
-- Aufbewahrung: 7 tägliche (eine je Kalendertag), 2 monatliche (jeweils neuester Tagesstand der 2 jüngsten Kalendermonate), 3 Pre-Rollout-Stände.
-- Image-Tags tragen kein `v`-Präfix (`0.1.2`); die Skripte akzeptieren `v0.1.2` und `0.1.2`.
+- Source files carry a license header: `SPDX-License-Identifier: AGPL-3.0-or-later` and `Copyright (C) 2026 normly contributors` (core, scripts, deploy files).
+- Commits: English, Conventional Commits, `-s` (DCO, the human's Signed-off-by), trailer `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`; **never** run `git config`; no push and no PR without asking first (CI is billed).
+- Database access only via the repository layer (ADR-006): no SQL in `normly_core/exchange/`. `test_architecture.py` requires a `jurisdiction` parameter for every Protocol method with the prefix `get_`/`list_` — the new interface therefore uses **no** methods with these prefixes.
+- Rights classification is the only gate: missing classification means do not export; only sources of categories A, B, D, never `commercial_catalog`.
+- Processing steps idempotent; every derived artifact carries `delivery_id` (lineage is preserved in every export row).
+- Everything persisted encrypted; the private `age` key and the private signing key are **never** on the VM and never in the repository.
+- No secrets in code, not even in tests (tests generate keys at runtime).
+- Documentation (`docs/guide/`) in English; ADRs, spec, plan in German (ADR-020).
+- Python tests run with `cd core && ../.venv/bin/pytest <path>`; Docker must be running (testcontainers).
+- Dump layout: `<version>/manifest.json`, `<version>/manifest.json.sig` (64 raw bytes Ed25519), `<version>/tables/<table>/part-NNNN.parquet`.
+- Table order in the knowledge base is FK-safe (parents first): `source, delivery, work, document, document_designation, document_title, rights_classification, edge, segment, embedding, document_embedding`.
+- Object layout in the backup bucket: `backups/<YYYYMMDDTHHMMSSZ>-<kind>.dump.age` (+ `.meta.json`, `.sha256`), `kind` = `daily` or `pre-<tag>`.
+- Retention: 7 daily (one per calendar day), 2 monthly (in each case the newest daily backup of the 2 most recent calendar months), 3 pre-rollout backups.
+- Image tags carry no `v` prefix (`0.1.2`); the scripts accept `v0.1.2` and `0.1.2`.
 
-## Dateiübersicht
+## File overview
 
-| Datei | Verantwortung |
+| File | Responsibility |
 |---|---|
-| `core/src/normly_core/exchange/tables.py` | Tabellengruppen (Wissensbestand / Nutzerdaten / Pipeline-Zustand), FK-Reihenfolge |
-| `core/src/normly_core/exchange/manifest.py` | Manifest-Datenmodell, Prüfsummen, (De-)Serialisierung |
-| `core/src/normly_core/exchange/signing.py` | Ed25519 Schlüsselerzeugung, Signieren, Prüfen |
-| `core/src/normly_core/exchange/parquet_io.py` | Parquet-Schreiben/-Lesen mit festem Schema je Spaltenart |
-| `core/src/normly_core/exchange/exporter.py` | Export-Orchestrierung über die Repository-Schnittstelle |
-| `core/src/normly_core/exchange/importer.py` | Import-Orchestrierung (Signatur, Modell, Prüfsummen, Austausch) |
-| `core/src/normly_core/exchange/fetch.py` | Dump per HTTPS laden |
+| `core/src/normly_core/exchange/tables.py` | Table groups (knowledge base / user data / pipeline state), FK order |
+| `core/src/normly_core/exchange/manifest.py` | Manifest data model, checksums, (de)serialization |
+| `core/src/normly_core/exchange/signing.py` | Ed25519 key generation, signing, verification |
+| `core/src/normly_core/exchange/parquet_io.py` | Parquet writing/reading with a fixed schema per column kind |
+| `core/src/normly_core/exchange/exporter.py` | Export orchestration via the repository interface |
+| `core/src/normly_core/exchange/importer.py` | Import orchestration (signature, model, checksums, exchange) |
+| `core/src/normly_core/exchange/fetch.py` | Load the dump over HTTPS |
 | `core/src/normly_core/exchange/__main__.py` | CLI: `keygen`, `export`, `import`, `info`, `tables` |
 | `core/src/normly_core/graph/domain.py` | + `ExchangeColumn`, `ImportRecord`, `ImportBlockedError`, `KnowledgeExchangeRepository` |
-| `core/src/normly_core/graph/postgres/exchange.py` | `PostgresKnowledgeExchangeRepository` (Gate-Abfragen, atomarer Austausch) |
-| `core/src/normly_core/graph/postgres/orm.py` + `core/migrations/versions/0032_create_knowledge_base_import.py` | Tabelle `knowledge_base_import` (importierte Version) |
-| `docker/python.Dockerfile` | `pipeline`-Stage: `NORMLY_EMBEDDING_MODEL_REVISION`, Deploy-Dateien nach `/app/deploy` |
-| `compose.yaml`, `.env.example` | Profil `kb-import` bzw. Dienst, `NORMLY_KB_BASE_URL` |
-| `scripts/normly-backup`, `scripts/normly-backup-retention.py` | Sicherung, Verschlüsselung, Upload, Aufbewahrung |
+| `core/src/normly_core/graph/postgres/exchange.py` | `PostgresKnowledgeExchangeRepository` (gate queries, atomic exchange) |
+| `core/src/normly_core/graph/postgres/orm.py` + `core/migrations/versions/0032_create_knowledge_base_import.py` | Table `knowledge_base_import` (imported version) |
+| `docker/python.Dockerfile` | `pipeline` stage: `NORMLY_EMBEDDING_MODEL_REVISION`, deploy files to `/app/deploy` |
+| `compose.yaml`, `.env.example` | Profile `kb-import` or service, `NORMLY_KB_BASE_URL` |
+| `scripts/normly-backup`, `scripts/normly-backup-retention.py` | Backup, encryption, upload, retention |
 | `scripts/normly-deploy` | `deploy`, `rollback`, `status` |
-| `scripts/tests/` | pytest-Harness mit Fake-Binaries für beide Skripte |
-| `deploy/systemd/normly-backup.{service,timer}` | täglicher Timer |
-| `docs/guide/operations.md`, `docs/guide/self-hosting.md` | Betrieb und Dump-Import (Englisch) |
-| `docs/adr/README.md`, `CLAUDE.md`, `docs/srs/…` | ADR-024, ADR-025, ADR-021-Nachtrag, Verweise |
+| `scripts/tests/` | pytest harness with fake binaries for both scripts |
+| `deploy/systemd/normly-backup.{service,timer}` | daily timer |
+| `docs/guide/operations.md`, `docs/guide/self-hosting.md` | Operations and dump import (English) |
+| `docs/adr/README.md`, `CLAUDE.md`, `docs/srs/…` | ADR-024, ADR-025, ADR-021 addendum, references |
 
 ---
 
-## Teil A — Austauschformat im Kern
+## Part A — Exchange format in the core
 
-### Task 1: Tabellengruppen und Vollständigkeitstest
+### Task 1: Table groups and completeness test
 
 **Files:**
 - Create: `core/src/normly_core/exchange/__init__.py`
@@ -63,9 +63,9 @@ Spec: `docs/superpowers/specs/2026-10-09-tp4-deployment-automation-design.md` (E
 - Test: `core/tests/exchange/__init__.py`, `core/tests/exchange/test_tables.py`
 
 **Interfaces:**
-- Produces: `KNOWLEDGE_TABLES: tuple[str, ...]`, `USER_TABLES: tuple[str, ...]`, `PIPELINE_STATE_TABLES: tuple[str, ...]`, `SYSTEM_TABLES: tuple[str, ...]` (`knowledge_base_import`; `alembic_version` ist nicht im ORM und steht in `UNMANAGED_TABLES`), `group_tables(name: str) -> tuple[str, ...]` für `knowledge|user|pipeline|all`.
+- Produces: `KNOWLEDGE_TABLES: tuple[str, ...]`, `USER_TABLES: tuple[str, ...]`, `PIPELINE_STATE_TABLES: tuple[str, ...]`, `SYSTEM_TABLES: tuple[str, ...]` (`knowledge_base_import`; `alembic_version` is not in the ORM and is listed in `UNMANAGED_TABLES`), `group_tables(name: str) -> tuple[str, ...]` for `knowledge|user|pipeline|all`.
 
-- [ ] **Step 1: Failing test schreiben**
+- [ ] **Step 1: Write the failing test**
 
 `core/tests/exchange/test_tables.py`:
 
@@ -119,16 +119,16 @@ def test_group_tables_lookup():
         tables.group_tables("nope")
 ```
 
-Der Test setzt `knowledge_base_import` aus Task 3 voraus; bis dahin schlägt der erste Test an genau dieser Stelle fehl. Deshalb wird Step 3 in diesem Task die Tabelle schon in `SYSTEM_TABLES` führen, und Task 3 legt ORM/Migration an; **Task 1 ist erst nach Task 3 vollständig grün** — der Test für „jede ORM-Tabelle genau einmal“ wird in Task 1 mit `pytest.mark.xfail(strict=True, reason="knowledge_base_import arrives in Task 3")` markiert und in Task 3 Step 6 entmarkiert.
+The test presupposes `knowledge_base_import` from Task 3; until then the first test fails at exactly this point. Therefore Step 3 in this task already lists the table in `SYSTEM_TABLES`, and Task 3 creates the ORM/migration; **Task 1 is only fully green after Task 3** — the test for "every ORM table exactly once" is marked in Task 1 with `pytest.mark.xfail(strict=True, reason="knowledge_base_import arrives in Task 3")` and unmarked in Task 3 Step 6.
 
-- [ ] **Step 2: Test laufen lassen, muss fehlschlagen**
+- [ ] **Step 2: Run the test, it must fail**
 
 Run: `cd core && ../.venv/bin/pytest tests/exchange/test_tables.py -v`
-Expected: FAIL mit `ModuleNotFoundError: No module named 'normly_core.exchange'`
+Expected: FAIL with `ModuleNotFoundError: No module named 'normly_core.exchange'`
 
-- [ ] **Step 3: Implementierung**
+- [ ] **Step 3: Implementation**
 
-`core/src/normly_core/exchange/__init__.py`: nur Lizenzheader.
+`core/src/normly_core/exchange/__init__.py`: license header only.
 
 `core/src/normly_core/exchange/tables.py`:
 
@@ -139,10 +139,10 @@ Expected: FAIL mit `ModuleNotFoundError: No module named 'normly_core.exchange'`
 """
 Which table belongs to which backup/exchange group.
 
-Three groups (TP4 spec, Teil 2):
+Three groups (TP4 spec, Part 2):
 
 * knowledge -- the free knowledge base. Reproducible from source deliveries,
-  distributed as a versioned dump (Teil 3), never part of the daily backup.
+  distributed as a versioned dump (Part 3), never part of the daily backup.
 * user -- accounts, chats, watchlists, notifications. Small, irreplaceable,
   backed up daily. Rows reference knowledge rows by foreign key, which is why
   the dump must keep IDs unchanged.
@@ -211,12 +211,12 @@ def group_tables(name: str) -> tuple[str, ...]:
     raise ValueError(f"unknown table group: {name!r}")
 ```
 
-Hinweis zu `all`: Die Reihenfolge ist „Kinder zuerst“ und wird für `DROP TABLE … CASCADE` im Rollback benutzt; CASCADE macht sie unkritisch.
+Note on `all`: the order is "children first" and is used for `DROP TABLE … CASCADE` in the rollback; CASCADE makes it non-critical.
 
-- [ ] **Step 4: Test laufen lassen**
+- [ ] **Step 4: Run the test**
 
 Run: `cd core && ../.venv/bin/pytest tests/exchange/test_tables.py -v`
-Expected: PASS für die Reihenfolgetests; der markierte Vollständigkeitstest XFAIL.
+Expected: PASS for the order tests; the marked completeness test XFAIL.
 
 - [ ] **Step 5: Commit**
 
@@ -229,22 +229,22 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 
 ---
 
-### Task 2: Manifest und Ed25519-Signatur
+### Task 2: Manifest and Ed25519 signature
 
 **Files:**
 - Create: `core/src/normly_core/exchange/manifest.py`, `core/src/normly_core/exchange/signing.py`
-- Modify: `core/pyproject.toml` (Abhängigkeiten `pyarrow>=17,<20`, `cryptography>=43,<46`), danach `uv lock`
+- Modify: `core/pyproject.toml` (dependencies `pyarrow>=17,<20`, `cryptography>=43,<46`), then `uv lock`
 - Test: `core/tests/exchange/test_manifest.py`, `core/tests/exchange/test_signing.py`
 
 **Interfaces:**
 - Produces:
   - `EXCHANGE_SCHEMA_VERSION = 1`, `EMBEDDING_DIMENSION = 1024`
   - `FileEntry(path: str, sha256: str, rows: int)`; `DeliveryEntry(delivery_id: str, publisher: str, legal_basis_category: str)`
-  - `Manifest(exchange_schema_version: int, dump_version: str, created_at: str, embedding_models: list[str], embedding_model_revision: str, embedding_dimension: int, deliveries: list[DeliveryEntry], tables: dict[str, list[FileEntry]])` mit `to_bytes() -> bytes` (kanonisches JSON, `sort_keys=True`, UTF-8) und `Manifest.from_bytes(data: bytes) -> Manifest`
+  - `Manifest(exchange_schema_version: int, dump_version: str, created_at: str, embedding_models: list[str], embedding_model_revision: str, embedding_dimension: int, deliveries: list[DeliveryEntry], tables: dict[str, list[FileEntry]])` with `to_bytes() -> bytes` (canonical JSON, `sort_keys=True`, UTF-8) and `Manifest.from_bytes(data: bytes) -> Manifest`
   - `sha256_file(path: Path) -> str`
-  - `generate_keypair() -> tuple[bytes, bytes]` (PEM privat, PEM öffentlich), `sign(private_pem: bytes, data: bytes) -> bytes`, `verify(public_pem: bytes, data: bytes, signature: bytes) -> None` (wirft `SignatureError`)
+  - `generate_keypair() -> tuple[bytes, bytes]` (PEM private, PEM public), `sign(private_pem: bytes, data: bytes) -> bytes`, `verify(public_pem: bytes, data: bytes, signature: bytes) -> None` (raises `SignatureError`)
 
-- [ ] **Step 1: Tests schreiben**
+- [ ] **Step 1: Write the tests**
 
 `core/tests/exchange/test_signing.py`:
 
@@ -323,11 +323,11 @@ def test_sha256_file(tmp_path):
     )
 ```
 
-- [ ] **Step 2:** `cd core && ../.venv/bin/pytest tests/exchange -v` — erwartet FAIL (`ModuleNotFoundError`).
+- [ ] **Step 2:** `cd core && ../.venv/bin/pytest tests/exchange -v` — expected FAIL (`ModuleNotFoundError`).
 
-- [ ] **Step 3: Implementierung**
+- [ ] **Step 3: Implementation**
 
-`core/pyproject.toml`, in `dependencies` ergänzen: `"pyarrow>=17,<20",` und `"cryptography>=43,<46",`. Dann im Repo-Root `uv lock` ausführen und `git diff uv.lock` auf nur erwartete Zusätze prüfen.
+`core/pyproject.toml`, add to `dependencies`: `"pyarrow>=17,<20",` and `"cryptography>=43,<46",`. Then run `uv lock` in the repo root and check `git diff uv.lock` for only expected additions.
 
 `signing.py`:
 
@@ -458,7 +458,7 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 ```
 
-- [ ] **Step 4:** `cd core && ../.venv/bin/pytest tests/exchange -v` — erwartet PASS.
+- [ ] **Step 4:** `cd core && ../.venv/bin/pytest tests/exchange -v` — expected PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -471,16 +471,16 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 
 ---
 
-### Task 3: Repository-Schnittstelle, Migration und Postgres-Implementierung
+### Task 3: Repository interface, migration and Postgres implementation
 
-Der größte Task. Er liefert: Tabelle `knowledge_base_import`, Protocol, Gate-Abfragen und den atomaren Austausch — alles mit echten Daten gegen Postgres getestet.
+The largest task. It delivers: table `knowledge_base_import`, Protocol, gate queries and the atomic exchange — all tested with real data against Postgres.
 
 **Files:**
-- Modify: `core/src/normly_core/graph/domain.py` (Dataclasses + Protocol am Dateiende)
+- Modify: `core/src/normly_core/graph/domain.py` (dataclasses + Protocol at the end of the file)
 - Modify: `core/src/normly_core/graph/postgres/orm.py` (`KnowledgeBaseImportORM`)
 - Create: `core/migrations/versions/0032_create_knowledge_base_import.py`
 - Create: `core/src/normly_core/graph/postgres/exchange.py`
-- Modify: `core/tests/exchange/test_tables.py` (xfail entfernen)
+- Modify: `core/tests/exchange/test_tables.py` (remove xfail)
 - Test: `core/tests/exchange/test_exchange_repository.py`
 
 **Interfaces:**
@@ -512,13 +512,13 @@ class KnowledgeExchangeRepository(Protocol):
     def imported_version(self) -> ImportRecord | None: ...
 ```
 
-  Zeilen sind `dict[str, Any]` mit Austauschtypen: UUID → `str`, Enum → `str` (`.value`), Vektor → `list[float]`, sonst native Python-Typen (`datetime` mit Zeitzone, `date`, `bool`, `int`, `str`).
+  Rows are `dict[str, Any]` with exchange types: UUID → `str`, Enum → `str` (`.value`), vector → `list[float]`, otherwise native Python types (`datetime` with time zone, `date`, `bool`, `int`, `str`).
 - Produces (in `normly_core.graph.postgres.exchange`): `PostgresKnowledgeExchangeRepository(session: Session)`.
-- Die Methoden committen nie; der Aufrufer committet.
+- The methods never commit; the caller commits.
 
-- [ ] **Step 1: ORM, Migration, Entmarkierung**
+- [ ] **Step 1: ORM, migration, unmarking**
 
-Am Ende von `orm.py` anfügen:
+Append at the end of `orm.py`:
 
 ```python
 class KnowledgeBaseImportORM(Base):
@@ -535,7 +535,7 @@ class KnowledgeBaseImportORM(Base):
     __table_args__ = (sa.CheckConstraint("id = 1", name="ck_knowledge_base_import_single_row"),)
 ```
 
-`0032_create_knowledge_base_import.py` (Revision-IDs aus Nachbarmigration übernehmen; `down_revision` ist die ID der Migration `0031_add_hnsw_indexes` — mit `grep -n "^revision" core/migrations/versions/0031_add_hnsw_indexes.py` nachsehen):
+`0032_create_knowledge_base_import.py` (take the revision IDs from the neighboring migration; `down_revision` is the ID of the migration `0031_add_hnsw_indexes` — look it up with `grep -n "^revision" core/migrations/versions/0031_add_hnsw_indexes.py`):
 
 ```python
 # SPDX-License-Identifier: AGPL-3.0-or-later
@@ -572,11 +572,11 @@ def downgrade() -> None:
     op.drop_table("knowledge_base_import")
 ```
 
-In `core/tests/exchange/test_tables.py` den `xfail`-Marker (Step 1 aus Task 1) entfernen. Run: `cd core && ../.venv/bin/pytest tests/exchange/test_tables.py tests/graph/test_orm_migration_consistency.py tests/graph/test_migration_determinism.py -v` — Expected: PASS.
+In `core/tests/exchange/test_tables.py`, remove the `xfail` marker (Step 1 from Task 1). Run: `cd core && ../.venv/bin/pytest tests/exchange/test_tables.py tests/graph/test_orm_migration_consistency.py tests/graph/test_migration_determinism.py -v` — Expected: PASS.
 
-- [ ] **Step 2: Domain-Typen und Protocol**
+- [ ] **Step 2: Domain types and Protocol**
 
-An `core/src/normly_core/graph/domain.py` anhängen (Imports `Any, Callable, Iterator, Mapping` aus `typing`/`collections.abc` ergänzen, falls fehlend; **kein** SQLAlchemy-Import):
+Append to `core/src/normly_core/graph/domain.py` (add the imports `Any, Callable, Iterator, Mapping` from `typing`/`collections.abc` if missing; **no** SQLAlchemy import):
 
 ```python
 @dataclass(frozen=True)
@@ -635,9 +635,9 @@ class KnowledgeExchangeRepository(Protocol):
     def imported_version(self) -> ImportRecord | None: ...
 ```
 
-- [ ] **Step 3: Failing tests für das Repository**
+- [ ] **Step 3: Failing tests for the repository**
 
-Zuerst `core/tests/exchange/helpers.py` (Fixture-Muster aus `tests/graph/test_jurisdiction_export.py`; wird auch von Task 4 genutzt):
+First `core/tests/exchange/helpers.py` (fixture pattern from `tests/graph/test_jurisdiction_export.py`; also used by Task 4):
 
 ```python
 # SPDX-License-Identifier: AGPL-3.0-or-later
@@ -685,7 +685,7 @@ def make_document(session, delivery, number, *, export=True, process=True, juris
     return document
 ```
 
-Dann `core/tests/exchange/test_exchange_repository.py`:
+Then `core/tests/exchange/test_exchange_repository.py`:
 
 ```python
 # SPDX-License-Identifier: AGPL-3.0-or-later
@@ -866,11 +866,11 @@ def test_replace_blocks_when_user_data_still_references_a_row(db_session):
     assert "work" in blocked.value.table or "document" in blocked.value.table
 ```
 
-Hinweis: Die Signatur von `PostgresAccountRepository.create_account` und `PostgresSegmentRepository.add_segment` ist vor dem Schreiben mit `grep -n "def create_account\|def add_segment" core/src/normly_core/graph/postgres/repositories.py` zu prüfen und der Test an die tatsächlichen Parameter anzupassen (Parameternamen, nicht die Aussage der Tests).
+Note: the signature of `PostgresAccountRepository.create_account` and `PostgresSegmentRepository.add_segment` is to be checked before writing with `grep -n "def create_account\|def add_segment" core/src/normly_core/graph/postgres/repositories.py`, and the test adapted to the actual parameters (parameter names, not what the tests assert).
 
-- [ ] **Step 4:** `cd core && ../.venv/bin/pytest tests/exchange/test_exchange_repository.py -v` — erwartet FAIL (`ModuleNotFoundError: normly_core.graph.postgres.exchange`).
+- [ ] **Step 4:** `cd core && ../.venv/bin/pytest tests/exchange/test_exchange_repository.py -v` — expected FAIL (`ModuleNotFoundError: normly_core.graph.postgres.exchange`).
 
-- [ ] **Step 5: Implementierung**
+- [ ] **Step 5: Implementation**
 
 `core/src/normly_core/graph/postgres/exchange.py`:
 
@@ -1218,12 +1218,12 @@ class PostgresKnowledgeExchangeRepository:
         )
 ```
 
-Bekannte Stolperstellen, die beim Debuggen zuerst zu prüfen sind (nicht vorab „wegprogrammieren“): (1) `EdgeORM.layer == "free"` muss mit dem Enum-Typ vergleichen — ggf. `Layer.FREE` aus `normly_core.graph.domain` verwenden; (2) `delete` bei `embedding`/`document_embedding` greift über `ON DELETE CASCADE` ohnehin, ist aber idempotent; (3) ein `IntegrityError` verlässt die Transaktion im Fehlerzustand — das ist gewollt, der Aufrufer rollt zurück.
+Known pitfalls to check first when debugging (do not "program them away" in advance): (1) `EdgeORM.layer == "free"` must compare against the enum type — use `Layer.FREE` from `normly_core.graph.domain` if needed; (2) `delete` on `embedding`/`document_embedding` takes effect via `ON DELETE CASCADE` anyway, but is idempotent; (3) an `IntegrityError` leaves the transaction in an error state — that is intended, the caller rolls back.
 
-- [ ] **Step 6: Tests und Architektur-Guards laufen lassen**
+- [ ] **Step 6: Run the tests and architecture guards**
 
 Run: `cd core && ../.venv/bin/pytest tests/exchange tests/graph/test_architecture.py tests/graph/test_orm_migration_consistency.py -v`
-Expected: PASS. Schlägt ein Gate-Test fehl, ist die jeweilige Teilabfrage in `_statement` zu korrigieren, nicht der Test.
+Expected: PASS. If a gate test fails, the respective subquery in `_statement` is to be corrected, not the test.
 
 - [ ] **Step 7: Commit**
 
@@ -1236,7 +1236,7 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 
 ---
 
-### Task 4: Parquet, Export und Import
+### Task 4: Parquet, export and import
 
 **Files:**
 - Create: `core/src/normly_core/exchange/parquet_io.py`, `exporter.py`, `importer.py`
@@ -1245,11 +1245,11 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: `KnowledgeExchangeRepository`, `Manifest`, `FileEntry`, `DeliveryEntry`, `sign`, `verify`, `sha256_file`, `KNOWLEDGE_TABLES`.
 - Produces:
-  - `write_parts(directory: Path, table: str, columns: list[ExchangeColumn], batches: Iterator[list[dict]], *, rows_per_part: int) -> list[FileEntry]` (Pfade relativ zum Dump-Verzeichnis, `tables/<table>/part-NNNN.parquet`) und `read_rows(path: Path, batch_size: int = 5000) -> Iterator[list[dict]]`.
-  - `export_dump(repository, *, out_dir: Path, dump_version: str, private_key_pem: bytes, embedding_model_revision: str, rows_per_part: int = 100_000, now: datetime | None = None) -> Path` (liefert `<out_dir>/<dump_version>`; bricht ab, wenn das Verzeichnis existiert — Versionen sind unveränderlich).
-  - `import_dump(repository, *, dump_dir: Path, public_key_pem: bytes, expected_model_name: str, expected_model_revision: str, now: datetime | None = None) -> ImportRecord`; Fehler: `ImportRefused(Exception)` mit klarer Meldung (Signatur, Schema-Version, Modellname/-revision, Prüfsumme, Dimension).
+  - `write_parts(directory: Path, table: str, columns: list[ExchangeColumn], batches: Iterator[list[dict]], *, rows_per_part: int) -> list[FileEntry]` (paths relative to the dump directory, `tables/<table>/part-NNNN.parquet`) and `read_rows(path: Path, batch_size: int = 5000) -> Iterator[list[dict]]`.
+  - `export_dump(repository, *, out_dir: Path, dump_version: str, private_key_pem: bytes, embedding_model_revision: str, rows_per_part: int = 100_000, now: datetime | None = None) -> Path` (returns `<out_dir>/<dump_version>`; aborts if the directory exists — versions are immutable).
+  - `import_dump(repository, *, dump_dir: Path, public_key_pem: bytes, expected_model_name: str, expected_model_revision: str, now: datetime | None = None) -> ImportRecord`; errors: `ImportRefused(Exception)` with a clear message (signature, schema version, model name/revision, checksum, dimension).
 
-- [ ] **Step 1: Tests schreiben**
+- [ ] **Step 1: Write the tests**
 
 `test_parquet_io.py`:
 
@@ -1298,7 +1298,7 @@ def test_empty_table_still_writes_one_part(tmp_path):
     assert list(read_rows(tmp_path / entries[0].path)) == []
 ```
 
-`test_export_import.py` (Roundtrip gegen Postgres; hilfsfunktionen aus `test_exchange_repository.py` durch Import wiederverwenden: `from tests.exchange.test_exchange_repository import _source, _delivery, _document` — falls `tests` kein importierbares Paket ist, die Helfer in `core/tests/exchange/helpers.py` auslagern und in beiden Dateien importieren):
+`test_export_import.py` (roundtrip against Postgres; reuse helper functions from `test_exchange_repository.py` by import: `from tests.exchange.test_exchange_repository import _source, _delivery, _document` — if `tests` is not an importable package, move the helpers out into `core/tests/exchange/helpers.py` and import them in both files):
 
 ```python
 # SPDX-License-Identifier: AGPL-3.0-or-later
@@ -1389,11 +1389,11 @@ def test_import_refuses_other_embedding_revision(exported):
         )
 ```
 
-Die Hilfsfunktionen stammen aus `core/tests/exchange/helpers.py` (Task 3). Ein Test für „falsche Austausch-Schema-Version“ wird ergänzt, indem das Manifest neu mit `exchange_schema_version=99` serialisiert und signiert wird (`sign(private_pem, …)`), erwartet `match="exchange schema version"`.
+The helper functions come from `core/tests/exchange/helpers.py` (Task 3). A test for "wrong exchange schema version" is added by re-serializing and signing the manifest with `exchange_schema_version=99` (`sign(private_pem, …)`), expected `match="exchange schema version"`.
 
-- [ ] **Step 2:** `cd core && ../.venv/bin/pytest tests/exchange -v` — erwartet FAIL (fehlende Module).
+- [ ] **Step 2:** `cd core && ../.venv/bin/pytest tests/exchange -v` — expected FAIL (missing modules).
 
-- [ ] **Step 3: Implementierung**
+- [ ] **Step 3: Implementation**
 
 `parquet_io.py`:
 
@@ -1496,7 +1496,7 @@ def vector_dimension_ok(path: Path) -> bool:
     return True
 ```
 
-Hinweis: Im Test `test_roundtrip_across_parts` sind die Vektoren dreidimensional; `vector_dimension_ok` wird deshalb nur vom Importer aufgerufen und separat getestet (kleiner Test in `test_export_import.py`: Datei mit 3-dimensionalem Vektor → Importer lehnt ab mit `match="dimension"`).
+Note: in the test `test_roundtrip_across_parts` the vectors are three-dimensional; `vector_dimension_ok` is therefore only called by the importer and tested separately (small test in `test_export_import.py`: file with a 3-dimensional vector → importer refuses with `match="dimension"`).
 
 `exporter.py`:
 
@@ -1651,7 +1651,7 @@ def import_dump(
     return record
 ```
 
-- [ ] **Step 4:** `cd core && ../.venv/bin/pytest tests/exchange -v` — erwartet PASS. Nach jedem rot gewordenen Test zuerst die tatsächliche Fehlermeldung lesen (Typ-Mismatch Arrow↔Python, Enum-Konvertierung) statt zu raten.
+- [ ] **Step 4:** `cd core && ../.venv/bin/pytest tests/exchange -v` — expected PASS. After every test that turns red, first read the actual error message (type mismatch Arrow↔Python, enum conversion) instead of guessing.
 
 - [ ] **Step 5: Commit**
 
@@ -1664,24 +1664,24 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 
 ---
 
-### Task 5: CLI, Abruf per HTTPS, Image und Compose-Profil
+### Task 5: CLI, fetching over HTTPS, image and Compose profile
 
 **Files:**
 - Create: `core/src/normly_core/exchange/fetch.py`, `core/src/normly_core/exchange/__main__.py`
-- Create: `core/src/normly_core/exchange/keys/kb-signing.pub.pem` (Platzhalter bis Task 11; **kein** gültiger Schlüssel committen — die Datei wird in Task 11 mit dem echten öffentlichen Schlüssel angelegt; bis dahin verlangt der Import `--public-key`)
-- Modify: `docker/python.Dockerfile` (pipeline-Stage), `compose.yaml`, `.env.example`, `docs/guide/self-hosting.md`
+- Create: `core/src/normly_core/exchange/keys/kb-signing.pub.pem` (placeholder until Task 11; commit **no** valid key — the file is created in Task 11 with the real public key; until then the import requires `--public-key`)
+- Modify: `docker/python.Dockerfile` (pipeline stage), `compose.yaml`, `.env.example`, `docs/guide/self-hosting.md`
 - Test: `core/tests/exchange/test_fetch.py`, `core/tests/exchange/test_cli.py`
 
 **Interfaces:**
-- Produces: `fetch_dump(base_url: str, version: str, destination: Path, *, opener=urllib.request.urlopen) -> Path` (löst `latest` über `<base>/latest` auf, lädt `manifest.json`, `manifest.json.sig` und alle Dateien aus dem Manifest nach `destination/<version>/`; verifiziert nichts — das macht `import_dump`).
+- Produces: `fetch_dump(base_url: str, version: str, destination: Path, *, opener=urllib.request.urlopen) -> Path` (resolves `latest` via `<base>/latest`, loads `manifest.json`, `manifest.json.sig` and all files from the manifest into `destination/<version>/`; verifies nothing — `import_dump` does that).
 - CLI (`python -m normly_core.exchange`):
-  - `keygen --private PATH --public PATH` (verweigert Überschreiben; Dateimodus 0600 für privat)
-  - `export --version V --out DIR --private-key PATH` (liest `NORMLY_DATABASE_URL`, `NORMLY_EMBEDDING_MODEL_REVISION`)
-  - `import (--from DIR | --fetch VERSION|latest) [--public-key PATH]` (liest `NORMLY_DATABASE_URL`, `NORMLY_KB_BASE_URL`, `NORMLY_EMBEDDING_MODEL_REVISION`; Modellname aus `normly_core.pipeline.embeddings.MODEL_NAME`, lazy importiert)
-  - `info` (druckt die importierte Dump-Version oder `none`)
-  - `tables GROUP` (druckt Tabellennamen, eine je Zeile)
+  - `keygen --private PATH --public PATH` (refuses to overwrite; file mode 0600 for private)
+  - `export --version V --out DIR --private-key PATH` (reads `NORMLY_DATABASE_URL`, `NORMLY_EMBEDDING_MODEL_REVISION`)
+  - `import (--from DIR | --fetch VERSION|latest) [--public-key PATH]` (reads `NORMLY_DATABASE_URL`, `NORMLY_KB_BASE_URL`, `NORMLY_EMBEDDING_MODEL_REVISION`; model name from `normly_core.pipeline.embeddings.MODEL_NAME`, imported lazily)
+  - `info` (prints the imported dump version or `none`)
+  - `tables GROUP` (prints table names, one per line)
 
-- [ ] **Step 1: Tests schreiben**
+- [ ] **Step 1: Write the tests**
 
 `test_fetch.py`:
 
@@ -1748,9 +1748,9 @@ def test_import_without_database_url_fails(monkeypatch, capsys):
     assert "NORMLY_DATABASE_URL" in capsys.readouterr().err
 ```
 
-- [ ] **Step 2:** `cd core && ../.venv/bin/pytest tests/exchange/test_fetch.py tests/exchange/test_cli.py -v` — erwartet FAIL.
+- [ ] **Step 2:** `cd core && ../.venv/bin/pytest tests/exchange/test_fetch.py tests/exchange/test_cli.py -v` — expected FAIL.
 
-- [ ] **Step 3: Implementierung**
+- [ ] **Step 3: Implementation**
 
 `fetch.py`:
 
@@ -1941,13 +1941,13 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-Der Ordner `keys/` braucht eine `.gitkeep`; `pyproject.toml` (hatch) nimmt Nicht-Python-Dateien im Paket ohnehin mit, solange sie unter `src/normly_core` liegen.
+The folder `keys/` needs a `.gitkeep`; `pyproject.toml` (hatch) includes non-Python files in the package anyway, as long as they are under `src/normly_core`.
 
-- [ ] **Step 4:** `cd core && ../.venv/bin/pytest tests/exchange -v` — erwartet PASS.
+- [ ] **Step 4:** `cd core && ../.venv/bin/pytest tests/exchange -v` — expected PASS.
 
-- [ ] **Step 5: Image, Compose, Env, Guide**
+- [ ] **Step 5: Image, Compose, env, guide**
 
-`docker/python.Dockerfile`, `pipeline`-Stage ersetzen durch:
+`docker/python.Dockerfile`, replace the `pipeline` stage with:
 
 ```dockerfile
 FROM base AS pipeline
@@ -1967,9 +1967,9 @@ USER normly
 ENTRYPOINT ["python", "-m", "normly_core.pipeline"]
 ```
 
-`ARG E5_REVISION` steht oben im Dockerfile vor der `weights`-Stage (Zeile ~75); weil `ARG`s stage-lokal sind, muss die Zeile `ARG E5_REVISION=3d7cfb…` wie dort definiert **in der `pipeline`-Stage ohne Default** wiederholt werden (Wert kommt dann aus dem globalen Default nur, wenn vor dem ersten `FROM` deklariert). Prüfen: `grep -n "ARG E5_REVISION" docker/python.Dockerfile`; liegt die Deklaration nicht vor dem ersten `FROM`, in der `pipeline`-Stage `ARG E5_REVISION=<derselbe Hash>` mit Kommentar „muss mit der weights-Stage übereinstimmen“ setzen **oder** (bevorzugt) die bestehende Deklaration oberhalb des ersten `FROM` verschieben, damit es genau eine Definition gibt. Danach `.dockerignore` auf Ausschluss von `scripts/` und `compose.yaml` prüfen und anpassen.
+`ARG E5_REVISION` is at the top of the Dockerfile before the `weights` stage (line ~75); because `ARG`s are stage-local, the line `ARG E5_REVISION=3d7cfb…` as defined there must be repeated **in the `pipeline` stage without a default** (the value then comes from the global default only if declared before the first `FROM`). Check: `grep -n "ARG E5_REVISION" docker/python.Dockerfile`; if the declaration is not before the first `FROM`, set `ARG E5_REVISION=<the same hash>` in the `pipeline` stage with the comment "must match the weights stage" **or** (preferred) move the existing declaration above the first `FROM`, so that there is exactly one definition. Then check `.dockerignore` for the exclusion of `scripts/` and `compose.yaml` and adjust it.
 
-`compose.yaml`, neuen Dienst neben `pipeline` einfügen:
+`compose.yaml`, insert a new service next to `pipeline`:
 
 ```yaml
   kb-import:
@@ -1987,7 +1987,7 @@ ENTRYPOINT ["python", "-m", "normly_core.pipeline"]
     restart: "no"
 ```
 
-`.env.example`, im Abschnitt Database/Images ergänzen:
+`.env.example`, add in the Database/Images section:
 
 ```
 # --- Knowledge base -------------------------------------------------------
@@ -1996,11 +1996,11 @@ ENTRYPOINT ["python", "-m", "normly_core.pipeline"]
 # NORMLY_KB_BASE_URL=
 ```
 
-`docs/guide/self-hosting.md` (Englisch): den Punkt „No versioned knowledge-base dump yet …“ unter „Known gaps“ streichen und vor „Ingesting documents“ einen Abschnitt „Importing the knowledge base“ einfügen: Befehl `docker compose run --rm kb-import` (`docker compose run --rm kb-import 2026.10.1` für eine feste Version), Hinweis auf `NORMLY_KB_BASE_URL`, Prüfungen (Signatur, Modell-Revision, Prüfsummen), dass der Import idempotent ist, und dass ein Import abbricht, wenn Nutzerdaten noch auf entfernte Zeilen verweisen.
+`docs/guide/self-hosting.md` (English): delete the item "No versioned knowledge-base dump yet …" under "Known gaps" and insert a section "Importing the knowledge base" before "Ingesting documents": command `docker compose run --rm kb-import` (`docker compose run --rm kb-import 2026.10.1` for a fixed version), note on `NORMLY_KB_BASE_URL`, checks (signature, model revision, checksums), that the import is idempotent, and that an import aborts if user data still points to removed rows.
 
-- [ ] **Step 6: Verifikation (lokal, kein Push)**
+- [ ] **Step 6: Verification (local, no push)**
 
-Run: `docker compose config -q` (Expected: kein Fehler), `cd core && ../.venv/bin/pytest tests/exchange -q` (Expected: PASS). Ein lokaler Image-Build ist **nicht** Teil dieses Tasks (5 GB, Zeit); er läuft in Task 11 auf der VM.
+Run: `docker compose config -q` (Expected: no error), `cd core && ../.venv/bin/pytest tests/exchange -q` (Expected: PASS). A local image build is **not** part of this task (5 GB, time); it runs in Task 11 on the VM.
 
 - [ ] **Step 7: Commit**
 
@@ -2013,9 +2013,9 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 
 ---
 
-## Teil B — Sicherung
+## Part B — Backup
 
-### Task 6: `normly-backup`, Aufbewahrung und Timer
+### Task 6: `normly-backup`, retention and timer
 
 **Files:**
 - Create: `scripts/normly-backup`, `scripts/normly-backup-retention.py`
@@ -2024,11 +2024,11 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 
 **Interfaces:**
 - Produces:
-  - `scripts/normly-backup-retention.py`: liest Objektnamen (eine je Zeile, nur `*.dump.age`) von stdin und gibt die **zu löschenden Basisnamen** aus (`<ts>-<kind>`); Funktion `select_deletions(names: list[str]) -> list[str]`.
-  - `scripts/normly-backup run [--kind daily|pre-<tag>]`: legt die Sicherung an und gibt als **letzte Zeile** den Basisnamen aus; `scripts/normly-backup prune`.
-- Umgebung (aus `/opt/normly/.env`, geladen vom Skript): `NORMLY_DATABASE_URL`, `NORMLY_BACKUP_AGE_RECIPIENT`, `NORMLY_BACKUP_REMOTE` (rclone-Ziel, z. B. `stackit:normly-backups`), rclone-Zugangsdaten über `RCLONE_*`-Variablen (`.env` der VM). `NORMLY_COMPOSE` (Standard `docker compose -f /opt/normly/current/compose.yaml --project-directory /opt/normly/current`).
+  - `scripts/normly-backup-retention.py`: reads object names (one per line, only `*.dump.age`) from stdin and outputs the **base names to delete** (`<ts>-<kind>`); function `select_deletions(names: list[str]) -> list[str]`.
+  - `scripts/normly-backup run [--kind daily|pre-<tag>]`: creates the backup and outputs the base name as the **last line**; `scripts/normly-backup prune`.
+- Environment (from `/opt/normly/.env`, loaded by the script): `NORMLY_DATABASE_URL`, `NORMLY_BACKUP_AGE_RECIPIENT`, `NORMLY_BACKUP_REMOTE` (rclone target, e.g. `stackit:normly-backups`), rclone credentials via `RCLONE_*` variables (the VM's `.env`). `NORMLY_COMPOSE` (default `docker compose -f /opt/normly/current/compose.yaml --project-directory /opt/normly/current`).
 
-- [ ] **Step 1: Tests für die Aufbewahrung schreiben**
+- [ ] **Step 1: Write the tests for the retention**
 
 `scripts/tests/test_retention.py`:
 
@@ -2088,7 +2088,7 @@ def test_ignores_unrelated_names():
 ```
 
 
-- [ ] **Step 2:** `cd scripts && python3 -m pytest tests/test_retention.py -v` — erwartet FAIL (Datei fehlt).
+- [ ] **Step 2:** `cd scripts && python3 -m pytest tests/test_retention.py -v` — expected FAIL (file missing).
 
 - [ ] **Step 3: `scripts/normly-backup-retention.py`**
 
@@ -2159,9 +2159,9 @@ if __name__ == "__main__":
 
 `chmod +x scripts/normly-backup-retention.py`.
 
-- [ ] **Step 4:** `cd scripts && python3 -m pytest tests/test_retention.py -v` — erwartet PASS.
+- [ ] **Step 4:** `cd scripts && python3 -m pytest tests/test_retention.py -v` — expected PASS.
 
-- [ ] **Step 5: Test-Harness mit Fake-Binaries**
+- [ ] **Step 5: Test harness with fake binaries**
 
 `scripts/tests/conftest.py`:
 
@@ -2243,7 +2243,7 @@ def harness(tmp_path):
     return Harness()
 ```
 
-- [ ] **Step 6: Tests für `normly-backup`**
+- [ ] **Step 6: Tests for `normly-backup`**
 
 `scripts/tests/test_backup.py`:
 
@@ -2291,7 +2291,7 @@ def test_run_rejects_unknown_kind(harness):
     assert result.returncode == 2
 ```
 
-- [ ] **Step 7:** `cd scripts && python3 -m pytest tests -v` — erwartet FAIL für `test_backup.py` (Skript fehlt).
+- [ ] **Step 7:** `cd scripts && python3 -m pytest tests -v` — expected FAIL for `test_backup.py` (script missing).
 
 - [ ] **Step 8: `scripts/normly-backup`**
 
@@ -2300,7 +2300,7 @@ def test_run_rejects_unknown_kind(harness):
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 normly contributors
 #
-# Encrypted backup of the user-data tables (TP4 spec, Teil 2).
+# Encrypted backup of the user-data tables (TP4 spec, Part 2).
 #
 #   normly-backup run [--kind daily|pre-<tag>]   dump, encrypt, upload; the
 #                                                last stdout line is the base name
@@ -2394,11 +2394,11 @@ case "${1:-}" in
 esac
 ```
 
-`chmod +x scripts/normly-backup`. Hinweis: Die Fake-`docker` liefert über `FAKE_DOCKER_OUT` die Tabellenliste; im Test `test_run_rejects_unknown_kind` greift die Prüfung vor jedem externen Aufruf. Die Funktion `run_backup` ruft `exit 2` aus einer Funktion — das beendet das Skript, wie gewünscht.
+`chmod +x scripts/normly-backup`. Note: the fake `docker` supplies the table list via `FAKE_DOCKER_OUT`; in the test `test_run_rejects_unknown_kind` the check takes effect before any external call. The function `run_backup` calls `exit 2` from within a function — that terminates the script, as intended.
 
-- [ ] **Step 9:** `cd scripts && python3 -m pytest tests -v` und `shellcheck scripts/normly-backup` — erwartet PASS bzw. keine Befunde (Befunde beheben, nicht unterdrücken, außer mit begründetem `# shellcheck disable=`).
+- [ ] **Step 9:** `cd scripts && python3 -m pytest tests -v` and `shellcheck scripts/normly-backup` — expected PASS and no findings respectively (fix findings, do not suppress them, except with a justified `# shellcheck disable=`).
 
-- [ ] **Step 10: systemd-Units**
+- [ ] **Step 10: systemd units**
 
 `deploy/systemd/normly-backup.service`:
 
@@ -2443,7 +2443,7 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 
 ---
 
-## Teil C — Rollout und Rollback
+## Part C — Rollout and rollback
 
 ### Task 7: `normly-deploy`
 
@@ -2452,13 +2452,13 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 - Test: `scripts/tests/test_deploy.py`
 
 **Interfaces:**
-- Consumes: `normly-backup run --kind pre-<tag>` (letzte Stdout-Zeile = Basisname), Harness aus Task 6.
+- Consumes: `normly-backup run --kind pre-<tag>` (last stdout line = base name), harness from Task 6.
 - Produces: `normly-deploy deploy <tag>`, `normly-deploy rollback --age-identity FILE [--yes]`, `normly-deploy status`.
-- Zustandsdateien unter `$NORMLY_DIR/state/`: `current_tag`, `previous_tag`, `pre_rollout_backup`, `pre_rollout_kb_version`, `deploy.lock` (Verzeichnis-Lock via `mkdir`). Release-Dateien unter `$NORMLY_DIR/releases/<tag>/` (Compose, Caddyfile, Skripte); `$NORMLY_DIR/current` ist ein Symlink auf das aktive Release; `.env` in jedem Release-Ordner ist ein Symlink auf `$NORMLY_DIR/.env`.
+- State files under `$NORMLY_DIR/state/`: `current_tag`, `previous_tag`, `pre_rollout_backup`, `pre_rollout_kb_version`, `deploy.lock` (directory lock via `mkdir`). Release files under `$NORMLY_DIR/releases/<tag>/` (Compose, Caddyfile, scripts); `$NORMLY_DIR/current` is a symlink to the active release; `.env` in every release folder is a symlink to `$NORMLY_DIR/.env`.
 
-**Verhalten (Spec Teil 1):** Tag ohne `v` normalisieren; nur `X.Y.Z` akzeptieren. Reihenfolge von `deploy`: Lock → `cosign verify` aller fünf Images (Identität `^https://github\.com/normly/web-app/\.github/workflows/images\.yml@refs/tags/v<tag>$`, Issuer `https://token.actions.githubusercontent.com`) → Assets aus dem `pipeline`-Image nach `releases/<tag>/` extrahieren → Pre-Rollout-Sicherung (Abbruch ohne bestätigten Upload) → `pull` → `up -d --wait` → Zustand schreiben. Bei Fehlschlag: klare Meldung, **kein** automatischer Rückweg, `current_tag` unverändert.
+**Behavior (spec Part 1):** Normalize the tag to drop the `v`; accept only `X.Y.Z`. Order of `deploy`: lock → `cosign verify` of all five images (identity `^https://github\.com/normly/web-app/\.github/workflows/images\.yml@refs/tags/v<tag>$`, issuer `https://token.actions.githubusercontent.com`) → extract the assets from the `pipeline` image to `releases/<tag>/` → pre-rollout backup (abort without a confirmed upload) → `pull` → `up -d --wait` → write state. On failure: clear message, **no** automatic way back, `current_tag` unchanged.
 
-- [ ] **Step 1: Tests schreiben**
+- [ ] **Step 1: Write the tests**
 
 `scripts/tests/test_deploy.py`:
 
@@ -2589,9 +2589,9 @@ def test_rollback_rebuilds_schema_then_imports_kb_then_restores_users(harness):
     assert (state / "current_tag").read_text().strip() == "0.1.1"
 ```
 
-Der Harness aus Task 6 unterstützt dafür `FAKE_DOCKER_EXIT_ON=<wort>` (der Fake-`docker` endet mit 1, wenn das Wort in den Argumenten vorkommt) und setzt `NORMLY_BACKUP_BIN` standardmäßig auf ein Hilfsskript, das `20261009T100000Z-pre-0.1.2` ausgibt; `test_deploy_aborts_when_pre_rollout_backup_fails` überschreibt die Variable mit `/bin/false`.
+For this, the harness from Task 6 supports `FAKE_DOCKER_EXIT_ON=<word>` (the fake `docker` exits with 1 if the word occurs in the arguments) and by default sets `NORMLY_BACKUP_BIN` to a helper script that outputs `20261009T100000Z-pre-0.1.2`; `test_deploy_aborts_when_pre_rollout_backup_fails` overrides the variable with `/bin/false`.
 
-- [ ] **Step 2:** `cd scripts && python3 -m pytest tests/test_deploy.py -v` — erwartet FAIL.
+- [ ] **Step 2:** `cd scripts && python3 -m pytest tests/test_deploy.py -v` — expected FAIL.
 
 - [ ] **Step 3: `scripts/normly-deploy`**
 
@@ -2600,7 +2600,7 @@ Der Harness aus Task 6 unterstützt dafür `FAKE_DOCKER_EXIT_ON=<wort>` (der Fak
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 normly contributors
 #
-# Pull-based rollout and rollback on the VM (TP4 spec, Teil 1; ADR-024).
+# Pull-based rollout and rollback on the VM (TP4 spec, Part 1; ADR-024).
 #
 #   normly-deploy deploy <vX.Y.Z>
 #   normly-deploy rollback --age-identity FILE [--yes]
@@ -2771,13 +2771,13 @@ case "${1:-}" in
 esac
 ```
 
-`chmod +x scripts/normly-deploy`. Offene Stolperstellen, die beim Grünmachen der Tests auffallen und dort zu lösen sind: (a) Die erste Bereitstellung hat keinen `current_tag` und damit keine Pre-Rollout-Sicherung (gewollt: es gibt noch keine Nutzerdaten, die zu sichern wären); (b) im Test stirbt `read_state` bei fehlenden Dateien nicht, weil es `|| true` nutzt; (c) `drop_sql` ist eine Zeile je Tabelle und wird mit `psql -c` als ein Befehlsstring gesendet — mehrere Anweisungen in einem `-c` laufen in einer Transaktion, das ist gewollt.
+`chmod +x scripts/normly-deploy`. Open pitfalls that show up while making the tests green and are to be solved there: (a) the first deployment has no `current_tag` and therefore no pre-rollout backup (intended: there is no user data yet that would need backing up); (b) in the test, `read_state` does not die on missing files because it uses `|| true`; (c) `drop_sql` is one line per table and is sent with `psql -c` as one command string — multiple statements in one `-c` run in one transaction, that is intended.
 
-- [ ] **Step 4:** `cd scripts && python3 -m pytest tests -v` und `shellcheck scripts/normly-deploy` — erwartet PASS.
+- [ ] **Step 4:** `cd scripts && python3 -m pytest tests -v` and `shellcheck scripts/normly-deploy` — expected PASS.
 
-- [ ] **Step 5: CI-Job ergänzen**
+- [ ] **Step 5: Add the CI job**
 
-In `.github/workflows/ci.yml` einen Job `test-scripts` anfügen, nach dem Muster der vorhandenen Jobs (Runner und Checkout-Version von `test-docs` übernehmen, nicht neu erfinden):
+In `.github/workflows/ci.yml`, append a job `test-scripts`, following the pattern of the existing jobs (take the runner and checkout version from `test-docs`, do not reinvent them):
 
 ```yaml
   test-scripts:
@@ -2789,7 +2789,7 @@ In `.github/workflows/ci.yml` einen Job `test-scripts` anfügen, nach dem Muster
       - run: pip install pytest && python -m pytest scripts/tests -q
 ```
 
-Vor dem Einfügen `sed -n 60,80p .github/workflows/ci.yml` lesen und `runs-on`/`container`/Action-Versionen an die dort verwendeten angleichen.
+Before inserting, read `sed -n 60,80p .github/workflows/ci.yml` and align `runs-on`/`container`/action versions with the ones used there.
 
 - [ ] **Step 6: Commit**
 
@@ -2802,37 +2802,37 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 
 ---
 
-## Dokumentation
+## Documentation
 
-### Task 8: ADR-024, ADR-025, ADR-021-Nachtrag, CLAUDE.md, SRS, Betriebsguide
+### Task 8: ADR-024, ADR-025, ADR-021 addendum, CLAUDE.md, SRS, operations guide
 
 **Files:**
-- Modify: `docs/adr/README.md` (ADR-024, ADR-025 anfügen; ADR-021-Nachtrag bei Zeile ~700; Register „Offene Punkte“ prüfen)
-- Modify: `CLAUDE.md` (Ausnahmeregel zu ADR-021: Satz zu STACKIT Git und Wissensbasis)
-- Modify: `docs/srs/03-anforderungen.md` (REQ-GIT-005 Satz zu STACKIT Git; Verweise bei REQ-INST-002, REQ-INST-004, REQ-DIST-004)
-- Create: `docs/guide/operations.md` (Englisch)
-- Modify: `docs/guide/releasing.md` (Verweis auf `normly-deploy deploy vX.Y.Z` als nächster Schritt nach einem Release)
+- Modify: `docs/adr/README.md` (append ADR-024, ADR-025; ADR-021 addendum at line ~700; check the "Open items" register)
+- Modify: `CLAUDE.md` (exception rule on ADR-021: sentence on STACKIT Git and the knowledge base)
+- Modify: `docs/srs/03-requirements.md` (REQ-GIT-005 sentence on STACKIT Git; references at REQ-INST-002, REQ-INST-004, REQ-DIST-004)
+- Create: `docs/guide/operations.md` (English)
+- Modify: `docs/guide/releasing.md` (reference to `normly-deploy deploy vX.Y.Z` as the next step after a release)
 
-- [ ] **Step 1: ADR-024 anfügen** (Format der Nachbar-ADRs übernehmen: Überschrift `## ADR-024 — …`, Status, Datum, Kontext, Entscheidung, Begründung, Verworfen, Folgen). Inhalt:
+- [ ] **Step 1: Append ADR-024** (adopt the format of the neighboring ADRs: heading `## ADR-024 — …`, status, date, context, decision, rationale, rejected, consequences). Content:
 
-  - **Titel:** „Rollout, Rollback und Sicherung auf der Einzel-VM“; Status: angenommen 2026-10-09 (Nachtrag-Hinweis: baut auf ADR-010, ADR-014, ADR-023).
-  - **Kontext:** Die VM baut heute aus dem Quellcode; es gibt keinen Rollback; Nutzerdaten sind nur durch die Flex-Sicherung (30 Tage, Anbieter-intern) gesichert; STACKIT-Zugangsdaten dürfen nicht auf GitHub liegen (ADR-021).
-  - **Entscheidungen:** (1) Manueller Auslöser per SSH (`normly-deploy deploy vX.Y.Z`), Skript timerfähig; (2) vor dem Start `cosign verify` aller fünf Images gegen die Release-Workflow-Identität des Tags, Compose-Datei und Skripte reisen im signierten `pipeline`-Image; (3) Rollback stellt Images **und** Daten auf den Stand vor dem Rollout zurück — Schema wird neu aufgebaut (Tabellen verwerfen, `migrate` des vorherigen Images, Wissensbestand-Import, Nutzerdaten-Restore); (4) Sicherung nur der Nutzerdaten-Gruppe, `age`-verschlüsselt auf der VM mit dem öffentlichen Schlüssel, privater Schlüssel nie auf der VM, Upload per `rclone` in einen privaten Object-Storage-Bucket; (5) Aufbewahrung 7 täglich / 2 monatlich / 3 Pre-Rollout, zusätzlich die 30-Tage-Flex-Sicherung der Gesamtdatenbank; (6) manueller Restore-Test.
-  - **Begründung:** je Entscheidung aus Spec Abschnitte „Entscheidungen“ und „Teil 1/2“ (Kern: ein Mensch entscheidet über Migrationsfenster; Migrationen sind nur vorwärts, daher Rollback = Neuaufbau; Wissensbestand reproduzierbar, daher kein täglicher Gesamtdump bei zweistelligen GB; Schlüsseltrennung schützt auch bei kompromittierter VM).
-  - **Verworfen:** Timer-Auto-Rollout; reiner Image-Rollback mit Expand/Contract-Disziplin; nur serverseitige Verschlüsselung; täglicher Gesamtdump; nur Pre-Rollout-Dumps.
-  - **Folgen/Offen:** Datenverlust seit dem Rollout beim Rollback (Warnung + Bestätigung); Rollback-Dauer wächst mit dem Wissensbestand; Kryptographisches Löschen bei lizenzierten Beständen (ADR-014) ist für die kommerzielle Schicht offen; Secrets-Fluss per AppRole (TP3) bleibt außerhalb.
+  - **Title:** "Rollout, rollback and backup on the single VM"; status: accepted 2026-10-09 (addendum note: builds on ADR-010, ADR-014, ADR-023).
+  - **Context:** The VM currently builds from source code; there is no rollback; user data is backed up only by the Flex backup (30 days, provider-internal); STACKIT credentials must not be stored on GitHub (ADR-021).
+  - **Decisions:** (1) Manual trigger via SSH (`normly-deploy deploy vX.Y.Z`), script timer-capable; (2) before the start, `cosign verify` of all five images against the tag's release workflow identity, Compose file and scripts travel in the signed `pipeline` image; (3) rollback restores images **and** data to the state before the rollout — the schema is rebuilt (drop tables, `migrate` of the previous image, knowledge base import, user data restore); (4) backup of the user data group only, `age`-encrypted on the VM with the public key, private key never on the VM, upload via `rclone` into a private Object Storage bucket; (5) retention 7 daily / 2 monthly / 3 pre-rollout, in addition the 30-day Flex backup of the whole database; (6) manual restore test.
+  - **Rationale:** per decision, from the spec sections "Decisions" and "Part 1/2" (core: a human decides on migration windows; migrations are forward-only, hence rollback = rebuild; the knowledge base is reproducible, hence no daily full dump at double-digit GB; key separation protects even with a compromised VM).
+  - **Rejected:** timer auto-rollout; pure image rollback with expand/contract discipline; server-side encryption only; daily full dump; pre-rollout dumps only.
+  - **Consequences/open:** data loss since the rollout on rollback (warning + confirmation); rollback duration grows with the knowledge base; cryptographic erasure for licensed collections (ADR-014) is open for the commercial layer; secrets flow via AppRole (TP3) stays out of scope.
 
-- [ ] **Step 2: ADR-025 anfügen:** Titel „Wissensbestand-Dump als Austauschformat“; Entscheidungen: Parquet je Tabelle plus signiertes Manifest, Import/Export über die Repository-Schicht (`KnowledgeExchangeRepository`), Austauschschema-Version unabhängig von Alembic, Ed25519-Signatur im Kern (Begründung: kein zusätzliches Binary im Image), Verteilung über öffentlich lesbaren STACKIT-Object-Storage-Bucket mit Kalenderversion `kb/<version>/` und `kb/latest`, Import atomar und idempotent, Abbruch bei blockierenden Nutzerdaten-Verweisen, Modellname und -revision werden geprüft; Export-Gate = Rechteklassifikation (einziges Tor) mit Kategorien A/B/D. Begründung D4 aus der Spec übernehmen (ADR-006, öffentliches Produkt, Abstammung, Preis). Verworfen: `pg_dump` des Wissensbestands, Delta-Dumps (später möglich), STACKIT-Git als Ablage, zusätzliches Git-Manifest.
+- [ ] **Step 2: Append ADR-025:** title "Knowledge base dump as exchange format"; decisions: Parquet per table plus signed manifest, import/export via the repository layer (`KnowledgeExchangeRepository`), exchange schema version independent of Alembic, Ed25519 signature in the core (rationale: no additional binary in the image), distribution via a publicly readable STACKIT Object Storage bucket with calendar version `kb/<version>/` and `kb/latest`, import atomic and idempotent, abort on blocking user-data references, model name and revision are checked; export gate = rights classification (the only gate) with categories A/B/D. Take over rationale D4 from the spec (ADR-006, public product, lineage, price). Rejected: `pg_dump` of the knowledge base, delta dumps (possible later), STACKIT Git as storage, additional Git manifest.
 
-- [ ] **Step 3: ADR-021-Nachtrag:** Unter dem bestehenden Nachtragsmuster (siehe ADR-020) einen datierten Absatz „Nachtrag 2026-10-09“ ergänzen: Die Aussage, STACKIT Git sei für das künftige Hosting der Normen-Wissensbasis vorgesehen, ist durch ADR-025 überholt; die Wissensbasis wird als signierter Dump im STACKIT Object Storage verteilt. Das Repository `normly-webapp` bleibt ohne Aufgabe; ob es archiviert oder gelöscht wird, ist offen. Gleichen Satz in `CLAUDE.md` (Ausnahme-Absatz) und REQ-GIT-005 anpassen: „…ist für die Wissensbasis nicht mehr vorgesehen (ADR-025); die Wissensbasis liegt als Dump im STACKIT Object Storage.“
+- [ ] **Step 3: ADR-021 addendum:** following the existing addendum pattern (see ADR-020), add a dated paragraph "Addendum 2026-10-09": the statement that STACKIT Git is intended for the future hosting of the norms knowledge base is superseded by ADR-025; the knowledge base is distributed as a signed dump in STACKIT Object Storage. The repository `normly-webapp` remains without a purpose; whether it is archived or deleted is open. Adjust the same sentence in `CLAUDE.md` (exception paragraph) and REQ-GIT-005: "…is no longer intended for the knowledge base (ADR-025); the knowledge base resides as a dump in STACKIT Object Storage."
 
-- [ ] **Step 4: SRS-Verweise:** Je ein Satz „Umsetzung: ADR-024 (`normly-deploy`)“ bei REQ-INST-002 und REQ-INST-004, „Umsetzung: ADR-025“ bei REQ-DIST-004. Anker im `docs/srs/README.md` prüfen (der `test-docs`-Job hat eine Baseline „3 issues found“; Anzahl darf nicht steigen).
+- [ ] **Step 4: SRS references:** one sentence each, "Implementation: ADR-024 (`normly-deploy`)" at REQ-INST-002 and REQ-INST-004, "Implementation: ADR-025" at REQ-DIST-004. Check the anchors in `docs/srs/README.md` (the `test-docs` job has a baseline "3 issues found"; the count must not rise).
 
-- [ ] **Step 5: `docs/guide/operations.md` (Englisch)** mit den Abschnitten: Prerequisites on the VM (`docker`, `cosign`, `age`, `rclone`, `postgresql-client`, `python3`; Installationsbefehle für Ubuntu), Directory layout (`/opt/normly/{.env,bin,releases,state,current}`), Installing the scripts (aus dem verifizierten Image: `docker run --rm --entrypoint cat ghcr.io/normly/web-app/pipeline:<tag> /app/deploy/scripts/normly-deploy > /opt/normly/bin/normly-deploy` nach `cosign verify`), Deploying a release, Rolling back (inkl. Datenverlust-Warnung, Schlüsselbereitstellung), Backups (Timer aktivieren, `.env`-Variablen, Schlüsselverwaltung, Aufbewahrung), Restore test (manuelle Schritte: Backup herunterladen, `age -d`, in eine Wegwerf-Datenbank `migrate` + `pg_restore --data-only`, `SELECT count(*)` je Tabelle), Knowledge-base dumps (Export, Signieren, Hochladen mit `rclone`, `kb/latest` setzen). Alle Befehle müssen mit den implementierten Skripten übereinstimmen.
+- [ ] **Step 5: `docs/guide/operations.md` (English)** with the sections: Prerequisites on the VM (`docker`, `cosign`, `age`, `rclone`, `postgresql-client`, `python3`; installation commands for Ubuntu), Directory layout (`/opt/normly/{.env,bin,releases,state,current}`), Installing the scripts (from the verified image: `docker run --rm --entrypoint cat ghcr.io/normly/web-app/pipeline:<tag> /app/deploy/scripts/normly-deploy > /opt/normly/bin/normly-deploy` after `cosign verify`), Deploying a release, Rolling back (incl. data-loss warning, key provisioning), Backups (enable the timer, `.env` variables, key management, retention), Restore test (manual steps: download the backup, `age -d`, into a throw-away database `migrate` + `pg_restore --data-only`, `SELECT count(*)` per table), Knowledge-base dumps (export, signing, uploading with `rclone`, setting `kb/latest`). All commands must match the implemented scripts.
 
-- [ ] **Step 6: Verifikation und Commit**
+- [ ] **Step 6: Verification and commit**
 
-Run: die Docs-Prüfung wie in CI (`docker run python:3.12` mit zensical, siehe Memory-Hinweis zum `test-docs`-Job), Expected: weiterhin „3 issues found“.
+Run: the docs check as in CI (`docker run python:3.12` with zensical, see the memory note on the `test-docs` job), Expected: still "3 issues found".
 
 ```bash
 git add docs CLAUDE.md
@@ -2843,40 +2843,40 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 
 ---
 
-## Live-Verifikation (mit dem Nutzer)
+## Live verification (with the owner)
 
-### Task 9: Einrichtung und Abnahme auf STACKIT
+### Task 9: Setup and acceptance on STACKIT
 
-Nach Merge der Teile A–C und Release eines Tags (`v0.1.2`, Ablauf laut `docs/guide/releasing.md`). **Jeder Schritt mit Wirkung nach außen (Push, PR, Bucket anlegen, Schlüssel erzeugen, Rollout) wird vorher mit dem Nutzer abgestimmt.**
+After merging Parts A–C and releasing a tag (`v0.1.2`, procedure according to `docs/guide/releasing.md`). **Every step with an external effect (push, PR, creating a bucket, generating keys, rollout) is agreed with the owner beforehand.**
 
-- [ ] **Step 1: Nutzer legt an:** privaten Bucket `normly-backups` und öffentlich lesbaren Bucket `normly-kb` in STACKIT Object Storage (Zugangsdaten nur in `/opt/normly/.env`, nie im Chat); prüft, ob der Backup-Bucket eine Objektsperre bietet und ob Flex Punkt-in-Zeit-Wiederherstellung und Verschlüsselung der Sicherungen bietet — Ergebnisse tragen wir in die Spec („Befund Flex-Sicherung“, „Offene Punkte“) ein und passen die Aufbewahrung an, falls nötig.
-- [ ] **Step 2: Schlüssel-Zeremonie (Nutzer, offline):** `age-keygen -o age.key` (privat offline und im Secrets Manager, öffentlicher Schlüssel in `NORMLY_BACKUP_AGE_RECIPIENT`); `python -m normly_core.exchange keygen --private kb-signing.key --public kb-signing.pub.pem` auf einer vertrauenswürdigen Maschine; der öffentliche Schlüssel wird nach `core/src/normly_core/exchange/keys/kb-signing.pub.pem` committet (eigener kleiner PR), der private bleibt offline.
-- [ ] **Step 3: VM vorbereiten:** Pakete installieren, `/opt/normly/{bin,releases,state}` anlegen, Skripte aus dem verifizierten Image nach `/opt/normly/bin`, systemd-Units nach `/etc/systemd/system`, `.env` um `NORMLY_BACKUP_*`, `RCLONE_*`, `NORMLY_KB_BASE_URL` ergänzen. Den bestehenden Quellcode-Stack (`/opt/normly/src`) erst abschalten, wenn der erste `normly-deploy deploy` grün ist; Volumes und `.env` bleiben.
-- [ ] **Step 4: Erste Bereitstellung:** `normly-deploy deploy v0.1.2` (ohne `current_tag` entfällt die Pre-Rollout-Sicherung; das ist beabsichtigt). Erwartet: fünf `cosign verify` grün, `app.normly.ai` antwortet 200, `normly-deploy status` zeigt `current: 0.1.2`.
-- [ ] **Step 5: Sicherung prüfen:** `normly-backup run --kind daily`, Objekte im Bucket sichten (`.dump.age`, `.meta.json`, `.sha256`), `systemctl enable --now normly-backup.timer`, `systemctl list-timers`. **Restore-Test** laut Guide gegen eine Wegwerf-Datenbank mit dem privaten Schlüssel des Nutzers; Ergebnis (Tabellen, Zeilenzahlen) in die Spec eintragen.
-- [ ] **Step 6: Dump Ende-zu-Ende:** lokal mit der Ingestion (z. B. BAuA-Testbestand) `export` mit dem privaten Signaturschlüssel, Upload nach `normly-kb/kb/<version>/` und `kb/latest`, auf der VM `docker compose run --rm kb-import`; Erwartung: „imported knowledge base <version>“, Suche in der App liefert Treffer, zweiter Import ohne Änderung. Negativproben: manipulierte Parquet-Datei und fremde Signatur werden abgelehnt.
-- [ ] **Step 7: Rollback-Probe:** `normly-deploy deploy` auf einen zweiten Test-Tag (z. B. `v0.1.3`, nur nach Absprache), danach `normly-deploy rollback --age-identity …`; Erwartung: vorheriger Tag läuft, Wissensbestand in der gemerkten Dump-Version, Nutzerdaten wie vor dem Rollout. Dauer und Befund in die Spec eintragen.
-- [ ] **Step 8:** Ergebnisse als Abschnitt „Verifikation 2026-10-…“ in die TP4-Spec schreiben (Muster: TP2-Spec), `docs/guide/self-hosting.md` um die reale `NORMLY_KB_BASE_URL` ergänzen, Memory aktualisieren.
+- [ ] **Step 1: The owner creates:** a private bucket `normly-backups` and a publicly readable bucket `normly-kb` in STACKIT Object Storage (credentials only in `/opt/normly/.env`, never in the chat); checks whether the backup bucket offers an object lock and whether Flex offers point-in-time recovery and encryption of the backups — we enter the results into the spec ("Finding: Flex backup", "Open items") and adjust the retention if necessary.
+- [ ] **Step 2: Key ceremony (owner, offline):** `age-keygen -o age.key` (private offline and in the Secrets Manager, public key in `NORMLY_BACKUP_AGE_RECIPIENT`); `python -m normly_core.exchange keygen --private kb-signing.key --public kb-signing.pub.pem` on a trusted machine; the public key is committed to `core/src/normly_core/exchange/keys/kb-signing.pub.pem` (its own small PR), the private one stays offline.
+- [ ] **Step 3: Prepare the VM:** install packages, create `/opt/normly/{bin,releases,state}`, scripts from the verified image to `/opt/normly/bin`, systemd units to `/etc/systemd/system`, extend `.env` with `NORMLY_BACKUP_*`, `RCLONE_*`, `NORMLY_KB_BASE_URL`. Switch off the existing source-code stack (`/opt/normly/src`) only once the first `normly-deploy deploy` is green; volumes and `.env` remain.
+- [ ] **Step 4: First deployment:** `normly-deploy deploy v0.1.2` (without `current_tag` the pre-rollout backup is skipped; that is intended). Expected: five `cosign verify` green, `app.normly.ai` responds 200, `normly-deploy status` shows `current: 0.1.2`.
+- [ ] **Step 5: Check the backup:** `normly-backup run --kind daily`, inspect the objects in the bucket (`.dump.age`, `.meta.json`, `.sha256`), `systemctl enable --now normly-backup.timer`, `systemctl list-timers`. **Restore test** according to the guide against a throw-away database with the owner's private key; enter the result (tables, row counts) into the spec.
+- [ ] **Step 6: Dump end to end:** locally with the ingestion (e.g. BAuA test collection) `export` with the private signing key, upload to `normly-kb/kb/<version>/` and `kb/latest`, on the VM `docker compose run --rm kb-import`; expectation: "imported knowledge base <version>", search in the app returns hits, a second import changes nothing. Negative tests: a tampered Parquet file and a foreign signature are rejected.
+- [ ] **Step 7: Rollback test:** `normly-deploy deploy` to a second test tag (e.g. `v0.1.3`, only after agreement), then `normly-deploy rollback --age-identity …`; expectation: the previous tag runs, the knowledge base at the recorded dump version, user data as before the rollout. Enter duration and finding into the spec.
+- [ ] **Step 8:** Write the results as a section "Verification 2026-10-…" into the TP4 spec (pattern: TP2 spec), extend `docs/guide/self-hosting.md` with the real `NORMLY_KB_BASE_URL`, update memory.
 
 ---
 
-## Selbstprüfung gegen die Spec
+## Self-review against the spec
 
-| Spec-Abschnitt | Abgedeckt durch |
+| Spec section | Covered by |
 |---|---|
-| D1 manueller Auslöser, timerfähig | Task 7 (`deploy`, keine Timer-Logik), Task 8 (ADR-024) |
-| D2 Rollback mit Daten | Task 7 (`rollback`, Schema-Neuaufbau), Tests für Reihenfolge und Bestätigung |
-| D3 verschlüsselte Sicherung, Schlüsseltrennung | Task 6 (`age` mit öffentlichem Schlüssel, `rclone`), Task 9 Schritte 2 und 5 |
-| D4 Parquet + Manifest, Repository-Schicht | Tasks 1–4 |
-| D5 Object Storage, Kalenderversion, signiert | Tasks 2, 5, 9 (Bucket, Schlüssel, Upload) |
-| D6 Sicherung nach Datenart | Task 1 (Gruppen + Test), Task 6 (nur Nutzerdaten) |
-| `cosign verify` vor dem Start | Task 7 (`verify_images`) |
-| Restore-Test manuell | Task 8 (Guide), Task 9 Schritt 5 |
-| Aufbewahrung 7/2/3 | Task 6 (`select_deletions` + Tests) |
-| Idempotenter, atomarer Import; Abbruch bei blockierenden Verweisen | Task 3 (`replace_knowledge_base`, Tests), Task 4 |
-| Modellname/-revision/Dimension geprüft | Task 4 (`import_dump`), Task 5 (Image-ENV) |
-| Erster Start von Selbsthostern | Task 5 (`kb-import`, Guide) |
-| ADR-024/025, ADR-021-Nachtrag, CLAUDE.md, SRS, Guides | Task 8 |
-| Offene Punkte (PITR, Objektsperre, ADR-014) | Task 9 Schritt 1, ADR-024 „Folgen/Offen“ |
+| D1 manual trigger, timer-capable | Task 7 (`deploy`, no timer logic), Task 8 (ADR-024) |
+| D2 rollback with data | Task 7 (`rollback`, schema rebuild), tests for order and confirmation |
+| D3 encrypted backup, key separation | Task 6 (`age` with public key, `rclone`), Task 9 steps 2 and 5 |
+| D4 Parquet + manifest, repository layer | Tasks 1–4 |
+| D5 Object Storage, calendar version, signed | Tasks 2, 5, 9 (bucket, keys, upload) |
+| D6 backup by data type | Task 1 (groups + test), Task 6 (user data only) |
+| `cosign verify` before the start | Task 7 (`verify_images`) |
+| Restore test manual | Task 8 (guide), Task 9 step 5 |
+| Retention 7/2/3 | Task 6 (`select_deletions` + tests) |
+| Idempotent, atomic import; abort on blocking references | Task 3 (`replace_knowledge_base`, tests), Task 4 |
+| Model name/revision/dimension checked | Task 4 (`import_dump`), Task 5 (image ENV) |
+| First start for self-hosters | Task 5 (`kb-import`, guide) |
+| ADR-024/025, ADR-021 addendum, CLAUDE.md, SRS, guides | Task 8 |
+| Open items (PITR, object lock, ADR-014) | Task 9 step 1, ADR-024 "Consequences/open" |
 
-**Bekannte Lücken, bewusst nicht in diesem Plan:** Delta-Dumps, Timer-Auto-Rollout, automatischer Restore-Test, Secrets per AppRole (TP3), Entscheidung über das Repository `normly-webapp`. **Risiken, die beim Bau zu prüfen sind** (nicht vorab entschieden): Verhalten von `docker compose up --wait` mit dem One-Shot-Dienst `migrate` auf der VM-Compose-Version; Fremdschlüssel-Reihenfolge bei `pg_restore --data-only` ohne Superuser-Rechte auf Postgres Flex; Laufzeit und Speicherbedarf von Export/Import bei realem Bestand.
+**Known gaps, deliberately not in this plan:** delta dumps, timer auto-rollout, automatic restore test, secrets via AppRole (TP3), decision about the repository `normly-webapp`. **Risks to be checked during the build** (not decided in advance): behavior of `docker compose up --wait` with the one-shot service `migrate` on the VM's Compose version; foreign-key order with `pg_restore --data-only` without superuser rights on Postgres Flex; runtime and memory requirement of export/import with a real collection.
