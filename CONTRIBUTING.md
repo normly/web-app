@@ -3,6 +3,10 @@
 How contributions to normly come together – from issue to release. The
 process is deliberately lightweight and grows with the project.
 
+New to the codebase? Start with the
+[developer onboarding guide](docs/guide/developer-onboarding.md) for the
+component map and a practical path through setup, code, and specifications.
+
 Contributions are explicitly **not just code**. Correcting a cross-reference
 between standards, reporting a wrong supersession chain, or suggesting a
 source contributes to the most valuable part of the project — practical
@@ -202,7 +206,7 @@ Merging without a second review within the core team is a deliberate risk
 carried by CI – which is why a working test suite is a prerequisite for
 this process.
 
-## Development setup
+## Development setup and checks
 
 The four Python packages (`core`, `api`, `chat`, `accounts`) form one
 [uv](https://docs.astral.sh/uv/) workspace with a single lock file
@@ -211,8 +215,40 @@ The four Python packages (`core`, `api`, `chat`, `accounts`) form one
 ```bash
 curl -LsSf https://astral.sh/uv/0.12.23/install.sh | sh
 uv sync --all-packages --all-extras      # creates .venv with every package and dev extra
-cd api && ../.venv/bin/pytest            # run one package's tests (needs Docker for testcontainers)
 ```
+
+Python tests use the shared environment and run from the repository root:
+
+```bash
+(cd core && ../.venv/bin/pytest)
+(cd api && ../.venv/bin/pytest)
+(cd chat && ../.venv/bin/pytest)
+(cd accounts && ../.venv/bin/pytest)
+```
+
+Tests that use testcontainers require Docker. The full chat suite also starts
+the API and accounts services and loads the embedding model. CI omits
+`chat/tests/test_structural_end_to_end.py` to avoid downloading that model on
+every run; run the full command locally when the model is available.
+
+For frontend tests:
+
+```bash
+(cd frontend && npm ci && npm test)
+```
+
+For the documentation site, install the pinned dependencies from the
+`test-docs` job in [CI](.github/workflows/ci.yml), then run:
+
+```bash
+zensical build
+```
+
+For deployment scripts, run the `shellcheck` and script tests listed in CI.
+CI is the source of truth for exact versions, commands, and exclusions. The
+[repository-workflow skill](.agents/skills/repository-workflow/SKILL.md)
+provides task-oriented guidance for coding agents; these commands are the
+human-facing reference.
 
 `uv sync` keeps `.venv` in step with `uv.lock`. Change a dependency in a
 package's `pyproject.toml`, then run `uv lock` and commit the updated
@@ -231,28 +267,12 @@ New files in the core:
 
 In SDKs and the API specification, use `Apache-2.0` instead.
 
-## Non-negotiable boundaries
+## Repository-wide boundaries
 
-These points have legal or strategic reasons. We can't accept PRs that
-violate them — even if the code is good. Better to ask in an issue first.
-
-- **No US services** for operations, user data, the standards knowledge
-  base, credentials, or production deployment. Exception since ADR-021:
-  source code, CI/CD, and the container registry of the free core live on
-  GitHub.
-- **No scraping of commercially exploited catalog holdings.** Not even if
-  they're publicly accessible. New sources need an entry in the source
-  registry with an assigned legal basis.
-- **No DRM or protection logic in the free core.** Exposed protection code
-  is no protection; such components live outside this repository.
-- **No account requirement for free content.**
-- **No personalized advertising**, no user profiles for advertising
-  purposes.
-- **No proprietary component in the core.** It must remain buildable,
-  testable, and runnable without add-on modules.
-- **No direct database access** outside the repository layer.
-
-Detailed rationale: [docs/adr/](docs/adr/).
+The legal, strategic, and engineering boundaries that apply to every change
+are maintained in [`AGENTS.md`](AGENTS.md), with their rationale in
+[the ADRs](docs/adr/). Contributions that violate those boundaries cannot be
+accepted; ask in an issue if a proposed change may conflict with them.
 
 ## Contributions without code
 

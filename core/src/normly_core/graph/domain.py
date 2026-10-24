@@ -355,7 +355,7 @@ class RateLimitRepository(Protocol):
     A generic, jurisdiction-independent request counter used to enforce
     REQ-ACC-003's anonymous quota. Not part of the graph model, but kept in
     the same repository layer as everything else that touches the database,
-    per CLAUDE.md's "Database access only through the repository layer".
+    per AGENTS.md's "Database access only through the repository layer".
     """
 
     def record_and_check(

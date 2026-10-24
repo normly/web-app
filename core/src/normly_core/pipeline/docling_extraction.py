@@ -4,7 +4,7 @@
 """Shared Docling document-extraction layer for all pipeline adapters.
 
 Production/CI requirement (STACKIT-only constraint -- no runtime access to
-external model sources, see CLAUDE.md): the container image pre-fetches
+external model sources, see AGENTS.md): the container image pre-fetches
 Docling's layout and table-structure models at pinned revisions into
 /opt/models/docling (docker/python.Dockerfile, stage `weights`, same folder
 layout as `docling-tools models download layout tableformer -o <path>`)
