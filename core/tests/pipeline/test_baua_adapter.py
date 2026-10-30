@@ -83,12 +83,11 @@ def test_fetch_normalizes_irregular_whitespace_before_matching_designation(tmp_p
     document's identity key (identity.resolve() matches on exact string
     equality; it flows into document.origin_number via runner.py), so an
     un-normalized whitespace difference between two PDFs of the *same* rule
-    would fork them into two unrelated document nodes. `_DESIGNATION_PATTERN`
-    itself tolerates any whitespace shape (`\\s+` matches a run of any
-    length), but without normalizing first, that irregular run is captured
-    verbatim into the designation string -- the bug is not a failed match,
-    it is a designation whose exact text varies with incidental source
-    formatting."""
+    would fork them into two unrelated document nodes. The designation search
+    tolerates any whitespace shape (`\\s+` matches a run of any length), but
+    without normalizing first, that irregular run could be captured verbatim
+    into the designation string -- the bug is not a failed match, it is a
+    designation whose exact text varies with incidental source formatting."""
     _write_publication_pdf(
         tmp_path / "baua_trgs_500_teil_1.pdf",
         ["TRGS 500  Teil  1", "Schutzmaßnahmen", "", "Body text hier."],
@@ -97,6 +96,90 @@ def test_fetch_normalizes_irregular_whitespace_before_matching_designation(tmp_p
     records = list(BauaAdapter(directory=tmp_path, source_id=uuid.uuid4()).fetch())
 
     assert records[0].raw_designation == "TRGS 500 Teil 1"
+
+
+def test_fetch_finds_designation_after_cover_matter(tmp_path):
+    _write_publication_pdf(
+        tmp_path / "baua_trgs_900.pdf",
+        [
+            "Ausgabe Juli 2025",
+            "Technische Regeln für Gefahrstoffe",
+            "TRGS 900 Arbeitsplatzgrenzwerte",
+            "",
+            "1 Anwendungsbereich",
+            "Diese Regel gilt für Tätigkeiten mit Gefahrstoffen.",
+        ],
+    )
+
+    records = list(BauaAdapter(directory=tmp_path, source_id=uuid.uuid4()).fetch())
+
+    assert len(records) == 1
+    assert records[0].raw_designation == "TRGS 900"
+    # Cover text before the designation makes the adjacent tail ambiguous;
+    # identity is recovered, but title extraction fails closed.
+    assert records[0].raw_title is None
+
+
+def test_fetch_leaves_designation_empty_when_front_matter_has_no_candidate(tmp_path):
+    _write_publication_pdf(
+        tmp_path / "baua_trgs_900.pdf",
+        ["Ausgabe Juli 2025", "Allgemeine Veröffentlichung", "Text ohne Kennnummer."],
+    )
+
+    records = list(BauaAdapter(directory=tmp_path, source_id=uuid.uuid4()).fetch())
+
+    assert len(records) == 1
+    assert records[0].raw_designation == ""
+    assert records[0].raw_title is None
+
+
+def test_find_designation_ignores_mentions_after_the_front_matter():
+    from types import SimpleNamespace
+
+    from normly_core.pipeline.adapters.baua import _find_designation
+
+    items = [
+        SimpleNamespace(text="Ausgabe Juli 2025", prov=[SimpleNamespace(page_no=1)]),
+        SimpleNamespace(text="TRGS 900 Titel", prov=[SimpleNamespace(page_no=1)]),
+        SimpleNamespace(text="TRGS 901", prov=[SimpleNamespace(page_no=6)]),
+    ]
+
+    assert _find_designation(items) == ("TRGS 900", "Titel")
+
+
+def test_find_designation_fails_closed_on_competing_front_matter_candidates():
+    from types import SimpleNamespace
+
+    from normly_core.pipeline.adapters.baua import _find_designation
+
+    items = [
+        SimpleNamespace(text="TRGS 900", prov=[SimpleNamespace(page_no=1)]),
+        SimpleNamespace(text="TRGS 901", prov=[SimpleNamespace(page_no=2)]),
+    ]
+
+    assert _find_designation(items) == ("", None)
+
+
+def test_filename_designation_hint_must_be_confirmed_in_front_matter():
+    from types import SimpleNamespace
+
+    from normly_core.pipeline.adapters.baua import _find_designation
+
+    items = [
+        SimpleNamespace(text="TRGS 900", prov=[SimpleNamespace(page_no=1)]),
+        SimpleNamespace(text="TRGS 901", prov=[SimpleNamespace(page_no=2)]),
+    ]
+
+    assert _find_designation(items, filename_hint="TRGS 901") == ("TRGS 901", None)
+    assert _find_designation(items, filename_hint="TRGS 902") == ("", None)
+
+
+def test_designation_hint_from_filename_supports_parts():
+    from normly_core.pipeline.adapters.baua import _designation_hint_from_filename
+
+    assert _designation_hint_from_filename(Path("baua_trgs_500_teil_1.pdf")) == (
+        "TRGS 500 Teil 1"
+    )
 
 
 def test_fetch_reads_all_three_series_and_ignores_other_sources_files(tmp_path):
@@ -200,6 +283,65 @@ def test_extract_structure_returns_one_full_text_segment():
     assert sections[0].sequence_number == 1
     assert sections[0].heading is None
     assert sections[0].text == "Volltext hier."
+
+
+def test_extract_structure_splits_numbered_headings_and_preserves_preamble():
+    adapter = BauaAdapter(directory=Path("."), source_id=uuid.uuid4())
+    record = RawRecord(
+        source_id=adapter.source_id,
+        content_hash="sha256:x",
+        raw_designation="TRGS 900",
+        raw_issuer="BAuA",
+        raw_title=None,
+        full_text=(
+            "Cover information\n\n"
+            "1 Scope\nBody for section one.\n\n"
+            "2.1 Definitions\nBody for subsection 2.1.\n\n"
+            "2.2 Duties\nBody for subsection 2.2."
+        ),
+        language="de",
+    )
+
+    sections = adapter.extract_structure(record)
+
+    assert [section.sequence_number for section in sections] == [1, 2, 3, 4]
+    assert [section.heading for section in sections] == [
+        None, "1 Scope", "2.1 Definitions", "2.2 Duties",
+    ]
+    assert sections[0].text == "Cover information"
+    assert sections[1].text == "Body for section one."
+    assert sections[2].text == "Body for subsection 2.1."
+    assert sections[3].text == "Body for subsection 2.2."
+
+
+def test_extract_structure_keeps_numbered_prose_as_one_segment():
+    adapter = BauaAdapter(directory=Path("."), source_id=uuid.uuid4())
+    text = "1. This is a numbered sentence that continues as ordinary prose."
+    record = RawRecord(
+        source_id=adapter.source_id,
+        content_hash="sha256:x",
+        raw_designation="TRGS 900",
+        raw_issuer="BAuA",
+        raw_title=None,
+        full_text=text,
+        language="de",
+    )
+
+    sections = adapter.extract_structure(record)
+
+    assert len(sections) == 1
+    assert sections[0].heading is None
+    assert sections[0].text == text
+
+
+def test_numbered_heading_detector_uses_docling_labels_conservatively():
+    from normly_core.pipeline.adapters.baua import _numbered_heading
+
+    assert _numbered_heading("1 Scope", "section_header")
+    assert _numbered_heading("2.1 Definitions", "list_item")
+    assert not _numbered_heading("1 Scope", "list_item")
+    assert not _numbered_heading("1 This is a sentence.", "section_header")
+    assert not _numbered_heading("1 Scope", "text")
 
 
 def test_extract_structure_is_empty_without_full_text():

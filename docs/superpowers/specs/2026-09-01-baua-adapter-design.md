@@ -46,10 +46,9 @@ Joint Ministerial Gazette).
   legal basis category A.
 - CLI wiring (`build_adapter()` in `cli.py`) analogous to the existing
   sources.
-- A first, deliberately simple iteration of the full-text structure (see
-  "Decision: structure depth phase 1" below) — no repetition of the
-  laborious heading regex iteration that the DGUV adapter
-  had to go through.
+- A conservative, source-specific parser for BAuA designations and numbered
+  section headings, derived from local real-document observations and guarded
+  by synthetic and opt-in real-document tests.
 
 ## Non-goals
 
@@ -65,14 +64,11 @@ Joint Ministerial Gazette).
   continuously extended standards series with irregular new publications
   — automated retrieval is planned as a separate follow-up task, see
   "Open items".
-- **No fine-grained section detection** (numbered headings such as
-  "1 Zielsetzung", "2.1 Begriffsbestimmungen") in this pass — see
-  Architecture. Deliberately deferred as a separate follow-up task.
-- **No renewed check under REQ-PIPE-003** (rights reservation). Its
-  wording ties the check to the "automated acquisition of freely accessible
-  sources" — here there is neither an automated acquisition nor a
-  copyright-protected work to which a rights reservation under
-  § 44b Abs. 3 UrhG (German Copyright Act) could apply at all (see Legal basis below).
+- **No rights reclassification in this parser change.** Manual local testing
+  does not itself settle the source's rights status. The registered legal
+  category and permitted processing/export steps remain subject to the source
+  register and REQ-PIPE-003/004; this design change only covers extraction and
+  section boundaries.
 - **No new abstraction** between `DoclingDocument` and the
   domain objects. As laid down by the Docling migration, the adapter itself remains
   responsible for its small mapping logic.
@@ -98,22 +94,22 @@ summary table with many rows.
 ### Designation detection
 
 One shared pattern for all three series, since the numbering scheme is identical
-(prefix + number, optionally "Teil N", e.g. "TRGS 500 Teil 1"):
+(prefix + number, optionally "Teil N", e.g. "TRGS 500 Teil 1"). The adapter
+searches a bounded front-matter range for a unique designation. A recognized
+filename may narrow candidates only when the designation is also present in
+the extracted front matter:
 
 ```python
-_DESIGNATION_PATTERN = re.compile(r"^(TRGS|TRBS|TRBA)\s+(\d+(?:\s+Teil\s+\d+)?)\s*(.*)$")
+_DESIGNATION_SEARCH_PATTERN = re.compile(
+    r"(?<!\w)(TRGS|TRBS|TRBA)\s+(\d+(?:\s+Teil\s+\d+)?)(?!\w)",
+    re.IGNORECASE,
+)
 ```
 
-As empirically confirmed for DGUV/EUR-Lex: Docling merges visually adjacent
-lines (designation and title line) into one text element. The title
-is therefore formed from the rest of the same first element after the
-designation match — unlike DGUV, deliberately **without** its
-sentence-boundary heuristic (`_SENTENCE_OPENERS`, word-list check etc.). This
-is an accepted risk, not carelessness: with a heavily
-merged Docling text block, the title can contain remnants of running text.
-Same category as the residual risk already accepted in the DGUV adapter — documented
-there in its "Open items". `full_text` is unaffected by this
-and contains the complete text in every case.
+Docling may merge the designation, title, and following text into one item.
+The title is therefore retained only when it is short and its boundary is
+clear; otherwise `raw_title` is `None`. `full_text` retains all extracted
+content regardless.
 
 ### Legal basis: category A
 
@@ -141,53 +137,58 @@ As with DGUV/EUR-Lex, narrower than the protocol (`RightsRule | None`): every
 record of this source is classifiable, there is no "cannot
 classify" case.
 
-### Decision: structure depth phase 1
+### Decision: designation and numbered-section extraction
 
-TRGS/TRBS/TRBA are structured internally into numbered sections
-("1 Zielsetzung", "2.1 Begriffsbestimmungen", ...), not into
-§ paragraphs like DGUV. Building robust boundary detection for this scheme
-against real document variance takes the same effort as the
-DGUV heading detection, which needed five iteration rounds plus adversarial
-re-review and left an accepted residual risk behind in the process (see
-the "Open items" there). Repeating this iteration in this pass
-— without having first checked the real document variance against at least a single
-real copy, which `baua.de`'s bot protection prevents here
-— was deliberately rejected together with the owner.
+BAuA PDFs can place cover and publication-information items before the
+designation. The adapter searches a bounded front-matter range for a unique
+designation-shaped item instead of treating the first Docling text item as the
+identity. A designation encoded in the configured filename can narrow the
+candidates, but is accepted only when it is also present in extracted
+front matter. Competing or missing candidates fail closed to an empty
+designation, which the existing identity resolver routes to manual review.
+Titles are retained only when their boundary is clear.
 
-Instead, in this first iteration `extract_structure()` returns exactly one
-segment with the complete document text:
+TRGS/TRBS/TRBA are structured into numbered headings (for example, "1
+Zielsetzung" and "2.1 Begriffsbestimmungen"), not into `§` paragraphs like
+DGUV. The adapter uses Docling's ordered items and their labels only for short,
+standalone numbered headings. SectionHeader items are the primary signal;
+nested numbered ListItems can also be accepted. Ambiguous numbered prose
+remains body text. This is a conservative source-specific rule, not a copy of
+DGUV's `§` parser.
 
-```python
-def extract_structure(self, record: RawRecord) -> list[RawSection]:
-    if record.full_text is None:
-        return []
-    return [RawSection(sequence_number=1, heading=None, text=record.full_text)]
-```
+`extract_structure()` emits sections in document order. Preamble before the
+first recognized heading is retained as a heading-less section; if no heading
+is recognized, the complete text remains one heading-less section. The
+numbering remains in each heading, so hierarchy is represented without a
+shared schema change. Docling item boundaries are carried into the raw text
+using whitespace-only separators; extracted words are not dropped.
 
-The full text is thus searchable and citable from day one (`may_index_fulltext`
-is `True`, see Legal basis) — just without granular section boundaries.
-Finer segmentation is a deliberately deferred follow-up task (see "Open
-items"), not a forgotten one.
+Initial local observations from six PDFs using Docling 2.132.0 found that the
+first-item designation assumption failed in every sample, while five contained
+a designation-like item later in the extracted order. Docling also emitted
+`section_header` items, but the real-document test remains opt-in and the
+behavior must be checked with the repository's locked Docling version 2.135.0.
 
 ## Components
 
 | File | Change |
 |---|---|
-| `core/src/normly_core/pipeline/adapters/baua.py` | **New.** `BauaAdapter` — `fetch()`, `extract_structure()` (phase 1: one full-text segment), `classify_rights()` (category A, always classifiable). |
+| `core/src/normly_core/pipeline/adapters/baua.py` | `BauaAdapter` — `fetch()`, designation extraction, conservative numbered-section segmentation, and `classify_rights()`. |
 | `core/src/normly_core/pipeline/sources.py` | New entry `"baua"` in `SOURCE_REGISTRY`: publisher `"BAuA"`, category A, jurisdiction `"DE"`. |
 | `core/src/normly_core/pipeline/cli.py` | `build_adapter()` extended by the `"baua"` branch, `argparse` choices supplemented by `"baua"`. |
-| `core/tests/pipeline/test_baua_adapter.py` | **New.** See Test concept. |
+| `core/tests/pipeline/test_baua_adapter.py` | Synthetic unit tests for designation identification and conservative numbered-section splitting. |
+| `core/tests/pipeline/test_baua_adapter_real.py` | **New.** Opt-in local checks against PDFs outside the repository; skipped unless `BAUA_REAL_DOCUMENTS_DIR` is set. |
 | `core/tests/fixtures/baua_trgs_sample.pdf`, `baua_trbs_sample.pdf`, `baua_trba_sample.pdf` | **New.** Synthetic fixtures generated via `reportlab` at test time (as with DGUV) — not copied from the real site. |
 
 ## Data flow
 
 File → `docling_extraction.extract_document()` → `DoclingDocument` →
-the adapter takes the text of the first element, separates designation and title via
-`_DESIGNATION_PATTERN`, collects all the remaining text unchanged as
-`full_text` (no line-structure rebuild needed as with DGUV — phase 1 needs
-no line boundaries, only the complete text). `extract_structure()` builds
-the one segment from it; `classify_rights()` always returns the same category
-A rule.
+the adapter inspects a bounded front-matter range for a unique designation,
+collects every text item, and carries verified Docling item boundaries into
+the raw text for conservative numbered-heading recognition.
+`extract_structure()` splits only verified standalone headings and retains
+preamble/body text. If identity is unclear, the empty designation routes to
+manual review. Rights classification remains a separate processing gate.
 
 The rest of the data flow (delivery deduplication via content hash,
 identity resolution, segment/embedding generation) runs unchanged via
@@ -206,21 +207,31 @@ Identical to `DguvAdapter`/`EurLexAdapter`:
 
 ## Test concept
 
-`core/tests/pipeline/test_baua_adapter.py`, with three fixtures generated via `reportlab`
-(one per series), analogous to the approach for
-`dguv_sample_vorschrift.pdf`. Cases:
+`core/tests/pipeline/test_baua_adapter.py` keeps synthetic fixtures generated
+via `reportlab` (one per series), analogous to the approach for
+`dguv_sample_vorschrift.pdf`. These remain the default tests. They cover:
 
 - `fetch()` returns one record per file, across all three file prefixes
   together.
 - Designation/title are separated correctly, for all three prefixes
   (TRGS/TRBS/TRBA) as well as for the "Teil N" suffix case.
 - `classify_rights()` always returns the same category A rule, never `None`.
-- `extract_structure()` returns, for a record with `full_text`, exactly one
-  segment with the complete text; for `full_text=None` an empty list.
+- Designation identification after cover matter; missing or competing
+  front-matter candidates fail closed rather than creating a false identity.
+- `extract_structure()` splits short numbered headings (`1`, `2.1`, etc.),
+  retains preamble text, and falls back to one complete segment when no
+  heading is recognized; for `full_text=None` it returns an empty list.
 - An unreadable file is skipped, the others are processed nonetheless
   (as in the existing DGUV test).
 - A `PipelineInitializationError` still aborts the run instead of
   being silently skipped (as in the existing DGUV test).
+
+`core/tests/pipeline/test_baua_adapter_real.py` is opt-in through
+`BAUA_REAL_DOCUMENTS_DIR`; it stages links in pytest's temporary directory and
+asserts the expected designation and first/last section headings for selected
+local samples. It also checks that a document without a corroborated
+designation remains unresolved. It does not include or print extracted
+document text. Ordinary CI and synthetic tests do not depend on this directory.
 
 ## Relation to requirements and ADRs
 
@@ -228,7 +239,7 @@ Identical to `DguvAdapter`/`EurLexAdapter`:
 |---|---|
 | REQ-PIPE-009 | Directly fulfilled — BAuA is specifically named there as a category A/B initial collection source. |
 | REQ-PIPE-002 | New register entry with complete mandatory fields (publisher, retrieval path, category, jurisdiction, check date, responsible person). |
-| REQ-PIPE-003 | Not applicable — see Non-goals. |
+| REQ-PIPE-003 | Rights-reservation status remains a source-register concern; manual local testing does not bypass it. |
 | REQ-PIPE-005 | Untouched — lineage runs via the same `Delivery` mechanism as with the existing adapters, adapter-independent. |
 | ADR-018 (Docling migration) | The new adapter builds from the start on the `docling_extraction` layer introduced there, duplicates no Docling configuration. |
 
@@ -246,30 +257,21 @@ Identical to `DguvAdapter`/`EurLexAdapter`:
   access path without bot protection (e.g. a data exchange interface
   or an RSS/newsletter feed for new publications), or whether a
   browser-based retrieval with a documented, legally reviewed
-  justification becomes necessary. As soon as automated acquisition is due,
-  REQ-PIPE-003 (check for a machine-readable rights reservation) also becomes
-  really relevant for this source — excluded here as a non-goal only
-  because acquisition stays manual in this sub-project (see there).
+  justification becomes necessary. Automated acquisition needs its own
+  REQ-PIPE-003 review and source-register update. Manual acquisition and local
+  testing remain subject to the source's registered rights classification.
   Separate design/spec, not part of this adapter.
-- **Unchecked against a real document.** Neither the designation pattern nor
-  the title extraction nor the assumption about Docling's element merging
-  were verified against a real TRGS/TRBS/TRBA PDF — `baua.de`'s
-  bot protection prevented that during the design. If the first
-  Docling text element of a real document does not match
-  `_DESIGNATION_PATTERN` (e.g. cover page instead of designation text), the
-  result is silently a regularly ingested document with garbage data as
-  `raw_designation` — not an automatic review case. Because `runner.py` writes the
-  delivery (content hash) in the same transaction as the document,
-  such a faulty first run cannot simply and cheaply be re-imported after an
-  adapter correction; the operator
-  first has to delete the affected delivery/document rows by hand.
-  Precisely for this reason, spot-checking the first real run is not
-  an optional extra, but a prerequisite *before* any larger ingest: as soon as the
-  operator obtains the first real files, this first run must be
-  spot-checked before larger quantities are read in.
-- **Fine-grained section detection** (numbered headings) is
-  deliberately deferred (see "Decision: structure depth phase 1"). A separate
-  follow-up task as soon as real documents are available for deriving patterns.
+- **Locked-version real-document verification.** The initial local spot-check
+  used Docling 2.132.0, while `uv.lock` pins 2.135.0. Run the opt-in test with
+  the locked version and validate that designation and heading classification
+  remain stable before any larger ingestion. Spot-checking the first real
+  pipeline run remains a prerequisite because a false identity can persist a
+  wrongly assigned document.
+- **Heading residual risk.** Conservative item-level matching can miss a
+  heading merged with body prose or a heading Docling classifies outside the
+  accepted labels. Such text remains in the neighboring segment rather than
+  being split speculatively. Expand the parser only when additional real
+  samples demonstrate a safe boundary signal.
 - **No structured "Teil N" / part-number field.** `TRGS 500 Teil 1` and
   `TRGS 500 Teil 2` thereby become two unconnected document nodes:
   `RawRecord` has no `part` field, `runner.py` always writes `part` as

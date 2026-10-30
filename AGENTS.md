@@ -100,6 +100,10 @@ costly.
 - Debug systematically. Run relevant checks before reporting completion and
   report any checks that could not be run; see the
   [repository-workflow skill](.agents/skills/repository-workflow/SKILL.md).
+- LLM coding agents must consult the root [`review.md`](review.md) index and
+  follow the applicable module review guide as part of testing a change.
+  Treat those review-specific checks as additional to the shared contribution
+  and CI checks; report any required validation that could not be completed.
 
 See the [architecture overview](docs/guide/architecture.md) for component
 responsibilities and data flows; use the relevant ADRs and SRS requirements

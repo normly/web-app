@@ -13,6 +13,7 @@ nav = [
     "guide/self-hosting.md",
     "guide/releasing.md",
     "guide/operations.md",
+    "guide/adapters/index.md",
   ] },
   { "Concepts" = [
     "concepts/norm-graph.md",
