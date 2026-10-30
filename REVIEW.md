@@ -7,7 +7,7 @@ requirements remain in [`docs/srs/`](docs/srs/).
 
 ## Modules
 
-- [Core review and testing requirements](core/review.md)
+- [Core review and testing requirements](core/REVIEW.md)
 
 Additional module guides can be linked here as their review requirements are
 defined.
