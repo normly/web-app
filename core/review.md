@@ -1,27 +1,40 @@
-# Core review notes: BAuA extraction and retrieval
+# Core review and testing requirements
 
-This guide covers the current BAuA extraction work and its path through
-section storage, embeddings, and semantic retrieval. It supplements, but does
-not replace, [`CONTRIBUTING.md`](../CONTRIBUTING.md) or the authoritative
-requirements and architecture documents.
+This guide records review and testing requirements for the Core module. It
+supplements, but does not replace, [`CONTRIBUTING.md`](../CONTRIBUTING.md) or
+the authoritative requirements and architecture documents.
 
 ## Test strategy
 
+### Adapter status documentation is required
+
+Every change to an adapter or to a shared interface/behavior that affects an
+adapter must update its status note in
+[`docs/guide/adapters/`](../docs/guide/adapters/index.md) in the same change.
+This includes changes to supported inputs, acquisition, metadata mapping,
+identity or section extraction, rights behavior, failure handling, and test
+coverage. Update the capability states, requirement mapping, evidence, layout
+assumptions, and open-work disposition affected by the change. For shared
+pipeline changes, review every affected adapter note. Do not leave a stale
+status note on the assumption that the code or tests speak for themselves.
+Update the affected note's review/evidence date in the same change even when
+the capability state does not change.
+
+Use [`docs/guide/adapters/TEMPLATE.md`](../docs/guide/adapters/TEMPLATE.md) for
+new adapter notes. Do not claim an unrun check; if a required validation was
+unavailable, record it as outstanding in the adapter note and change review.
+
 ### Synthetic tests: default and CI-safe
 
-- Keep ordinary adapter tests synthetic. The tests in
-  [`tests/pipeline/test_baua_adapter.py`](tests/pipeline/test_baua_adapter.py)
-  generate small BAuA-shaped PDFs at test time in pytest's temporary directory;
-  use this approach for new parser cases rather than committing PDF files.
-- For extraction-to-retrieval coverage, extend the synthetic approach through
-  `run_adapter()` and the PostgreSQL repositories: verify the section rows and
-  their embeddings are stored, then verify a query retrieves the expected
-  synthetic section. The shared `db_session` fixture uses a disposable
-  pgvector PostgreSQL container and requires Docker.
-- A deterministic test embedder may be used for this integration test. It
-  should make the expected synthetic query/section pair rank predictably and
-  keep unrelated fixture text separate. This checks ingestion, persistence,
-  and similarity-search wiring; it does **not** establish that the production
+- Keep ordinary adapter tests synthetic and generate test inputs rather than
+  committing publisher documents. Follow the applicable adapter status note
+  for format-specific and local-source validation.
+- For pipeline, persistence, or retrieval changes, test the affected boundaries
+  through the runner and repositories where applicable. The shared `db_session`
+  fixture uses a disposable PostgreSQL container with pgvector and requires
+  Docker.
+- A deterministic test embedder can verify ingestion, persistence, and
+  similarity-search wiring. It does **not** establish that the production
   embedding model understands semantic similarity.
 - The existing
   [`tests/graph/test_segment_similarity_search.py`](tests/graph/test_segment_similarity_search.py)
@@ -30,39 +43,15 @@ requirements and architecture documents.
 - Run the core suite from the repository root with `(cd core &&
   ../.venv/bin/pytest)`, as documented in the contribution guide.
 
-### Required local validation against original BAuA PDFs
+### Adapter-specific validation
 
-For every change to the BAuA adapter, its section extraction/chunking, or a
-related domain interface used by that adapter, run the opt-in real-document
-checks against the original local samples before treating the change as
-verified. The samples are `TRGS-401.pdf`, `TRGS-402.pdf`, and `TRGS-001.pdf`.
-If those local samples are unavailable, record this validation as outstanding;
-do not substitute synthetic tests and report the real-document check as
-passed.
-
-The opt-in checks are in
-[`tests/pipeline/test_baua_adapter_real.py`](tests/pipeline/test_baua_adapter_real.py).
-They currently check extracted designations and first/last section headings,
-plus that the unresolved-identity sample remains unresolved. They test
-extraction only: they do not write to a database, generate embeddings, or test
-semantic retrieval.
-
-Run them from the repository root, setting the directory that contains the
-local PDFs:
-
-```bash
-HF_HUB_OFFLINE=1 \
-TRANSFORMERS_OFFLINE=1 \
-BAUA_REAL_DOCUMENTS_DIR=/tmp/opencode/baua-review \
-PYTHONPATH=core/src \
-.venv/bin/pytest core/tests/pipeline/test_baua_adapter_real.py -vv
-```
-
-The real-document test stages temporary symlinks and does not copy the PDFs
-into the repository. Keep the originals outside the repository and out of CI;
-do not add PDFs or extracted full text to tests, fixtures, logs, or review
-artifacts. The source must have an applicable legal classification before it
-is processed, consistent with the repository's data-source rules.
+Before changing an adapter or a shared interface used by one, consult that
+adapter's status note for its required tests and local validation. If required
+source-specific checks cannot be run, record them as outstanding; do not
+substitute synthetic tests and report the source-specific check as passed.
+Keep original publisher documents and extracted full text outside the
+repository and CI, and process source material only under its applicable legal
+classification.
 
 ### Real embedding-model checks
 
@@ -72,7 +61,5 @@ plumbing in CI. That is not a semantic-quality test.
 
 When validating actual embedding quality locally, use the configured local
 model artifact (`NORMLY_EMBEDDING_MODEL_PATH`) and a synthetic query/document
-pair. Keep this validation separate from the required original-PDF extraction
-check: the real-document test currently does not exercise the model or
-database. CI and production must use model artifacts provisioned before
-runtime, in line with the repository-wide model-provider restriction.
+pair. CI and production must use model artifacts provisioned before runtime, in
+line with the repository-wide model-provider restriction.
