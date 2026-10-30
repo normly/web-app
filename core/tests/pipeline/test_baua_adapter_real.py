@@ -18,6 +18,10 @@ from pathlib import Path
 import pytest
 
 from normly_core.pipeline.adapters.baua import BauaAdapter
+from .baua_test_support import (
+    BAUA_REAL_DOCUMENT_HEADING_CANARIES,
+    assert_heading_canaries,
+)
 
 
 _DOCUMENT_DIR = os.environ.get("BAUA_REAL_DOCUMENTS_DIR")
@@ -29,16 +33,7 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.mark.parametrize(
     "filename, designation, staged_name, expected_first_heading, expected_last_heading",
-    [
-        (
-            "TRGS-401.pdf", "TRGS 401", "baua_trgs_401.pdf",
-            "1 Anwendungsbereich", "7 Arbeitsmedizinische Vorsorge",
-        ),
-        (
-            "TRGS-402.pdf", "TRGS 402", "baua_trgs_402.pdf",
-            "1 Anwendungsbereich", "7 Dokumentation",
-        ),
-    ],
+    BAUA_REAL_DOCUMENT_HEADING_CANARIES,
 )
 def test_real_document_designation_and_section_extraction(
     tmp_path: Path,
@@ -58,22 +53,14 @@ def test_real_document_designation_and_section_extraction(
     records = list(adapter.fetch())
 
     assert len(records) == 1
-    record = records[0]
-    assert record.raw_designation == designation
-    assert bool(record.full_text)
-
-    sections = adapter.extract_structure(record)
-    assert sections
-    assert [section.sequence_number for section in sections] == list(
-        range(1, len(sections) + 1)
+    assert_heading_canaries(
+        adapter,
+        records[0],
+        sample_name=filename,
+        expected_designation=designation,
+        expected_first_heading=expected_first_heading,
+        expected_last_heading=expected_last_heading,
     )
-    headings = [section.heading for section in sections if section.heading is not None]
-    if not headings:
-        pytest.fail(f"{filename}: no section headings extracted")
-    if headings[0] != expected_first_heading:
-        pytest.fail(f"{filename}: first section heading mismatch")
-    if headings[-1] != expected_last_heading:
-        pytest.fail(f"{filename}: last section heading mismatch")
 
 
 def test_real_document_without_matching_designation_remains_unresolved(tmp_path: Path):

@@ -9,6 +9,11 @@ import pytest
 from normly_core.pipeline.adapters.baua import BauaAdapter
 from normly_core.pipeline.domain import RawRecord
 
+from .baua_test_support import (
+    BAUA_REAL_DOCUMENT_HEADING_CANARIES,
+    assert_heading_canaries,
+)
+
 
 def _write_publication_pdf(path: Path, lines: list[str]) -> None:
     from reportlab.pdfgen import canvas
@@ -30,6 +35,65 @@ def _write_publication_pdf(path: Path, lines: list[str]) -> None:
         else:
             y -= 10  # Small gap for designation/title
     pdf.save()
+
+
+def _write_heading_canary_pdf(
+    path: Path,
+    *,
+    designation: str,
+    expected_first_heading: str,
+    expected_last_heading: str,
+) -> None:
+    """Generate a synthetic PDF with the real samples' heading canaries."""
+    from reportlab.pdfgen import canvas
+
+    pdf = canvas.Canvas(str(path))
+    # Larger bold headings make Docling classify section titles separately,
+    # exercising the same PDF-to-RawRecord-to-RawSection path as local samples.
+    for y, text, font, size in (
+        (750, designation, "Helvetica-Bold", 18),
+        (720, "Synthetic BAuA publication", "Helvetica-Bold", 14),
+        (670, expected_first_heading, "Helvetica-Bold", 14),
+        (645, "Synthetic first-section text.", "Helvetica", 10),
+        (590, expected_last_heading, "Helvetica-Bold", 14),
+        (565, "Synthetic final-section text.", "Helvetica", 10),
+    ):
+        pdf.setFont(font, size)
+        pdf.drawString(72, y, text)
+    pdf.save()
+
+
+@pytest.mark.parametrize(
+    "real_filename, designation, staged_name, first_heading, last_heading",
+    BAUA_REAL_DOCUMENT_HEADING_CANARIES,
+)
+def test_synthetic_pdf_extracts_real_document_heading_canaries(
+    tmp_path,
+    real_filename,
+    designation,
+    staged_name,
+    first_heading,
+    last_heading,
+):
+    _write_heading_canary_pdf(
+        tmp_path / staged_name,
+        designation=designation,
+        expected_first_heading=first_heading,
+        expected_last_heading=last_heading,
+    )
+    adapter = BauaAdapter(directory=tmp_path, source_id=uuid.uuid4())
+
+    records = list(adapter.fetch())
+
+    assert len(records) == 1
+    assert_heading_canaries(
+        adapter,
+        records[0],
+        sample_name=f"synthetic equivalent of {real_filename}",
+        expected_designation=designation,
+        expected_first_heading=first_heading,
+        expected_last_heading=last_heading,
+    )
 
 
 @pytest.mark.parametrize(
