@@ -75,3 +75,16 @@ def test_email_change_confirm_locks_the_account_before_the_token(client, db_sess
     assert response.status_code == 200
     first = _first_positions(lock_log)
     assert first["account"] < first["token"]
+
+
+def test_magic_link_confirm_locks_the_account_before_the_token(client, db_session, lock_log):
+    make_account(db_session, "ml-order@example.de", password="correct horse")
+    client.post("/v1/accounts/magic-link/request", json={"email": "ml-order@example.de"})
+    from tests.test_magic_link import _magic_link_token
+
+    token = _magic_link_token(db_session, "ml-order@example.de")
+    lock_log.clear()
+
+    assert client.post("/v1/accounts/magic-link/confirm", json={"token": token}).status_code == 200
+    first = _first_positions(lock_log)
+    assert first["account"] < first["token"]

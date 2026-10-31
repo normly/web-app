@@ -1629,7 +1629,9 @@ necessarily the issuing body.
   verified the address); a verified account keeps both. A Google sign-in with an
   address Google asserts as verified marks the account verified, so such an
   account is never reset; an older Google-only account that has not signed in
-  since then is still unverified and is reset on accept.
+  since then is still unverified and is reset on accept. A magic-link sign-in that first proves the mailbox of an
+  existing, unverified account resets that account's other sign-in data the
+  same way; its content stays.
 - **Fewer rights at once.** Administrators can downgrade to `user`, change a
   publisher's binding and block an account immediately. Blocking ends all
   sessions and refuses every sign-in path; anonymous use of free content
