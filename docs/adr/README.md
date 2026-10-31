@@ -1353,8 +1353,10 @@ removal. The data inventory is to be reassessed as soon as `account_session`
 stores IP addresses or user agent (not the case today).
 
 *Abandoned registrations.* The rule is deliberately narrower than "unverified":
-Google accounts are never marked as verified (`email_verified_at` stays
-empty), and accounts with a password can sign in even without verification. An
+a Google sign-in marks the account verified only when Google asserts the
+address as verified (since ADR-030; accounts linked before that stay
+unverified until their next such sign-in), and accounts with a password can
+sign in even without verification. An
 account in use therefore has a Google link or at least one
 `account_session` row (even an expired one, as long as it has not been deleted;
 the session's deletion period begins only 7 days after expiry) or a
@@ -1469,7 +1471,8 @@ by hand.
 - *Asynchronous export via e-mail link:* More infrastructure (queue,
   storage, link expiry) and more stored copies, without the scope
   requiring it.
-- *Deleting all unverified accounts:* Google accounts are never "verified" and
+- *Deleting all unverified accounts:* Google accounts are not always
+  "verified" (not before ADR-030, nor without a Google-verified address) and
   password accounts can sign in unverified; the rule would
   delete accounts in use.
 
@@ -1621,7 +1624,10 @@ necessarily the issuing body.
   sessions, the Google link, open tokens and the password) and its content
   (names, avatar, chats, watchlist, notifications; preference and language
   back to the defaults of the invitation), because whoever registered it need
-  not own the mailbox; a verified account keeps both.
+  not own the mailbox; a verified account keeps both. A Google sign-in with an
+  address Google asserts as verified marks the account verified, so such an
+  account is never reset; an older Google-only account that has not signed in
+  since then is still unverified and is reset on accept.
 - **Fewer rights at once.** Administrators can downgrade to `user`, change a
   publisher's binding and block an account immediately. Blocking ends all
   sessions and refuses every sign-in path; anonymous use of free content

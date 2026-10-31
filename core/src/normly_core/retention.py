@@ -16,8 +16,8 @@ ACCOUNT_TOKEN_GRACE = timedelta(hours=24)
 
 #: Abandoned registrations, measured from `created_at`: email never verified,
 #: no Google link and no account session at all (any expiry), not blocked and
-#: role `user`. Accounts in use without verification (Google, password login)
-#: are never purged.
+#: role `user`. Accounts in use without verification (Google link, password
+#: login) are never purged.
 UNVERIFIED_ACCOUNT_MAX_AGE = timedelta(days=30)
 
 #: Read notifications, measured from `created_at`.
