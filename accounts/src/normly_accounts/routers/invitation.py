@@ -67,6 +67,8 @@ def accept_invitation(
         PostgresAccountGoogleIdentityRepository(session).unlink_all_for_account(account.id)
         PostgresAccountTokenRepository(session).delete_for_account(account.id)
         accounts.clear_password_hash(account.id)
+        # Nor does anything the registrant left behind belong to the owner.
+        accounts.reset_unverified_account_content(account.id, locale=invitation.locale)
     if account.email_verified_at is None:
         accounts.mark_email_verified(account.id, now)
     accounts.set_role(account.id, role=invitation.role, publisher_id=invitation.publisher_id)

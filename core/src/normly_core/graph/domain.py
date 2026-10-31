@@ -1295,6 +1295,15 @@ class AccountRepository(Protocol):
 
     def clear_avatar(self, account_id: uuid.UUID) -> None: ...
 
+    def reset_unverified_account_content(self, account_id: uuid.UUID, *, locale: str) -> None:
+        """
+        Deletes what the account accumulated (chats, watches, notifications
+        and their bookkeeping), clears names and avatar, resets the
+        notification preference and sets `locale`. Keeps the account row and
+        leaves credentials to the caller (invitation accept, ADR-030).
+        """
+        ...
+
     def delete_account(self, account_id: uuid.UUID) -> None:
         """Deletes the account and everything it owns; writes a deletion_log entry."""
         ...

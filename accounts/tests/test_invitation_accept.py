@@ -5,12 +5,23 @@ from datetime import datetime, timedelta, timezone
 
 import sqlalchemy as sa
 
-from normly_core.graph.domain import AccountTokenPurpose, Role
+from normly_core.graph.domain import (
+    AccountTokenPurpose,
+    ChatMessageRole,
+    NotificationPreference,
+    NotificationTriggerType,
+    Role,
+    WorkCreatedVia,
+)
 from normly_core.graph.postgres.repositories import (
     PostgresAccountGoogleIdentityRepository,
     PostgresAccountRepository,
     PostgresAccountTokenRepository,
+    PostgresChatRepository,
     PostgresInvitationRepository,
+    PostgresNotificationRepository,
+    PostgresWatchlistRepository,
+    PostgresWorkRepository,
 )
 
 from tests.admin_support import make_account, make_admin, make_publisher
@@ -92,18 +103,43 @@ def test_accepting_a_user_invitation_cannot_remove_the_last_administrator(client
     assert PostgresAccountRepository(db_session).get_account_by_id(admin.id).role is Role.ADMINISTRATOR
 
 
+def _seed_squatter_content(db_session, account_id):
+    accounts = PostgresAccountRepository(db_session)
+    accounts.update_profile_names(account_id, first_name="Eve", last_name="Squatter")
+    accounts.set_avatar(account_id, avatar_image=b"png", avatar_content_type="image/png")
+    accounts.update_notification_preference(account_id, preference=NotificationPreference.BOTH)
+    now = datetime.now(timezone.utc)
+    chats = PostgresChatRepository(db_session)
+    chat = chats.create_session(session_token="squatter-chat", jurisdiction="DE", language="de",
+                                created_at=now, account_id=account_id)
+    chats.create_message(session_id=chat.id, role=ChatMessageRole.USER, content="Hallo?",
+                         answer_type=None, created_at=now)
+    work = PostgresWorkRepository(db_session).create_work(created_via=WorkCreatedVia.MANUAL)
+    PostgresWatchlistRepository(db_session).add_watch(account_id=account_id, work_id=work.id)
+    PostgresNotificationRepository(db_session).create(
+        account_id=account_id, work_id=work.id,
+        trigger_type=NotificationTriggerType.NEW_EDITION, trigger_edge_id=None,
+        trigger_document_id=None, trigger_jurisdiction=None, may_process=None,
+        may_index_fulltext=None, may_cite_passages=None, may_export_free=None,
+        emailed_at=None,
+    )
+    db_session.flush()
+
+
 def _bearer(token):
     return {"Authorization": f"Bearer {token}"}
 
 
-def test_accepting_resets_the_credentials_of_an_unverified_account(client, db_session):
+def test_accepting_resets_credentials_and_content_of_an_unverified_account(client, db_session):
     """
     Someone pre-registers the invited address and keeps the session. The
     rightful recipient accepts: the squatter loses session and password, the
-    role goes only to the session the link created (ADR-030).
+    role goes only to the session the link created, and nothing the squatter
+    left in the account remains (ADR-030).
     """
     _, headers = make_admin(db_session)
-    token = _invite(client, headers, db_session, "victim@vde.example", role="administrator")
+    token = _invite(client, headers, db_session, "victim@vde.example", role="administrator",
+                    locale="en")
     client.post("/v1/accounts/register", json={"email": "victim@vde.example", "password": "attacker pw"})
     squatter = client.post("/v1/accounts/login",
                            json={"email": "victim@vde.example", "password": "attacker pw"})
@@ -118,7 +154,7 @@ def test_accepting_resets_the_credentials_of_an_unverified_account(client, db_se
         account_id=squatted.id, purpose=AccountTokenPurpose.PASSWORD_RESET, token="squatter-reset",
         created_at=now, expires_at=now + timedelta(hours=1),
     )
-    db_session.flush()
+    _seed_squatter_content(db_session, squatted.id)
 
     accepted = client.post("/v1/accounts/invitations/accept", json={"token": token})
 
@@ -132,7 +168,12 @@ def test_accepting_resets_the_credentials_of_an_unverified_account(client, db_se
 
     account = PostgresAccountRepository(db_session).get_account_by_email("victim@vde.example")
     assert account.password_hash is None
-    for table in ("account_token", "account_google_identity"):
+    assert (account.first_name, account.last_name, account.avatar_image) == (None, None, None)
+    assert account.avatar_content_type is None
+    assert account.notification_preference is NotificationPreference.NONE
+    assert account.locale == "en"
+    for table in ("account_token", "account_google_identity", "chat_session", "watchlist",
+                  "notification"):
         count = db_session.execute(
             sa.text(f"SELECT count(*) FROM {table} WHERE account_id = :a"), {"a": account.id}
         ).scalar_one()
@@ -150,6 +191,9 @@ def test_accepting_leaves_a_verified_account_untouched(client, db_session):
     _, headers = make_admin(db_session)
     existing = make_account(db_session, "verified@example.de", password="correct horse")
     PostgresAccountRepository(db_session).mark_email_verified(existing.id, datetime.now(timezone.utc))
+    PostgresAccountRepository(db_session).update_profile_names(
+        existing.id, first_name="Vera", last_name="Owner",
+    )
     db_session.flush()
     login = client.post("/v1/accounts/login",
                         json={"email": "verified@example.de", "password": "correct horse"})
@@ -167,3 +211,5 @@ def test_accepting_leaves_a_verified_account_untouched(client, db_session):
                 "AND target_account_id = :a"), {"a": existing.id},
     ).scalar_one()
     assert '"credentials_reset": false' in audit and "verified@example.de" not in audit
+    kept = PostgresAccountRepository(db_session).get_account_by_id(existing.id)
+    assert (kept.first_name, kept.last_name, kept.locale) == ("Vera", "Owner", "de")

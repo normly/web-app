@@ -1618,8 +1618,10 @@ necessarily the issuing body.
   An address that merely matches never receives a role. Inviting an existing
   account is allowed; its role changes when the link is used. If that account
   never verified its address, accepting first resets its credentials (all
-  sessions, the Google link, open tokens and the password), because whoever
-  registered it need not own the mailbox; a verified account keeps them.
+  sessions, the Google link, open tokens and the password) and its content
+  (names, avatar, chats, watchlist, notifications; preference and language
+  back to the defaults of the invitation), because whoever registered it need
+  not own the mailbox; a verified account keeps both.
 - **Fewer rights at once.** Administrators can downgrade to `user`, change a
   publisher's binding and block an account immediately. Blocking ends all
   sessions and refuses every sign-in path; anonymous use of free content

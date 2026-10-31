@@ -2307,6 +2307,23 @@ class PostgresAccountRepository(AccountRepository):
         # default now would also silently affect every other code path that
         # might ever delete an account row. Children before parents,
         # respecting every FK in this dependency chain.
+        self._delete_account_content(account_id)
+        self._session.execute(
+            sa.delete(AccountTokenORM).where(AccountTokenORM.account_id == account_id)
+        )
+        self._session.execute(
+            sa.delete(AccountSessionORM).where(AccountSessionORM.account_id == account_id)
+        )
+        self._session.execute(
+            sa.delete(AccountGoogleIdentityORM).where(
+                AccountGoogleIdentityORM.account_id == account_id
+            )
+        )
+        self._session.execute(sa.delete(AccountORM).where(AccountORM.id == account_id))
+
+    def _delete_account_content(self, account_id: uuid.UUID) -> None:
+        # What the person accumulated -- chats, watches, notifications and
+        # their bookkeeping -- but no credential and not the account row.
         session_ids = self._session.execute(
             select(ChatSessionORM.id).where(ChatSessionORM.account_id == account_id)
         ).scalars().all()
@@ -2327,17 +2344,6 @@ class PostgresAccountRepository(AccountRepository):
                 sa.delete(ChatSessionORM).where(ChatSessionORM.account_id == account_id)
             )
         self._session.execute(
-            sa.delete(AccountTokenORM).where(AccountTokenORM.account_id == account_id)
-        )
-        self._session.execute(
-            sa.delete(AccountSessionORM).where(AccountSessionORM.account_id == account_id)
-        )
-        self._session.execute(
-            sa.delete(AccountGoogleIdentityORM).where(
-                AccountGoogleIdentityORM.account_id == account_id
-            )
-        )
-        self._session.execute(
             sa.delete(NotificationORM).where(NotificationORM.account_id == account_id)
         )
         self._session.execute(
@@ -2356,7 +2362,21 @@ class PostgresAccountRepository(AccountRepository):
         self._session.execute(
             sa.delete(WatchlistORM).where(WatchlistORM.account_id == account_id)
         )
-        self._session.execute(sa.delete(AccountORM).where(AccountORM.id == account_id))
+
+    def reset_unverified_account_content(self, account_id: uuid.UUID, *, locale: str) -> None:
+        # Invitation accept on a pre-registered, unverified account (ADR-030):
+        # whatever the registrant left behind goes; the row, its address and
+        # role binding stay. Credentials are reset separately by the caller.
+        self._delete_account_content(account_id)
+        self._session.execute(
+            sa.update(AccountORM)
+            .where(AccountORM.id == account_id)
+            .values(
+                first_name=None, last_name=None, avatar_image=None,
+                avatar_content_type=None,
+                notification_preference=NotificationPreference.NONE, locale=locale,
+            )
+        )
 
     def delete_account(self, account_id: uuid.UUID) -> None:
         # The log entry shares the transaction with the deletion: either both
