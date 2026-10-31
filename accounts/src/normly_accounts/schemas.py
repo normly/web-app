@@ -127,6 +127,8 @@ class ExportAccountFields(BaseModel):
     last_name: str | None
     avatar_data_url: str | None
     notification_preference: str
+    role: str
+    publisher_name: str | None
 
 
 class ExportDocumentRef(BaseModel):
@@ -179,11 +181,19 @@ class ExportNotification(BaseModel):
     emailed_at: datetime | None
 
 
+class ExportAdminAction(BaseModel):
+    action: str
+    occurred_at: datetime
+    # Values before/after; the acting administrator is deliberately left out.
+    details: dict
+
+
 class ExportResponse(BaseModel):
     account: ExportAccountFields
     chat_sessions: list[ExportChatSession]
     watchlist: list[ExportWatchlistEntry]
     notifications: list[ExportNotification]
+    admin_actions: list[ExportAdminAction]
 
 
 class AddWatchlistEntryRequest(BaseModel):
