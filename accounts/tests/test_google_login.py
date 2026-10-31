@@ -4,6 +4,8 @@
 
 from datetime import datetime, timedelta, timezone
 
+import sqlalchemy as sa
+
 from normly_accounts.google_oauth import GoogleProfile
 from normly_core.graph.postgres.repositories import (
     PostgresAccountGoogleIdentityRepository,
@@ -413,3 +415,39 @@ def test_a_google_address_other_than_the_accounts_verifies_nothing(client, db_se
     ), "changed")
 
     assert not _verified(db_session, "changed@example.de")
+
+
+def test_a_google_link_removed_mid_flight_refuses_the_sign_in(client, db_session, monkeypatch):
+    """
+    An invitation accept resets the account right after the callback resolved
+    it through its Google link (ADR-030): the callback must not create a
+    session for a link that no longer exists.
+    """
+    accounts = PostgresAccountRepository(db_session)
+    squatted = accounts.create_account(email="google-race@example.de", password_hash=None)
+    PostgresAccountGoogleIdentityRepository(db_session).link_google_identity(
+        account_id=squatted.id, google_subject_id="race-sub",
+    )
+    db_session.flush()
+    original = PostgresAccountGoogleIdentityRepository.get_account_by_google_subject
+    calls = []
+
+    def lookup_then_concurrent_reset(self, subject):
+        found = original(self, subject)
+        if not calls:
+            PostgresAccountGoogleIdentityRepository(db_session).unlink_all_for_account(squatted.id)
+        calls.append(subject)
+        return found
+
+    monkeypatch.setattr(PostgresAccountGoogleIdentityRepository, "get_account_by_google_subject",
+                        lookup_then_concurrent_reset)
+
+    response = _callback(client, db_session, GoogleProfile(
+        subject_id="race-sub", email="google-race@example.de", email_verified=False,
+    ), "google-race")
+
+    assert response.status_code == 401
+    sessions = db_session.execute(
+        sa.text("SELECT count(*) FROM account_session WHERE account_id = :a"), {"a": squatted.id},
+    ).scalar_one()
+    assert sessions == 0

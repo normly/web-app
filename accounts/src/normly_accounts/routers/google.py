@@ -134,6 +134,16 @@ def google_callback(
                 detail="this account is already linked to a different Google identity",
             )
 
+    # Same locked re-check as the password login: an invitation accept may
+    # have reset this account since it was resolved (ADR-030). Under the row
+    # lock, held until the session commits, the link this request used must
+    # still exist; accept takes the same lock before removing it.
+    locked = account_repo.lock_account(account.id)
+    relinked = google_repo.get_account_by_google_subject(profile.subject_id)
+    if locked is None or relinked is None or relinked.id != locked.id:
+        raise HTTPException(status_code=401, detail="Google sign-in is no longer valid")
+    account = locked
+
     # Google vouching for this very address proves the mailbox as well as our
     # own verification link would -- new, linked and returning accounts
     # alike. Only for the account's current address (it may have changed
