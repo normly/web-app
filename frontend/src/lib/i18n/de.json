@@ -54,7 +54,9 @@
     "resendVerificationButton": "Bestätigungslink erneut senden",
     "resendVerificationSentMessage": "Falls ein Konto mit dieser Adresse existiert und noch nicht bestätigt ist, wurde eine E-Mail versendet.",
     "magicLinkConfirmingMessage": "Du wirst angemeldet…",
-    "magicLinkInvalidMessage": "Dieser Link ist ungültig oder abgelaufen."
+    "magicLinkInvalidMessage": "Dieser Link ist ungültig oder abgelaufen.",
+    "accountBlocked": "Dein Konto ist gesperrt. Eine Anmeldung ist nicht möglich.",
+    "accountBlockedContact": "Bei Fragen wende dich an {contact}."
   },
   "history": {
     "empty": "Noch keine Chats vorhanden.",
@@ -186,6 +188,195 @@
     "deleteAccountConfirmLabel": "Gib zur Bestätigung deine E-Mail-Adresse ein",
     "deleteAccountButton": "Konto endgültig löschen",
     "deleteAccountError": "Konto konnte nicht gelöscht werden. Prüfe deine Eingaben.",
-    "dataSectionTitle": "Konto & Daten"
+    "dataSectionTitle": "Konto & Daten",
+    "deleteLastAdministrator": "Du bist der letzte Administrator. Mache zuerst eine andere Person zum Administrator."
+  },
+  "admin": {
+    "inviteButton": "Nutzer einladen",
+    "noAccess": "Kein Zugriff. Diese Seite ist Administratoren vorbehalten.",
+    "loadError": "Die Daten konnten nicht geladen werden.",
+    "summary": {
+      "accountsTotal": "Konten gesamt",
+      "activeHint": "davon {count} in den letzten 30 Tagen aktiv",
+      "publishers": "Mit Rolle Publisher",
+      "publishersHint": "{publishers} Verlage · {invitations} Einladungen offen",
+      "administrators": "Mit Rolle Administrator",
+      "administratorsHint": "Zugriff auf das Nutzermanagement",
+      "blocked": "Gesperrt",
+      "blockedHint": "häufigster Grund: {reason}",
+      "blockedNone": "keine gesperrten Konten"
+    },
+    "tabs": {
+      "all": "Alle",
+      "user": "User",
+      "publisher": "Publisher",
+      "administrator": "Administrator"
+    },
+    "status": {
+      "label": "Status",
+      "all": "Alle Status",
+      "active": "Aktiv",
+      "invited": "Eingeladen",
+      "expired": "Abgelaufen",
+      "blocked": "Gesperrt"
+    },
+    "searchPlaceholder": "E-Mail oder Name suchen …",
+    "searchLabel": "Konten durchsuchen",
+    "columns": {
+      "account": "Konto",
+      "firstName": "Vorname",
+      "lastName": "Nachname",
+      "signIn": "Anmeldung",
+      "role": "Rolle",
+      "publisher": "Zuordnung",
+      "lastLogin": "Letzte Anmeldung",
+      "createdAt": "Konto seit",
+      "status": "Status",
+      "actions": "Aktionen"
+    },
+    "signIn": {
+      "email": "E-Mail",
+      "google": "Google"
+    },
+    "never": "noch nie",
+    "today": "heute {time}",
+    "yesterday": "gestern {time}",
+    "roles": {
+      "user": "User",
+      "publisher": "Publisher",
+      "administrator": "Administrator"
+    },
+    "blockReasons": {
+      "bulk_retrieval": "Massenabruf",
+      "abuse": "Missbrauch",
+      "terms_violation": "Verstoß gegen Nutzungsbedingungen",
+      "other": "Sonstiges"
+    },
+    "pagination": {
+      "showing": "Zeige {from} bis {to} von {total} Zeilen",
+      "rowsPerPage": "Zeilen pro Seite",
+      "page": "Seite {page} von {pages}",
+      "first": "Erste Seite",
+      "previous": "Vorherige Seite",
+      "next": "Nächste Seite",
+      "last": "Letzte Seite"
+    },
+    "empty": "Keine Einträge gefunden.",
+    "actions": {
+      "menu": "Aktionen für {email}",
+      "edit": "Bearbeiten",
+      "block": "Sperren",
+      "unblock": "Entsperren",
+      "remove": "Entfernen",
+      "resend": "Erneut senden",
+      "withdraw": "Zurückziehen"
+    },
+    "edit": {
+      "title": "Konto bearbeiten",
+      "upgradeHint": "Höhere Rollen werden per Einladung vergeben.",
+      "publisher": "Verlag",
+      "downgrade": "Auf User zurückstufen",
+      "save": "Speichern",
+      "cancel": "Abbrechen"
+    },
+    "block": {
+      "title": "Konto sperren",
+      "description": "{email} wird sofort abgemeldet und kann sich nicht mehr anmelden. Die Person erhält eine neutrale E-Mail ohne Angabe des Grundes.",
+      "reason": "Grund",
+      "confirm": "Sperren",
+      "cancel": "Abbrechen"
+    },
+    "remove": {
+      "title": "Konto entfernen",
+      "description": "Das Konto {email} und alle zugehörigen Daten werden endgültig gelöscht. Bei Missbrauch besser sperren: Eine entfernte Adresse kann sich neu registrieren.",
+      "confirmLabel": "Zur Bestätigung die E-Mail-Adresse eingeben",
+      "confirm": "Endgültig entfernen",
+      "cancel": "Abbrechen"
+    },
+    "invite": {
+      "title": "Nutzer einladen",
+      "email": "E-Mail-Adresse",
+      "emailPlaceholder": "name@verlag.de",
+      "role": "Rolle",
+      "publisher": "Verlagszuordnung",
+      "publisherPlaceholder": "Verlag wählen",
+      "newPublisher": "+ Neuer Verlag …",
+      "newPublisherName": "Name des Verlags",
+      "addPublisher": "Anlegen",
+      "language": "Sprache der Einladung",
+      "languageDe": "Deutsch",
+      "languageEn": "English",
+      "message": "Persönliche Nachricht (optional)",
+      "messagePlaceholder": "z. B. Zugang zu Ihrer Nutzungs- und Nachfrageübersicht, wie besprochen",
+      "help": "Der Link ist 7 Tage gültig und nur einmal verwendbar. Rolle und Zuordnung werden erst gebunden, wenn die eingeladene Person den Link öffnet und die Einladung annimmt.",
+      "existingAccount": "Für diese Adresse besteht bereits ein Konto. Es erhält die Rolle mit Annahme der Einladung.",
+      "unverifiedAccount": "Das bestehende Konto ist unbestätigt. Beim Annehmen werden seine Anmeldedaten zurückgesetzt; ohne Google-Verknüpfung werden auch seine Inhalte gelöscht.",
+      "blockedAccount": "Dieses Konto ist gesperrt und kann nicht eingeladen werden.",
+      "openInvitation": "Für diese Adresse gibt es bereits eine offene Einladung. Sie wird ersetzt.",
+      "send": "Einladung senden",
+      "cancel": "Abbrechen"
+    },
+    "roleMatrix": {
+      "button": "Was die Rollen sehen",
+      "title": "Was die Rollen sehen",
+      "planned": "geplant",
+      "roles": {
+        "anonymous": "Anonym",
+        "user": "User",
+        "publisher": "Publisher",
+        "administrator": "Administrator"
+      },
+      "capabilities": {
+        "search_and_free_content": "Suche und freie Inhalte",
+        "chat_and_history": "Chat und Verlauf",
+        "chats_of_others": "Chats anderer Nutzer",
+        "personal_usage_data_of_others": "Personenbezogene Nutzungsdaten anderer",
+        "usage_and_demand": "Nutzung und Nachfrage",
+        "deliveries": "Lieferungen",
+        "billing": "Abrechnung",
+        "user_management": "Nutzermanagement und Audit-Protokoll"
+      },
+      "values": {
+        "yes": "ja",
+        "no": "–",
+        "own": "eigene",
+        "aggregated_own": "eigene Inhalte, aggregiert",
+        "all": "alle"
+      }
+    },
+    "notices": {
+      "invited": "Einladung an {email} gesendet.",
+      "resent": "Einladung erneut gesendet.",
+      "withdrawn": "Einladung zurückgezogen.",
+      "saved": "Änderung gespeichert.",
+      "blocked": "Konto gesperrt.",
+      "unblocked": "Konto entsperrt.",
+      "removed": "Konto entfernt.",
+      "emailNotSent": "Die Aktion wurde ausgeführt, aber die E-Mail konnte nicht versendet werden."
+    },
+    "errors": {
+      "last_administrator": "Der letzte Administrator kann nicht herabgestuft, gesperrt oder entfernt werden.",
+      "self_action": "Das eigene Konto kann hier nicht geändert werden.",
+      "upgrade_requires_invitation": "Höhere Rollen werden per Einladung vergeben.",
+      "not_a_publisher": "Das Konto hat nicht die Rolle Publisher.",
+      "account_blocked": "Das Konto ist gesperrt.",
+      "already_blocked": "Das Konto ist bereits gesperrt.",
+      "not_blocked": "Das Konto ist nicht gesperrt.",
+      "publisher_name_taken": "Ein Verlag mit diesem Namen existiert bereits.",
+      "unknown_publisher": "Der Verlag existiert nicht.",
+      "confirmation_mismatch": "Die E-Mail-Adresse stimmt nicht überein.",
+      "invitation_invalid": "Die Einladung ist ungültig oder abgelaufen.",
+      "forbidden": "Dafür fehlt die Berechtigung.",
+      "generic": "Das hat nicht geklappt. Bitte erneut versuchen."
+    }
+  },
+  "invitation": {
+    "heading": "Einladung zu normly",
+    "description": "Mit der Annahme wirst du angemeldet und erhältst die Rolle aus der Einladung.",
+    "accept": "Einladung annehmen",
+    "accepting": "Wird angenommen …",
+    "invalid": "Dieser Einladungslink ist ungültig oder abgelaufen. Bitte die einladende Person um eine neue Einladung.",
+    "missingToken": "Dieser Link ist unvollständig. Bitte öffne den Link aus der Einladungs-E-Mail.",
+    "lastAdministrator": "Diese Einladung würde den letzten Administrator entfernen und kann daher nicht angenommen werden."
   }
 }
