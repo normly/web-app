@@ -4,7 +4,7 @@
 
 import type { NextConfig } from "next";
 
-export const TOKEN_PAGES = ["/invitation", "/magic-link", "/reset-password", "/confirm-email-change"];
+export const TOKEN_PAGES = ["/invitation", "/magic-link", "/reset-password", "/confirm-email-change", "/verify-email"];
 
 const nextConfig: NextConfig = {
   // One built image serves any number of instances (ADR-010) -- no

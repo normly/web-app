@@ -9,7 +9,9 @@ describe("next config headers", () => {
   it("sends no Referer from pages that carry a one-time token", async () => {
     const rules = await nextConfig.headers!();
     const sources = rules.map((r) => r.source).sort();
-    expect(sources).toEqual(["/confirm-email-change", "/invitation", "/magic-link", "/reset-password"]);
+    expect(sources).toEqual([
+      "/confirm-email-change", "/invitation", "/magic-link", "/reset-password", "/verify-email",
+    ]);
     for (const r of rules) {
       expect(r.headers).toContainEqual({ key: "Referrer-Policy", value: "no-referrer" });
     }
