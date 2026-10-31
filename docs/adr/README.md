@@ -1626,7 +1626,7 @@ necessarily the issuing body.
   stays possible (ADR-017). The reason comes from a fixed list; the person
   receives a neutral mail with a contact address.
 - **Protection.** The last active administrator cannot be downgraded,
-  blocked or removed; nobody can do any of this to their own account through
+  blocked or removed, also not by deleting their own account; nobody can do any of this to their own account through
   the panel. The first administrator is set with
   `python -m normly_core.pipeline grant-admin --email …`.
 - **Checks.** The role is read from the database on every request. One

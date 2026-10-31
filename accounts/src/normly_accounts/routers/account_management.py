@@ -19,6 +19,7 @@ from normly_core.graph.postgres.repositories import (
     PostgresWatchlistRepository,
 )
 
+from normly_accounts.admin_rules import ensure_administrator_remains
 from normly_accounts.dependencies import get_current_account, get_session
 from normly_accounts.routers.login import avatar_data_url
 from normly_accounts.schemas import (
@@ -45,6 +46,9 @@ def delete_account(
     # email-address confirmation before ever sending this request; the valid
     # session itself is the only server-side proof available.
 
+    # The last active administrator cannot leave the instance without one
+    # (ADR-030), not even by deleting their own account.
+    ensure_administrator_remains(session, account)
     PostgresAccountRepository(session).delete_account(account.id)
     # Commit here, not just at the end of get_session()'s request scope --
     # same hazard and fix as _create_session_response in login.py: FastAPI
