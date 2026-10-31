@@ -144,3 +144,61 @@ def test_email_change_mails_in_the_request_language(client, email_sender):
     mail = email_sender.sent[-1]
     assert mail["subject"] == "Confirm your new email address"
     assert "changed-en@example.de" in mail["body"]
+
+
+# --- The pending address is bound to the token, never taken from the link ---
+
+def _request_change(client, email_sender, headers, new_email):
+    client.post("/v1/accounts/email/change", json={"new_email": new_email}, headers=headers)
+    return re.search(r"token=([^&\s]+)", email_sender.sent[-1]["body"]).group(1)
+
+
+def test_a_tampered_address_in_the_link_is_refused(client, email_sender):
+    """
+    The requester controls owned@example.de and receives its link; swapping
+    the address in that link must not move the account to a mailbox nobody
+    proved.
+    """
+    headers = _register_and_authorize(client)
+    token = _request_change(client, email_sender, headers, "owned@example.de")
+
+    response = client.get(f"/v1/accounts/email/confirm?token={token}&email=victim@example.de")
+
+    assert (response.status_code, response.json()["detail"]) == (400, "invalid or expired token")
+    assert client.get("/v1/accounts/session", headers=headers).json()["email"] == "owner@example.de"
+
+
+def test_confirming_without_the_address_in_the_link_uses_the_tokens(client, email_sender):
+    headers = _register_and_authorize(client)
+    token = _request_change(client, email_sender, headers, "from-token@example.de")
+
+    response = client.get(f"/v1/accounts/email/confirm?token={token}")
+
+    assert response.status_code == 200
+    assert client.get("/v1/accounts/session", headers=headers).json()["email"] == "from-token@example.de"
+
+
+def test_a_token_without_a_stored_address_is_refused(client, db_session):
+    """Tokens issued before the address was stored on them (pre-0042)."""
+    from datetime import datetime, timedelta, timezone
+
+    from normly_core.graph.domain import AccountTokenPurpose
+    from normly_core.graph.postgres.orm import AccountTokenORM
+    import uuid
+
+    headers = _register_and_authorize(client)
+    account_id = client.get("/v1/accounts/session", headers=headers).json()["account_id"]
+    now = datetime.now(timezone.utc)
+    db_session.add(AccountTokenORM(
+        id=uuid.uuid4(), account_id=uuid.UUID(account_id), email=None,
+        purpose=AccountTokenPurpose.EMAIL_CHANGE, token="legacy-change-token",
+        created_at=now, expires_at=now + timedelta(hours=1), used_at=None,
+    ))
+    db_session.flush()
+
+    response = client.get(
+        "/v1/accounts/email/confirm?token=legacy-change-token&email=legacy@example.de"
+    )
+
+    assert (response.status_code, response.json()["detail"]) == (400, "invalid or expired token")
+    assert client.get("/v1/accounts/session", headers=headers).json()["email"] == "owner@example.de"

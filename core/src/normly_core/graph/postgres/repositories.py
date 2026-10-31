@@ -3010,11 +3010,18 @@ class PostgresAccountTokenRepository(AccountTokenRepository):
         purpose: AccountTokenPurpose, token: str, created_at: datetime,
         expires_at: datetime,
     ) -> AccountToken:
-        if (account_id is None) == (email is None):
-            # Mirrors ck_account_token_account_or_email. Catching it here keeps
-            # the caller's session usable: an IntegrityError from the check
-            # constraint would abort the surrounding transaction, and this is a
-            # programming error at the call site, never user input.
+        # Mirrors ck_account_token_account_or_email. Catching it here keeps
+        # the caller's session usable: an IntegrityError from the check
+        # constraint would abort the surrounding transaction, and this is a
+        # programming error at the call site, never user input.
+        if purpose is AccountTokenPurpose.EMAIL_CHANGE:
+            # The account to change and the pending address it changes to.
+            if account_id is None or email is None:
+                raise ValueError(
+                    "an email_change token needs both account_id and email, "
+                    f"got account_id={account_id!r} and email={email!r}"
+                )
+        elif (account_id is None) == (email is None):
             raise ValueError(
                 "create_token needs exactly one of account_id and email, "
                 f"got account_id={account_id!r} and email={email!r}"

@@ -560,8 +560,11 @@ class AccountTokenORM(Base):
 
     __table_args__ = (
         sa.UniqueConstraint("token", name="uq_account_token_token"),
+        # An email_change token carries the account and the pending address
+        # (0042); every other purpose exactly one of the two (0014).
         sa.CheckConstraint(
-            "(account_id IS NULL) != (email IS NULL)",
+            "(purpose = 'email_change' AND account_id IS NOT NULL)"
+            " OR (purpose <> 'email_change' AND (account_id IS NULL) != (email IS NULL))",
             name="ck_account_token_account_or_email",
         ),
     )

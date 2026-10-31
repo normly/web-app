@@ -1502,7 +1502,9 @@ class AccountTokenRepository(Protocol):
     requested — otherwise anyone could conjure an account for any address they
     can type without proving they can read that mailbox. `create_token`
     therefore takes exactly one of `account_id` and `email`; passing both or
-    neither is a programming error and raises `ValueError`.
+    neither is a programming error and raises `ValueError`. The exception is
+    `EMAIL_CHANGE`, which needs both: the account to change and the pending
+    address, bound server-side so the confirm link cannot redirect the change.
     """
 
     def create_token(
