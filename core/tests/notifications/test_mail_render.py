@@ -6,11 +6,14 @@ from datetime import date, timedelta
 import pytest
 
 from normly_core.notifications.mail import (
+    contact_address,
     format_date,
+    format_days,
     format_duration,
     render_bilingual_email,
     render_email,
 )
+from normly_core.notifications.mail.texts import COMMON
 
 KINDS = [
     "verification", "magic_link", "password_reset", "email_change",
@@ -145,3 +148,55 @@ def test_bilingual_mail_still_escapes_html_only():
     assert "<b>x</b>" not in mail.html
     assert "&lt;b&gt;x&lt;/b&gt;" in mail.html
     assert "<b>x</b>" in mail.text
+
+
+@pytest.mark.parametrize("locale", ["de", "en"])
+def test_invitation_renders_role_publisher_and_the_escaped_personal_message(locale):
+    mail = render_email(
+        "invitation", locale, base_url="https://app.example.org", action_url=ACTION,
+        quote="Hallo <b>Team</b>\nwie besprochen", role="Publisher",
+        publisher=" für VDE Verlag" if locale == "de" else " for VDE Verlag",
+        validity=format_days(7, locale),
+    )
+    assert "VDE Verlag" in mail.text and "Publisher" in mail.text
+    assert "Hallo <b>Team</b>" in mail.text
+    assert "Hallo &lt;b&gt;Team&lt;/b&gt;" in mail.html
+    assert ACTION in mail.text
+    assert "{" not in mail.text
+
+
+def test_mails_without_a_quote_show_no_quote_label():
+    mail = render_email("magic_link", "de", base_url=None, action_url=ACTION, validity="15 Minuten")
+    assert "Persönliche Nachricht" not in mail.text
+
+
+@pytest.mark.parametrize("kind", ["account_blocked", "account_removed"])
+@pytest.mark.parametrize("locale", ["de", "en"])
+def test_account_notices_name_the_contact_and_have_no_button(kind, locale):
+    mail = render_email(kind, locale, base_url=None, contact="support@normly.example")
+    assert "support@normly.example" in mail.text
+    # The fallback-link sentence is rendered only together with a button.
+    assert COMMON[locale]["fallback_link"] not in mail.text
+    assert COMMON[locale]["fallback_link"] not in mail.html
+    assert "{" not in mail.text
+
+
+def test_account_notice_bilingual():
+    mail = render_bilingual_email(
+        "account_blocked", base_url=None,
+        params={"de": {"contact": "a@b.example"}, "en": {"contact": "a@b.example"}},
+    )
+    assert mail.subject == "Dein normly-Konto wurde gesperrt / Your normly account has been blocked"
+
+
+def test_format_days():
+    assert format_days(7, "de") == "7 Tage"
+    assert format_days(1, "en") == "1 day"
+
+
+def test_contact_address_prefers_the_contact_variable(monkeypatch):
+    monkeypatch.setenv("NORMLY_CONTACT_EMAIL", "kontakt@normly.example")
+    monkeypatch.setenv("NORMLY_IMPRINT_URL", "https://normly.example/impressum")
+    assert contact_address() == "kontakt@normly.example"
+    monkeypatch.delenv("NORMLY_CONTACT_EMAIL")
+    assert contact_address() == "https://normly.example/impressum"

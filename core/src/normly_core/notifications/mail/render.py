@@ -41,8 +41,8 @@ _ENV = Environment(
 )
 
 _UNITS = {
-    "de": {"minute": ("Minute", "Minuten"), "hour": ("Stunde", "Stunden")},
-    "en": {"minute": ("minute", "minutes"), "hour": ("hour", "hours")},
+    "de": {"minute": ("Minute", "Minuten"), "hour": ("Stunde", "Stunden"), "day": ("Tag", "Tage")},
+    "en": {"minute": ("minute", "minutes"), "hour": ("hour", "hours"), "day": ("day", "days")},
 }
 _EN_MONTHS = (
     "January", "February", "March", "April", "May", "June", "July",
@@ -71,13 +71,31 @@ def format_duration(duration: timedelta, locale: str) -> str:
     return f"{count} {singular if count == 1 else plural}"
 
 
+def format_days(days: int, locale: str) -> str:
+    singular, plural = _UNITS[_supported(locale)]["day"]
+    return f"{days} {singular if days == 1 else plural}"
+
+
+def contact_address() -> str:
+    """Where a blocked or removed person can turn to (ADR-030)."""
+    return (
+        os.environ.get("NORMLY_CONTACT_EMAIL")
+        or os.environ.get("NORMLY_IMPRINT_URL")
+        or os.environ.get("NORMLY_PUBLIC_BASE_URL")
+        or "http://localhost:3000"
+    )
+
+
 def format_date(value: date, locale: str) -> str:
     if _supported(locale) == "en":
         return f"{value.day} {_EN_MONTHS[value.month - 1]} {value.year}"
     return value.strftime("%d.%m.%Y")
 
 
-def _block(kind: str, locale: str, action_url: str | None, params: dict[str, str]) -> dict:
+def _block(
+    kind: str, locale: str, action_url: str | None, params: dict[str, str],
+    quote: str | None = None,
+) -> dict:
     """One language's copy of a mail: what the layout shows between header and footer."""
     if kind not in KINDS[locale]:
         raise ValueError(f"unknown email kind {kind!r}")
@@ -89,6 +107,8 @@ def _block(kind: str, locale: str, action_url: str | None, params: dict[str, str
         "subject": copy["subject"],
         "heading": copy["heading"],
         "paragraph": copy["paragraph"],
+        "quote": quote,
+        "quote_label": COMMON[locale]["personal_message"],
         "button": copy["button"] if action_url else None,
         "action_url": action_url,
         "note": copy["note"],
@@ -118,10 +138,10 @@ def _render(
 
 def render_email(
     kind: str, locale: str, *, base_url: str | None, action_url: str | None = None,
-    **params: str,
+    quote: str | None = None, **params: str,
 ) -> RenderedEmail:
     locale = _supported(locale)
-    block = _block(kind, locale, action_url, params)
+    block = _block(kind, locale, action_url, params, quote)
     return _render([block], block["subject"], locale, base_url)
 
 

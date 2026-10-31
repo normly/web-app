@@ -79,7 +79,7 @@ reproducible (ADR-023); see [docs/guide/self-hosting.md](docs/guide/self-hosting
 
 | | |
 |---|---|
-| [docs/srs/](docs/srs/) | Requirements (SRS/SDD), 78 requirements |
+| [docs/srs/](docs/srs/) | Requirements (SRS/SDD), 80 requirements |
 | [docs/adr/](docs/adr/) | Architecture decisions with rationale |
 | [docs/normly_processing-chain.svg](docs/normly_processing-chain.svg) | From source to delivery |
 | [docs/normly_development-phases.svg](docs/normly_development-phases.svg) | Phase plan |

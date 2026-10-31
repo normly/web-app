@@ -21,7 +21,7 @@ standard.
   (graph first, license model)
 - **[Architecture decisions](adr/README.md)** — why it's built the way
   it's built
-- **[Requirements](srs/README.md)** — the 78 requirements (SRS/SDD)
+- **[Requirements](srs/README.md)** — the 80 requirements (SRS/SDD)
 - **[Developer onboarding](guide/developer-onboarding.md)** — codebase map,
   specification workflow, and contribution pointers
 - **[Code reference](reference/core.md)** — generated automatically from

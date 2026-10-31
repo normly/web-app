@@ -92,6 +92,10 @@ class SessionValidationResponse(BaseModel):
     # page load -- login returns no account data -- so every field the
     # profile overlay renders has to be here, not only on AccountResponse.
     notification_preference: str
+    # Read by the frontend to show the administrator menu; the server checks
+    # the role again on every admin request.
+    role: str
+    publisher_id: uuid.UUID | None
 
 
 class SetPasswordRequest(BaseModel):
@@ -123,6 +127,8 @@ class ExportAccountFields(BaseModel):
     last_name: str | None
     avatar_data_url: str | None
     notification_preference: str
+    role: str
+    publisher_name: str | None
 
 
 class ExportDocumentRef(BaseModel):
@@ -175,11 +181,19 @@ class ExportNotification(BaseModel):
     emailed_at: datetime | None
 
 
+class ExportAdminAction(BaseModel):
+    action: str
+    occurred_at: datetime
+    # Values before/after; the acting administrator is deliberately left out.
+    details: dict
+
+
 class ExportResponse(BaseModel):
     account: ExportAccountFields
     chat_sessions: list[ExportChatSession]
     watchlist: list[ExportWatchlistEntry]
     notifications: list[ExportNotification]
+    admin_actions: list[ExportAdminAction]
 
 
 class AddWatchlistEntryRequest(BaseModel):
@@ -199,3 +213,7 @@ class NotificationResponse(BaseModel):
     trigger_jurisdiction: str | None
     created_at: datetime
     read_at: datetime | None
+
+
+class AcceptInvitationRequest(BaseModel):
+    token: str

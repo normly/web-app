@@ -3,12 +3,15 @@
 
 from normly_core.notifications.mail.render import (
     RenderedEmail,
+    contact_address,
     format_date,
+    format_days,
     format_duration,
     render_bilingual_email,
     render_email,
 )
 
 __all__ = [
-    "RenderedEmail", "format_date", "format_duration", "render_bilingual_email", "render_email",
+    "RenderedEmail", "contact_address", "format_date", "format_days", "format_duration",
+    "render_bilingual_email", "render_email",
 ]

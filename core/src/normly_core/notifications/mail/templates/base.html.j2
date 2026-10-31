@@ -28,6 +28,9 @@
 {% endif %}
 <p style="margin:0 0 16px;font-size:20px;font-weight:600">{{ block.heading }}</p>
 <p style="margin:0 0 24px;font-size:15px;line-height:24px">{{ block.paragraph }}</p>
+{% if block.quote %}
+<p style="margin:0 0 24px;padding:12px 16px;border-left:3px solid {{ tokens.border }};font-size:15px;line-height:24px;white-space:pre-line"><span style="display:block;font-size:13px;color:{{ tokens.muted_foreground }}">{{ block.quote_label }}</span>{{ block.quote }}</p>
+{% endif %}
 {% if block.button %}
 <a href="{{ block.action_url }}" style="display:inline-block;background:{{ tokens.primary }};color:{{ tokens.primary_foreground }};padding:10px 20px;border-radius:{{ tokens.radius }};font-size:14px;font-weight:500;text-decoration:none" target="_blank">{{ block.button }}</a>
 <p style="margin:24px 0 0;font-size:13px;line-height:20px;color:{{ tokens.muted_foreground }}">{{ block.fallback_link }}<br/><a href="{{ block.action_url }}" style="color:{{ tokens.muted_foreground }};text-decoration:underline;word-break:break-all" target="_blank">{{ block.action_url }}</a></p>

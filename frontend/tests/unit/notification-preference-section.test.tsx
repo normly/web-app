@@ -14,6 +14,7 @@ function makeAccount(notificationPreference: string): AccountSummary {
   return {
     accountId: "acc-1", email: "a@example.de", firstName: null, lastName: null,
     hasAvatar: false, hasPassword: true, notificationPreference,
+    role: "user", publisherId: null,
   };
 }
 

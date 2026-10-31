@@ -81,4 +81,19 @@ describe("MagicLinkPageContent", () => {
     );
     expect(push).not.toHaveBeenCalled();
   });
+
+  it("shows the blocked notice when the account is blocked", async () => {
+    searchParams.mockReturnValue(new URLSearchParams("token=t"));
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ detail: "account_blocked" }), { status: 403 }),
+    );
+    render(
+      <LocaleProvider initialLocale="de">
+        <MagicLinkPageContent contact="kontakt@normly.example" />
+      </LocaleProvider>,
+    );
+    expect(
+      await screen.findByText("Dein Konto ist gesperrt. Eine Anmeldung ist nicht möglich."),
+    ).toBeInTheDocument();
+  });
 });

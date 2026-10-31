@@ -7,6 +7,7 @@ import { POST as login } from "@/app/api/auth/login/route";
 import { POST as magicLinkRequest } from "@/app/api/auth/magic-link/request/route";
 import { GET as session } from "@/app/api/auth/session/route";
 import { POST as logout } from "@/app/api/auth/logout/route";
+import { GET as googleCallback } from "@/app/api/auth/google/callback/route";
 
 const originalFetch = global.fetch;
 
@@ -123,7 +124,7 @@ describe("auth Route Handlers", () => {
     });
     const response = await session(request);
     const body = await response.json();
-    expect(body.account).toEqual({ accountId: "1", email: "a@example.de" });
+    expect(body.account).toEqual({ accountId: "1", email: "a@example.de", role: "user", publisherId: null });
   });
 
   it("session check forwards the stored notification preference", async () => {
@@ -163,6 +164,7 @@ describe("auth Route Handlers", () => {
       hasAvatar: false,
       hasPassword: true,
       notificationPreference: "both",
+      role: "user", publisherId: null,
     });
   });
 
@@ -231,5 +233,16 @@ describe("auth Route Handlers", () => {
 
     expect(body).toEqual({ ok: true });
     expect(response.cookies.get("normly_account_session")?.value).toBe("");
+  });
+
+  it("sends a blocked account to the login page with a blocked hint", async () => {
+    vi.stubEnv("NORMLY_ACCOUNTS_BASE_URL", "http://accounts.internal");
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ detail: "account_blocked" }), { status: 403 }),
+    );
+    const response = await googleCallback(
+      new NextRequest("http://localhost/api/auth/google/callback?code=c&state=s"),
+    );
+    expect(response.headers.get("location")).toBe("http://localhost/login?auth_error=blocked");
   });
 });

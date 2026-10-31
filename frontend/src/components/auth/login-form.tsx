@@ -5,22 +5,25 @@
 "use client";
 
 import * as React from "react";
+import { BlockedNotice } from "@/components/auth/blocked-notice";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n/provider";
 
-export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
+export function LoginForm({
+  onSuccess, contact,
+}: { onSuccess: () => void; contact?: string | null }) {
   const { t } = useTranslation();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
-  const [error, setError] = React.useState(false);
+  const [error, setError] = React.useState<"none" | "generic" | "blocked">("none");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showResetRequest, setShowResetRequest] = React.useState(false);
   const [resetSent, setResetSent] = React.useState(false);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    setError(false);
+    setError("none");
     setIsSubmitting(true);
     try {
       const response = await fetch("/api/auth/login", {
@@ -31,7 +34,8 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
       if (response.ok) {
         onSuccess();
       } else {
-        setError(true);
+        const body = await response.json().catch(() => ({}));
+        setError(body.detail === "account_blocked" ? "blocked" : "generic");
       }
     } finally {
       setIsSubmitting(false);
@@ -102,7 +106,8 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
           required
         />
       </label>
-      {error && <p className="text-sm text-red-600">{t("auth.genericError")}</p>}
+      {error === "blocked" && <BlockedNotice contact={contact ?? null} />}
+      {error === "generic" && <p className="text-sm text-red-600">{t("auth.genericError")}</p>}
       <Button type="submit" disabled={isSubmitting}>
         {t("auth.loginButton")}
       </Button>

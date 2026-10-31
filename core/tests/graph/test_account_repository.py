@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 normly contributors
 
+import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -127,11 +128,13 @@ def test_session_create_lookup_extend_and_revoke(db_session):
     assert session_repo.get_session_by_token("tok-abc") == session
 
     later = now + timedelta(days=31)
-    session_repo.extend_session(session.id, later)
+    assert session_repo.extend_session(session.id, later) is True
     assert session_repo.get_session_by_token("tok-abc").expires_at == later
 
     session_repo.revoke_session("tok-abc")
     assert session_repo.get_session_by_token("tok-abc") is None
+    # A session deleted under the caller (block, invitation reset) is reported.
+    assert session_repo.extend_session(session.id, later) is False
 
 
 def test_get_session_by_token_returns_none_for_an_unknown_token(db_session):
@@ -369,3 +372,45 @@ def test_the_database_rejects_an_unsupported_locale(db_session):
         with db_session.begin_nested():
             repo.update_locale(account.id, locale="fr")
             db_session.flush()
+
+
+def test_lock_account_rereads_the_committed_row(db_session):
+    repo = PostgresAccountRepository(db_session)
+    account = repo.create_account(email="lock@example.de", password_hash="hash")
+    repo.clear_password_hash(account.id)
+
+    locked = repo.lock_account(account.id)
+
+    assert locked.id == account.id and locked.password_hash is None
+    assert repo.lock_account(uuid.uuid4()) is None
+
+
+def test_an_email_change_token_carries_the_account_and_the_pending_address(db_session):
+    account = PostgresAccountRepository(db_session).create_account(
+        email="current@example.de", password_hash="h",
+    )
+    token_repo = PostgresAccountTokenRepository(db_session)
+    now = datetime.now(timezone.utc)
+
+    token_repo.create_token(
+        account_id=account.id, email="pending@example.de",
+        purpose=AccountTokenPurpose.EMAIL_CHANGE, token="change-both",
+        created_at=now, expires_at=now + timedelta(hours=24),
+    )
+
+    consumed = token_repo.consume_token("change-both", AccountTokenPurpose.EMAIL_CHANGE)
+    assert (consumed.account_id, consumed.email) == (account.id, "pending@example.de")
+
+
+@pytest.mark.parametrize(("with_account", "email"), [(False, "pending@example.de"), (True, None)])
+def test_an_email_change_token_needs_both_account_and_address(db_session, with_account, email):
+    account = PostgresAccountRepository(db_session).create_account(
+        email=f"needs-both-{with_account}@example.de", password_hash="h",
+    )
+    now = datetime.now(timezone.utc)
+    with pytest.raises(ValueError):
+        PostgresAccountTokenRepository(db_session).create_token(
+            account_id=account.id if with_account else None, email=email,
+            purpose=AccountTokenPurpose.EMAIL_CHANGE, token=f"change-{with_account}",
+            created_at=now, expires_at=now + timedelta(hours=24),
+        )

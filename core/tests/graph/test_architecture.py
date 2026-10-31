@@ -65,6 +65,18 @@ def _repository_protocols():
 # Reads that serve no document content and therefore need no jurisdiction.
 # Every entry carries its reason; nothing belongs here for convenience.
 JURISDICTION_EXEMPT_READS = {
+    # User management (ADR-030): publishers are contract partners and the
+    # audit log records administrative actions -- bookkeeping, not
+    # rights-gated document content. Neither is jurisdiction-scoped.
+    "PublisherRepository.get_publisher",
+    "PublisherRepository.list_publishers",
+    # Invitations are account-administration bookkeeping, not document content.
+    "InvitationRepository.get_invitation",
+    "InvitationRepository.get_invitation_by_email",
+    "InvitationRepository.get_invitation_by_token",
+    "AdminAuditRepository.list_for_target_account",
+    # The admin table: account administration, not document content.
+    "AdminDirectoryRepository.list_users",
     # Registry metadata (publisher, legal basis, review date) — the entry that
     # licenses the ingestion, not the content it produced.
     "SourceRepository.get_source",
