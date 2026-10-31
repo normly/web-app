@@ -30,6 +30,9 @@ class InvitationCheckResponse(BaseModel):
     existing_account: bool
     blocked: bool
     open_invitation: bool
+    # False also when there is no account. Accepting resets an existing,
+    # unverified account's sign-in data and content (ADR-030).
+    verified: bool
 
 
 def _binding_is_consistent(role: Role, publisher_id: uuid.UUID | None) -> None:

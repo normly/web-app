@@ -1,11 +1,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 normly contributors
 
+from datetime import datetime, timezone
+
 import pytest
 import sqlalchemy as sa
 
 from normly_core.graph.domain import AdminAction, Role
 from normly_core.graph.postgres.repositories import (
+    PostgresAccountRepository,
     PostgresAdminAuditRepository,
     PostgresInvitationRepository,
 )
@@ -92,7 +95,23 @@ def test_check_reports_existing_account_and_open_invitation(client, db_session):
     make_account(db_session, "known@example.de")
     client.post("/v1/admin/invitations", headers=headers, json={"email": "known@example.de", "role": "user"})
     body = client.get("/v1/admin/invitations/check?email=known@example.de", headers=headers).json()
-    assert body == {"existing_account": True, "blocked": False, "open_invitation": True}
+    assert body == {"existing_account": True, "blocked": False, "open_invitation": True,
+                    "verified": False}
+
+
+def test_check_reports_whether_the_account_is_verified(client, db_session):
+    """The dialog warns that accepting resets an unverified account (ADR-030)."""
+    _, headers = make_admin(db_session)
+    account = make_account(db_session, "verified-check@example.de")
+    PostgresAccountRepository(db_session).mark_email_verified(account.id, datetime.now(timezone.utc))
+    db_session.flush()
+
+    def check(email):
+        return client.get(f"/v1/admin/invitations/check?email={email}", headers=headers).json()
+
+    assert check("verified-check@example.de")["verified"] is True
+    assert check("nobody@example.de") == {"existing_account": False, "blocked": False,
+                                          "open_invitation": False, "verified": False}
 
 
 def test_resend_replaces_the_token_and_sends_no_personal_message(client, db_session, email_sender):

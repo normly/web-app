@@ -61,6 +61,7 @@ def check_invitation(
         blocked=account is not None and account.blocked_at is not None,
         open_invitation=invitation is not None
         and invitation.expires_at > datetime.now(timezone.utc),
+        verified=account is not None and account.email_verified_at is not None,
     )
 
 

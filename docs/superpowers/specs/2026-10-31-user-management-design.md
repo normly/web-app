@@ -164,7 +164,7 @@ session, 403 for other roles.
 | `GET /v1/admin/users/summary` | Total accounts and those signed in within 30 days (`last_login_at`); accounts per role; publishers with an account; open invitations; blocked accounts and the most frequent block reason. Invitations do not count as accounts. |
 | `GET /v1/admin/publishers` | All publishers, ordered by name. |
 | `POST /v1/admin/publishers` | `{name}` → 201; 409 `publisher_name_taken`. |
-| `GET /v1/admin/invitations/check?email=` | `{existing_account, blocked, open_invitation}` for the dialog hint. |
+| `GET /v1/admin/invitations/check?email=` | `{existing_account, blocked, open_invitation, verified}` for the dialog hint; `verified` is false without an account, and the dialog warns that accepting resets an unverified account's sign-in data and content. |
 | `POST /v1/admin/invitations` | `{email, role, publisher_id?, locale, message?}` → 201, sends the e-mail. 409 `account_blocked`. 400 when `publisher_id` is missing for `publisher` or present otherwise, names an unknown publisher, or the message exceeds 500 characters (the service answers every validation error with 400). |
 | `POST /v1/admin/invitations/{id}/resend` | New token and expiry, sends the e-mail without a personal message. |
 | `DELETE /v1/admin/invitations/{id}` | Withdraw → 204. |
