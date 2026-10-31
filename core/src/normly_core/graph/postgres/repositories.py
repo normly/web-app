@@ -2163,7 +2163,8 @@ def _account_to_domain(orm: AccountORM) -> Account:
         first_name=orm.first_name, last_name=orm.last_name,
         avatar_image=orm.avatar_image, avatar_content_type=orm.avatar_content_type,
         notification_preference=orm.notification_preference,
-        locale=orm.locale,
+        locale=orm.locale, role=orm.role, publisher_id=orm.publisher_id,
+        blocked_at=orm.blocked_at, block_reason=orm.block_reason,
     )
 
 

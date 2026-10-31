@@ -43,6 +43,40 @@ class AccountTokenPurpose(str, Enum):
     EMAIL_CHANGE = "email_change"
 
 
+class Role(str, Enum):
+    """Exactly one per account. Publisher and administrator include everything a user can do."""
+    USER = "user"
+    PUBLISHER = "publisher"
+    ADMINISTRATOR = "administrator"
+
+
+class BlockReason(str, Enum):
+    BULK_RETRIEVAL = "bulk_retrieval"
+    ABUSE = "abuse"
+    TERMS_VIOLATION = "terms_violation"
+    OTHER = "other"
+
+
+class AdminAction(str, Enum):
+    INVITATION_CREATED = "invitation_created"
+    INVITATION_RESENT = "invitation_resent"
+    INVITATION_WITHDRAWN = "invitation_withdrawn"
+    INVITATION_ACCEPTED = "invitation_accepted"
+    ROLE_CHANGED = "role_changed"
+    PUBLISHER_CHANGED = "publisher_changed"
+    ACCOUNT_BLOCKED = "account_blocked"
+    ACCOUNT_UNBLOCKED = "account_unblocked"
+    ACCOUNT_REMOVED = "account_removed"
+    PUBLISHER_CREATED = "publisher_created"
+    ADMINISTRATOR_GRANTED_CLI = "administrator_granted_cli"
+
+
+class PublisherNameTakenError(Exception):
+    def __init__(self, name: str):
+        super().__init__(f"a publisher named {name!r} already exists")
+        self.name = name
+
+
 class WithdrawnDeliveryError(Exception):
     """
     Raised when an artifact would be created or updated on a delivery that is
@@ -1096,6 +1130,10 @@ class Account:
     avatar_content_type: str | None
     notification_preference: NotificationPreference
     locale: str | None  # None = unknown (account created before it was stored)
+    role: Role = Role.USER
+    publisher_id: uuid.UUID | None = None
+    blocked_at: datetime | None = None
+    block_reason: BlockReason | None = None
 
 
 @dataclass(frozen=True)
@@ -1139,6 +1177,75 @@ class OAuthState:
     created_at: datetime
     expires_at: datetime
     used_at: datetime | None
+
+
+@dataclass(frozen=True)
+class Publisher:
+    """A contract partner whose content usage a publisher account may later see."""
+    id: uuid.UUID
+    name: str
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class AccountInvitation:
+    id: uuid.UUID
+    email: str
+    role: Role
+    publisher_id: uuid.UUID | None
+    locale: str
+    token: str
+    invited_by: uuid.UUID | None
+    created_at: datetime
+    expires_at: datetime
+
+
+@dataclass(frozen=True)
+class AdminAuditEntry:
+    id: uuid.UUID
+    occurred_at: datetime
+    action: AdminAction
+    actor_account_id: uuid.UUID | None
+    target_account_id: uuid.UUID | None
+    target_invitation_id: uuid.UUID | None
+    target_publisher_id: uuid.UUID | None
+    details: dict
+
+
+@dataclass(frozen=True)
+class AdminUserRow:
+    """One row of the admin table: an account or an open/expired invitation."""
+    kind: str  # "account" | "invitation"
+    id: uuid.UUID
+    email: str
+    first_name: str | None
+    last_name: str | None
+    sign_in_methods: tuple[str, ...]  # subset of ("email", "google"), in that order
+    role: Role
+    publisher_id: uuid.UUID | None
+    publisher_name: str | None
+    last_login_at: datetime | None
+    created_at: datetime | None  # None for invitations
+    status: str  # "active" | "blocked" | "invited" | "expired"
+    block_reason: BlockReason | None
+    expires_at: datetime | None  # invitations only
+
+
+@dataclass(frozen=True)
+class AdminUserPage:
+    rows: list[AdminUserRow]
+    total: int
+
+
+@dataclass(frozen=True)
+class AdminSummary:
+    accounts_total: int
+    accounts_active: int
+    accounts_by_role: dict[Role, int]
+    publishers_with_accounts: int
+    open_invitations: int
+    blocked: int
+    most_frequent_block_reason: BlockReason | None
 
 
 class AccountRepository(Protocol):
