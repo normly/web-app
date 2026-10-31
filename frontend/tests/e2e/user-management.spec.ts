@@ -38,8 +38,8 @@ test("an administrator invites a publisher, who accepts; then blocks them", asyn
   await expect(page).toHaveURL(/\/admin\/users/);
 
   await page.getByRole("button", { name: "Nutzer einladen" }).click();
-  await page.getByLabel("E-Mail-Adresse").fill(invited);
-  await page.getByLabel("Rolle").selectOption("publisher");
+  await page.getByLabel("E-Mail-Adresse", { exact: true }).fill(invited);
+  await page.getByLabel("Rolle", { exact: true }).selectOption("publisher");
   await page.getByLabel("Verlagszuordnung").selectOption("__new__");
   await page.getByLabel("Name des Verlags").fill(publisher);
   await page.getByRole("button", { name: "Anlegen" }).click();
@@ -47,7 +47,9 @@ test("an administrator invites a publisher, who accepts; then blocks them", asyn
   await expect(page.getByRole("status")).toContainText(invited);
 
   const link = await invitationLink(request, invited);
-  const invitee = await (await browser.newContext({ locale: "de-DE" })).newPage();
+  const baseURL = test.info().project.use.baseURL ?? "http://localhost:3000";
+  const inviteeContext = await browser.newContext({ locale: "de-DE", baseURL });
+  const invitee = await inviteeContext.newPage();
   await invitee.goto(link.replace(/^https?:\/\/[^/]+/, ""));
   await invitee.getByRole("button", { name: "Einladung annehmen" }).click();
   await expect(invitee).toHaveURL(/\/$/);
@@ -72,4 +74,5 @@ test("an administrator invites a publisher, who accepts; then blocks them", asyn
 
   await invitee.reload();
   await expect(invitee.getByRole("link", { name: "Anmelden" })).toBeVisible();
+  await inviteeContext.close();
 });
