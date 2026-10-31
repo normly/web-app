@@ -26,6 +26,14 @@ Use the layers appropriate to each source; the linked
 [adapter status notes](../docs/guide/adapters/index.md) specify its fixtures
 and required commands:
 
+For a quick local synthetic check, run the adapter-specific test module from
+the repository root, replacing `<adapter>` with its module name (for example,
+`baua`). CI still runs the full Core suite:
+
+```bash
+cd core && ../.venv/bin/pytest tests/pipeline/test_<adapter>_adapter.py -v
+```
+
 - **Unit:** test parsing and mapping with controlled inputs.
 - **Synthetic integration (CI):** generate safe fixtures and pass them through
   the production extractor and adapter to check domain outputs. Never put
