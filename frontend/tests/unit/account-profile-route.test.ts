@@ -33,6 +33,7 @@ describe("PATCH /api/account/profile", () => {
     const response = await PATCH(request);
     const body = await response.json();
 
+    // The route has no role information; the shell keeps the session role.
     expect(body).toEqual({
       accountId: "acc-1", email: "a@example.de", firstName: "Jamie", lastName: "Weber",
       hasAvatar: false, role: "user", publisherId: null,

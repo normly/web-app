@@ -123,6 +123,20 @@ export function AppShell({
   const [profileOpen, setProfileOpen] = React.useState(false);
   const [avatarVersion, setAvatarVersion] = React.useState(0);
   const { account, logout, setAccount } = useAccountSession();
+  // The profile routes return account fields without role/publisherId, so
+  // their updates must not overwrite the role the session reported.
+  const updateAccount = React.useCallback<
+    React.Dispatch<React.SetStateAction<AccountSummary | null>>
+  >(
+    (next) =>
+      setAccount((prev) => {
+        const resolved = typeof next === "function" ? next(prev) : next;
+        return prev && resolved
+          ? { ...resolved, role: prev.role, publisherId: prev.publisherId }
+          : resolved;
+      }),
+    [setAccount],
+  );
 
   return (
     <SidebarProvider>
@@ -199,7 +213,7 @@ export function AppShell({
         open={profileOpen}
         onOpenChange={setProfileOpen}
         account={account}
-        setAccount={setAccount}
+        setAccount={updateAccount}
         avatarVersion={avatarVersion}
         onAvatarChange={() => setAvatarVersion((v) => v + 1)}
       />

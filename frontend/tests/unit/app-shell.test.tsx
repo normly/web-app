@@ -282,4 +282,46 @@ describe("AppShell", () => {
     await waitFor(() => expect(global.fetch).toHaveBeenCalled());
     expect(screen.queryByRole("link", { name: "Nutzermanagement" })).not.toBeInTheDocument();
   });
+
+  it("keeps the administrator menu after a profile update without a role", async () => {
+    const admin = {
+      accountId: "1", email: "a@example.de", firstName: null, lastName: null,
+      hasAvatar: false, hasPassword: true, notificationPreference: "none",
+      role: "administrator", publisherId: null,
+    };
+    global.fetch = vi.fn().mockImplementation(
+      (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input) === "/api/account/avatar" && init?.method === "POST") {
+          // Same shape the real route returns: no role, no publisherId.
+          const { role: _r, publisherId: _p, ...withoutRole } = admin;
+          return Promise.resolve(
+            new Response(JSON.stringify({ ...withoutRole, hasAvatar: true })),
+          );
+        }
+        return Promise.resolve(new Response(JSON.stringify({ account: admin })));
+      },
+    );
+    render(
+      <LocaleProvider initialLocale="de">
+        <AppShell instanceName="normly" logoPath={null}><div>content</div></AppShell>
+      </LocaleProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "Nutzermanagement" })).toBeInTheDocument(),
+    );
+    fireEvent.keyDown(screen.getByRole("button", { name: /a@example\.de/ }), { key: "Enter" });
+    fireEvent.click(screen.getByRole("menuitem", { name: "Konto" }));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+    const file = new File([new Uint8Array(10)], "avatar.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText("Bild hochladen"), { target: { files: [file] } });
+    await waitFor(() =>
+      expect(screen.getAllByRole("img", { name: "Profilbild" })[0]).toHaveAttribute(
+        "src", "/api/account/avatar?v=1",
+      ),
+    );
+    // The open dialog hides the sidebar from the accessibility tree.
+    expect(
+      screen.getByRole("link", { name: "Nutzermanagement", hidden: true }),
+    ).toBeInTheDocument();
+  });
 });
