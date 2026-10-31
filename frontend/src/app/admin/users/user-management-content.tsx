@@ -14,6 +14,7 @@ import { BlockDialog } from "@/components/admin/block-dialog";
 import { InviteDialog } from "@/components/admin/invite-dialog";
 import { EditDialog } from "@/components/admin/edit-dialog";
 import { RemoveDialog } from "@/components/admin/remove-dialog";
+import { RoleMatrixDialog } from "@/components/admin/role-matrix-dialog";
 import { RowActions } from "@/components/admin/row-actions";
 import { UsersToolbar } from "@/components/admin/users-toolbar";
 import {
@@ -120,6 +121,7 @@ export function UserManagementContent() {
       {dialog?.kind === "edit" && <EditDialog row={dialog.row} onClose={() => setDialog(null)} onDone={done} />}
       {dialog?.kind === "block" && <BlockDialog row={dialog.row} onClose={() => setDialog(null)} onDone={done} />}
       {dialog?.kind === "remove" && <RemoveDialog row={dialog.row} onClose={() => setDialog(null)} onDone={done} />}
+      {dialog?.kind === "matrix" && <RoleMatrixDialog onClose={() => setDialog(null)} />}
       <div>
         <Button variant="outline" size="sm" onClick={() => setDialog({ kind: "matrix" })}>
           <Info />
