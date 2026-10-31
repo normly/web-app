@@ -39,8 +39,10 @@ test("an administrator invites a publisher, who accepts; then blocks them", asyn
 
   await page.getByRole("button", { name: "Nutzer einladen" }).click();
   await page.getByLabel("E-Mail-Adresse", { exact: true }).fill(invited);
-  await page.getByLabel("Rolle", { exact: true }).selectOption("publisher");
-  await page.getByLabel("Verlagszuordnung").selectOption("__new__");
+  // A <label> that wraps a <select> also contains the option texts, so match
+  // the accessible name of the combobox instead of the label text.
+  await page.getByRole("combobox", { name: "Rolle", exact: true }).selectOption("publisher");
+  await page.getByRole("combobox", { name: "Verlagszuordnung" }).selectOption("__new__");
   await page.getByLabel("Name des Verlags").fill(publisher);
   await page.getByRole("button", { name: "Anlegen" }).click();
   await page.getByRole("button", { name: "Einladung senden" }).click();
