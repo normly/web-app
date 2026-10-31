@@ -74,6 +74,14 @@ describe("InviteDialog", () => {
     expect(await screen.findByText(/Das bestehende Konto ist unbestätigt/)).toBeInTheDocument();
   });
 
+  it("stays usable on a phone: height-limited, scrollable, with a side margin", () => {
+    mockApi();
+    renderDialog();
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveClass("max-h-[90vh]", "overflow-y-auto", "w-[calc(100%-2rem)]", "max-w-3xl");
+    expect(dialog).not.toHaveClass("max-w-md");
+  });
+
   it("creates a new publisher inline and selects it", async () => {
     mockApi();
     renderDialog();
