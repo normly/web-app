@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 from normly_accounts.google_oauth import GoogleProfile
 from normly_core.graph.postgres.repositories import (
+    PostgresAccountGoogleIdentityRepository,
     PostgresAccountRepository,
     PostgresOAuthStateRepository,
 )
@@ -323,3 +324,92 @@ def test_google_callback_refuses_a_blocked_account_without_linking_it(client, db
 
     assert (response.status_code, response.json()["detail"]) == (403, "account_blocked")
     assert not PostgresAccountGoogleIdentityRepository(db_session).has_google_identity(account.id)
+
+
+# --- A Google-verified address marks the account verified (ADR-027, ADR-030) ---
+
+def _callback(client, db_session, profile: GoogleProfile, state: str):
+    _override_google_client(client.app, profile)
+    _seed_state(db_session, state)
+    return client.get(
+        "/v1/accounts/google/callback", params={"code": f"code-{state}", "state": state}
+    )
+
+
+def _verified(db_session, email: str) -> bool:
+    db_session.expire_all()
+    account = PostgresAccountRepository(db_session).get_account_by_email(email)
+    return account.email_verified_at is not None
+
+
+def test_a_verified_google_address_verifies_a_new_account(client, db_session):
+    response = _callback(client, db_session, GoogleProfile(
+        subject_id="verify-new", email="verify-new@example.de", email_verified=True,
+    ), "verify-new")
+
+    assert response.json()["account"]["email_verified"] is True
+    assert _verified(db_session, "verify-new@example.de")
+
+
+def test_a_verified_google_address_verifies_an_account_it_links(client, db_session):
+    client.post("/v1/accounts/register",
+                json={"email": "verify-link@example.de", "password": "correct horse"})
+    assert not _verified(db_session, "verify-link@example.de")
+
+    response = _callback(client, db_session, GoogleProfile(
+        subject_id="verify-link", email="verify-link@example.de", email_verified=True,
+    ), "verify-link")
+
+    assert response.json()["account"]["email_verified"] is True
+    assert _verified(db_session, "verify-link@example.de")
+
+
+def test_a_verified_google_address_verifies_an_already_linked_account(client, db_session):
+    """Google-only accounts from before this rule were linked but never verified."""
+    accounts = PostgresAccountRepository(db_session)
+    legacy = accounts.create_account(email="verify-old@example.de", password_hash=None)
+    PostgresAccountGoogleIdentityRepository(db_session).link_google_identity(
+        account_id=legacy.id, google_subject_id="verify-old",
+    )
+    db_session.flush()
+
+    response = _callback(client, db_session, GoogleProfile(
+        subject_id="verify-old", email="verify-old@example.de", email_verified=True,
+    ), "verify-old")
+
+    assert response.json()["account"]["id"] == str(legacy.id)
+    assert response.json()["account"]["email_verified"] is True
+    assert _verified(db_session, "verify-old@example.de")
+
+
+def test_an_unverified_google_assertion_verifies_nothing(client, db_session):
+    _callback(client, db_session, GoogleProfile(
+        subject_id="no-verify", email="no-verify@example.de", email_verified=False,
+    ), "no-verify-1")
+    assert not _verified(db_session, "no-verify@example.de")
+
+    # Returning with the same unverified assertion changes nothing either.
+    response = _callback(client, db_session, GoogleProfile(
+        subject_id="no-verify", email="no-verify@example.de", email_verified=False,
+    ), "no-verify-2")
+    assert response.json()["account"]["email_verified"] is False
+    assert not _verified(db_session, "no-verify@example.de")
+
+
+def test_a_google_address_other_than_the_accounts_verifies_nothing(client, db_session):
+    """
+    The account's address may have changed since linking (e-mail change);
+    Google then vouches for a different mailbox, not this account's.
+    """
+    accounts = PostgresAccountRepository(db_session)
+    account = accounts.create_account(email="changed@example.de", password_hash=None)
+    PostgresAccountGoogleIdentityRepository(db_session).link_google_identity(
+        account_id=account.id, google_subject_id="changed-sub",
+    )
+    db_session.flush()
+
+    _callback(client, db_session, GoogleProfile(
+        subject_id="changed-sub", email="original@gmail.example", email_verified=True,
+    ), "changed")
+
+    assert not _verified(db_session, "changed@example.de")

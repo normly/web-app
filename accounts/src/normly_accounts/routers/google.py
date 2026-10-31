@@ -134,4 +134,18 @@ def google_callback(
                 detail="this account is already linked to a different Google identity",
             )
 
+    # Google vouching for this very address proves the mailbox as well as our
+    # own verification link would -- new, linked and returning accounts
+    # alike. Only for the account's current address (it may have changed
+    # since linking), and never for a blocked account, which
+    # _create_session_response refuses below without any change to it.
+    if (
+        profile.email_verified
+        and profile.email == account.email
+        and account.email_verified_at is None
+        and account.blocked_at is None
+    ):
+        account_repo.mark_email_verified(account.id, datetime.now(timezone.utc))
+        account = account_repo.get_account_by_id(account.id)
+
     return _create_session_response(account, session)

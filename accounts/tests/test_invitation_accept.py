@@ -213,3 +213,28 @@ def test_accepting_leaves_a_verified_account_untouched(client, db_session):
     assert '"credentials_reset": false' in audit and "verified@example.de" not in audit
     kept = PostgresAccountRepository(db_session).get_account_by_id(existing.id)
     assert (kept.first_name, kept.last_name, kept.locale) == ("Vera", "Owner", "de")
+
+
+def test_a_google_signed_in_colleague_is_not_reset_on_accept(client, db_session):
+    from normly_accounts.google_oauth import GoogleProfile
+    from tests.test_google_login import _callback
+
+    _, headers = make_admin(db_session)
+    signed_in = _callback(client, db_session, GoogleProfile(
+        subject_id="colleague-sub", email="colleague@vde.example", email_verified=True,
+    ), "colleague")
+    google_session = signed_in.json()["session_token"]
+    account_id = signed_in.json()["account"]["id"]
+    PostgresAccountRepository(db_session).update_profile_names(
+        account_id, first_name="Carla", last_name="Colleague",
+    )
+    db_session.flush()
+    token = _invite(client, headers, db_session, "colleague@vde.example", role="administrator")
+
+    assert client.post("/v1/accounts/invitations/accept", json={"token": token}).status_code == 200
+
+    old = client.get("/v1/accounts/session", headers=_bearer(google_session))
+    assert (old.status_code, old.json()["role"], old.json()["first_name"]) == (
+        200, "administrator", "Carla",
+    )
+    assert PostgresAccountGoogleIdentityRepository(db_session).has_google_identity(account_id)
