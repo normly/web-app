@@ -24,11 +24,23 @@ export function UsersToolbar({
 }) {
   const { t, locale } = useTranslation();
   const [text, setText] = React.useState(query.q);
+  const lastSent = React.useRef(query.q);
+
+  // The URL is the source of truth: an external change of q (navigation) wins.
+  React.useEffect(() => {
+    if (query.q !== lastSent.current) {
+      lastSent.current = query.q;
+      setText(query.q);
+    }
+  }, [query.q]);
 
   // 300 ms debounce; the URL stays the single source of truth.
   React.useEffect(() => {
     if (text === query.q) return;
-    const timer = window.setTimeout(() => onChange({ q: text }), 300);
+    const timer = window.setTimeout(() => {
+      lastSent.current = text;
+      onChange({ q: text });
+    }, 300);
     return () => window.clearTimeout(timer);
   }, [text, query.q, onChange]);
 
@@ -40,6 +52,7 @@ export function UsersToolbar({
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-wrap items-center gap-3">
+        <div className="max-w-full overflow-x-auto">
         <Tabs value={query.role} onValueChange={(value) => onChange({ role: value as UsersQuery["role"] })}>
           <TabsList>
             {TABS.map((tab) => (
@@ -52,6 +65,7 @@ export function UsersToolbar({
             ))}
           </TabsList>
         </Tabs>
+        </div>
         <label className="flex items-center gap-2 text-sm">
           <span>{t("admin.status.label")}</span>
           <NativeSelect

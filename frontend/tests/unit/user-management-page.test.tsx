@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 normly contributors
 
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act } from "react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LocaleProvider } from "@/lib/i18n/provider";
 import { UserManagementContent } from "@/app/admin/users/user-management-content";
@@ -112,5 +113,34 @@ describe("UserManagementContent", () => {
     renderPage();
     expect(await screen.findByText("Kein Zugriff. Diese Seite ist Administratoren vorbehalten."))
       .toBeInTheDocument();
+  });
+
+  it("debounces the search into the URL and lets an external q change win", async () => {
+    try {
+      mockApi();
+      const ui = () => (
+        <LocaleProvider initialLocale="de"><UserManagementContent /></LocaleProvider>
+      );
+      const { rerender } = render(ui());
+      await screen.findByRole("table");
+      vi.useFakeTimers();
+      const input = screen.getByRole("searchbox");
+      fireEvent.change(input, { target: { value: "vde" } });
+      expect(replace).not.toHaveBeenCalled();
+      act(() => { vi.advanceTimersByTime(300); });
+      expect(replace).toHaveBeenLastCalledWith("/admin/users?q=vde", { scroll: false });
+
+      replace.mockReset();
+      search = "q=extern";
+      rerender(ui());
+      expect(input).toHaveValue("extern");
+      search = "";
+      rerender(ui());
+      expect(input).toHaveValue("");
+      act(() => { vi.advanceTimersByTime(500); });
+      expect(replace).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
