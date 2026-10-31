@@ -5,6 +5,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SummaryCards } from "@/components/admin/summary-cards";
@@ -39,7 +40,9 @@ export function UserManagementContent() {
   const { query, update } = useUsersQuery();
   const [page, setPage] = React.useState<AdminUserPage | null>(null);
   const [summary, setSummary] = React.useState<AdminSummary | null>(null);
-  const [state, setState] = React.useState<"loading" | "ready" | "forbidden" | "error">("loading");
+  const [state, setState] = React.useState<"loading" | "ready" | "forbidden" | "signedOut" | "error">("loading");
+  // A refetch that fails after the page was ready keeps the table and shows a notice.
+  const [refetchFailed, setRefetchFailed] = React.useState(false);
   const [reloadKey, setReloadKey] = React.useState(0);
   const [dialog, setDialog] = React.useState<DialogState>(null);
   const [notice, setNotice] = React.useState<Notice>(null);
@@ -53,16 +56,29 @@ export function UserManagementContent() {
         setPage(users);
         setSummary(totals);
         setState("ready");
+        setRefetchFailed(false);
       })
       .catch((error) => {
         if (cancelled) return;
-        setState(error instanceof AdminApiError && (error.status === 403 || error.status === 401)
-          ? "forbidden" : "error");
+        const status = error instanceof AdminApiError ? error.status : null;
+        if (status === 401) setState("signedOut");
+        else if (status === 403) setState("forbidden");
+        else {
+          setState((current) => (current === "ready" ? "ready" : "error"));
+          setRefetchFailed(true);
+        }
       });
     return () => {
       cancelled = true;
     };
   }, [query, reloadKey]);
+
+  // After a reload the current page may no longer exist (e.g. the last row on
+  // the last page was removed): go to the last page that does.
+  const lastPage = page ? Math.max(1, Math.ceil(page.total / query.pageSize)) : null;
+  React.useEffect(() => {
+    if (lastPage !== null && query.page > lastPage) update({ page: lastPage });
+  }, [lastPage, query.page, update]);
 
   const done = (text: string) => {
     setDialog(null);
@@ -81,6 +97,14 @@ export function UserManagementContent() {
   const onSort = (sort: SortKey) =>
     update({ sort, order: query.sort === sort && query.order === "asc" ? "desc" : "asc" });
 
+  if (state === "signedOut") {
+    return (
+      <p className="text-sm">
+        {t("admin.sessionExpired")}{" "}
+        <Link href="/login" className="underline">{t("admin.signInAgain")}</Link>
+      </p>
+    );
+  }
   if (state === "forbidden") return <p className="text-sm">{t("admin.noAccess")}</p>;
   if (state === "error") return <p role="alert" className="text-sm text-destructive">{t("admin.loadError")}</p>;
 
@@ -94,6 +118,12 @@ export function UserManagementContent() {
            className={notice.kind === "error" ? "text-sm text-destructive" : "text-sm"}>
           {notice.text}
         </p>
+      )}
+      {refetchFailed && (
+        <div role="alert" className="flex flex-wrap items-center gap-3 text-sm text-destructive">
+          <span>{t("admin.loadError")}</span>
+          <Button variant="outline" size="sm" onClick={reload}>{t("admin.retry")}</Button>
+        </div>
       )}
       {summary && <SummaryCards summary={summary} />}
       <UsersToolbar query={query} summary={summary} onChange={update} />

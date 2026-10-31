@@ -195,6 +195,9 @@
     "inviteButton": "Invite user",
     "noAccess": "No access. This page is for administrators only.",
     "loadError": "The data could not be loaded.",
+    "retry": "Try again",
+    "sessionExpired": "Your session has expired.",
+    "signInAgain": "Sign in again",
     "summary": {
       "accountsTotal": "Total accounts",
       "activeHint": "{count} of them active in the last 30 days",

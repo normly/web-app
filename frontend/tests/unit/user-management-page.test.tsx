@@ -3,7 +3,7 @@
 // Copyright (C) 2026 normly contributors
 
 import { act } from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LocaleProvider } from "@/lib/i18n/provider";
 import { UserManagementContent } from "@/app/admin/users/user-management-content";
@@ -32,7 +32,7 @@ const row = (overrides: Record<string, unknown>) => ({
   ...overrides,
 });
 
-function mockApi(status = 200) {
+function mockApi(status = 200, total = 1284) {
   global.fetch = vi.fn().mockImplementation((url: string) => {
     if (url.startsWith("/api/auth/session")) {
       return Promise.resolve(new Response(JSON.stringify({ account: null })));
@@ -50,7 +50,7 @@ function mockApi(status = 200) {
               last_name: null, sign_in_methods: [], role: "publisher", publisher_name: "VDE Verlag",
               created_at: null, status: "invited" }),
       ],
-      total: 1284, page: 1, page_size: 10,
+      total, page: 1, page_size: 10,
     })));
   });
 }
@@ -113,6 +113,55 @@ describe("UserManagementContent", () => {
     renderPage();
     expect(await screen.findByText("Kein Zugriff. Diese Seite ist Administratoren vorbehalten."))
       .toBeInTheDocument();
+  });
+
+  it("limits the search input to 200 characters", async () => {
+    mockApi();
+    renderPage();
+    await screen.findByRole("table");
+    expect(screen.getByRole("searchbox")).toHaveAttribute("maxLength", "200");
+  });
+
+  it("keeps the table on a failed refetch and offers a retry", async () => {
+    mockApi();
+    const ui = () => <LocaleProvider initialLocale="de"><UserManagementContent /></LocaleProvider>;
+    const { rerender } = render(ui());
+    await screen.findByRole("table");
+
+    mockApi(500);
+    search = "status=blocked";
+    rerender(ui());
+    expect(await screen.findByRole("alert")).toHaveTextContent("Die Daten konnten nicht geladen werden.");
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getByRole("searchbox")).toBeInTheDocument();
+
+    mockApi();
+    fireEvent.click(screen.getByRole("button", { name: "Erneut versuchen" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    expect(screen.getByRole("table")).toBeInTheDocument();
+  });
+
+  it("asks to sign in again on 401", async () => {
+    mockApi(401);
+    renderPage();
+    const link = await screen.findByRole("link", { name: "Erneut anmelden" });
+    expect(link).toHaveAttribute("href", "/login");
+    expect(screen.queryByText("Kein Zugriff. Diese Seite ist Administratoren vorbehalten.")).not.toBeInTheDocument();
+  });
+
+  it("goes to the last page when the current page no longer exists", async () => {
+    search = "page=5";
+    mockApi(200, 25);
+    renderPage();
+    await screen.findByRole("table");
+    await waitFor(() => expect(replace).toHaveBeenLastCalledWith("/admin/users?page=3", { scroll: false }));
+  });
+
+  it("does not move away from page 1 when there are no rows", async () => {
+    mockApi(200, 0);
+    renderPage();
+    await screen.findByRole("table");
+    expect(replace).not.toHaveBeenCalled();
   });
 
   it("debounces the search into the URL and lets an external q change win", async () => {

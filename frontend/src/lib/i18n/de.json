@@ -195,6 +195,9 @@
     "inviteButton": "Nutzer einladen",
     "noAccess": "Kein Zugriff. Diese Seite ist Administratoren vorbehalten.",
     "loadError": "Die Daten konnten nicht geladen werden.",
+    "retry": "Erneut versuchen",
+    "sessionExpired": "Deine Sitzung ist abgelaufen.",
+    "signInAgain": "Erneut anmelden",
     "summary": {
       "accountsTotal": "Konten gesamt",
       "activeHint": "davon {count} in den letzten 30 Tagen aktiv",

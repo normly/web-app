@@ -81,6 +81,7 @@ export function UsersToolbar({
       </div>
       <Input
         type="search"
+        maxLength={200}
         aria-label={t("admin.searchLabel")}
         placeholder={t("admin.searchPlaceholder")}
         className="lg:max-w-xs"
