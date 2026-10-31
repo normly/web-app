@@ -28,6 +28,7 @@ describe("RoleMatrixDialog", () => {
 
     const table = await screen.findByRole("table");
     expect(within(table).getByRole("columnheader", { name: "Anonym" })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Funktion" })).toBeInTheDocument();
     const row = within(table).getByRole("row", { name: /Nutzung und Nachfrage/ });
     expect(within(row).getByText("geplant")).toBeInTheDocument();
     expect(within(row).getByText("eigene Inhalte, aggregiert")).toBeInTheDocument();

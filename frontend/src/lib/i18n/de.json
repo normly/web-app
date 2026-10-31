@@ -323,6 +323,7 @@
       "button": "Was die Rollen sehen",
       "title": "Was die Rollen sehen",
       "planned": "geplant",
+      "capability": "Funktion",
       "roles": {
         "anonymous": "Anonym",
         "user": "User",

@@ -34,7 +34,7 @@ export function RoleMatrixDialog({ onClose }: { onClose: () => void }) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-left"><span className="sr-only">{t("admin.columns.role")}</span></TableHead>
+                  <TableHead className="text-left"><span className="sr-only">{t("admin.roleMatrix.capability")}</span></TableHead>
                   {matrix.roles.map((role) => (
                     <TableHead key={role} className="text-left">{label(`admin.roleMatrix.roles.${role}`)}</TableHead>
                   ))}

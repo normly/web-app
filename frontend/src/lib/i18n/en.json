@@ -323,6 +323,7 @@
       "button": "What the roles see",
       "title": "What the roles see",
       "planned": "planned",
+      "capability": "Capability",
       "roles": {
         "anonymous": "Anonymous",
         "user": "User",
