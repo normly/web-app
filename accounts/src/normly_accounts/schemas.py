@@ -203,3 +203,7 @@ class NotificationResponse(BaseModel):
     trigger_jurisdiction: str | None
     created_at: datetime
     read_at: datetime | None
+
+
+class AcceptInvitationRequest(BaseModel):
+    token: str

@@ -10,6 +10,7 @@ def test_openapi_schema_documents_every_v1_endpoint(client):
     paths = set(schema["paths"].keys())
     assert paths == {
         "/v1/accounts/register",
+        "/v1/accounts/invitations/accept",
         "/v1/accounts/login",
         "/v1/accounts/logout",
         "/v1/accounts/session",

@@ -21,6 +21,7 @@ from normly_accounts.routers.account_management import account_management_router
 from normly_accounts.routers.email_change import email_change_router
 from normly_accounts.routers.email_verification import email_verification_router
 from normly_accounts.routers.google import google_router
+from normly_accounts.routers.invitation import invitation_router
 from normly_accounts.routers.login import login_router
 from normly_accounts.routers.magic_link import magic_link_router
 from normly_accounts.routers.notifications import notifications_router
@@ -80,6 +81,7 @@ def create_app() -> FastAPI:
     app.include_router(admin_invitations_router, responses=COMMON_ERROR_RESPONSES)
     app.include_router(admin_accounts_router, responses=COMMON_ERROR_RESPONSES)
     app.include_router(admin_users_router, responses=COMMON_ERROR_RESPONSES)
+    app.include_router(invitation_router, responses=COMMON_ERROR_RESPONSES)
     app.include_router(login_router, responses=COMMON_ERROR_RESPONSES)
     app.include_router(magic_link_router, responses=COMMON_ERROR_RESPONSES)
     app.include_router(password_reset_router, responses=COMMON_ERROR_RESPONSES)
