@@ -1333,7 +1333,7 @@ offers both with confirmation.
 
 | Table | Purpose | Personal data | Period | Deletion path |
 |---|---|---|---|---|
-| `account` | account, sign-in, role and block (ADR-030) | e-mail, name, password hash, avatar | until account deletion; **abandoned registration** (e-mail never verified, older than 30 days, without a Google link, without any account session) 14 days after a delivered advance warning e-mail, never without it | account deletion by the person (cascades to all tables with an account reference); cleanup command |
+| `account` | account, sign-in, role and block (ADR-030) | e-mail, name, password hash, avatar | until account deletion; **abandoned registration** (e-mail never verified, older than 30 days, without a Google link, without any account session, not blocked, role `user`) 14 days after a delivered advance warning e-mail, never without it | account deletion by the person (cascades to all tables with an account reference); cleanup command |
 | `account_session` | signed-in session | account reference, session token; no IP, no user agent | 7 days after expiry | cleanup command; account deletion |
 | `account_google_identity` | link to Google sign-in | Google ID, account reference | until account deletion | account deletion |
 | `account_token` | one-time token (verification, reset, magic link) | account reference | 24 hours after expiry or use | cleanup command; account deletion |
@@ -1361,7 +1361,9 @@ the session's deletion period begins only 7 days after expiry) or a
 sign-in within the last 30 days: `account.last_login_at` is set on every
 session creation and, unlike the session row, survives
 sign-out. Only an account without all of that, never verified and older than 30 days,
-counts as abandoned. This
+counts as abandoned. A blocked account and an account with a role above
+`user` never count as abandoned: the block must outlive the cleanup, and the
+role was granted on purpose (ADR-030). This
 also hits a password account that was used and then paused for a long time,
 as soon as its sessions are removed; therefore no account is deleted silently:
 the cleanup command first sends an advance warning e-mail, written in the

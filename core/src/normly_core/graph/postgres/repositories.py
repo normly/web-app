@@ -2361,9 +2361,14 @@ class PostgresAccountRepository(AccountRepository):
         # Abandoned = never verified, old, no Google link, no session and no
         # sign-in within the period. A Google or password account in use has a
         # link, sessions or a recent last_login_at (which outlives a logout)
-        # though email_verified_at stays empty. The one place of this condition.
+        # though email_verified_at stays empty. A blocked account is kept so
+        # the block outlives the cleanup, and an account with a role above
+        # user was given it on purpose (ADR-030). The one place of this
+        # condition.
         return [
             AccountORM.email_verified_at.is_(None),
+            AccountORM.blocked_at.is_(None),
+            AccountORM.role == Role.USER,
             AccountORM.created_at < cutoff,
             sa.or_(AccountORM.last_login_at.is_(None), AccountORM.last_login_at < cutoff),
             ~sa.exists().where(AccountGoogleIdentityORM.account_id == AccountORM.id),
