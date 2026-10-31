@@ -14,6 +14,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from normly_core import retention
+from normly_core.admin import AdminGrantError, grant_administrator
 from normly_core.graph.postgres.repositories import (
     PostgresAccountRepository,
     PostgresAccountSessionRepository,
@@ -158,6 +159,9 @@ def main(argv: list[str] | None = None) -> int:
 
     subparsers.add_parser("notify-watchers")
 
+    grant_parser = subparsers.add_parser("grant-admin")
+    grant_parser.add_argument("--email", required=True, help="address of an existing account")
+
     args = parser.parse_args(argv)
 
     database_url = os.environ.get("NORMLY_DATABASE_URL")
@@ -195,6 +199,16 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 session.commit()
                 print(summary)
+            elif args.command == "grant-admin":
+                try:
+                    outcome = grant_administrator(
+                        session, email=args.email, now=datetime.now(timezone.utc)
+                    )
+                except AdminGrantError as exc:
+                    print(f"grant-admin: {exc}", file=sys.stderr)
+                    return 1
+                session.commit()
+                print(f"grant-admin: {outcome}")
             elif args.command == "notify-watchers":
                 email_sender = _build_email_sender()
                 acquired = session.execute(
