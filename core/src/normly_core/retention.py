@@ -39,3 +39,9 @@ LLM_QUESTION_COUNT_RETENTION = timedelta(days=1)
 #: LLM cost-cap token usage per pool and day, and the budget alerts sent,
 #: measured in UTC days; covers the running month and the previous one's end.
 LLM_USAGE_RETENTION = timedelta(days=40)
+
+#: Expired invitations, measured from `expires_at`; open ones are never touched.
+INVITATION_EXPIRED_GRACE = timedelta(days=30)
+
+#: Administrative audit entries, measured from `occurred_at` (ADR-030).
+ADMIN_AUDIT_RETENTION = timedelta(days=730)
