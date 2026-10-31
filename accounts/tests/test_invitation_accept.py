@@ -146,9 +146,7 @@ def test_accepting_resets_credentials_and_content_of_an_unverified_account(clien
     squatter_token = squatter.json()["session_token"]
     assert client.get("/v1/accounts/session", headers=_bearer(squatter_token)).status_code == 200
     squatted = PostgresAccountRepository(db_session).get_account_by_email("victim@vde.example")
-    PostgresAccountGoogleIdentityRepository(db_session).link_google_identity(
-        account_id=squatted.id, google_subject_id="squatter-google-subject",
-    )
+    # No Google link here: a linked account keeps its content (see the Google test below).
     now = datetime.now(timezone.utc)
     PostgresAccountTokenRepository(db_session).create_token(
         account_id=squatted.id, purpose=AccountTokenPurpose.PASSWORD_RESET, token="squatter-reset",
@@ -238,3 +236,21 @@ def test_a_google_signed_in_colleague_is_not_reset_on_accept(client, db_session)
         200, "administrator", "Carla",
     )
     assert PostgresAccountGoogleIdentityRepository(db_session).has_google_identity(account_id)
+
+
+def test_an_unverified_google_linked_account_keeps_its_content_on_accept(client, db_session):
+    _, headers = make_admin(db_session)
+    colleague = make_account(db_session, "legacy-google@example.de")
+    accounts = PostgresAccountRepository(db_session)
+    accounts.update_profile_names(colleague.id, first_name="Lea", last_name="Brandt")
+    google = PostgresAccountGoogleIdentityRepository(db_session)
+    google.link_google_identity(account_id=colleague.id, google_subject_id="legacy-sub")
+    token = _invite(client, headers, db_session, colleague.email, role="user")
+
+    response = client.post("/v1/accounts/invitations/accept", json={"token": token})
+
+    assert response.status_code == 200
+    after = accounts.get_account_by_id(colleague.id)
+    assert (after.first_name, after.last_name) == ("Lea", "Brandt")
+    assert after.email_verified_at is not None
+    assert not google.has_google_identity(colleague.id)  # credentials still reset

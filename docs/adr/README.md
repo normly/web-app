@@ -1624,7 +1624,9 @@ necessarily the issuing body.
   sessions, the Google link, open tokens and the password) and its content
   (names, avatar, chats, watchlist, notifications; preference and language
   back to the defaults of the invitation), because whoever registered it need
-  not own the mailbox; a verified account keeps both. A Google sign-in with an
+  not own the mailbox; its content is deleted too unless the account has a
+  Google link (a real owner who signed in with Google before Google sign-ins
+  verified the address); a verified account keeps both. A Google sign-in with an
   address Google asserts as verified marks the account verified, so such an
   account is never reset; an older Google-only account that has not signed in
   since then is still unverified and is reset on accept.

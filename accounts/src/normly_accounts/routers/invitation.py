@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from normly_core.graph.domain import AdminAction, Role
 from normly_core.graph.postgres.repositories import (
+    PostgresAccountGoogleIdentityRepository,
     PostgresAccountRepository,
     PostgresAdminAuditRepository,
     PostgresInvitationRepository,
@@ -61,13 +62,22 @@ def accept_invitation(
         ensure_administrator_remains(session, account)
 
     credentials_reset = pre_registered and account.email_verified_at is None
+    google_linked = False
     if credentials_reset:
         # Nobody had proved this mailbox before the link was clicked: whoever
         # registered the address may not be its owner. Every credential they
         # could hold goes, so the role reaches only the session created below.
+        # A Google link on an unverified account almost always means a real
+        # owner who signed in with Google before such sign-ins marked the
+        # address verified: keep their content, reset only the way in. Read
+        # before reset_credentials, which unlinks Google.
+        google_linked = PostgresAccountGoogleIdentityRepository(session).has_google_identity(
+            account.id
+        )
         reset_credentials(session, account.id)
-        # Nor does anything the registrant left behind belong to the owner.
-        accounts.reset_unverified_account_content(account.id, locale=invitation.locale)
+        if not google_linked:
+            # Nor does anything the registrant left behind belong to the owner.
+            accounts.reset_unverified_account_content(account.id, locale=invitation.locale)
     if account.email_verified_at is None:
         accounts.mark_email_verified(account.id, now)
     accounts.set_role(account.id, role=invitation.role, publisher_id=invitation.publisher_id)
@@ -80,6 +90,7 @@ def accept_invitation(
         details={
             "before": snapshot(account), "after": snapshot(after),
             "credentials_reset": credentials_reset,
+            "content_reset": credentials_reset and not google_linked,
         },
     )
     # Commits before the response, like every sign-in path.
