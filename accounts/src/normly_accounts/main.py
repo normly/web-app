@@ -13,6 +13,8 @@ from sqlalchemy import create_engine
 
 from normly_core.notifications.email import RecordingEmailSender, SmtpEmailSender
 from normly_accounts.errors import COMMON_ERROR_RESPONSES, register_exception_handlers
+from normly_accounts.routers.admin_accounts import admin_accounts_router
+from normly_accounts.routers.admin_users import admin_users_router
 from normly_accounts.routers.admin_invitations import admin_invitations_router
 from normly_accounts.routers.admin_publishers import admin_publishers_router
 from normly_accounts.routers.account_management import account_management_router
@@ -76,6 +78,8 @@ def create_app() -> FastAPI:
     app.include_router(registration_router, responses=COMMON_ERROR_RESPONSES)
     app.include_router(admin_publishers_router, responses=COMMON_ERROR_RESPONSES)
     app.include_router(admin_invitations_router, responses=COMMON_ERROR_RESPONSES)
+    app.include_router(admin_accounts_router, responses=COMMON_ERROR_RESPONSES)
+    app.include_router(admin_users_router, responses=COMMON_ERROR_RESPONSES)
     app.include_router(login_router, responses=COMMON_ERROR_RESPONSES)
     app.include_router(magic_link_router, responses=COMMON_ERROR_RESPONSES)
     app.include_router(password_reset_router, responses=COMMON_ERROR_RESPONSES)
