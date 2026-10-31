@@ -3049,6 +3049,19 @@ class PostgresAccountTokenRepository(AccountTokenRepository):
         )
         return result.rowcount
 
+    def find_unconsumed_token(
+        self, token: str, purpose: AccountTokenPurpose
+    ) -> AccountToken | None:
+        orm = self._session.execute(
+            sa.select(AccountTokenORM).where(
+                AccountTokenORM.token == token,
+                AccountTokenORM.purpose == purpose,
+                AccountTokenORM.used_at.is_(None),
+                AccountTokenORM.expires_at > datetime.now(timezone.utc),
+            )
+        ).scalar_one_or_none()
+        return _account_token_to_domain(orm) if orm else None
+
     def consume_token(
         self, token: str, purpose: AccountTokenPurpose
     ) -> AccountToken | None:

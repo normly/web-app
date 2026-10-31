@@ -1517,6 +1517,12 @@ class AccountTokenRepository(Protocol):
         self, token: str, purpose: AccountTokenPurpose
     ) -> AccountToken | None: ...
 
+    def find_unconsumed_token(
+        self, token: str, purpose: AccountTokenPurpose
+    ) -> AccountToken | None:
+        """An unused, unexpired token without locking it; consume_token still decides."""
+        ...
+
     def delete_for_account(self, account_id: uuid.UUID) -> int:
         """Deletes every token bound to the account; returns the rows deleted."""
         ...

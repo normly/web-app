@@ -10,15 +10,13 @@ from sqlalchemy.orm import Session
 
 from normly_core.graph.domain import AdminAction, Role
 from normly_core.graph.postgres.repositories import (
-    PostgresAccountGoogleIdentityRepository,
     PostgresAccountRepository,
-    PostgresAccountSessionRepository,
-    PostgresAccountTokenRepository,
     PostgresAdminAuditRepository,
     PostgresInvitationRepository,
 )
 
 from normly_accounts.admin_rules import ensure_administrator_remains, snapshot
+from normly_accounts.credentials import reset_credentials
 from normly_accounts.dependencies import get_session
 from normly_accounts.routers.login import _create_session_response
 from normly_accounts.schemas import AcceptInvitationRequest, SessionResponse
@@ -48,6 +46,10 @@ def accept_invitation(
         # Row lock before the reset: a password login re-reads the account
         # under the same lock (login.py), so it either commits its session
         # before the reset deletes it or sees the cleared password.
+        if account.role is Role.ADMINISTRATOR:
+            # Lock order (ADR-030): administrator rows first, like the admin
+            # panel, then the account row, then its tokens.
+            accounts.lock_active_administrator_ids()
         account = accounts.lock_account(account.id)
     if account is None:
         account = accounts.create_account(
@@ -63,10 +65,7 @@ def accept_invitation(
         # Nobody had proved this mailbox before the link was clicked: whoever
         # registered the address may not be its owner. Every credential they
         # could hold goes, so the role reaches only the session created below.
-        PostgresAccountSessionRepository(session).delete_sessions_for_account(account.id)
-        PostgresAccountGoogleIdentityRepository(session).unlink_all_for_account(account.id)
-        PostgresAccountTokenRepository(session).delete_for_account(account.id)
-        accounts.clear_password_hash(account.id)
+        reset_credentials(session, account.id)
         # Nor does anything the registrant left behind belong to the owner.
         accounts.reset_unverified_account_content(account.id, locale=invitation.locale)
     if account.email_verified_at is None:

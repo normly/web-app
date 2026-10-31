@@ -82,9 +82,13 @@ def request_email_change(
 def confirm_email_change(
     token: str, email: str | None = None, session: Session = Depends(get_session),
 ) -> dict:
-    consumed = PostgresAccountTokenRepository(session).consume_token(
-        token, AccountTokenPurpose.EMAIL_CHANGE
-    )
+    tokens = PostgresAccountTokenRepository(session)
+    pending = tokens.find_unconsumed_token(token, AccountTokenPurpose.EMAIL_CHANGE)
+    if pending is None or pending.account_id is None:
+        raise HTTPException(status_code=400, detail="invalid or expired token")
+    # Lock order (ADR-030): account row before token rows, like invitation accept.
+    PostgresAccountRepository(session).lock_account(pending.account_id)
+    consumed = tokens.consume_token(token, AccountTokenPurpose.EMAIL_CHANGE)
     # A token without a stored address predates migration 0042; one whose
     # link carries a different address was tampered with. Neither proves the
     # mailbox the account would move to.
