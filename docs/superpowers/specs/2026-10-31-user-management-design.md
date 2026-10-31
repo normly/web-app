@@ -29,7 +29,7 @@ the server; the UI only hides what the server would refuse anyway.
 | 4 | What can *Edit* change directly? | Downgrade to `user` and change the publisher, both effective immediately. Upgrading to publisher or administrator requires an invitation. Blocking is likewise immediate. Name and e-mail of other accounts are not editable. |
 | 5 | How does a block work? | Reason from a fixed list (`bulk_retrieval`, `abuse`, `terms_violation`, `other`), no free text. All sessions end, every sign-in path is refused. The person receives a neutral e-mail with a contact address but without the reason. The sign-in page shows "account blocked, contact: …". |
 | 6 | Audit log content and retention? | Every administrative action; account IDs only, no e-mail addresses, no foreign keys so entries survive account deletion. Retention 2 years. |
-| 7 | Remove account | Same deletion path as self-deletion (ADR-027, cascade plus `deletion_log`). Confirmation by typing the e-mail address. A neutral e-mail is sent before deletion. For abuse, block instead: a removed address can register again. |
+| 7 | Remove account | Same deletion path as self-deletion (ADR-027, cascade plus `deletion_log`). Confirmation by typing the e-mail address. A neutral e-mail informs the person; it is sent once the deletion is committed, so no mail announces a deletion that failed. For abuse, block instead: a removed address can register again. |
 | 8 | Invitation e-mail | Language chosen in the dialog (default: admin UI language). States role, publisher if any, 7-day validity, button "Accept invitation". Sender is the instance name, not the administrator's name. Personal message: plain text, max. 500 characters, sent but never stored. |
 | 9 | Open invitations | *Resend* issues a new token (old one invalid) and restarts the 7 days. *Withdraw* invalidates immediately. Expired invitations show as *Expired* and can be resent; cleanup deletes them 30 days after expiry. |
 | 10 | Protection rules | The last administrator cannot be downgraded, blocked or removed. Nobody can downgrade, block or remove their own account through the panel. |
@@ -97,7 +97,7 @@ Check constraints: `(role = 'publisher') = (publisher_id IS NOT NULL)`;
 | Column | Type | Notes |
 |---|---|---|
 | `id` | uuid | primary key |
-| `email` | text | lower-cased, **unique** |
+| `email` | text | as entered (normalized by `EmailStr` like every other endpoint); **unique** case-insensitively (unique index on `lower(email)`) |
 | `role` | enum `account_role` | |
 | `publisher_id` | uuid, nullable | FK `publisher.id`; same check constraint as on `account` |
 | `locale` | text | `de` / `en` |
@@ -165,13 +165,13 @@ session, 403 for other roles.
 | `GET /v1/admin/publishers` | All publishers, ordered by name. |
 | `POST /v1/admin/publishers` | `{name}` → 201; 409 `publisher_name_taken`. |
 | `GET /v1/admin/invitations/check?email=` | `{existing_account, blocked, open_invitation}` for the dialog hint. |
-| `POST /v1/admin/invitations` | `{email, role, publisher_id?, locale, message?}` → 201, sends the e-mail. 409 `account_blocked`. 422 when `publisher_id` is missing for `publisher` or present otherwise, or the message exceeds 500 characters. |
+| `POST /v1/admin/invitations` | `{email, role, publisher_id?, locale, message?}` → 201, sends the e-mail. 409 `account_blocked`. 400 when `publisher_id` is missing for `publisher` or present otherwise, names an unknown publisher, or the message exceeds 500 characters (the service answers every validation error with 400). |
 | `POST /v1/admin/invitations/{id}/resend` | New token and expiry, sends the e-mail without a personal message. |
 | `DELETE /v1/admin/invitations/{id}` | Withdraw → 204. |
 | `PATCH /v1/admin/accounts/{id}` | `{role?, publisher_id?}`. Only `role: "user"` (downgrade) or a publisher change on a publisher account. 409 `upgrade_requires_invitation`, `last_administrator`, `self_action`. |
 | `POST /v1/admin/accounts/{id}/block` | `{reason}`; deletes all sessions, sends the block e-mail. 409 `last_administrator`, `self_action`. |
 | `POST /v1/admin/accounts/{id}/unblock` | Clears the block. |
-| `DELETE /v1/admin/accounts/{id}` | Body `{confirm_email}` must match → 204; sends the removal e-mail, then deletes through the ADR-027 path. 409 `last_administrator`, `self_action`; 422 on mismatch. |
+| `DELETE /v1/admin/accounts/{id}` | Body `{confirm_email}` must match → 200 `{email_sent}`; deletes through the ADR-027 path, commits, then sends the removal e-mail. 409 `last_administrator`, `self_action`; 400 on mismatch. |
 | `GET /v1/admin/role-matrix` | Rows and cells for "What the roles see", from `permissions.py`; the frontend translates the keys. |
 
 E-mail sending follows the existing pattern: an SMTP failure does not roll
@@ -201,7 +201,7 @@ On accept, in one transaction:
 
 1. Find the invitation by token; 410 `invitation_invalid` if unknown or
    expired.
-2. Find the account by e-mail or create it (no password). Set
+2. Find the account by e-mail (same exact lookup as the magic link) or create it (no password). Set
    `email_verified_at` if empty — the click proves the mailbox.
 3. 403 `account_blocked` if the account is blocked.
 4. 409 `last_administrator` if the new role would remove the last
@@ -336,8 +336,9 @@ a publisher → link from the test mailbox → accept → role visible in the ta
 - **SRS** — new REQ-ACC-006 (roles and administration); REQ-ACC-004 amended
   with "role-bound administrative and partner functions"; requirement index
   in `docs/srs/README.md`.
-- **ADR-017** and **CLAUDE.md** — the exhaustive account list gains the same
-  item.
+- **ADR-017** — the exhaustive account list gains the same item. `AGENTS.md`
+  only links REQ-ACC-004 and needs no change (`CLAUDE.md` no longer exists on
+  `develop`).
 - **ADR-027** — data inventory gains `publisher`, `account_invitation`,
   `admin_audit_log` and the two retention periods.
 - **Glossary** — the three roles; *publisher (contract partner)* versus
