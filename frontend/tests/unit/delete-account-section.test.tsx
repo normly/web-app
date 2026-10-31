@@ -118,4 +118,27 @@ describe("DeleteAccountSection", () => {
       ).toBeInTheDocument(),
     );
   });
+
+  it("explains that the last administrator cannot delete the account", async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ detail: "last_administrator" }), { status: 409 }),
+    );
+    render(
+      <LocaleProvider initialLocale="de">
+        <DeleteAccountSection account={account} />
+      </LocaleProvider>,
+    );
+    fireEvent.change(screen.getByLabelText("Gib zur Bestätigung deine E-Mail-Adresse ein"), {
+      target: { value: "a@example.de" },
+    });
+    fireEvent.change(screen.getByLabelText("Passwort zur Bestätigung"), {
+      target: { value: "pw" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Konto endgültig löschen" }));
+    expect(
+      await screen.findByText(
+        "Du bist der letzte Administrator. Mache zuerst eine andere Person zum Administrator.",
+      ),
+    ).toBeInTheDocument();
+  });
 });

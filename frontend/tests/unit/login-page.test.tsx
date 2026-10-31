@@ -8,8 +8,10 @@ import { LocaleProvider } from "@/lib/i18n/provider";
 import { LoginPageContent } from "@/app/login/login-page-content";
 
 const push = vi.fn();
+let search = "";
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
+  useSearchParams: () => new URLSearchParams(search),
 }));
 
 const originalFetch = global.fetch;
@@ -18,12 +20,13 @@ describe("LoginPageContent", () => {
   afterEach(() => {
     global.fetch = originalFetch;
     push.mockClear();
+    search = "";
   });
 
   it("renders the heading, description, and login form", () => {
     render(
       <LocaleProvider initialLocale="de">
-        <LoginPageContent />
+        <LoginPageContent contact={null} />
       </LocaleProvider>,
     );
     expect(screen.getByRole("heading", { name: "Willkommen zurück" })).toBeInTheDocument();
@@ -34,7 +37,7 @@ describe("LoginPageContent", () => {
   it("shows links to signup and the magic-link page", () => {
     render(
       <LocaleProvider initialLocale="de">
-        <LoginPageContent />
+        <LoginPageContent contact={null} />
       </LocaleProvider>,
     );
     expect(screen.getByRole("link", { name: "Registrieren" })).toHaveAttribute("href", "/signup");
@@ -47,7 +50,7 @@ describe("LoginPageContent", () => {
     global.fetch = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
     render(
       <LocaleProvider initialLocale="de">
-        <LoginPageContent />
+        <LoginPageContent contact={null} />
       </LocaleProvider>,
     );
     fireEvent.change(screen.getByLabelText("E-Mail-Adresse"), {
@@ -58,5 +61,18 @@ describe("LoginPageContent", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Anmelden" }));
     await waitFor(() => expect(push).toHaveBeenCalledWith("/"));
+  });
+
+  it("shows the blocked notice after a blocked Google sign-in", () => {
+    search = "auth_error=blocked";
+    render(
+      <LocaleProvider initialLocale="de">
+        <LoginPageContent contact="kontakt@normly.example" />
+      </LocaleProvider>,
+    );
+    expect(
+      screen.getByText("Dein Konto ist gesperrt. Eine Anmeldung ist nicht möglich."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Bei Fragen wende dich an kontakt@normly.example.")).toBeInTheDocument();
   });
 });

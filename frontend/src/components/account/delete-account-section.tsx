@@ -20,7 +20,7 @@ export function DeleteAccountSection({ account }: { account: AccountSummary }) {
   const { t } = useTranslation();
   const [confirmEmail, setConfirmEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
-  const [error, setError] = React.useState(false);
+  const [error, setError] = React.useState<"none" | "generic" | "lastAdministrator">("none");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const canDelete =
@@ -28,6 +28,7 @@ export function DeleteAccountSection({ account }: { account: AccountSummary }) {
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    setError("none");
     setIsSubmitting(true);
     try {
       const response = await fetch("/api/account/delete", {
@@ -38,7 +39,11 @@ export function DeleteAccountSection({ account }: { account: AccountSummary }) {
       if (response.ok) {
         window.location.reload();
       } else {
-        setError(true);
+        const body = await response.json().catch(() => ({}));
+        setError(
+          response.status === 409 && body.detail === "last_administrator"
+            ? "lastAdministrator" : "generic",
+        );
       }
     } finally {
       setIsSubmitting(false);
@@ -60,7 +65,12 @@ export function DeleteAccountSection({ account }: { account: AccountSummary }) {
             type="password" value={password} onChange={(event) => setPassword(event.target.value)}
           />
         </label>
-        {error && <p className="text-sm text-destructive">{t("account.deleteAccountError")}</p>}
+        {error === "generic" && (
+          <p className="text-sm text-destructive">{t("account.deleteAccountError")}</p>
+        )}
+        {error === "lastAdministrator" && (
+          <p className="text-sm text-destructive">{t("account.deleteLastAdministrator")}</p>
+        )}
         <Button
           type="submit" disabled={!canDelete || isSubmitting}
           variant="destructive" className="self-start"
