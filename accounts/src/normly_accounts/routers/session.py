@@ -51,15 +51,17 @@ def validate_session(
     extended = session_repo.extend_session(
         account_session.id, datetime.now(timezone.utc) + _SESSION_LIFETIME
     )
-    session.commit()
     if not extended:
         # Deleted between lookup and update (block, invitation reset): the
         # UPDATE waited for that commit and then matched no row.
         raise HTTPException(status_code=401, detail="invalid or expired session")
 
+    # Read before committing, as in get_current_account: the uncommitted
+    # extend holds the session row, so a concurrent accept waits for us.
     account = PostgresAccountRepository(session).get_account_by_id(account_session.account_id)
     if account.blocked_at is not None:
         raise HTTPException(status_code=401, detail="invalid or expired session")
+    session.commit()
     return SessionValidationResponse(
         account_id=account.id, email=account.email,
         first_name=account.first_name, last_name=account.last_name,

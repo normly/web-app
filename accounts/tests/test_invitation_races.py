@@ -11,6 +11,7 @@ import threading
 import time
 import uuid
 
+import pytest
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
@@ -150,3 +151,66 @@ def test_in_flight_session_request_loses_against_a_concurrent_reset(real_client,
     )
 
     assert response.status_code == 401
+
+
+# --- D: the role must be read while the session row is still held. ---
+
+@pytest.mark.parametrize(("path", "invited_role_visible"), [
+    ("/v1/accounts/session", lambda r: r.status_code == 200 and r.json()["role"] == "administrator"),
+    ("/v1/admin/role-matrix", lambda r: r.status_code == 200),
+])
+def test_a_request_never_sees_the_role_an_accept_commits_mid_flight(
+    real_client, migrated_engine, monkeypatch, path, invited_role_visible,
+):
+    """
+    The request has looked up and extended its session and is about to read
+    the account. At exactly that point an accept runs on another connection:
+    it deletes the session and grants the invited role. The request must
+    either keep the pre-accept role (accept waits for its session row) or be
+    refused -- never act with the invited role on the squatter's session.
+    """
+    _, account_id, token = _committed_account(real_client, "attacker pw")
+    original = PostgresAccountRepository.get_account_by_id
+    fired = threading.Event()
+    accept_threads: list[threading.Thread] = []
+
+    def accept_now():
+        with migrated_engine.connect() as accept_conn:
+            accept = Session(bind=accept_conn)
+            PostgresAccountRepository(accept).lock_account(account_id)
+            PostgresAccountSessionRepository(accept).delete_sessions_for_account(account_id)
+            PostgresAccountRepository(accept).set_role(
+                account_id, role=Role.ADMINISTRATOR, publisher_id=None,
+            )
+            accept.commit()
+
+    def read_after_concurrent_accept(self, wanted_id):
+        if wanted_id == account_id and not fired.is_set():
+            fired.set()
+            accept_thread = threading.Thread(target=accept_now)
+            accept_threads.append(accept_thread)
+            accept_thread.start()
+            with migrated_engine.connect() as observer:
+                # Either the accept finishes (nothing held it back) or Postgres
+                # shows it waiting for this request's session row.
+                deadline = time.monotonic() + 10
+                while accept_thread.is_alive() and time.monotonic() < deadline:
+                    if observer.execute(sa.text(
+                        "SELECT count(*) FROM pg_locks WHERE NOT granted"
+                    )).scalar_one():
+                        break
+                    time.sleep(0.05)
+        return original(self, wanted_id)
+
+    monkeypatch.setattr(PostgresAccountRepository, "get_account_by_id", read_after_concurrent_accept)
+
+    response = real_client.get(path, headers={"Authorization": f"Bearer {token}"})
+
+    assert fired.is_set()
+    assert not invited_role_visible(response), response.text
+    # The accept completes once the request is done; the session is gone.
+    accept_threads[0].join(timeout=10)
+    assert not accept_threads[0].is_alive()
+    with migrated_engine.connect() as connection:
+        sessions = PostgresAccountSessionRepository(Session(bind=connection))
+        assert sessions.list_sessions_for_account(account_id) == []

@@ -50,17 +50,20 @@ def get_current_account(
     extended = session_repo.extend_session(
         account_session.id, datetime.now(timezone.utc) + _SESSION_LIFETIME
     )
-    session.commit()
     if not extended:
         # Deleted between lookup and update (block, invitation reset):
         # the UPDATE waited for that commit and then matched no row.
         raise HTTPException(status_code=401, detail="invalid or expired session")
 
+    # Read the account before committing: until the commit, the extend holds
+    # the session row, so a block or invitation accept that deletes it waits
+    # and cannot change the role this request acts with (ADR-030).
     account = PostgresAccountRepository(session).get_account_by_id(account_session.account_id)
     if account.blocked_at is not None:
         # Blocking deletes all sessions; this also covers a session created
         # in the moment between the block and that deletion.
         raise HTTPException(status_code=401, detail="invalid or expired session")
+    session.commit()
     return account
 
 
