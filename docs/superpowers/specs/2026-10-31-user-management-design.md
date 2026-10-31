@@ -272,9 +272,9 @@ only when `role === "administrator"`.
 - `/admin/users` — the page. The middleware redirects to `/login` without a
   session cookie; a non-administrator gets 403 from the backend and sees a
   "no access" state.
-- `/api/admin/*` — BFF pass-through routes, same pattern as `/api/account/*`.
-- `/invitation` — accept page with states *ready*, *accepting*, *expired or
-  invalid*, *blocked*, *success* (redirect to `/`).
+- `/api/admin/[...path]` — one catch-all pass-through route, same idea as `/api/account/*`.
+- `/invitation` — accept page with states *ready*, *accepting*, *invalid*,
+  *blocked*, *last administrator*, *missing token*; success redirects to `/`.
 - `/login` — shows the blocked notice with the contact address on
   `account_blocked`.
 
@@ -284,7 +284,7 @@ only when `role === "administrator"`.
 |---|---|
 | `summary-cards.tsx` | Four cards: accounts (active in 30 days), publishers (publishers, open invitations), administrators, blocked (most frequent reason). |
 | `users-toolbar.tsx` | Role tabs with counts, status dropdown, search (300 ms debounce). |
-| `users-table.tsx` | shadcn `table` with a local column definition (key, header, sortable, cell renderer); all columns left-aligned; sort buttons with `aria-sort`; shadcn `pagination` with rows per page. Columns: account, first name, last name, sign-in (e-mail, Google or both), role, publisher, last sign-in, account since, status. |
+| `users-table.tsx` | a plain `table` with a local column definition (key, header, sortable, cell renderer); all columns left-aligned; sort buttons with `aria-sort`; pagination controls with rows per page. Columns: account, first name, last name, sign-in (e-mail, Google or both), role, publisher, last sign-in, account since, status. |
 | `row-actions.tsx` | Menu by status — active: edit, block, remove; blocked: edit, unblock, remove; invited/expired: resend, withdraw. On the own row, everything that would hit `self_action` is disabled. |
 | `invite-dialog.tsx` | E-mail, role, publisher (shown and required only for publisher, with "+ New publisher…"), language, personal message. Hint from the check endpoint when an account exists; error when it is blocked. One short help text instead of the four process steps. |
 | `edit-dialog.tsx` | Downgrade to user; change publisher. |
@@ -293,8 +293,8 @@ only when `role === "administrator"`.
 | `role-matrix-dialog.tsx` | "What the roles see" from `/api/admin/role-matrix`, planned rows marked. |
 
 Filter, search, sort and page live in the URL query, so reload and the back
-button work. New shadcn components: `card`, `select`, `label`,
-`alert-dialog`. No new table library. All strings under `admin.*` in `de.json`
+button work. Built from native `<select>` elements styled like inputs, plain `div` cards
+and the existing `Dialog`; no new dependencies and no new table library. All strings under `admin.*` in `de.json`
 and `en.json`. Badges carry text, not only colour. On narrow screens the table
 scrolls horizontally inside its container; the page itself does not.
 

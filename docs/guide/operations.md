@@ -667,8 +667,10 @@ app first). On the VM:
 docker compose run --rm pipeline grant-admin --email you@example.org
 ```
 
-Further administrators and publishers are invited from *User management*
-(ADR-030).
+Further administrators and publishers are invited from **User management**
+(`/admin/users`, visible to administrators in the sidebar). Accounts can be
+downgraded, blocked or removed there; every action is recorded in the
+admin audit log (ADR-030).
 
 ## Deletions and backups
 
