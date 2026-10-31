@@ -42,7 +42,7 @@ Split into chapters so that readers can read selectively instead of the whole do
 
 ## Requirement index
 
-79 requirements in 17 groups. All in [03-requirements.md](03-requirements.md).
+80 requirements in 17 groups. All in [03-requirements.md](03-requirements.md).
 
 ### REQ-UI — User interface
 
