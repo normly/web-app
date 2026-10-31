@@ -10,12 +10,18 @@ import { Button } from "@/components/ui/button";
 import { SummaryCards } from "@/components/admin/summary-cards";
 import { UsersPagination } from "@/components/admin/users-pagination";
 import { UsersTable } from "@/components/admin/users-table";
+import { BlockDialog } from "@/components/admin/block-dialog";
+import { EditDialog } from "@/components/admin/edit-dialog";
+import { RemoveDialog } from "@/components/admin/remove-dialog";
+import { RowActions } from "@/components/admin/row-actions";
 import { UsersToolbar } from "@/components/admin/users-toolbar";
 import {
-  AdminApiError, adminApi, type AdminSummary, type AdminUserPage, type AdminUserRow, type SortKey,
+  AdminApiError, adminApi, errorKey, type AdminSummary, type AdminUserPage, type AdminUserRow, type SortKey,
 } from "@/lib/admin-api";
 import { useUsersQuery } from "@/lib/admin-users-query";
 import { useTranslation } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/dictionary-keys";
+import { useAccountSession } from "@/lib/use-account-session";
 
 export type DialogState =
   | null
@@ -27,6 +33,7 @@ export type Notice = { kind: "success" | "error"; text: string } | null;
 
 export function UserManagementContent() {
   const { t } = useTranslation();
+  const { account } = useAccountSession();
   const { query, update } = useUsersQuery();
   const [page, setPage] = React.useState<AdminUserPage | null>(null);
   const [summary, setSummary] = React.useState<AdminSummary | null>(null);
@@ -55,6 +62,20 @@ export function UserManagementContent() {
     };
   }, [query, reloadKey]);
 
+  const done = (text: string) => {
+    setDialog(null);
+    setNotice({ kind: "success", text });
+    reload();
+  };
+  async function quick(action: () => Promise<{ emailSent: boolean } | void>, key: TranslationKey) {
+    try {
+      const result = await action();
+      done(result && result.emailSent === false ? t("admin.notices.emailNotSent") : t(key));
+    } catch (failure) {
+      setNotice({ kind: "error", text: t(errorKey(failure)) });
+    }
+  }
+
   const onSort = (sort: SortKey) =>
     update({ sort, order: query.sort === sort && query.order === "asc" ? "desc" : "asc" });
 
@@ -80,11 +101,23 @@ export function UserManagementContent() {
             rows={page.rows}
             query={query}
             onSort={onSort}
-            renderActions={() => null /* Task 7 */}
+            renderActions={(row) => (
+              <RowActions
+                row={row}
+                isSelf={row.kind === "account" && row.id === account?.accountId}
+                onOpen={(kind) => setDialog({ kind, row })}
+                onResend={() => quick(() => adminApi.resendInvitation(row.id), "admin.notices.resent")}
+                onWithdraw={() => quick(() => adminApi.withdrawInvitation(row.id), "admin.notices.withdrawn")}
+                onUnblock={() => quick(() => adminApi.unblock(row.id), "admin.notices.unblocked")}
+              />
+            )}
           />
           <UsersPagination query={query} total={page.total} onChange={update} />
         </>
       )}
+      {dialog?.kind === "edit" && <EditDialog row={dialog.row} onClose={() => setDialog(null)} onDone={done} />}
+      {dialog?.kind === "block" && <BlockDialog row={dialog.row} onClose={() => setDialog(null)} onDone={done} />}
+      {dialog?.kind === "remove" && <RemoveDialog row={dialog.row} onClose={() => setDialog(null)} onDone={done} />}
       <div>
         <Button variant="outline" size="sm" onClick={() => setDialog({ kind: "matrix" })}>
           <Info />
