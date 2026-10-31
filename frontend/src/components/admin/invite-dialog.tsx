@@ -31,6 +31,8 @@ export function InviteDialog({ onClose, onDone }: { onClose: () => void; onDone:
   const [check, setCheck] = React.useState<InvitationCheck | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  // The address currently in the field; a check answer for an older one is stale.
+  const currentEmail = React.useRef("");
 
   React.useEffect(() => {
     if (role !== "publisher" || publishers.length) return;
@@ -38,15 +40,18 @@ export function InviteDialog({ onClose, onDone }: { onClose: () => void; onDone:
   }, [role, publishers.length]);
 
   async function runCheck() {
-    if (!EMAIL_PATTERN.test(email.trim())) {
+    const checked = email.trim();
+    if (!EMAIL_PATTERN.test(checked)) {
       setCheck(null);
       return;
     }
+    let result: InvitationCheck | null = null;
     try {
-      setCheck(await adminApi.checkInvitation(email.trim()));
+      result = await adminApi.checkInvitation(checked);
     } catch {
-      setCheck(null);
+      result = null;
     }
+    if (currentEmail.current === checked) setCheck(result);
   }
 
   async function addPublisher() {
@@ -91,7 +96,11 @@ export function InviteDialog({ onClose, onDone }: { onClose: () => void; onDone:
           <label className="flex flex-col gap-2 text-sm">
             {t("admin.invite.email")}
             <Input type="email" required placeholder={t("admin.invite.emailPlaceholder")} value={email}
-                   onChange={(event) => { setEmail(event.target.value); setCheck(null); }}
+                   onChange={(event) => {
+                     setEmail(event.target.value);
+                     currentEmail.current = event.target.value.trim();
+                     setCheck(null);
+                   }}
                    onBlur={runCheck} />
           </label>
           <label className="flex flex-col gap-2 text-sm">

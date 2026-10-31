@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 normly contributors
 
+import { act } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LocaleProvider } from "@/lib/i18n/provider";
@@ -72,6 +73,28 @@ describe("InviteDialog", () => {
     fireEvent.change(screen.getByLabelText("E-Mail-Adresse"), { target: { value: "x@example.de" } });
     fireEvent.blur(screen.getByLabelText("E-Mail-Adresse"));
     expect(await screen.findByText(/Das bestehende Konto ist unbestätigt/)).toBeInTheDocument();
+  });
+
+  it("ignores a check result for an address that is no longer in the field", async () => {
+    let resolveCheck: (response: Response) => void = () => {};
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.startsWith("/api/admin/invitations/check")) {
+        return new Promise<Response>((resolve) => { resolveCheck = resolve; });
+      }
+      return Promise.resolve(new Response("[]"));
+    });
+    renderDialog();
+    const input = screen.getByLabelText("E-Mail-Adresse");
+    fireEvent.change(input, { target: { value: "blocked@example.de" } });
+    fireEvent.blur(input);
+    fireEvent.change(input, { target: { value: "other@example.de" } });
+    await act(async () => {
+      resolveCheck(new Response(JSON.stringify({
+        existing_account: true, verified: true, blocked: true, open_invitation: false,
+      })));
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Einladung senden" })).toBeEnabled();
   });
 
   it("stays usable on a phone: height-limited, scrollable, with a side margin", () => {
