@@ -93,7 +93,8 @@ Point the instance at managed services instead of the bundled ones:
   username is set). Mails link to `NORMLY_PUBLIC_BASE_URL`; set
   `NORMLY_IMPRINT_URL` and `NORMLY_PRIVACY_URL` to your own imprint and
   privacy policy, otherwise the mail footer carries no such links. Block and removal mails
-  name `NORMLY_CONTACT_EMAIL` as the contact; without it they link the imprint.
+  name `NORMLY_CONTACT_EMAIL` as the contact; without it they name
+  `NORMLY_IMPRINT_URL`, and without that `NORMLY_PUBLIC_BASE_URL`.
 
 Ports 80 and 443 must be reachable from the internet for Let's Encrypt.
 

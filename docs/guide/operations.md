@@ -626,7 +626,7 @@ The periods are named constants in `core/src/normly_core/retention.py`:
 |---|---|
 | expired account sessions | 7 days after expiry |
 | one-time account tokens (verification, reset, magic link) | 24 hours after expiry or use |
-| abandoned registrations, with their tokens and chats | email never verified, created more than 30 days ago, **no** Google identity, **no** session row and **no** sign-in within the last 30 days, **and** 14 days after a delivered warning e-mail |
+| abandoned registrations, with their tokens and chats | email never verified, created more than 30 days ago, **no** Google identity, **no** session row and **no** sign-in within the last 30 days, not blocked, role `user`, **and** 14 days after a delivered warning e-mail |
 | notifications | read: 60 days after creation; unread: 365 days after creation |
 | expired invitations | 30 days after expiry (`INVITATION_EXPIRED_GRACE`) |
 | admin audit entries | 2 years (`ADMIN_AUDIT_RETENTION`) |
@@ -634,19 +634,6 @@ The periods are named constants in `core/src/normly_core/retention.py`:
 | chats without an account (legacy data) | on every run |
 | LLM cost-cap question counters | older than yesterday (UTC days); today and yesterday are kept |
 | LLM cost-cap token usage and budget alerts | 40 days (UTC days) |
-
-## Granting the first administrator
-
-`python -m normly_core.pipeline grant-admin --email you@example.org` sets the
-`administrator` role on an existing account (the person signs up in the web
-app first). On the VM:
-
-```bash
-docker compose run --rm pipeline grant-admin --email you@example.org
-```
-
-Further administrators and publishers are invited from *User management*
-(ADR-030).
 
 No account is deleted silently. Each run does three things in this order:
 (1) clears the warning of accounts that are no longer abandoned (verified,
@@ -669,6 +656,19 @@ sign-in within 14 days keeps it (the sign-in is recorded in
 user deletes them, or the account. The reasoning is in
 [ADR-027](../adr/README.md#adr-027-lifecycle-of-user-data). The periods
 are project decisions and should be reviewed by a data-protection professional.
+
+## Granting the first administrator
+
+`python -m normly_core.pipeline grant-admin --email you@example.org` sets the
+`administrator` role on an existing account (the person signs up in the web
+app first). On the VM:
+
+```bash
+docker compose run --rm pipeline grant-admin --email you@example.org
+```
+
+Further administrators and publishers are invited from *User management*
+(ADR-030).
 
 ## Deletions and backups
 
