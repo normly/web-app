@@ -21,4 +21,17 @@ describe("middleware", () => {
     const response = middleware(request);
     expect(response.cookies.get("normly_anon_id")).toBeUndefined();
   });
+
+  it("sends /admin/* without an account session to /login", () => {
+    const response = middleware(new NextRequest("http://localhost/admin/users"));
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("http://localhost/login");
+  });
+
+  it("lets /admin/* through with an account session cookie", () => {
+    const response = middleware(new NextRequest("http://localhost/admin/users", {
+      headers: { cookie: "normly_account_session=tok" },
+    }));
+    expect(response.headers.get("location")).toBeNull();
+  });
 });

@@ -7,7 +7,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronsUpDown, LogOut, MessageSquare, Search, User as UserIcon } from "lucide-react";
+import { ChevronsUpDown, LogOut, MessageSquare, Search, User as UserIcon, Users } from "lucide-react";
 import { ProfileOverlay } from "@/components/account/profile-overlay";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
@@ -158,6 +159,27 @@ export function AppShell({
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
+          {account?.role === "administrator" && (
+            <SidebarGroup>
+              <SidebarGroupLabel>{t("nav.administrator")}</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname.startsWith("/admin/users")}
+                      tooltip={t("nav.userManagement")}
+                    >
+                      <Link href="/admin/users">
+                        <Users className="size-4" />
+                        <span>{t("nav.userManagement")}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
         </SidebarContent>
         <SidebarFooter>
           <NavUser

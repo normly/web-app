@@ -123,7 +123,7 @@ describe("auth Route Handlers", () => {
     });
     const response = await session(request);
     const body = await response.json();
-    expect(body.account).toEqual({ accountId: "1", email: "a@example.de" });
+    expect(body.account).toEqual({ accountId: "1", email: "a@example.de", role: "user", publisherId: null });
   });
 
   it("session check forwards the stored notification preference", async () => {
@@ -163,6 +163,7 @@ describe("auth Route Handlers", () => {
       hasAvatar: false,
       hasPassword: true,
       notificationPreference: "both",
+      role: "user", publisherId: null,
     });
   });
 

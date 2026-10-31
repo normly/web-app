@@ -76,6 +76,8 @@
   },
   "nav": {
     "chat": "Chat",
+    "administrator": "Administrator",
+    "userManagement": "Nutzermanagement",
     "search": "Suche",
     "account": "Konto",
     "notificationsLabel": "Benachrichtigungen",

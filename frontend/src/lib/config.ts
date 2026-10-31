@@ -9,6 +9,8 @@ export interface InstanceConfig {
   // color definitions expect (see tailwind.config.ts).
   brandColorHsl: string;
   logoPath: string | null;
+  // Named in blocked notices; NORMLY_CONTACT_EMAIL, else the imprint URL.
+  contactAddress: string | null;
 }
 
 // Deliberately NOT read from NEXT_PUBLIC_* variables: those are inlined at
@@ -20,5 +22,7 @@ export function getInstanceConfig(): InstanceConfig {
     instanceName: process.env.NORMLY_INSTANCE_NAME ?? "normly",
     brandColorHsl: process.env.NORMLY_BRAND_COLOR_HSL ?? "222 89% 55%",
     logoPath: process.env.NORMLY_LOGO_PATH ?? null,
+    contactAddress:
+      process.env.NORMLY_CONTACT_EMAIL || process.env.NORMLY_IMPRINT_URL || null,
   };
 }

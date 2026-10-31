@@ -248,4 +248,38 @@ describe("AppShell", () => {
       expect(sidebarAvatarAfter).toHaveAttribute("src", "/api/account/avatar?v=1");
     });
   });
+
+  it("shows the administrator group only to administrators", async () => {
+    const account = (role: string) => ({
+      accountId: "1", email: "a@example.de", firstName: null, lastName: null,
+      hasAvatar: false, hasPassword: true, notificationPreference: "none",
+      role, publisherId: null,
+    });
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ account: account("administrator") })),
+    );
+    const { unmount } = render(
+      <LocaleProvider initialLocale="de">
+        <AppShell instanceName="normly" logoPath={null}><div>content</div></AppShell>
+      </LocaleProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "Nutzermanagement" })).toHaveAttribute(
+        "href", "/admin/users",
+      ),
+    );
+    expect(screen.getByText("Administrator")).toBeInTheDocument();
+    unmount();
+
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ account: account("publisher") })),
+    );
+    render(
+      <LocaleProvider initialLocale="de">
+        <AppShell instanceName="normly" logoPath={null}><div>content</div></AppShell>
+      </LocaleProvider>,
+    );
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    expect(screen.queryByRole("link", { name: "Nutzermanagement" })).not.toBeInTheDocument();
+  });
 });
