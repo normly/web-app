@@ -54,10 +54,13 @@ def validate_session(
     session.commit()
 
     account = PostgresAccountRepository(session).get_account_by_id(account_session.account_id)
+    if account.blocked_at is not None:
+        raise HTTPException(status_code=401, detail="invalid or expired session")
     return SessionValidationResponse(
         account_id=account.id, email=account.email,
         first_name=account.first_name, last_name=account.last_name,
         has_avatar=account.avatar_image is not None,
         has_password=account.password_hash is not None,
         notification_preference=account.notification_preference.value,
+        role=account.role.value, publisher_id=account.publisher_id,
     )

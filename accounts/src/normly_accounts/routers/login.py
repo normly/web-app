@@ -34,6 +34,10 @@ def avatar_data_url(account: Account) -> str | None:
 
 
 def _create_session_response(account: Account, session: Session) -> SessionResponse:
+    # Every sign-in path ends here (password, magic link, Google, registration,
+    # invitation), so this one check refuses a blocked account on all of them.
+    if account.blocked_at is not None:
+        raise HTTPException(status_code=403, detail="account_blocked")
     now = datetime.now(timezone.utc)
     session_repo = PostgresAccountSessionRepository(session)
     created = session_repo.create_session(

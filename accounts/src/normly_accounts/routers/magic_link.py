@@ -42,6 +42,9 @@ def request_magic_link(
     email_sender: EmailSender = Depends(get_email_sender),
 ) -> dict:
     account = PostgresAccountRepository(session).get_account_by_email(payload.email)
+    if account is not None and account.blocked_at is not None:
+        # Same neutral answer as for any address: no token, no mail.
+        return {"status": "if_the_request_is_valid_an_email_was_sent"}
 
     token_repo = PostgresAccountTokenRepository(session)
     now = datetime.now(timezone.utc)

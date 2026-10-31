@@ -302,3 +302,24 @@ def test_google_callback_stores_the_locale_on_a_new_account(client, db_session):
     assert response.status_code == 200
     account = PostgresAccountRepository(db_session).get_account_by_email("google-en@example.de")
     assert account.locale == "en"
+
+
+def test_google_callback_refuses_a_blocked_account_without_linking_it(client, db_session):
+    from normly_core.graph.postgres.repositories import PostgresAccountGoogleIdentityRepository
+    from tests.admin_support import make_account
+
+    account = make_account(db_session, "blocked-google@example.de", blocked=True)
+    _override_google_client(
+        client.app, GoogleProfile(
+            subject_id="google-sub-blocked", email="blocked-google@example.de",
+            email_verified=True,
+        )
+    )
+    _seed_state(db_session, "blocked-state")
+
+    response = client.get(
+        "/v1/accounts/google/callback", params={"code": "fake-code", "state": "blocked-state"}
+    )
+
+    assert (response.status_code, response.json()["detail"]) == (403, "account_blocked")
+    assert not PostgresAccountGoogleIdentityRepository(db_session).has_google_identity(account.id)

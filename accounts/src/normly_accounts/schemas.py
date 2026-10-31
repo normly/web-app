@@ -92,6 +92,10 @@ class SessionValidationResponse(BaseModel):
     # page load -- login returns no account data -- so every field the
     # profile overlay renders has to be here, not only on AccountResponse.
     notification_preference: str
+    # Read by the frontend to show the administrator menu; the server checks
+    # the role again on every admin request.
+    role: str
+    publisher_id: uuid.UUID | None
 
 
 class SetPasswordRequest(BaseModel):

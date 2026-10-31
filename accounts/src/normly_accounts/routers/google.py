@@ -99,6 +99,9 @@ def google_callback(
         # of creating a duplicate.
         existing = account_repo.get_account_by_email(profile.email)
         if existing is not None:
+            if existing.blocked_at is not None:
+                # Refuse before linking: a blocked account gains no new sign-in path.
+                raise HTTPException(status_code=403, detail="account_blocked")
             # Linking hands whoever completed this flow full control of an
             # account that already belongs to someone. A Google identity may
             # *assert* any address, so an unverified one is no evidence at
