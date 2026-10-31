@@ -38,3 +38,5 @@ def test_summary_and_role_matrix(client, db_session):
     assert matrix["roles"] == ["anonymous", "user", "publisher", "administrator"]
     management = next(r for r in matrix["rows"] if r["capability"] == "user_management")
     assert management["values"]["administrator"] == "yes"
+    usage = next(r for r in matrix["rows"] if r["capability"] == "usage_and_demand")
+    assert usage["values"]["publisher"] == "aggregated_own"

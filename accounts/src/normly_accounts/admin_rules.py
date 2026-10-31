@@ -55,5 +55,5 @@ def publisher_or_400(session: Session, publisher_id: uuid.UUID | None) -> Publis
         return None
     publisher = PostgresPublisherRepository(session).get_publisher(publisher_id)
     if publisher is None:
-        raise HTTPException(status_code=400, detail="unknown publisher")
+        raise HTTPException(status_code=400, detail="unknown_publisher")
     return publisher

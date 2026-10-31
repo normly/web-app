@@ -481,7 +481,9 @@ class AccountORM(Base):
         nullable=False, default=Role.USER, server_default=Role.USER.value,
     )
     publisher_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), sa.ForeignKey("publisher.id"), nullable=True
+        UUID(as_uuid=True),
+        sa.ForeignKey("publisher.id", name="fk_account_publisher_id", ondelete="RESTRICT"),
+        nullable=True,
     )
     blocked_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     block_reason: Mapped[BlockReason | None] = mapped_column(
@@ -608,7 +610,7 @@ class AccountInvitationORM(Base):
         )
     )
     publisher_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), sa.ForeignKey("publisher.id"), nullable=True
+        UUID(as_uuid=True), sa.ForeignKey("publisher.id", ondelete="RESTRICT"), nullable=True
     )
     locale: Mapped[str] = mapped_column(sa.String(2))
     token: Mapped[str]

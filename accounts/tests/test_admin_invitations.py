@@ -70,6 +70,15 @@ def test_invalid_invitations_are_rejected_with_400(client, db_session, payload):
     assert client.post("/v1/admin/invitations", json=payload, headers=headers).status_code == 400
 
 
+def test_an_unknown_publisher_is_named_by_a_fixed_code(client, db_session):
+    _, headers = make_admin(db_session)
+    response = client.post("/v1/admin/invitations", headers=headers, json={
+        "email": "x@example.de", "role": "publisher",
+        "publisher_id": "00000000-0000-0000-0000-000000000001",
+    })
+    assert (response.status_code, response.json()["detail"]) == (400, "unknown_publisher")
+
+
 def test_a_blocked_account_cannot_be_invited(client, db_session):
     _, headers = make_admin(db_session)
     make_account(db_session, "blocked@example.de", blocked=True)

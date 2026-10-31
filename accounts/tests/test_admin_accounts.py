@@ -117,7 +117,7 @@ def test_remove_needs_the_confirmation_address_and_keeps_the_audit(client, db_se
 
     wrong = client.request("DELETE", f"/v1/admin/accounts/{user.id}",
                            json={"confirm_email": "other@example.de"}, headers=headers)
-    assert wrong.status_code == 400
+    assert (wrong.status_code, wrong.json()["detail"]) == (400, "confirmation_mismatch")
 
     response = client.request("DELETE", f"/v1/admin/accounts/{user.id}",
                               json={"confirm_email": " Leaving@example.de "}, headers=headers)

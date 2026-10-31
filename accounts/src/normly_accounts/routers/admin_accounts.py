@@ -120,7 +120,7 @@ def remove_account(
     target = target_account_or_404(session, account_id)
     ensure_not_self(admin, target)
     if payload.confirm_email.strip().lower() != target.email.lower():
-        raise HTTPException(status_code=400, detail="confirmation does not match")
+        raise HTTPException(status_code=400, detail="confirmation_mismatch")
     ensure_administrator_remains(session, target)
     # Same path as self-deletion (ADR-027): cascade plus deletion_log entry.
     PostgresAccountRepository(session).delete_account(target.id)

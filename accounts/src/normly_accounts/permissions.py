@@ -5,7 +5,7 @@
 What each role may do -- the one definition both the server-side guard and the
 "What the roles see" dialog read, so the two cannot drift apart (ADR-030).
 
-Values: "yes", "no", "own" (only the person's own data), "own_aggregated"
+Values: "yes", "no", "own" (only the person's own data), "aggregated_own"
 (only the publisher's own content, aggregated, never per person), "all".
 Planned capabilities are shown in the dialog but guard nothing yet.
 """
@@ -41,7 +41,7 @@ CAPABILITIES: tuple[Capability, ...] = (
     _row("chat_and_history", "no", "own", "own", "own"),
     _row("chats_of_others", "no", "no", "no", "no"),
     _row("personal_usage_data_of_others", "no", "no", "no", "no"),
-    _row("usage_and_demand", "no", "no", "own_aggregated", "all", planned=True),
+    _row("usage_and_demand", "no", "no", "aggregated_own", "all", planned=True),
     _row("deliveries", "no", "no", "own", "all", planned=True),
     _row("billing", "no", "no", "own", "all", planned=True),
     _row(USER_MANAGEMENT, "no", "no", "no", "yes"),
