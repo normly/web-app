@@ -10,6 +10,7 @@ def test_openapi_schema_documents_every_v1_endpoint(client):
     paths = set(schema["paths"].keys())
     assert paths == {
         "/v1/accounts/register",
+        "/v1/accounts/invitations/accept",
         "/v1/accounts/login",
         "/v1/accounts/logout",
         "/v1/accounts/session",
@@ -34,6 +35,17 @@ def test_openapi_schema_documents_every_v1_endpoint(client):
         "/v1/accounts/watchlist/{work_id}",
         "/v1/accounts/notifications",
         "/v1/accounts/notifications/{notification_id}",
+        "/v1/admin/publishers",
+        "/v1/admin/invitations",
+        "/v1/admin/invitations/check",
+        "/v1/admin/invitations/{invitation_id}/resend",
+        "/v1/admin/invitations/{invitation_id}",
+        "/v1/admin/accounts/{account_id}",
+        "/v1/admin/accounts/{account_id}/block",
+        "/v1/admin/accounts/{account_id}/unblock",
+        "/v1/admin/users",
+        "/v1/admin/users/summary",
+        "/v1/admin/role-matrix",
     }
     assert schema["info"]["license"]["name"] == "Apache-2.0"
 

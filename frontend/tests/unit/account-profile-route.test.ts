@@ -33,9 +33,10 @@ describe("PATCH /api/account/profile", () => {
     const response = await PATCH(request);
     const body = await response.json();
 
+    // The route has no role information; the shell keeps the session role.
     expect(body).toEqual({
       accountId: "acc-1", email: "a@example.de", firstName: "Jamie", lastName: "Weber",
-      hasAvatar: false,
+      hasAvatar: false, role: "user", publisherId: null,
     });
     const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(init.headers.Authorization).toBe("Bearer acct-tok");

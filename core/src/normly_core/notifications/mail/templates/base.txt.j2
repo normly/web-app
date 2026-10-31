@@ -9,6 +9,11 @@
 {{ block.heading }}
 
 {{ block.paragraph }}
+{% if block.quote %}
+
+{{ block.quote_label }}
+{{ block.quote }}
+{% endif %}
 {% if block.button %}
 
 {{ block.button }}: {{ block.action_url }}

@@ -16,6 +16,7 @@ describe("mapAccountSummary", () => {
       accountId: "acc-1", email: "a@example.de", firstName: "Jamie", lastName: "Weber",
       hasAvatar: true, hasPassword: true,
       notificationPreference: "immediate",
+      role: "user", publisherId: null,
     });
   });
 

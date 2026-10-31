@@ -9,18 +9,21 @@ from sqlalchemy.orm import Session
 
 from normly_core.graph.domain import Account, Document
 from normly_core.graph.postgres.repositories import (
+    PostgresAdminAuditRepository,
     PostgresAccountGoogleIdentityRepository,
     PostgresAccountRepository,
     PostgresChatRepository,
     PostgresDocumentRepository,
     PostgresNotificationRepository,
+    PostgresPublisherRepository,
     PostgresWatchlistRepository,
 )
 
+from normly_accounts.admin_rules import ensure_administrator_remains
 from normly_accounts.dependencies import get_current_account, get_session
 from normly_accounts.routers.login import avatar_data_url
 from normly_accounts.schemas import (
-    DeleteAccountRequest, ExportAccountFields, ExportChatMessage, ExportChatSession,
+    DeleteAccountRequest, ExportAccountFields, ExportAdminAction, ExportChatMessage, ExportChatSession,
     ExportCitation, ExportDocumentRef, ExportNotification, ExportResponse,
     ExportWatchlistEntry,
 )
@@ -43,6 +46,9 @@ def delete_account(
     # email-address confirmation before ever sending this request; the valid
     # session itself is the only server-side proof available.
 
+    # The last active administrator cannot leave the instance without one
+    # (ADR-030), not even by deleting their own account.
+    ensure_administrator_remains(session, account)
     PostgresAccountRepository(session).delete_account(account.id)
     # Commit here, not just at the end of get_session()'s request scope --
     # same hazard and fix as _create_session_response in login.py: FastAPI
@@ -126,6 +132,15 @@ def export_account_data(
     # export is not a display and must not apply that filter.
     notifications = PostgresNotificationRepository(session).list_for_account(account.id)
 
+    publisher = (
+        PostgresPublisherRepository(session).get_publisher(account.publisher_id)
+        if account.publisher_id else None
+    )
+    admin_actions = [
+        ExportAdminAction(action=e.action.value, occurred_at=e.occurred_at, details=e.details)
+        for e in PostgresAdminAuditRepository(session).list_for_target_account(account.id)
+    ]
+
     return ExportResponse(
         account=ExportAccountFields(
             email=account.email, created_at=account.created_at,
@@ -133,6 +148,8 @@ def export_account_data(
             first_name=account.first_name, last_name=account.last_name,
             avatar_data_url=avatar_data_url(account),
             notification_preference=account.notification_preference.value,
+            role=account.role.value,
+            publisher_name=publisher.name if publisher else None,
         ),
         chat_sessions=exported_sessions,
         watchlist=[
@@ -151,4 +168,5 @@ def export_account_data(
             )
             for n in notifications
         ],
+        admin_actions=admin_actions,
     )

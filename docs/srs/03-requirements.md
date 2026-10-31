@@ -1212,7 +1212,7 @@ This section governs which functions are usable without an account and when a si
 
 ### REQ-ACC-004 — Functions requiring an account
 
-**Statement:** An account is required for: higher request quotas, saved histories and bookmark lists, uploading own documents, access to licensed content, offline use under REQ-DRM-002, and all paid services. This list is exhaustive; further functions must not be made subject to an account requirement without amending this requirement.
+**Statement:** An account is required for: higher request quotas, saved histories and bookmark lists, uploading own documents, access to licensed content, offline use under REQ-DRM-002, all paid services, and role-bound administrative and partner functions (REQ-ACC-006). This list is exhaustive; further functions must not be made subject to an account requirement without amending this requirement.
 
 **Rationale:** An exhaustive list prevents the account requirement from being gradually extended to functions that do not need it. All functions named require an attributable identity — be it for quotas, billing, device binding or the user-specific marking under REQ-DRM-003.
 
@@ -1229,3 +1229,13 @@ This section governs which functions are usable without an account and when a si
 **Acceptance criteria:** Budgets configurable; counting server-side and fail-closed; one notification per threshold and period.
 
 **Acceptance test:** With a spent budget no model call is made, the user gets a notice with the reset time, and a graph question is still answered.
+
+### REQ-ACC-006 — Roles and user management
+
+**Statement:** Every account has exactly one role: user, publisher or administrator. A publisher account is bound to exactly one publisher (contract partner). Roles above user are granted only through an invitation link that the invited person follows; accepting it resets the sign-in data of an existing account whose address was never verified (sessions, Google link, tokens, password); its content (names, avatar, chats, watchlist, notifications) is deleted too unless the account has a Google link (a real owner who signed in with Google before Google sign-ins verified the address); a magic-link sign-in that first proves the mailbox of an existing, unverified account resets that account's sign-in data the same way and leaves its content; administrators can downgrade, change a publisher binding, block and remove accounts at once. Role-bound functions are checked on the server on every request. Every administrative action is logged without e-mail addresses and kept for two years.
+
+**Rationale:** Partner functions (REQ-PART-001, REQ-PART-003) and the manual block under REQ-SEC-004 need a role model. Consent through the invitation link prevents a role from passing to whoever registers an invited address first (ADR-030).
+
+**Acceptance criteria:** Admin functions answer 403 to every other role; a downgrade or block takes effect on the next request; the last active administrator cannot be removed; audit entries survive account deletion.
+
+**Acceptance test:** An administrator invites a publisher, the invited person accepts and sees the publisher role; after a block, every sign-in path is refused and the audit log shows both actions.

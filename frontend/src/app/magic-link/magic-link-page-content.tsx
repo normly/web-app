@@ -8,13 +8,14 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthSplitLayout } from "@/components/auth/auth-split-layout";
+import { BlockedNotice } from "@/components/auth/blocked-notice";
 import { MagicLinkForm } from "@/components/auth/magic-link-form";
 import { useTranslation } from "@/lib/i18n/provider";
 
-function MagicLinkConfirm({ token }: { token: string }) {
+function MagicLinkConfirm({ token, contact }: { token: string; contact: string | null }) {
   const router = useRouter();
   const { t } = useTranslation();
-  const [status, setStatus] = React.useState<"confirming" | "error">("confirming");
+  const [status, setStatus] = React.useState<"confirming" | "error" | "blocked">("confirming");
   const hasRunRef = React.useRef(false);
 
   React.useEffect(() => {
@@ -26,13 +27,14 @@ function MagicLinkConfirm({ token }: { token: string }) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ token }),
     })
-      .then((response) => {
+      .then(async (response) => {
         if (cancelled) return;
         if (response.ok) {
           router.push("/");
-        } else {
-          setStatus("error");
+          return;
         }
+        const body = await response.json().catch(() => ({}));
+        if (!cancelled) setStatus(body.detail === "account_blocked" ? "blocked" : "error");
       })
       .catch(() => {
         if (!cancelled) setStatus("error");
@@ -42,13 +44,16 @@ function MagicLinkConfirm({ token }: { token: string }) {
     };
   }, [token, router]);
 
+  if (status === "blocked") {
+    return <BlockedNotice contact={contact} />;
+  }
   if (status === "error") {
     return <p className="text-sm text-destructive">{t("auth.magicLinkInvalidMessage")}</p>;
   }
   return <p className="text-sm text-muted-foreground">{t("auth.magicLinkConfirmingMessage")}</p>;
 }
 
-function MagicLinkPageBody() {
+function MagicLinkPageBody({ contact }: { contact: string | null }) {
   const { t } = useTranslation();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
@@ -59,7 +64,7 @@ function MagicLinkPageBody() {
       descriptionKey={token ? undefined : "auth.magicLinkPageDescription"}
     >
       {token ? (
-        <MagicLinkConfirm token={token} />
+        <MagicLinkConfirm token={token} contact={contact} />
       ) : (
         <>
           <MagicLinkForm />
@@ -75,10 +80,10 @@ function MagicLinkPageBody() {
   );
 }
 
-export function MagicLinkPageContent() {
+export function MagicLinkPageContent({ contact = null }: { contact?: string | null }) {
   return (
     <React.Suspense fallback={null}>
-      <MagicLinkPageBody />
+      <MagicLinkPageBody contact={contact} />
     </React.Suspense>
   );
 }

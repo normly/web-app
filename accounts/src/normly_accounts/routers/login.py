@@ -34,6 +34,10 @@ def avatar_data_url(account: Account) -> str | None:
 
 
 def _create_session_response(account: Account, session: Session) -> SessionResponse:
+    # Every sign-in path ends here (password, magic link, Google, registration,
+    # invitation), so this one check refuses a blocked account on all of them.
+    if account.blocked_at is not None:
+        raise HTTPException(status_code=403, detail="account_blocked")
     now = datetime.now(timezone.utc)
     session_repo = PostgresAccountSessionRepository(session)
     created = session_repo.create_session(
@@ -86,7 +90,14 @@ def login(payload: LoginRequest, session: Session = Depends(get_session)) -> Ses
     ):
         raise HTTPException(status_code=401, detail="invalid email or password")
 
-    return _create_session_response(account, session)
+    # An invitation accept may have reset this account since it was read
+    # (ADR-030). Re-read it under a row lock, held until the session commits:
+    # a hash that changed means the verified password no longer counts.
+    locked = account_repo.lock_account(account.id)
+    if locked is None or locked.password_hash != account.password_hash:
+        raise HTTPException(status_code=401, detail="invalid email or password")
+
+    return _create_session_response(locked, session)
 
 
 @login_router.post("/logout")

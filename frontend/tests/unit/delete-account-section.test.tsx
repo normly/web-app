@@ -13,11 +13,13 @@ const originalFetch = global.fetch;
 const account: AccountSummary = {
   accountId: "acc-1", email: "a@example.de", firstName: null, lastName: null,
   hasAvatar: false, hasPassword: true, notificationPreference: "immediate",
+  role: "user", publisherId: null,
 };
 
 const passwordlessAccount: AccountSummary = {
   accountId: "acc-2", email: "b@example.de", firstName: null, lastName: null,
   hasAvatar: false, hasPassword: false, notificationPreference: "immediate",
+  role: "user", publisherId: null,
 };
 
 describe("DeleteAccountSection", () => {
@@ -115,5 +117,28 @@ describe("DeleteAccountSection", () => {
         screen.getByText("Konto konnte nicht gelöscht werden. Prüfe deine Eingaben."),
       ).toBeInTheDocument(),
     );
+  });
+
+  it("explains that the last administrator cannot delete the account", async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ detail: "last_administrator" }), { status: 409 }),
+    );
+    render(
+      <LocaleProvider initialLocale="de">
+        <DeleteAccountSection account={account} />
+      </LocaleProvider>,
+    );
+    fireEvent.change(screen.getByLabelText("Gib zur Bestätigung deine E-Mail-Adresse ein"), {
+      target: { value: "a@example.de" },
+    });
+    fireEvent.change(screen.getByLabelText("Passwort zur Bestätigung"), {
+      target: { value: "pw" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Konto endgültig löschen" }));
+    expect(
+      await screen.findByText(
+        "Du bist der letzte Administrator. Mache zuerst eine andere Person zum Administrator.",
+      ),
+    ).toBeInTheDocument();
   });
 });

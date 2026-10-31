@@ -186,3 +186,43 @@ def test_magic_link_confirm_creates_the_account_with_the_request_language(
     assert response.status_code == 200
     account = PostgresAccountRepository(db_session).get_account_by_email("ml-new@example.de")
     assert account.locale == "en"
+
+
+def test_magic_link_on_an_unverified_account_resets_the_registrants_credentials(
+    client, db_session
+):
+    client.post("/v1/accounts/register",
+                json={"email": "squatted@example.de", "password": "correct horse"})
+    squatter = client.post("/v1/accounts/login",
+                           json={"email": "squatted@example.de", "password": "correct horse"})
+    squatter_headers = {"Authorization": f"Bearer {squatter.json()['session_token']}"}
+
+    client.post("/v1/accounts/magic-link/request", json={"email": "squatted@example.de"})
+    token = _magic_link_token(db_session, "squatted@example.de")
+    confirmed = client.post("/v1/accounts/magic-link/confirm", json={"token": token})
+
+    assert confirmed.status_code == 200
+    assert client.get("/v1/accounts/session", headers=squatter_headers).status_code == 401
+    assert client.post("/v1/accounts/login", json={
+        "email": "squatted@example.de", "password": "correct horse",
+    }).status_code == 401
+    owner = {"Authorization": f"Bearer {confirmed.json()['session_token']}"}
+    assert client.get("/v1/accounts/session", headers=owner).status_code == 200
+
+
+def test_magic_link_on_a_verified_account_keeps_password_and_sessions(client, db_session):
+    from datetime import datetime, timezone
+
+    client.post("/v1/accounts/register",
+                json={"email": "verified-ml@example.de", "password": "correct horse"})
+    account = PostgresAccountRepository(db_session).get_account_by_email("verified-ml@example.de")
+    PostgresAccountRepository(db_session).mark_email_verified(account.id, datetime.now(timezone.utc))
+    first = client.post("/v1/accounts/login",
+                        json={"email": "verified-ml@example.de", "password": "correct horse"})
+
+    client.post("/v1/accounts/magic-link/request", json={"email": "verified-ml@example.de"})
+    token = _magic_link_token(db_session, "verified-ml@example.de")
+    client.post("/v1/accounts/magic-link/confirm", json={"token": token})
+
+    headers = {"Authorization": f"Bearer {first.json()['session_token']}"}
+    assert client.get("/v1/accounts/session", headers=headers).status_code == 200

@@ -54,7 +54,9 @@
     "resendVerificationButton": "Resend verification link",
     "resendVerificationSentMessage": "If an account with this address exists and isn't verified yet, an email was sent.",
     "magicLinkConfirmingMessage": "Signing you in…",
-    "magicLinkInvalidMessage": "This link is invalid or has expired."
+    "magicLinkInvalidMessage": "This link is invalid or has expired.",
+    "accountBlocked": "Your account is blocked. You cannot sign in.",
+    "accountBlockedContact": "If you have questions, contact {contact}."
   },
   "history": {
     "empty": "No chats yet.",
@@ -76,6 +78,8 @@
   },
   "nav": {
     "chat": "Chat",
+    "administrator": "Administrator",
+    "userManagement": "User management",
     "search": "Search",
     "account": "Account",
     "notificationsLabel": "Notifications",
@@ -184,6 +188,199 @@
     "deleteAccountConfirmLabel": "Type your email address to confirm",
     "deleteAccountButton": "Permanently delete account",
     "deleteAccountError": "Could not delete the account. Check your input.",
-    "dataSectionTitle": "Account & Data"
+    "dataSectionTitle": "Account & Data",
+    "deleteLastAdministrator": "You are the last administrator. Make someone else an administrator first."
+  },
+  "admin": {
+    "inviteButton": "Invite user",
+    "noAccess": "No access. This page is for administrators only.",
+    "loadError": "The data could not be loaded.",
+    "retry": "Try again",
+    "sessionExpired": "Your session has expired.",
+    "signInAgain": "Sign in again",
+    "summary": {
+      "accountsTotal": "Total accounts",
+      "activeHint": "{count} of them active in the last 30 days",
+      "publishers": "With role publisher",
+      "publishersHint": "{publishers} publishers · {invitations} open invitations",
+      "administrators": "With role administrator",
+      "administratorsHint": "Access to user management",
+      "blocked": "Blocked",
+      "blockedHint": "most frequent reason: {reason}",
+      "blockedNone": "no blocked accounts"
+    },
+    "tabs": {
+      "all": "All",
+      "user": "User",
+      "publisher": "Publisher",
+      "administrator": "Administrator"
+    },
+    "status": {
+      "label": "Status",
+      "all": "All statuses",
+      "active": "Active",
+      "invited": "Invited",
+      "expired": "Expired",
+      "blocked": "Blocked"
+    },
+    "searchPlaceholder": "Search e-mail or name …",
+    "searchLabel": "Search accounts",
+    "columns": {
+      "account": "Account",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "signIn": "Sign-in",
+      "role": "Role",
+      "publisher": "Publisher",
+      "lastLogin": "Last sign-in",
+      "createdAt": "Account since",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "signIn": {
+      "email": "E-mail",
+      "google": "Google"
+    },
+    "never": "never",
+    "today": "today {time}",
+    "yesterday": "yesterday {time}",
+    "roles": {
+      "user": "User",
+      "publisher": "Publisher",
+      "administrator": "Administrator"
+    },
+    "blockReasons": {
+      "bulk_retrieval": "Bulk retrieval",
+      "abuse": "Abuse",
+      "terms_violation": "Terms of use violated",
+      "other": "Other"
+    },
+    "pagination": {
+      "showing": "Showing {from} to {to} of {total} rows",
+      "rowsPerPage": "Rows per page",
+      "page": "Page {page} of {pages}",
+      "first": "First page",
+      "previous": "Previous page",
+      "next": "Next page",
+      "last": "Last page"
+    },
+    "empty": "No entries found.",
+    "actions": {
+      "menu": "Actions for {email}",
+      "edit": "Edit",
+      "block": "Block",
+      "unblock": "Unblock",
+      "remove": "Remove",
+      "resend": "Resend",
+      "withdraw": "Withdraw"
+    },
+    "edit": {
+      "title": "Edit account",
+      "upgradeHint": "Higher roles are granted by invitation.",
+      "publisher": "Publisher",
+      "downgrade": "Downgrade to user",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "block": {
+      "title": "Block account",
+      "description": "{email} is signed out at once and can no longer sign in. The person receives a neutral e-mail that does not state the reason.",
+      "reason": "Reason",
+      "confirm": "Block",
+      "cancel": "Cancel"
+    },
+    "remove": {
+      "title": "Remove account",
+      "description": "The account {email} and all its data are deleted for good. For abuse, block instead: a removed address can register again.",
+      "confirmLabel": "Type the e-mail address to confirm",
+      "confirm": "Remove for good",
+      "cancel": "Cancel"
+    },
+    "invite": {
+      "title": "Invite user",
+      "email": "E-mail address",
+      "emailPlaceholder": "name@publisher.com",
+      "role": "Role",
+      "publisher": "Publisher binding",
+      "publisherPlaceholder": "Choose a publisher",
+      "newPublisher": "+ New publisher …",
+      "newPublisherName": "Publisher name",
+      "addPublisher": "Add",
+      "language": "Invitation language",
+      "languageDe": "Deutsch",
+      "languageEn": "English",
+      "message": "Personal message (optional)",
+      "messagePlaceholder": "e.g. access to your usage and demand overview, as discussed",
+      "help": "The link is valid for 7 days and can be used once. Role and binding take effect only when the invited person opens the link and accepts.",
+      "existingAccount": "An account already exists for this address. It receives the role when the invitation is accepted.",
+      "unverifiedAccount": "The existing account is unverified. Accepting resets its sign-in data; without a Google link its content is deleted too.",
+      "blockedAccount": "This account is blocked and cannot be invited.",
+      "openInvitation": "There is already an open invitation for this address. It will be replaced.",
+      "send": "Send invitation",
+      "cancel": "Cancel"
+    },
+    "roleMatrix": {
+      "button": "What the roles see",
+      "title": "What the roles see",
+      "planned": "planned",
+      "capability": "Capability",
+      "roles": {
+        "anonymous": "Anonymous",
+        "user": "User",
+        "publisher": "Publisher",
+        "administrator": "Administrator"
+      },
+      "capabilities": {
+        "search_and_free_content": "Search and free content",
+        "chat_and_history": "Chat and history",
+        "chats_of_others": "Chats of other users",
+        "personal_usage_data_of_others": "Personal usage data of others",
+        "usage_and_demand": "Usage and demand",
+        "deliveries": "Deliveries",
+        "billing": "Billing",
+        "user_management": "User management and audit log"
+      },
+      "values": {
+        "yes": "yes",
+        "no": "–",
+        "own": "own",
+        "aggregated_own": "own content, aggregated",
+        "all": "all"
+      }
+    },
+    "notices": {
+      "invited": "Invitation sent to {email}.",
+      "resent": "Invitation sent again.",
+      "withdrawn": "Invitation withdrawn.",
+      "saved": "Change saved.",
+      "blocked": "Account blocked.",
+      "unblocked": "Account unblocked.",
+      "removed": "Account removed.",
+      "emailNotSent": "The action was carried out, but the e-mail could not be sent."
+    },
+    "errors": {
+      "last_administrator": "The last administrator cannot be downgraded, blocked or removed.",
+      "self_action": "Your own account cannot be changed here.",
+      "upgrade_requires_invitation": "Higher roles are granted by invitation.",
+      "not_a_publisher": "The account does not have the publisher role.",
+      "account_blocked": "The account is blocked.",
+      "already_blocked": "The account is already blocked.",
+      "not_blocked": "The account is not blocked.",
+      "publisher_name_taken": "A publisher with this name already exists.",
+      "unknown_publisher": "The publisher does not exist.",
+      "confirmation_mismatch": "The e-mail address does not match.",
+      "invitation_invalid": "The invitation is invalid or has expired.",
+      "forbidden": "You do not have permission for this.",
+      "generic": "That did not work. Please try again."
+    }
+  },
+  "invitation": {
+    "heading": "Invitation to normly",
+    "description": "Accepting signs you in and gives you the role from the invitation.",
+    "accept": "Accept invitation",
+    "accepting": "Accepting …",
+    "invalid": "This invitation link is invalid or has expired. Please ask the person who invited you for a new invitation.",
+    "missingToken": "This link is incomplete. Please open the link from the invitation e-mail.",
+    "lastAdministrator": "Accepting this invitation would remove the last administrator, so it cannot be accepted."
   }
 }

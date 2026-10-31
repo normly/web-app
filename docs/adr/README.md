@@ -498,8 +498,9 @@ offline use is needed.
 **Decision:** Search, reference graph and freely available content are usable **without
 an account**, limited by a request quota counted on the server side.
 Account required for: higher quotas, histories and bookmark lists, own
-uploads, licensed content, offline use, paid services — the
-list is **exhaustive**. → REQ-ACC-001…004
+uploads, licensed content, offline use, paid services, role-bound
+administrative and partner functions (ADR-030) — the list is **exhaustive**.
+→ REQ-ACC-001…004
 
 **Rationale against a blanket account requirement:**
 
@@ -1332,10 +1333,13 @@ offers both with confirmation.
 
 | Table | Purpose | Personal data | Period | Deletion path |
 |---|---|---|---|---|
-| `account` | account, sign-in | e-mail, name, password hash, avatar | until account deletion; **abandoned registration** (e-mail never verified, older than 30 days, without a Google link, without any account session) 14 days after a delivered advance warning e-mail, never without it | account deletion by the person (cascades to all tables with an account reference); cleanup command |
+| `account` | account, sign-in, role and block (ADR-030) | e-mail, name, password hash, avatar | until account deletion; **abandoned registration** (e-mail never verified, older than 30 days, without a Google link, without any account session, not blocked, role `user`) 14 days after a delivered advance warning e-mail, never without it | account deletion by the person (cascades to all tables with an account reference); cleanup command |
 | `account_session` | signed-in session | account reference, session token; no IP, no user agent | 7 days after expiry | cleanup command; account deletion |
 | `account_google_identity` | link to Google sign-in | Google ID, account reference | until account deletion | account deletion |
 | `account_token` | one-time token (verification, reset, magic link) | account reference | 24 hours after expiry or use | cleanup command; account deletion |
+| `publisher` | contract partners for publisher accounts (ADR-030) | none (organization names) | until removed by the operator | operator |
+| `account_invitation` | open or expired invitation | e-mail address, invited role | until accepted or withdrawn; expired ones 30 days after expiry | administrator; cleanup command |
+| `admin_audit_log` | record of administrative actions (ADR-030) | account IDs only, no e-mail address | 2 years | cleanup command |
 | `oauth_state` | CSRF protection of the Google sign-in | none (random value) | unchanged (1 hour) | existing cleanup |
 | `watchlist` | watchlist | account reference, interests | until account deletion or removal by the person | person; account deletion |
 | `notification` | notifications | account reference, watched work | read 60 days, unread 365 days after creation | cleanup command; account deletion |
@@ -1349,15 +1353,19 @@ removal. The data inventory is to be reassessed as soon as `account_session`
 stores IP addresses or user agent (not the case today).
 
 *Abandoned registrations.* The rule is deliberately narrower than "unverified":
-Google accounts are never marked as verified (`email_verified_at` stays
-empty), and accounts with a password can sign in even without verification. An
+a Google sign-in marks the account verified only when Google asserts the
+address as verified (since ADR-030; accounts linked before that stay
+unverified until their next such sign-in), and accounts with a password can
+sign in even without verification. An
 account in use therefore has a Google link or at least one
 `account_session` row (even an expired one, as long as it has not been deleted;
 the session's deletion period begins only 7 days after expiry) or a
 sign-in within the last 30 days: `account.last_login_at` is set on every
 session creation and, unlike the session row, survives
 sign-out. Only an account without all of that, never verified and older than 30 days,
-counts as abandoned. This
+counts as abandoned. A blocked account and an account with a role above
+`user` never count as abandoned: the block must outlive the cleanup, and the
+role was granted on purpose (ADR-030). This
 also hits a password account that was used and then paused for a long time,
 as soon as its sessions are removed; therefore no account is deleted silently:
 the cleanup command first sends an advance warning e-mail, written in the
@@ -1463,7 +1471,8 @@ by hand.
 - *Asynchronous export via e-mail link:* More infrastructure (queue,
   storage, link expiry) and more stored copies, without the scope
   requiring it.
-- *Deleting all unverified accounts:* Google accounts are never "verified" and
+- *Deleting all unverified accounts:* Google accounts are not always
+  "verified" (not before ADR-030, nor without a Google-verified address) and
   password accounts can sign in unverified; the rule would
   delete accounts in use.
 
@@ -1593,6 +1602,68 @@ live as long as the backup retention (ADR-027).
 **Rejected:** A separate LLM gateway service — more to operate than needed
 now. Counting in the frontend — bypassable. Reserving tokens before a call —
 stricter, but more logic for little gain given the per-call cap.
+
+---
+
+## ADR-030 — Roles, publishers and user management
+
+**Status:** accepted (2026-10-31)
+
+**Decision:** Every account has exactly one role: `user`, `publisher` or
+`administrator`. Publisher and administrator include everything a user can
+do. A publisher account is bound to exactly one entry of the new `publisher`
+table. A publisher entry is the **contract partner** whose content usage the
+account may later see — for example a distributor such as DIN Media, not
+necessarily the issuing body.
+
+- **Consent for more rights.** A role above `user` is granted only through an
+  invitation link (7 days, single use), which proves control of the mailbox.
+  An address that merely matches never receives a role. Inviting an existing
+  account is allowed; its role changes when the link is used. If that account
+  never verified its address, accepting first resets its credentials (all
+  sessions, the Google link, open tokens and the password) and its content
+  (names, avatar, chats, watchlist, notifications; preference and language
+  back to the defaults of the invitation), because whoever registered it need
+  not own the mailbox; its content is deleted too unless the account has a
+  Google link (a real owner who signed in with Google before Google sign-ins
+  verified the address); a verified account keeps both. A Google sign-in with an
+  address Google asserts as verified marks the account verified, so such an
+  account is never reset; an older Google-only account that has not signed in
+  since then is still unverified and is reset on accept. A magic-link sign-in that first proves the mailbox of an
+  existing, unverified account resets that account's other sign-in data the
+  same way; its content stays.
+- **Fewer rights at once.** Administrators can downgrade to `user`, change a
+  publisher's binding and block an account immediately. Blocking ends all
+  sessions and refuses every sign-in path; anonymous use of free content
+  stays possible (ADR-017). The reason comes from a fixed list; the person
+  receives a neutral mail with a contact address.
+- **Protection.** The last active administrator cannot be downgraded,
+  blocked or removed, also not by deleting their own account; nobody can do any of this to their own account through
+  the panel. The first administrator is set with
+  `python -m normly_core.pipeline grant-admin --email …`.
+- **Checks.** The role is read from the database on every request. One
+  capability matrix (`accounts/src/normly_accounts/permissions.py`) drives
+  both the server-side guard and the "What the roles see" dialog.
+- **Audit.** Every administrative action is logged with account, invitation
+  and publisher IDs and before/after values, without e-mail addresses and
+  without foreign keys, so entries outlive deleted accounts. Retention 2
+  years.
+
+**Rationale:** Every partner feature (usage analytics, deliveries,
+billing) depends on a role model. Consent through the invitation link closes
+the gap that an attacker who registers an invited address first would
+otherwise inherit its role. Granting through an invitation also limits what
+a taken-over administrator account can do unnoticed.
+
+**Rejected:** Several roles per account (no current need, harder to check
+and to display). The role in the session token (a downgrade or block would
+only take effect at the next sign-in). Free-text block reasons (they invite
+personal notes about users). Publishers as free text (no stable key for
+statistics or the per-publisher data key of ADR-014).
+
+**Consequences:** REQ-ACC-004 and ADR-017 list role-bound administrative and
+partner functions; REQ-ACC-006 describes the role model. The data inventory
+of ADR-027 gains `publisher`, `account_invitation` and `admin_audit_log`.
 
 ---
 

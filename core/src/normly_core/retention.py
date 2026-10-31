@@ -15,8 +15,9 @@ ACCOUNT_SESSION_GRACE = timedelta(days=7)
 ACCOUNT_TOKEN_GRACE = timedelta(hours=24)
 
 #: Abandoned registrations, measured from `created_at`: email never verified,
-#: no Google link and no account session at all (any expiry). Accounts in use
-#: without verification (Google, password login) are never purged.
+#: no Google link and no account session at all (any expiry), not blocked and
+#: role `user`. Accounts in use without verification (Google link, password
+#: login) are never purged.
 UNVERIFIED_ACCOUNT_MAX_AGE = timedelta(days=30)
 
 #: Read notifications, measured from `created_at`.
@@ -39,3 +40,9 @@ LLM_QUESTION_COUNT_RETENTION = timedelta(days=1)
 #: LLM cost-cap token usage per pool and day, and the budget alerts sent,
 #: measured in UTC days; covers the running month and the previous one's end.
 LLM_USAGE_RETENTION = timedelta(days=40)
+
+#: Expired invitations, measured from `expires_at`; open ones are never touched.
+INVITATION_EXPIRED_GRACE = timedelta(days=30)
+
+#: Administrative audit entries, measured from `occurred_at` (ADR-030).
+ADMIN_AUDIT_RETENTION = timedelta(days=730)

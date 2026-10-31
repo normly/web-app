@@ -12,10 +12,13 @@ from normly_core.graph.domain import (
     EdgeType,
     Layer,
     LegalBasisCategory,
+    NotificationPreference,
     NotificationTriggerType,
     WorkCreatedVia,
 )
-from normly_core.graph.postgres.orm import ChatMessageORM, NotificationORM, WatchlistORM
+from normly_core.graph.postgres.orm import (
+    ChatMessageORM, ChatSessionORM, NotificationORM, WatchlistORM,
+)
 from normly_core.graph.postgres.repositories import (
     PostgresAccountRepository,
     PostgresAccountSessionRepository,
@@ -131,11 +134,10 @@ def test_delete_account_removes_sessions_and_tokens(db_session):
     assert token_repo.consume_token("delete-me-token", AccountTokenPurpose.PASSWORD_RESET) is None
 
 
-def test_delete_account_removes_watchlist_and_notification_rows(db_session):
-    account_repo = PostgresAccountRepository(db_session)
-    work_repo = PostgresWorkRepository(db_session)
-    account = account_repo.create_account(email="watcher@example.de", password_hash=None)
-    work = work_repo.create_work(created_via=WorkCreatedVia.MANUAL)
+def _seed_watch_and_notification_rows(db_session, account_id) -> None:
+    """A watch, a notification and all three notification bookkeeping rows."""
+    account = PostgresAccountRepository(db_session).get_account_by_id(account_id)
+    work = PostgresWorkRepository(db_session).create_work(created_via=WorkCreatedVia.MANUAL)
 
     # rights_notification_baseline is the third account-referencing table
     # notify-watchers writes into, and it is created on the very first
@@ -208,6 +210,24 @@ def test_delete_account_removes_watchlist_and_notification_rows(db_session):
     )
     db_session.flush()
 
+
+def _rows(db_session, table: str, account_id) -> int:
+    return db_session.execute(
+        sa.text(f"SELECT count(*) FROM {table} WHERE account_id = :a"), {"a": account_id},
+    ).scalar_one()
+
+
+ACCOUNT_CONTENT_TABLES = (
+    "chat_session", "watchlist", "notification", "rights_notification_baseline",
+    "notified_edge", "notified_retirement",
+)
+
+
+def test_delete_account_removes_watchlist_and_notification_rows(db_session):
+    account_repo = PostgresAccountRepository(db_session)
+    account = account_repo.create_account(email="watcher@example.de", password_hash=None)
+    _seed_watch_and_notification_rows(db_session, account.id)
+
     account_repo.delete_account(account.id)
 
     assert account_repo.get_account_by_id(account.id) is None
@@ -229,3 +249,44 @@ def test_delete_account_does_not_touch_another_accounts_data(db_session):
 
     assert account_repo.get_account_by_id(victim.id) is not None
     assert len(session_repo.list_sessions_for_account(victim.id)) == 1
+
+
+def test_reset_unverified_account_content_keeps_only_the_account_row(db_session):
+    """Invitation accept on a pre-registered, unverified account (ADR-030)."""
+    account_repo = PostgresAccountRepository(db_session)
+    account = account_repo.create_account(email="squatted@example.de", password_hash=None)
+    bystander = account_repo.create_account(email="bystander@example.de", password_hash=None)
+    for owner in (account, bystander):
+        account_repo.update_profile_names(owner.id, first_name="Eve", last_name="Squatter")
+        account_repo.set_avatar(owner.id, avatar_image=b"png", avatar_content_type="image/png")
+        account_repo.update_notification_preference(
+            owner.id, preference=NotificationPreference.EMAIL,
+        )
+        chat_repo = PostgresChatRepository(db_session)
+        now = datetime.now(timezone.utc)
+        chat = chat_repo.create_session(
+            session_token=f"chat-{owner.id}", jurisdiction="DE", language="de",
+            created_at=now, account_id=owner.id,
+        )
+        chat_repo.create_message(
+            session_id=chat.id, role=ChatMessageRole.USER, content="Hallo?",
+            answer_type=None, created_at=now,
+        )
+    _seed_watch_and_notification_rows(db_session, account.id)
+
+    account_repo.reset_unverified_account_content(account.id, locale="en")
+
+    db_session.expire_all()
+    reset = account_repo.get_account_by_id(account.id)
+    assert (reset.first_name, reset.last_name) == (None, None)
+    assert (reset.avatar_image, reset.avatar_content_type) == (None, None)
+    assert reset.notification_preference is NotificationPreference.NONE
+    assert reset.locale == "en" and reset.email == "squatted@example.de"
+    for table in ACCOUNT_CONTENT_TABLES:
+        assert _rows(db_session, table, account.id) == 0, table
+    assert db_session.execute(sa.select(sa.func.count()).select_from(ChatMessageORM).join(
+        ChatSessionORM, ChatSessionORM.id == ChatMessageORM.session_id,
+    ).where(ChatSessionORM.account_id == account.id)).scalar_one() == 0
+    untouched = account_repo.get_account_by_id(bystander.id)
+    assert untouched.first_name == "Eve" and untouched.avatar_image == b"png"
+    assert _rows(db_session, "chat_session", bystander.id) == 1
