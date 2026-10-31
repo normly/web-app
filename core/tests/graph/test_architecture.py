@@ -70,6 +70,10 @@ JURISDICTION_EXEMPT_READS = {
     # rights-gated document content. Neither is jurisdiction-scoped.
     "PublisherRepository.get_publisher",
     "PublisherRepository.list_publishers",
+    # Invitations are account-administration bookkeeping, not document content.
+    "InvitationRepository.get_invitation",
+    "InvitationRepository.get_invitation_by_email",
+    "InvitationRepository.get_invitation_by_token",
     "AdminAuditRepository.list_for_target_account",
     # Registry metadata (publisher, legal basis, review date) — the entry that
     # licenses the ingestion, not the content it produced.

@@ -1324,6 +1324,34 @@ class PublisherRepository(Protocol):
     def list_publishers(self) -> list[Publisher]: ...
 
 
+class InvitationRepository(Protocol):
+    """
+    Open and expired invitations. A row exists only until it is accepted or
+    withdrawn; one row per address (case-insensitive).
+    """
+
+    def save_invitation(
+        self, *, email: str, role: Role, publisher_id: uuid.UUID | None, locale: str,
+        token: str, invited_by: uuid.UUID | None, created_at: datetime, expires_at: datetime,
+    ) -> AccountInvitation: ...
+
+    def get_invitation(self, invitation_id: uuid.UUID) -> AccountInvitation | None: ...
+
+    def get_invitation_by_email(self, email: str) -> AccountInvitation | None: ...
+
+    def get_invitation_by_token(
+        self, token: str, *, lock: bool = False
+    ) -> AccountInvitation | None: ...
+
+    def renew_invitation(
+        self, invitation_id: uuid.UUID, *, token: str, expires_at: datetime
+    ) -> AccountInvitation | None: ...
+
+    def delete_invitation(self, invitation_id: uuid.UUID) -> bool: ...
+
+    def delete_expired_before(self, cutoff: datetime) -> int: ...
+
+
 class AdminAuditRepository(Protocol):
     """Administrative actions. IDs only, never an e-mail address (ADR-030)."""
 

@@ -11,10 +11,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
 from normly_core.graph.domain import (
+    AccountInvitation,
     AdminAction,
     AdminAuditEntry,
     AdminAuditRepository,
+    InvitationRepository,
     Publisher,
+    Role,
     PublisherNameTakenError,
     PublisherRepository,
     LlmPoolTotals,
@@ -91,6 +94,7 @@ from normly_core.graph.postgres.orm import (
     AccountORM,
     AccountSessionORM,
     AccountTokenORM,
+    AccountInvitationORM,
     AdminAuditLogORM,
     PublisherORM,
     ChatMessageCitationORM,
@@ -2482,6 +2486,88 @@ class PostgresPublisherRepository(PublisherRepository):
             select(PublisherORM).order_by(sa.func.lower(PublisherORM.name))
         ).scalars()
         return [_publisher_to_domain(orm) for orm in rows]
+
+
+def _invitation_to_domain(orm: AccountInvitationORM) -> AccountInvitation:
+    return AccountInvitation(
+        id=orm.id, email=orm.email, role=orm.role, publisher_id=orm.publisher_id,
+        locale=orm.locale, token=orm.token, invited_by=orm.invited_by,
+        created_at=orm.created_at, expires_at=orm.expires_at,
+    )
+
+
+class PostgresInvitationRepository(InvitationRepository):
+    def __init__(self, session: Session):
+        self._session = session
+
+    def save_invitation(
+        self, *, email: str, role: Role, publisher_id: uuid.UUID | None, locale: str,
+        token: str, invited_by: uuid.UUID | None, created_at: datetime, expires_at: datetime,
+    ) -> AccountInvitation:
+        values = dict(
+            email=email, role=role, publisher_id=publisher_id, locale=locale, token=token,
+            invited_by=invited_by, created_at=created_at, expires_at=expires_at,
+        )
+        # One invitation per address: a new one replaces the old row but keeps
+        # its ID, so audit entries of both refer to the same invitation.
+        statement = (
+            pg_insert(AccountInvitationORM)
+            .values(id=uuid.uuid4(), **values)
+            .on_conflict_do_update(
+                index_elements=[sa.func.lower(AccountInvitationORM.email)], set_=values,
+            )
+            .returning(AccountInvitationORM.id)
+        )
+        invitation_id = self._session.execute(statement).scalar_one()
+        self._session.expire_all()
+        return self.get_invitation(invitation_id)
+
+    def get_invitation(self, invitation_id: uuid.UUID) -> AccountInvitation | None:
+        orm = self._session.get(AccountInvitationORM, invitation_id)
+        return _invitation_to_domain(orm) if orm else None
+
+    def get_invitation_by_email(self, email: str) -> AccountInvitation | None:
+        orm = self._session.execute(
+            select(AccountInvitationORM).where(
+                sa.func.lower(AccountInvitationORM.email) == email.lower()
+            )
+        ).scalar_one_or_none()
+        return _invitation_to_domain(orm) if orm else None
+
+    def get_invitation_by_token(
+        self, token: str, *, lock: bool = False
+    ) -> AccountInvitation | None:
+        query = select(AccountInvitationORM).where(AccountInvitationORM.token == token)
+        if lock:
+            # Two clicks on the same link: the second waits and then finds no row.
+            query = query.with_for_update()
+        orm = self._session.execute(query).scalar_one_or_none()
+        return _invitation_to_domain(orm) if orm else None
+
+    def renew_invitation(
+        self, invitation_id: uuid.UUID, *, token: str, expires_at: datetime
+    ) -> AccountInvitation | None:
+        result = self._session.execute(
+            sa.update(AccountInvitationORM)
+            .where(AccountInvitationORM.id == invitation_id)
+            .values(token=token, expires_at=expires_at)
+        )
+        if result.rowcount == 0:
+            return None
+        self._session.expire_all()
+        return self.get_invitation(invitation_id)
+
+    def delete_invitation(self, invitation_id: uuid.UUID) -> bool:
+        result = self._session.execute(
+            sa.delete(AccountInvitationORM).where(AccountInvitationORM.id == invitation_id)
+        )
+        return result.rowcount == 1
+
+    def delete_expired_before(self, cutoff: datetime) -> int:
+        result = self._session.execute(
+            sa.delete(AccountInvitationORM).where(AccountInvitationORM.expires_at < cutoff)
+        )
+        return result.rowcount
 
 
 def _audit_to_domain(orm: AdminAuditLogORM) -> AdminAuditEntry:
