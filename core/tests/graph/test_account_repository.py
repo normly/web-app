@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 normly contributors
 
+import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -127,11 +128,13 @@ def test_session_create_lookup_extend_and_revoke(db_session):
     assert session_repo.get_session_by_token("tok-abc") == session
 
     later = now + timedelta(days=31)
-    session_repo.extend_session(session.id, later)
+    assert session_repo.extend_session(session.id, later) is True
     assert session_repo.get_session_by_token("tok-abc").expires_at == later
 
     session_repo.revoke_session("tok-abc")
     assert session_repo.get_session_by_token("tok-abc") is None
+    # A session deleted under the caller (block, invitation reset) is reported.
+    assert session_repo.extend_session(session.id, later) is False
 
 
 def test_get_session_by_token_returns_none_for_an_unknown_token(db_session):
@@ -369,3 +372,14 @@ def test_the_database_rejects_an_unsupported_locale(db_session):
         with db_session.begin_nested():
             repo.update_locale(account.id, locale="fr")
             db_session.flush()
+
+
+def test_lock_account_rereads_the_committed_row(db_session):
+    repo = PostgresAccountRepository(db_session)
+    account = repo.create_account(email="lock@example.de", password_hash="hash")
+    repo.clear_password_hash(account.id)
+
+    locked = repo.lock_account(account.id)
+
+    assert locked.id == account.id and locked.password_hash is None
+    assert repo.lock_account(uuid.uuid4()) is None

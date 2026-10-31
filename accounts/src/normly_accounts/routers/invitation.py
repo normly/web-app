@@ -44,6 +44,11 @@ def accept_invitation(
     accounts = PostgresAccountRepository(session)
     account = accounts.get_account_by_email(invitation.email)
     pre_registered = account is not None
+    if pre_registered and account.email_verified_at is None:
+        # Row lock before the reset: a password login re-reads the account
+        # under the same lock (login.py), so it either commits its session
+        # before the reset deletes it or sees the cleared password.
+        account = accounts.lock_account(account.id)
     if account is None:
         account = accounts.create_account(
             email=invitation.email, password_hash=None, locale=invitation.locale,

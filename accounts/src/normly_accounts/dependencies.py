@@ -47,10 +47,14 @@ def get_current_account(
     # session-check endpoint -- any proof of activity is a reasonable signal
     # to extend a session, matching the same sliding-window philosophy
     # session.py's own validate_session already applies.
-    session_repo.extend_session(
+    extended = session_repo.extend_session(
         account_session.id, datetime.now(timezone.utc) + _SESSION_LIFETIME
     )
     session.commit()
+    if not extended:
+        # Deleted between lookup and update (block, invitation reset):
+        # the UPDATE waited for that commit and then matched no row.
+        raise HTTPException(status_code=401, detail="invalid or expired session")
 
     account = PostgresAccountRepository(session).get_account_by_id(account_session.account_id)
     if account.blocked_at is not None:

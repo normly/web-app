@@ -2211,6 +2211,17 @@ class PostgresAccountRepository(AccountRepository):
         ).scalar_one_or_none()
         return _account_to_domain(orm) if orm else None
 
+    def lock_account(self, account_id: uuid.UUID) -> Account | None:
+        # SELECT ... FOR UPDATE, refreshed past the identity map: the caller
+        # sees the latest committed row and holds it until its commit.
+        orm = self._session.execute(
+            select(AccountORM)
+            .where(AccountORM.id == account_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        ).scalar_one_or_none()
+        return _account_to_domain(orm) if orm else None
+
     def mark_email_verified(self, account_id: uuid.UUID, verified_at: datetime) -> None:
         self._session.execute(
             sa.update(AccountORM)
@@ -2917,12 +2928,13 @@ class PostgresAccountSessionRepository(AccountSessionRepository):
         ).scalar_one_or_none()
         return _account_session_to_domain(orm) if orm else None
 
-    def extend_session(self, session_id: uuid.UUID, new_expires_at: datetime) -> None:
-        self._session.execute(
+    def extend_session(self, session_id: uuid.UUID, new_expires_at: datetime) -> bool:
+        result = self._session.execute(
             sa.update(AccountSessionORM)
             .where(AccountSessionORM.id == session_id)
             .values(expires_at=new_expires_at)
         )
+        return result.rowcount > 0
 
     def revoke_session(self, session_token: str) -> None:
         self._session.execute(
