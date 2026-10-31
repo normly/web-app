@@ -75,6 +75,8 @@ JURISDICTION_EXEMPT_READS = {
     "InvitationRepository.get_invitation_by_email",
     "InvitationRepository.get_invitation_by_token",
     "AdminAuditRepository.list_for_target_account",
+    # The admin table: account administration, not document content.
+    "AdminDirectoryRepository.list_users",
     # Registry metadata (publisher, legal basis, review date) — the entry that
     # licenses the ingestion, not the content it produced.
     "SourceRepository.get_source",

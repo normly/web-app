@@ -1315,6 +1315,20 @@ class AccountRepository(Protocol):
 
     def mark_deletion_warned(self, account_id: uuid.UUID, warned_at: datetime) -> None: ...
 
+    def set_role(
+        self, account_id: uuid.UUID, *, role: Role, publisher_id: uuid.UUID | None
+    ) -> None: ...
+
+    def block_account(
+        self, account_id: uuid.UUID, *, reason: BlockReason, blocked_at: datetime
+    ) -> None: ...
+
+    def unblock_account(self, account_id: uuid.UUID) -> None: ...
+
+    def lock_active_administrator_ids(self) -> list[uuid.UUID]:
+        """Unblocked administrators, row-locked until the transaction ends."""
+        ...
+
 
 class PublisherRepository(Protocol):
     def create_publisher(self, *, name: str, created_at: datetime) -> Publisher: ...
@@ -1350,6 +1364,17 @@ class InvitationRepository(Protocol):
     def delete_invitation(self, invitation_id: uuid.UUID) -> bool: ...
 
     def delete_expired_before(self, cutoff: datetime) -> int: ...
+
+
+class AdminDirectoryRepository(Protocol):
+    """The admin table: accounts and invitations in one paged list."""
+
+    def list_users(
+        self, *, query: str | None, role: Role | None, status: str | None, sort: str,
+        descending: bool, page: int, page_size: int, now: datetime,
+    ) -> AdminUserPage: ...
+
+    def summarize(self, *, now: datetime, active_since: datetime) -> AdminSummary: ...
 
 
 class AdminAuditRepository(Protocol):
@@ -1436,6 +1461,8 @@ class AccountSessionRepository(Protocol):
     def revoke_session_by_id(self, session_id: uuid.UUID, account_id: uuid.UUID) -> bool: ...
 
     def delete_sessions_expired_before(self, cutoff: datetime) -> int: ...
+
+    def delete_sessions_for_account(self, account_id: uuid.UUID) -> int: ...
 
 
 class AccountTokenRepository(Protocol):

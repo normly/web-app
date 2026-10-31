@@ -15,6 +15,11 @@ from normly_core.graph.domain import (
     AdminAction,
     AdminAuditEntry,
     AdminAuditRepository,
+    AdminDirectoryRepository,
+    AdminSummary,
+    AdminUserPage,
+    AdminUserRow,
+    BlockReason,
     InvitationRepository,
     Publisher,
     Role,
@@ -2429,6 +2434,41 @@ class PostgresAccountRepository(AccountRepository):
             .values(deletion_warned_at=warned_at)
         )
 
+    def set_role(
+        self, account_id: uuid.UUID, *, role: Role, publisher_id: uuid.UUID | None
+    ) -> None:
+        self._session.execute(
+            sa.update(AccountORM)
+            .where(AccountORM.id == account_id)
+            .values(role=role, publisher_id=publisher_id)
+        )
+
+    def block_account(
+        self, account_id: uuid.UUID, *, reason: BlockReason, blocked_at: datetime
+    ) -> None:
+        self._session.execute(
+            sa.update(AccountORM)
+            .where(AccountORM.id == account_id)
+            .values(blocked_at=blocked_at, block_reason=reason)
+        )
+
+    def unblock_account(self, account_id: uuid.UUID) -> None:
+        self._session.execute(
+            sa.update(AccountORM)
+            .where(AccountORM.id == account_id)
+            .values(blocked_at=None, block_reason=None)
+        )
+
+    def lock_active_administrator_ids(self) -> list[uuid.UUID]:
+        # FOR UPDATE: two administrators demoting each other at the same time
+        # serialize here, so the second one sees that only one remains.
+        return list(self._session.execute(
+            select(AccountORM.id)
+            .where(AccountORM.role == Role.ADMINISTRATOR, AccountORM.blocked_at.is_(None))
+            .order_by(AccountORM.id)
+            .with_for_update()
+        ).scalars())
+
 
 class PostgresDeletionLogRepository:
     def __init__(self, session: Session):
@@ -2612,6 +2652,148 @@ class PostgresAdminAuditRepository(AdminAuditRepository):
         return result.rowcount
 
 
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+class PostgresAdminDirectoryRepository(AdminDirectoryRepository):
+    def __init__(self, session: Session):
+        self._session = session
+
+    def _union(self, now: datetime):
+        google = sa.exists().where(AccountGoogleIdentityORM.account_id == AccountORM.id)
+        accounts = (
+            select(
+                sa.literal("account").label("kind"),
+                AccountORM.id.label("id"),
+                AccountORM.email.label("email"),
+                AccountORM.first_name.label("first_name"),
+                AccountORM.last_name.label("last_name"),
+                google.label("google"),
+                # Without Google there is always e-mail (password or magic link).
+                sa.or_(AccountORM.password_hash.is_not(None), ~google).label("email_sign_in"),
+                AccountORM.role.label("role"),
+                AccountORM.publisher_id.label("publisher_id"),
+                PublisherORM.name.label("publisher_name"),
+                AccountORM.last_login_at.label("last_login_at"),
+                AccountORM.created_at.label("created_at"),
+                sa.case(
+                    (AccountORM.blocked_at.is_not(None), "blocked"), else_="active"
+                ).label("status"),
+                AccountORM.block_reason.label("block_reason"),
+                sa.cast(sa.null(), sa.DateTime(timezone=True)).label("expires_at"),
+            )
+            .outerjoin(PublisherORM, PublisherORM.id == AccountORM.publisher_id)
+        )
+        invitations = (
+            select(
+                sa.literal("invitation"),
+                AccountInvitationORM.id,
+                AccountInvitationORM.email,
+                sa.cast(sa.null(), sa.String),
+                sa.cast(sa.null(), sa.String),
+                sa.false(),
+                sa.false(),
+                AccountInvitationORM.role,
+                AccountInvitationORM.publisher_id,
+                PublisherORM.name,
+                sa.cast(sa.null(), sa.DateTime(timezone=True)),
+                sa.cast(sa.null(), sa.DateTime(timezone=True)),
+                sa.case(
+                    (AccountInvitationORM.expires_at > now, "invited"), else_="expired"
+                ),
+                sa.cast(sa.null(), sa.String(20)),
+                AccountInvitationORM.expires_at,
+            )
+            .outerjoin(PublisherORM, PublisherORM.id == AccountInvitationORM.publisher_id)
+        )
+        return sa.union_all(accounts, invitations).subquery("directory")
+
+    def list_users(
+        self, *, query: str | None, role: Role | None, status: str | None, sort: str,
+        descending: bool, page: int, page_size: int, now: datetime,
+    ) -> AdminUserPage:
+        u = self._union(now)
+        conditions = []
+        if query:
+            pattern = f"%{_escape_like(query.strip())}%"
+            conditions.append(sa.or_(
+                u.c.email.ilike(pattern, escape="\\"),
+                u.c.first_name.ilike(pattern, escape="\\"),
+                u.c.last_name.ilike(pattern, escape="\\"),
+            ))
+        if role is not None:
+            conditions.append(u.c.role == role)
+        if status is not None:
+            conditions.append(u.c.status == status)
+
+        sort_columns = {
+            "email": u.c.email, "first_name": u.c.first_name, "last_name": u.c.last_name,
+            "sign_in": u.c.google, "role": u.c.role, "publisher": u.c.publisher_name,
+            "last_login_at": u.c.last_login_at, "created_at": u.c.created_at,
+            "status": u.c.status,
+        }
+        column = sort_columns[sort]
+        ordered = (column.desc() if descending else column.asc()).nulls_last()
+
+        total = self._session.execute(
+            select(sa.func.count()).select_from(u).where(*conditions)
+        ).scalar_one()
+        rows = self._session.execute(
+            select(u).where(*conditions).order_by(ordered, u.c.id)
+            .offset((page - 1) * page_size).limit(page_size)
+        ).all()
+        return AdminUserPage(rows=[self._row(r) for r in rows], total=total)
+
+    @staticmethod
+    def _row(r) -> AdminUserRow:
+        methods = tuple(
+            name for name, present in (("email", r.email_sign_in), ("google", r.google))
+            if present
+        )
+        return AdminUserRow(
+            kind=r.kind, id=r.id, email=r.email, first_name=r.first_name,
+            last_name=r.last_name, sign_in_methods=methods, role=Role(r.role),
+            publisher_id=r.publisher_id, publisher_name=r.publisher_name,
+            last_login_at=r.last_login_at, created_at=r.created_at, status=r.status,
+            block_reason=BlockReason(r.block_reason) if r.block_reason else None,
+            expires_at=r.expires_at,
+        )
+
+    def summarize(self, *, now: datetime, active_since: datetime) -> AdminSummary:
+        count = sa.func.count()
+        accounts_total, accounts_active, blocked, publishers = self._session.execute(
+            select(
+                count,
+                sa.func.count().filter(AccountORM.last_login_at >= active_since),
+                sa.func.count().filter(AccountORM.blocked_at.is_not(None)),
+                sa.func.count(sa.distinct(AccountORM.publisher_id)),
+            ).select_from(AccountORM)
+        ).one()
+        by_role = {role: 0 for role in Role}
+        for role, n in self._session.execute(
+            select(AccountORM.role, count).group_by(AccountORM.role)
+        ):
+            by_role[role] = n
+        open_invitations = self._session.execute(
+            select(count).select_from(AccountInvitationORM)
+            .where(AccountInvitationORM.expires_at > now)
+        ).scalar_one()
+        top_reason = self._session.execute(
+            select(AccountORM.block_reason)
+            .where(AccountORM.block_reason.is_not(None))
+            .group_by(AccountORM.block_reason)
+            .order_by(count.desc(), AccountORM.block_reason)
+            .limit(1)
+        ).scalar_one_or_none()
+        return AdminSummary(
+            accounts_total=accounts_total, accounts_active=accounts_active,
+            accounts_by_role=by_role, publishers_with_accounts=publishers,
+            open_invitations=open_invitations, blocked=blocked,
+            most_frequent_block_reason=top_reason,
+        )
+
+
 class PostgresAccountGoogleIdentityRepository(AccountGoogleIdentityRepository):
     def __init__(self, session: Session):
         self._session = session
@@ -2751,6 +2933,12 @@ class PostgresAccountSessionRepository(AccountSessionRepository):
             )
         )
         return result.rowcount > 0
+
+    def delete_sessions_for_account(self, account_id: uuid.UUID) -> int:
+        result = self._session.execute(
+            sa.delete(AccountSessionORM).where(AccountSessionORM.account_id == account_id)
+        )
+        return result.rowcount
 
 
 def _account_token_to_domain(orm: AccountTokenORM) -> AccountToken:
