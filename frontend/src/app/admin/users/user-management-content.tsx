@@ -11,6 +11,7 @@ import { SummaryCards } from "@/components/admin/summary-cards";
 import { UsersPagination } from "@/components/admin/users-pagination";
 import { UsersTable } from "@/components/admin/users-table";
 import { BlockDialog } from "@/components/admin/block-dialog";
+import { InviteDialog } from "@/components/admin/invite-dialog";
 import { EditDialog } from "@/components/admin/edit-dialog";
 import { RemoveDialog } from "@/components/admin/remove-dialog";
 import { RowActions } from "@/components/admin/row-actions";
@@ -115,6 +116,7 @@ export function UserManagementContent() {
           <UsersPagination query={query} total={page.total} onChange={update} />
         </>
       )}
+      {dialog?.kind === "invite" && <InviteDialog onClose={() => setDialog(null)} onDone={done} />}
       {dialog?.kind === "edit" && <EditDialog row={dialog.row} onClose={() => setDialog(null)} onDone={done} />}
       {dialog?.kind === "block" && <BlockDialog row={dialog.row} onClose={() => setDialog(null)} onDone={done} />}
       {dialog?.kind === "remove" && <RemoveDialog row={dialog.row} onClose={() => setDialog(null)} onDone={done} />}

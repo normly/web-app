@@ -1,0 +1,86 @@
+// frontend/tests/unit/invite-dialog.test.tsx
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 normly contributors
+
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { LocaleProvider } from "@/lib/i18n/provider";
+import { InviteDialog } from "@/components/admin/invite-dialog";
+
+const originalFetch = global.fetch;
+
+function mockApi(check = { existing_account: false, verified: false, blocked: false, open_invitation: false }) {
+  global.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+    if (url === "/api/admin/publishers" && (!init || !init.method)) {
+      return Promise.resolve(new Response(JSON.stringify([{ id: "p1", name: "VDE Verlag" }])));
+    }
+    if (url === "/api/admin/publishers") {
+      return Promise.resolve(new Response(JSON.stringify({ id: "p2", name: "DIN Media" }), { status: 201 }));
+    }
+    if (url.startsWith("/api/admin/invitations/check")) {
+      return Promise.resolve(new Response(JSON.stringify(check)));
+    }
+    return Promise.resolve(new Response(JSON.stringify({ id: "i", email_sent: true }), { status: 201 }));
+  });
+}
+
+function renderDialog(onDone = vi.fn()) {
+  render(
+    <LocaleProvider initialLocale="de">
+      <InviteDialog onClose={vi.fn()} onDone={onDone} />
+    </LocaleProvider>,
+  );
+  return onDone;
+}
+
+describe("InviteDialog", () => {
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it("asks for a publisher only for the publisher role", async () => {
+    mockApi();
+    renderDialog();
+    expect(screen.queryByLabelText("Verlagszuordnung")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Rolle"), { target: { value: "publisher" } });
+    expect(await screen.findByLabelText("Verlagszuordnung")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("E-Mail-Adresse"), { target: { value: "p@vde.example" } });
+    expect(screen.getByRole("button", { name: "Einladung senden" })).toBeDisabled();
+  });
+
+  it("sends role, publisher, language and message", async () => {
+    mockApi();
+    const onDone = renderDialog();
+    fireEvent.change(screen.getByLabelText("E-Mail-Adresse"), { target: { value: "p@vde.example" } });
+    fireEvent.change(screen.getByLabelText("Rolle"), { target: { value: "publisher" } });
+    fireEvent.change(await screen.findByLabelText("Verlagszuordnung"), { target: { value: "p1" } });
+    fireEvent.change(screen.getByLabelText("Sprache der Einladung"), { target: { value: "en" } });
+    fireEvent.change(screen.getByLabelText("Persönliche Nachricht (optional)"), { target: { value: "Hallo" } });
+    fireEvent.click(screen.getByRole("button", { name: "Einladung senden" }));
+
+    await waitFor(() => expect(onDone).toHaveBeenCalledWith("Einladung an p@vde.example gesendet."));
+    const call = (global.fetch as ReturnType<typeof vi.fn>).mock.calls
+      .find(([url, init]) => url === "/api/admin/invitations" && init?.method === "POST");
+    expect(JSON.parse(call![1].body)).toEqual({
+      email: "p@vde.example", role: "publisher", publisher_id: "p1", locale: "en", message: "Hallo",
+    });
+  });
+
+  it("warns about an unverified existing account and refuses a blocked one", async () => {
+    mockApi({ existing_account: true, verified: false, blocked: false, open_invitation: false });
+    renderDialog();
+    fireEvent.change(screen.getByLabelText("E-Mail-Adresse"), { target: { value: "x@example.de" } });
+    fireEvent.blur(screen.getByLabelText("E-Mail-Adresse"));
+    expect(await screen.findByText(/Das bestehende Konto ist unbestätigt/)).toBeInTheDocument();
+  });
+
+  it("creates a new publisher inline and selects it", async () => {
+    mockApi();
+    renderDialog();
+    fireEvent.change(screen.getByLabelText("Rolle"), { target: { value: "publisher" } });
+    fireEvent.change(await screen.findByLabelText("Verlagszuordnung"), { target: { value: "__new__" } });
+    fireEvent.change(screen.getByLabelText("Name des Verlags"), { target: { value: "DIN Media" } });
+    fireEvent.click(screen.getByRole("button", { name: "Anlegen" }));
+    await waitFor(() => expect(screen.getByLabelText("Verlagszuordnung")).toHaveValue("p2"));
+  });
+});
