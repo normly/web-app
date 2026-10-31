@@ -92,6 +92,7 @@ describe("LoginForm", () => {
     fireEvent.change(screen.getByLabelText("Passwort"), { target: { value: "x" } });
     fireEvent.click(screen.getByRole("button", { name: "Anmelden" }));
     expect(await screen.findByText("Dein Konto ist gesperrt. Eine Anmeldung ist nicht möglich.")).toBeInTheDocument();
-    expect(screen.getByText("Bei Fragen wende dich an kontakt@normly.example.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "kontakt@normly.example" }))
+      .toHaveAttribute("href", "mailto:kontakt@normly.example");
   });
 });
