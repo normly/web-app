@@ -11,6 +11,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
 from normly_core.graph.domain import (
+    AdminAction,
+    AdminAuditEntry,
+    AdminAuditRepository,
+    Publisher,
+    PublisherNameTakenError,
+    PublisherRepository,
     LlmPoolTotals,
     Account,
     AccountGoogleIdentityRepository,
@@ -85,6 +91,8 @@ from normly_core.graph.postgres.orm import (
     AccountORM,
     AccountSessionORM,
     AccountTokenORM,
+    AdminAuditLogORM,
+    PublisherORM,
     ChatMessageCitationORM,
     ChatMessageORM,
     ChatSessionORM,
@@ -2441,6 +2449,79 @@ class PostgresDeletionLogRepository:
     def delete_older_than(self, cutoff: datetime) -> int:
         result = self._session.execute(
             sa.delete(DeletionLogORM).where(DeletionLogORM.deleted_at < cutoff)
+        )
+        return result.rowcount
+
+
+def _publisher_to_domain(orm: PublisherORM) -> Publisher:
+    return Publisher(id=orm.id, name=orm.name, created_at=orm.created_at)
+
+
+class PostgresPublisherRepository(PublisherRepository):
+    def __init__(self, session: Session):
+        self._session = session
+
+    def create_publisher(self, *, name: str, created_at: datetime) -> Publisher:
+        orm = PublisherORM(id=uuid.uuid4(), name=name, created_at=created_at)
+        # Savepoint like create_account: uq_publisher_name_lower surfaces as a
+        # clean domain error instead of aborting the whole session.
+        try:
+            with self._session.begin_nested():
+                self._session.add(orm)
+                self._session.flush()
+        except IntegrityError as exc:
+            raise PublisherNameTakenError(name) from exc
+        return _publisher_to_domain(orm)
+
+    def get_publisher(self, publisher_id: uuid.UUID) -> Publisher | None:
+        orm = self._session.get(PublisherORM, publisher_id)
+        return _publisher_to_domain(orm) if orm else None
+
+    def list_publishers(self) -> list[Publisher]:
+        rows = self._session.execute(
+            select(PublisherORM).order_by(sa.func.lower(PublisherORM.name))
+        ).scalars()
+        return [_publisher_to_domain(orm) for orm in rows]
+
+
+def _audit_to_domain(orm: AdminAuditLogORM) -> AdminAuditEntry:
+    return AdminAuditEntry(
+        id=orm.id, occurred_at=orm.occurred_at, action=orm.action,
+        actor_account_id=orm.actor_account_id, target_account_id=orm.target_account_id,
+        target_invitation_id=orm.target_invitation_id,
+        target_publisher_id=orm.target_publisher_id, details=dict(orm.details),
+    )
+
+
+class PostgresAdminAuditRepository(AdminAuditRepository):
+    def __init__(self, session: Session):
+        self._session = session
+
+    def record(
+        self, *, action: AdminAction, actor_account_id: uuid.UUID | None,
+        occurred_at: datetime, target_account_id: uuid.UUID | None = None,
+        target_invitation_id: uuid.UUID | None = None,
+        target_publisher_id: uuid.UUID | None = None, details: dict | None = None,
+    ) -> None:
+        self._session.add(AdminAuditLogORM(
+            id=uuid.uuid4(), occurred_at=occurred_at, action=action,
+            actor_account_id=actor_account_id, target_account_id=target_account_id,
+            target_invitation_id=target_invitation_id,
+            target_publisher_id=target_publisher_id, details=details or {},
+        ))
+        self._session.flush()
+
+    def list_for_target_account(self, account_id: uuid.UUID) -> list[AdminAuditEntry]:
+        rows = self._session.execute(
+            select(AdminAuditLogORM)
+            .where(AdminAuditLogORM.target_account_id == account_id)
+            .order_by(AdminAuditLogORM.occurred_at, AdminAuditLogORM.id)
+        ).scalars()
+        return [_audit_to_domain(orm) for orm in rows]
+
+    def delete_older_than(self, cutoff: datetime) -> int:
+        result = self._session.execute(
+            sa.delete(AdminAuditLogORM).where(AdminAuditLogORM.occurred_at < cutoff)
         )
         return result.rowcount
 

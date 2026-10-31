@@ -1316,6 +1316,29 @@ class AccountRepository(Protocol):
     def mark_deletion_warned(self, account_id: uuid.UUID, warned_at: datetime) -> None: ...
 
 
+class PublisherRepository(Protocol):
+    def create_publisher(self, *, name: str, created_at: datetime) -> Publisher: ...
+
+    def get_publisher(self, publisher_id: uuid.UUID) -> Publisher | None: ...
+
+    def list_publishers(self) -> list[Publisher]: ...
+
+
+class AdminAuditRepository(Protocol):
+    """Administrative actions. IDs only, never an e-mail address (ADR-030)."""
+
+    def record(
+        self, *, action: AdminAction, actor_account_id: uuid.UUID | None,
+        occurred_at: datetime, target_account_id: uuid.UUID | None = None,
+        target_invitation_id: uuid.UUID | None = None,
+        target_publisher_id: uuid.UUID | None = None, details: dict | None = None,
+    ) -> None: ...
+
+    def list_for_target_account(self, account_id: uuid.UUID) -> list[AdminAuditEntry]: ...
+
+    def delete_older_than(self, cutoff: datetime) -> int: ...
+
+
 class DeletionLogRepository(Protocol):
     """
     Identifiers of deleted accounts and chat sessions, no personal data. Lets a
