@@ -92,7 +92,8 @@ Point the instance at managed services instead of the bundled ones:
 - Mail: a real SMTP relay (`NORMLY_SMTP_*`; STARTTLS is used as soon as a
   username is set). Mails link to `NORMLY_PUBLIC_BASE_URL`; set
   `NORMLY_IMPRINT_URL` and `NORMLY_PRIVACY_URL` to your own imprint and
-  privacy policy, otherwise the mail footer carries no such links.
+  privacy policy, otherwise the mail footer carries no such links. Block and removal mails
+  name `NORMLY_CONTACT_EMAIL` as the contact; without it they link the imprint.
 
 Ports 80 and 443 must be reachable from the internet for Let's Encrypt.
 
@@ -157,7 +158,7 @@ docker compose run --rm pipeline ingest dguv --directory /data/raw/dguv
 ```
 
 Sources: `eur-lex`, `dguv`, `baua`. Other maintenance commands:
-`backfill-document-embeddings`, `cleanup-notifications`, `cleanup-user-data`, `notify-watchers`.
+`backfill-document-embeddings`, `cleanup-notifications`, `cleanup-user-data`, `grant-admin`, `notify-watchers`.
 
 ## User data
 
@@ -168,7 +169,7 @@ Sources: `eur-lex`, `dguv`, `baua`. Other maintenance commands:
   quota is counted server-side by rate limiting and does not depend on chats.
 - **Retention.** `cleanup-user-data` enforces the retention periods
   (expired sessions and tokens, abandoned registrations (after a warning e-mail, so SMTP must be configured), old notifications,
-  the deletion log):
+  expired invitations, old admin audit entries, the deletion log):
 
   ```bash
   docker compose run --rm pipeline cleanup-user-data
@@ -177,6 +178,9 @@ Sources: `eur-lex`, `dguv`, `baua`. Other maintenance commands:
   It is idempotent and prints counters only. Run it daily (cron or a systemd
   timer; the single-VM setup in [Operations](operations.md#cleaning-up-user-data)
   ships one). The periods are listed there.
+- **First administrator.** Sign up in the web app, then grant the role:
+  `docker compose run --rm pipeline grant-admin --email you@example.org`.
+  Further administrators and publishers are invited from *User management*.
 - **Export and deletion.** Signed-in users can download their data as JSON
   (`GET /v1/accounts/export`) and delete their account, which removes its data
   ([ADR-027](../adr/README.md#adr-027-lifecycle-of-user-data)). Deletions

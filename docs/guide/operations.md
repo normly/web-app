@@ -611,7 +611,7 @@ systemctl list-timers normly-cleanup.timer
 
 To run it by hand: `sudo /opt/normly/bin/normly-cleanup`. The output is one
 line, for example `sessions=3 tokens=7 unverified_accounts=0
-warnings_sent=0 notifications_read=12 notifications_unread=0 anonymous_chats=0 deletion_log=0`.
+warnings_sent=0 notifications_read=12 notifications_unread=0 anonymous_chats=0 invitations=0 admin_audit=0 deletion_log=0`.
 
 The script skips the run (message on stderr, exit code 0) while
 `/opt/normly/state/deploy.lock` exists, because a deploy or rollback drops and
@@ -628,10 +628,25 @@ The periods are named constants in `core/src/normly_core/retention.py`:
 | one-time account tokens (verification, reset, magic link) | 24 hours after expiry or use |
 | abandoned registrations, with their tokens and chats | email never verified, created more than 30 days ago, **no** Google identity, **no** session row and **no** sign-in within the last 30 days, **and** 14 days after a delivered warning e-mail |
 | notifications | read: 60 days after creation; unread: 365 days after creation |
+| expired invitations | 30 days after expiry (`INVITATION_EXPIRED_GRACE`) |
+| admin audit entries | 2 years (`ADMIN_AUDIT_RETENTION`) |
 | deletion log entries | 90 days |
 | chats without an account (legacy data) | on every run |
 | LLM cost-cap question counters | older than yesterday (UTC days); today and yesterday are kept |
 | LLM cost-cap token usage and budget alerts | 40 days (UTC days) |
+
+## Granting the first administrator
+
+`python -m normly_core.pipeline grant-admin --email you@example.org` sets the
+`administrator` role on an existing account (the person signs up in the web
+app first). On the VM:
+
+```bash
+docker compose run --rm pipeline grant-admin --email you@example.org
+```
+
+Further administrators and publishers are invited from *User management*
+(ADR-030).
 
 No account is deleted silently. Each run does three things in this order:
 (1) clears the warning of accounts that are no longer abandoned (verified,

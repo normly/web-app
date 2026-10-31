@@ -29,6 +29,18 @@ established English equivalent.
   Normenausschuss develops its content. For rights classification, the
   publisher is what counts.
 
+**Publisher (contract partner)**
+: In user management, the organization a publisher account is bound to —
+  the contract partner whose content usage the account may see, e.g. a
+  distributor. Not necessarily the publisher that releases a standard. See
+  [ADR-030](adr/README.md#adr-030-roles-publishers-and-user-management).
+
+**Roles: user, publisher, administrator**
+: Exactly one per account. *User* is every self-registered account;
+  *publisher* staff of a contract partner; *administrator* runs the
+  instance's user management. Not to be confused with *operator*, whoever
+  runs an instance.
+
 **Category A–D**
 : Rights classification per source, see
   [License Model](concepts/license-model.md#rights-classification-by-category).
