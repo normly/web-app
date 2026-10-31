@@ -1271,6 +1271,8 @@ class AccountRepository(Protocol):
 
     def set_password_hash(self, account_id: uuid.UUID, password_hash: str) -> None: ...
 
+    def clear_password_hash(self, account_id: uuid.UUID) -> None: ...
+
     def update_email(self, account_id: uuid.UUID, new_email: str) -> None: ...
 
     def update_profile_names(
@@ -1433,6 +1435,10 @@ class AccountGoogleIdentityRepository(Protocol):
 
     def has_google_identity(self, account_id: uuid.UUID) -> bool: ...
 
+    def unlink_all_for_account(self, account_id: uuid.UUID) -> int:
+        """Removes the account's Google link, if any; returns the rows deleted."""
+        ...
+
 
 class GoogleIdentityAlreadyLinkedError(Exception):
     def __init__(self, account_id: uuid.UUID, google_subject_id: str):
@@ -1493,6 +1499,10 @@ class AccountTokenRepository(Protocol):
     def consume_token(
         self, token: str, purpose: AccountTokenPurpose
     ) -> AccountToken | None: ...
+
+    def delete_for_account(self, account_id: uuid.UUID) -> int:
+        """Deletes every token bound to the account; returns the rows deleted."""
+        ...
 
     def delete_tokens_done_before(self, cutoff: datetime) -> int:
         """Deletes tokens whose expires_at or used_at lies before cutoff."""

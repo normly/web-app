@@ -10,7 +10,10 @@ from sqlalchemy.orm import Session
 
 from normly_core.graph.domain import AdminAction, Role
 from normly_core.graph.postgres.repositories import (
+    PostgresAccountGoogleIdentityRepository,
     PostgresAccountRepository,
+    PostgresAccountSessionRepository,
+    PostgresAccountTokenRepository,
     PostgresAdminAuditRepository,
     PostgresInvitationRepository,
 )
@@ -40,6 +43,7 @@ def accept_invitation(
 
     accounts = PostgresAccountRepository(session)
     account = accounts.get_account_by_email(invitation.email)
+    pre_registered = account is not None
     if account is None:
         account = accounts.create_account(
             email=invitation.email, password_hash=None, locale=invitation.locale,
@@ -49,6 +53,15 @@ def accept_invitation(
     if invitation.role is not Role.ADMINISTRATOR:
         ensure_administrator_remains(session, account)
 
+    credentials_reset = pre_registered and account.email_verified_at is None
+    if credentials_reset:
+        # Nobody had proved this mailbox before the link was clicked: whoever
+        # registered the address may not be its owner. Every credential they
+        # could hold goes, so the role reaches only the session created below.
+        PostgresAccountSessionRepository(session).delete_sessions_for_account(account.id)
+        PostgresAccountGoogleIdentityRepository(session).unlink_all_for_account(account.id)
+        PostgresAccountTokenRepository(session).delete_for_account(account.id)
+        accounts.clear_password_hash(account.id)
     if account.email_verified_at is None:
         accounts.mark_email_verified(account.id, now)
     accounts.set_role(account.id, role=invitation.role, publisher_id=invitation.publisher_id)
@@ -58,7 +71,10 @@ def accept_invitation(
         action=AdminAction.INVITATION_ACCEPTED, actor_account_id=account.id, occurred_at=now,
         target_account_id=account.id, target_invitation_id=invitation.id,
         target_publisher_id=invitation.publisher_id,
-        details={"before": snapshot(account), "after": snapshot(after)},
+        details={
+            "before": snapshot(account), "after": snapshot(after),
+            "credentials_reset": credentials_reset,
+        },
     )
     # Commits before the response, like every sign-in path.
     return _create_session_response(after, session)

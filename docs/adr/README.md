@@ -1614,7 +1614,10 @@ necessarily the issuing body.
 - **Consent for more rights.** A role above `user` is granted only through an
   invitation link (7 days, single use), which proves control of the mailbox.
   An address that merely matches never receives a role. Inviting an existing
-  account is allowed; its role changes when the link is used.
+  account is allowed; its role changes when the link is used. If that account
+  never verified its address, accepting first resets its credentials (all
+  sessions, the Google link, open tokens and the password), because whoever
+  registered it need not own the mailbox; a verified account keeps them.
 - **Fewer rights at once.** Administrators can downgrade to `user`, change a
   publisher's binding and block an account immediately. Blocking ends all
   sessions and refuses every sign-in path; anonymous use of free content

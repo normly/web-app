@@ -1232,7 +1232,7 @@ This section governs which functions are usable without an account and when a si
 
 ### REQ-ACC-006 — Roles and user management
 
-**Statement:** Every account has exactly one role: user, publisher or administrator. A publisher account is bound to exactly one publisher (contract partner). Roles above user are granted only through an invitation link that the invited person follows; administrators can downgrade, change a publisher binding, block and remove accounts at once. Role-bound functions are checked on the server on every request. Every administrative action is logged without e-mail addresses and kept for two years.
+**Statement:** Every account has exactly one role: user, publisher or administrator. A publisher account is bound to exactly one publisher (contract partner). Roles above user are granted only through an invitation link that the invited person follows; accepting it resets the credentials of an existing account whose address was never verified (sessions, Google link, tokens, password); administrators can downgrade, change a publisher binding, block and remove accounts at once. Role-bound functions are checked on the server on every request. Every administrative action is logged without e-mail addresses and kept for two years.
 
 **Rationale:** Partner functions (REQ-PART-001, REQ-PART-003) and the manual block under REQ-SEC-004 need a role model. Consent through the invitation link prevents a role from passing to whoever registers an invited address first (ADR-030).
 

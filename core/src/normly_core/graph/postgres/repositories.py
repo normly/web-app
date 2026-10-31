@@ -2225,6 +2225,13 @@ class PostgresAccountRepository(AccountRepository):
             .values(password_hash=password_hash)
         )
 
+    def clear_password_hash(self, account_id: uuid.UUID) -> None:
+        self._session.execute(
+            sa.update(AccountORM)
+            .where(AccountORM.id == account_id)
+            .values(password_hash=None)
+        )
+
     def update_email(self, account_id: uuid.UUID, new_email: str) -> None:
         # The caller (the email-change confirm flow) already checks that
         # new_email is free before calling this, but that check-then-act is
@@ -2854,6 +2861,13 @@ class PostgresAccountGoogleIdentityRepository(AccountGoogleIdentityRepository):
     def has_google_identity(self, account_id: uuid.UUID) -> bool:
         return self._session.get(AccountGoogleIdentityORM, account_id) is not None
 
+    def unlink_all_for_account(self, account_id: uuid.UUID) -> int:
+        result = self._session.execute(
+            sa.delete(AccountGoogleIdentityORM)
+            .where(AccountGoogleIdentityORM.account_id == account_id)
+        )
+        return result.rowcount
+
 
 def _account_session_to_domain(orm: AccountSessionORM) -> AccountSession:
     return AccountSession(
@@ -2981,6 +2995,12 @@ class PostgresAccountTokenRepository(AccountTokenRepository):
             sa.delete(AccountTokenORM).where(
                 sa.or_(AccountTokenORM.expires_at < cutoff, AccountTokenORM.used_at < cutoff)
             )
+        )
+        return result.rowcount
+
+    def delete_for_account(self, account_id: uuid.UUID) -> int:
+        result = self._session.execute(
+            sa.delete(AccountTokenORM).where(AccountTokenORM.account_id == account_id)
         )
         return result.rowcount
 
