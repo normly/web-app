@@ -48,7 +48,7 @@ source-register rules.
 |---|---|---|---|---|---|
 | Series discovery, designation/title parsing, ambiguity, filename corroboration, and extraction failures | **CI synthetic** | [`test_baua_adapter.py`](../../../core/tests/pipeline/test_baua_adapter.py) | PDFs generated at test time with ReportLab | TRGS/TRBS/TRBA patterns, optional `Teil N`, missing/competing identities, title fallback, unreadable-file isolation, and pipeline initialization failure behavior | Synthetic documents exercise designed layouts, not the distribution of real BAuA layouts. |
 | Numbered section parsing and fallbacks | **CI synthetic** | [`test_baua_adapter.py`](../../../core/tests/pipeline/test_baua_adapter.py) | Generated synthetic PDFs and controlled adapter records | Heading splits, preamble retention, ambiguous numbered prose, conservative Docling labels, full-text fallback, and empty input. Two generated PDFs also use the exact first/last heading canaries from the local TRGS-401/402 checks and pass through the shared heading assertions. | Synthetic layout and body text remain designed, not copied from publisher documents; this does not demonstrate the distribution of real BAuA layouts. |
-| Real PDF designation and section canaries | **Local real-source; opt-in** | [`test_baua_adapter_real.py`](../../../core/tests/pipeline/test_baua_adapter_real.py); instructions in repository `core/REVIEW.md` | Local `TRGS-401.pdf`, `TRGS-402.pdf`, and `TRGS-001.pdf`, kept outside Git | Designation and first/last headings for TRGS-401/402; unresolved identity for TRGS-001; contiguous section sequence. TRGS-401/402 use the same shared assertions and expected heading values as their generated CI equivalents. | Not run by CI; only selected samples and boundaries are checked. The recorded real-document run used Docling 2.132.0; verification with locked 2.135.0 remains open. |
+| Real PDF designation and section canaries | **Local real-source; opt-in** | [`test_baua_adapter_real.py`](../../../core/tests/pipeline/test_baua_adapter_real.py); instructions in repository `core/REVIEW.md` | Optional private submodule: `web-app-raw-data/raw_data_test/BAuA` | Designation and first/last headings for TRGS-401/402; unresolved identity for TRGS-001; contiguous section sequence. TRGS-401/402 use the same shared assertions and expected heading values as their generated CI equivalents. | Not run by CI; the submodule is not initialized there. Only selected samples and boundaries are checked. The recorded real-document run used Docling 2.132.0; verification with locked 2.135.0 remains open. |
 | pgvector ranking, rights gate, and model-name filtering | **CI integration, generic repository behavior** | [`test_segment_similarity_search.py`](../../../core/tests/graph/test_segment_similarity_search.py) | Controlled test vectors in disposable PostgreSQL | Similarity order, threshold, rights filtering, and model filter | Does not ingest BAuA records, call the real embedder, or establish semantic quality. |
 | BAuA persistence and retrieval assertions | **Partial / not verified** | [`test_main_ingests_a_baua_directory_end_to_end`](../../../core/tests/pipeline/test_cli.py) | Generated synthetic PDF and test database | CLI ingestion succeeds and the BAuA designation is persisted. | The test does not assert persisted segments or embeddings, or retrieve an ingested BAuA result. Add focused CI coverage with a deterministic test embedder if those boundaries change; this is not a semantic-quality test. |
 | XML input | **Not covered; unsupported** | No XML adapter tests | — | — | Implement and add format-specific tests only if XML is brought into the adapter's agreed scope. |
@@ -56,15 +56,29 @@ source-register rules.
 ### Required local validation for BAuA-related changes
 
 For every change to the BAuA adapter, its extraction/section behavior, or a
-shared domain interface used by it, run the opt-in checks against all three
-original local samples before treating the change as verified:
+shared domain interface used by it, run the opt-in checks against local samples
+from the optional private data submodule. This requires read access to
+`normly/web-app-raw-data` and working GitHub SSH authentication.
+
+An ordinary `git clone` does not initialize submodules. If you want the samples
+during the initial clone, use `git clone --recurse-submodules <web-app-url>`;
+if access is denied, the app clone remains available but the submodule checkout
+fails. Request access to the private repo. For an existing checkout, initialize
+the submodule from the repository root:
+
+```bash
+git submodule update --init web-app-raw-data
+```
+
+Then run the opt-in checks against all three local samples before treating the
+change as verified:
 `TRGS-401.pdf`, `TRGS-402.pdf`, and `TRGS-001.pdf`. Run them from the repository
-root, setting `BAUA_REAL_DOCUMENTS_DIR` to the directory containing those PDFs:
+root, setting `BAUA_REAL_DOCUMENTS_DIR` to the test-sample directory:
 
 ```bash
 HF_HUB_OFFLINE=1 \
 TRANSFORMERS_OFFLINE=1 \
-BAUA_REAL_DOCUMENTS_DIR=/tmp/opencode/baua-review \
+BAUA_REAL_DOCUMENTS_DIR=web-app-raw-data/raw_data_test/BAuA \
 PYTHONPATH=core/src \
 .venv/bin/pytest core/tests/pipeline/test_baua_adapter_real.py -vv
 ```
@@ -78,9 +92,11 @@ not a substitute.
 The checks assert designations and first/last section headings for TRGS-401 and
 TRGS-402, and that TRGS-001 remains unresolved. They test extraction only, not
 database ingestion, embeddings, or retrieval. They stage temporary symlinks and
-do not copy PDFs into the repository or print extracted text. Keep original
-PDFs and extracted full text out of Git and CI, and process these files only
-under the applicable source legal classification.
+do not copy PDFs into this repository or print extracted text. The original
+samples are held in the private data submodule; it is not initialized in CI and
+is excluded from Docker build contexts. Keep extracted full text out of Git and
+CI, and process these files only under the applicable source legal
+classification.
 
 ## Input-layout assumptions and drift checks
 
@@ -88,7 +104,7 @@ under the applicable source legal classification.
 |---|---|---|---|
 | Designation appears in bounded front matter and is unique; filename is only a corroborating hint. | A local sample resolves to an empty/wrong designation or becomes ambiguous. | Synthetic identity tests run in CI; the opt-in original-PDF canaries run locally for every BAuA adapter or related domain-interface change. | Inspect the changed extraction and source; update parser/tests only after confirming the new behavior. Keep uncertain identity fail-closed. |
 | Section headings are short, standalone numbered Docling items with supported labels. | First/last real-sample heading assertions fail, or section sequence/headings differ after a source or Docling change. | Synthetic heading tests run in CI. Selected original PDFs are local canaries; rerun on BAuA changes and Docling upgrades. | Determine whether the source layout, Docling classification, or parser assumption changed. Add/update a regression case based on verified behavior; do not merely rewrite expected headings. |
-| PDF layout remains within the variants represented by the local samples. | A new BAuA layout or edition behaves differently from the existing sample set. | **No automatic upstream layout monitoring.** Detection depends on a maintainer obtaining/being authorized to test a new representative local sample and running the real-document checks. | Record the new layout variant and its coverage. Extend local assertions or synthetic tests as appropriate without committing real PDFs or extracted full text. |
+| PDF layout remains within the variants represented by the local samples. | A new BAuA layout or edition behaves differently from the existing sample set. | **No automatic upstream layout monitoring.** Detection depends on a maintainer obtaining/being authorized to test a new representative local sample and running the real-document checks. | Record the new layout variant and its coverage. Extend local assertions or synthetic tests as appropriate without copying real PDFs or extracted full text into this repository. |
 
 The synthetic fixtures are manually designed to exercise parser cases; they
 are not publisher-layout monitors. The real-PDF checks are opt-in and test
