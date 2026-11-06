@@ -15,6 +15,7 @@ from normly_core.pipeline.docling_extraction import (
     extract_document,
     report_skipped_source,
 )
+from normly_core.pipeline.docling_markdown import export_document_markdown
 from normly_core.pipeline.domain import (
     RawRecord,
     RawReference,
@@ -53,10 +54,18 @@ _FILE_PATTERN = "eur_lex_*.pdf"
 
 
 class EurLexAdapter:
-    def __init__(self, *, directory: Path, source_id: uuid.UUID, legislation_reference: str):
+    def __init__(
+        self,
+        *,
+        directory: Path,
+        source_id: uuid.UUID,
+        legislation_reference: str,
+        docling_markdown_dir: Path | None = None,
+    ):
         self.directory = directory
         self.source_id = source_id
         self.legislation_reference = legislation_reference
+        self.docling_markdown_dir = docling_markdown_dir
 
     def fetch(self) -> Iterable[RawRecord]:
         for pdf_path in sorted(self.directory.glob(_FILE_PATTERN)):
@@ -85,7 +94,7 @@ class EurLexAdapter:
         # never followed.
         document = extract_document(pdf_path)
 
-        yield RawRecord(
+        legal_act_record = RawRecord(
             source_id=self.source_id,
             content_hash=f"{content_hash}:legal-act",
             raw_designation=self.legislation_reference,
@@ -96,6 +105,15 @@ class EurLexAdapter:
             language="en",
             fetched_at=now,
         )
+        if self.docling_markdown_dir is not None:
+            export_document_markdown(
+                document,
+                source_path=pdf_path,
+                content_hash=content_hash,
+                output_dir=self.docling_markdown_dir,
+                rights_rule=self.classify_rights(legal_act_record),
+            )
+        yield legal_act_record
 
         # Pass 1: index every withdrawn row by the OJ reference that
         # announced its withdrawal, across ALL tables -- a successor can

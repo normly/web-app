@@ -84,6 +84,38 @@ def test_extract_document_caches_separately_per_artifacts_path(monkeypatch, tmp_
     assert docling_extraction._converters[None] is not docling_extraction._converters[other_path]
 
 
+def test_converter_uses_the_shared_explicit_pdf_configuration(monkeypatch):
+    """Every adapter gets OCR-disabled PDF extraction and table extraction."""
+    monkeypatch.delenv("NORMLY_DOCLING_ARTIFACTS_PATH", raising=False)
+    docling_extraction._converters.clear()
+    config = docling_extraction.DOCLING_PDF_CONFIG
+
+    try:
+        with patch.object(docling_extraction, "DocumentConverter") as converter_class:
+            docling_extraction._get_converter(None)
+
+        format_options = converter_class.call_args.kwargs["format_options"]
+        pipeline_options = format_options[docling_extraction.InputFormat.PDF].pipeline_options
+        assert config.do_ocr is False
+        assert config.do_table_structure is True
+        assert config.table_structure_mode.value == "accurate"
+        assert config.accelerator_device.value == "cpu"
+        assert config.accelerator_threads == 4
+        assert pipeline_options.do_ocr is config.do_ocr
+        assert pipeline_options.do_table_structure is config.do_table_structure
+        assert (
+            pipeline_options.table_structure_options.mode
+            is config.table_structure_mode
+        )
+        assert pipeline_options.table_structure_options.do_cell_matching is True
+        assert pipeline_options.accelerator_options.device is config.accelerator_device
+        assert pipeline_options.accelerator_options.num_threads == config.accelerator_threads
+        assert pipeline_options.artifacts_path is None
+        converter_class.return_value.initialize_pipeline.assert_called_once()
+    finally:
+        docling_extraction._converters.clear()
+
+
 def test_a_bad_artifacts_path_raises_a_normly_error_when_the_converter_is_built(
     monkeypatch, tmp_path
 ):

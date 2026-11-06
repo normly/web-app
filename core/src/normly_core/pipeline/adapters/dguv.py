@@ -15,6 +15,7 @@ from normly_core.pipeline.docling_extraction import (
     extract_document,
     report_skipped_source,
 )
+from normly_core.pipeline.docling_markdown import export_document_markdown
 from normly_core.graph.domain import EdgeType
 from normly_core.pipeline.domain import RawRecord, RawReference, RawSection, RightsRule
 
@@ -470,9 +471,16 @@ def _logical_lines(text: str) -> list[str]:
 
 
 class DguvAdapter:
-    def __init__(self, *, directory: Path, source_id: uuid.UUID):
+    def __init__(
+        self,
+        *,
+        directory: Path,
+        source_id: uuid.UUID,
+        docling_markdown_dir: Path | None = None,
+    ):
         self.directory = directory
         self.source_id = source_id
+        self.docling_markdown_dir = docling_markdown_dir
 
     def fetch(self) -> Iterable[RawRecord]:
         for pdf_path in sorted(self.directory.glob(_FILE_PATTERN)):
@@ -520,7 +528,7 @@ class DguvAdapter:
             title = None
         full_text = "\n".join(lines)
 
-        yield RawRecord(
+        record = RawRecord(
             source_id=self.source_id,
             content_hash=content_hash,
             raw_designation=designation,
@@ -532,6 +540,15 @@ class DguvAdapter:
             raw_references=[predecessor_reference] if predecessor_reference else [],
             fetched_at=datetime.now(timezone.utc),
         )
+        if self.docling_markdown_dir is not None:
+            export_document_markdown(
+                document,
+                source_path=pdf_path,
+                content_hash=content_hash,
+                output_dir=self.docling_markdown_dir,
+                rights_rule=self.classify_rights(record),
+            )
+        yield record
 
     def extract_structure(self, record: RawRecord) -> list[RawSection]:
         assert record.full_text is not None

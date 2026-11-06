@@ -12,8 +12,9 @@ and sets NORMLY_DOCLING_ARTIFACTS_PATH to that directory.
 With that set, extract_document() never attempts a network connection
 (verified by tests/pipeline/test_docling_offline.py). Without it (e.g.
 local development), Docling manages its own cache directory and downloads
-models on first use -- convenient for development, not acceptable in
-production.
+models on first use. That is convenient for exploration but does not guarantee
+the same model revisions as the pipeline image; use the image's pre-fetched
+artifacts for reproducible local ingestion.
 
 Font requirement: the layout model sees a rendered page image. PDFs that do
 not embed their fonts (the standard 14 -- Helvetica, Times, Courier -- are
@@ -37,15 +38,41 @@ from __future__ import annotations
 import os
 import sys
 import threading
+from dataclasses import dataclass
 from pathlib import Path
 
+from docling.datamodel.accelerator_options import AcceleratorDevice, AcceleratorOptions
 from docling.datamodel.base_models import ConversionStatus, InputFormat
-from docling.datamodel.pipeline_options import PdfPipelineOptions
+from docling.datamodel.pipeline_options import (
+    PdfPipelineOptions,
+    TableFormerMode,
+    TableStructureOptions,
+)
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling.exceptions import ConversionError as _DoclingConversionError
 from docling_core.types.doc import DoclingDocument
 
 _ARTIFACTS_PATH_ENV = "NORMLY_DOCLING_ARTIFACTS_PATH"
+
+
+@dataclass(frozen=True)
+class DoclingPdfConfig:
+    """Shared PDF pipeline settings used by every source adapter.
+
+    Docling's package version is locked in ``uv.lock`` and its model revisions
+    are pinned by the pipeline image. Keep the behavior-changing PDF switches
+    explicit here instead of letting each adapter inherit its own defaults.
+    Source-specific interpretation still belongs to the adapters.
+    """
+
+    do_ocr: bool = False
+    do_table_structure: bool = True
+    table_structure_mode: TableFormerMode = TableFormerMode.ACCURATE
+    accelerator_device: AcceleratorDevice = AcceleratorDevice.CPU
+    accelerator_threads: int = 4
+
+
+DOCLING_PDF_CONFIG = DoclingPdfConfig()
 
 # Constructing a DocumentConverter is itself cheap -- its __init__ only sets
 # up an empty `initialized_pipelines` dict. The cost (roughly 1s of fixed
@@ -121,7 +148,16 @@ def _get_converter(artifacts_path_value: str | None) -> DocumentConverter:
         converter = _converters.get(artifacts_path_value)
         if converter is None:
             pipeline_options = PdfPipelineOptions(
-                do_ocr=False,
+                accelerator_options=AcceleratorOptions(
+                    num_threads=DOCLING_PDF_CONFIG.accelerator_threads,
+                    device=DOCLING_PDF_CONFIG.accelerator_device,
+                ),
+                do_ocr=DOCLING_PDF_CONFIG.do_ocr,
+                do_table_structure=DOCLING_PDF_CONFIG.do_table_structure,
+                table_structure_options=TableStructureOptions(
+                    do_cell_matching=True,
+                    mode=DOCLING_PDF_CONFIG.table_structure_mode,
+                ),
                 artifacts_path=(
                     Path(artifacts_path_value) if artifacts_path_value else None
                 ),

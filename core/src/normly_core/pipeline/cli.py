@@ -54,7 +54,13 @@ _NOTIFY_WATCHERS_LOCK_KEY = 8234701
 _NOTIFICATION_RETENTION = retention.READ_NOTIFICATION_MAX_AGE
 
 
-def build_adapter(source: str, *, directory: Path, session: Session) -> SourceAdapter:
+def build_adapter(
+    source: str,
+    *,
+    directory: Path,
+    session: Session,
+    docling_markdown_dir: Path | None = None,
+) -> SourceAdapter:
     """
     Build the adapter for `source`, bound to its registry entry.
 
@@ -68,11 +74,20 @@ def build_adapter(source: str, *, directory: Path, session: Session) -> SourceAd
         return EurLexAdapter(
             directory=directory, source_id=registered.id,
             legislation_reference="2006/42/EC",
+            docling_markdown_dir=docling_markdown_dir,
         )
     if source == "dguv":
-        return DguvAdapter(directory=directory, source_id=registered.id)
+        return DguvAdapter(
+            directory=directory,
+            source_id=registered.id,
+            docling_markdown_dir=docling_markdown_dir,
+        )
     if source == "baua":
-        return BauaAdapter(directory=directory, source_id=registered.id)
+        return BauaAdapter(
+            directory=directory,
+            source_id=registered.id,
+            docling_markdown_dir=docling_markdown_dir,
+        )
     raise ValueError(f"unknown source: {source!r}")
 
 
@@ -150,6 +165,15 @@ def main(argv: list[str] | None = None) -> int:
         "--directory", type=Path, required=True,
         help="local directory containing the source's raw files",
     )
+    ingest_parser.add_argument(
+        "--docling-markdown-dir",
+        type=Path,
+        help=(
+            "optionally write each permitted source PDF's Docling Markdown to "
+            "this local directory (may contain full source text; use authorized inputs "
+            "and encrypted/tmpfs storage; keep it out of Git and CI)"
+        ),
+    )
 
     subparsers.add_parser("backfill-document-embeddings")
 
@@ -173,7 +197,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         with Session(engine) as session:
             if args.command == "ingest":
-                adapter = build_adapter(args.source, directory=args.directory, session=session)
+                adapter = build_adapter(
+                    args.source,
+                    directory=args.directory,
+                    session=session,
+                    docling_markdown_dir=args.docling_markdown_dir,
+                )
                 summary = run_adapter(adapter, session)
                 session.commit()
                 print(

@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 normly contributors
 
+import hashlib
 import os
 from datetime import date, datetime, timezone
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 import sqlalchemy as sa
@@ -17,6 +19,7 @@ from normly_core.graph.domain import (
     WorkCreatedVia,
 )
 from normly_core.graph.postgres.orm import (
+    DeliveryORM,
     DocumentDesignationORM,
     NotificationORM,
     SourceORM,
@@ -83,6 +86,20 @@ def test_build_adapter_returns_dguv_adapter_for_dguv_source(db_session):
     assert type(adapter).__name__ == "DguvAdapter"
 
 
+@pytest.mark.parametrize("source", ["baua", "dguv", "eur-lex"])
+def test_build_adapter_passes_optional_docling_markdown_directory(
+    db_session, tmp_path, source
+):
+    adapter = build_adapter(
+        source,
+        directory=FIXTURE_DIR,
+        session=db_session,
+        docling_markdown_dir=tmp_path,
+    )
+
+    assert adapter.docling_markdown_dir == tmp_path
+
+
 def test_build_adapter_rejects_unknown_source(db_session):
     with pytest.raises(ValueError, match="unknown source"):
         build_adapter("not-a-real-source", directory=FIXTURE_DIR, session=db_session)
@@ -124,6 +141,68 @@ def test_main_ingests_a_directory_end_to_end(committed_db, capsys):
             )
         ).scalar_one()
     assert designation == "DGUV Vorschrift 1"
+
+
+def test_main_exports_markdown_from_the_conversion_and_keeps_ingestion_idempotent(
+    committed_db, capsys, tmp_path, monkeypatch
+):
+    from types import SimpleNamespace
+
+    from normly_core.pipeline import runner
+    from normly_core.pipeline.adapters import dguv
+
+    pdf_path = FIXTURE_DIR / "dguv_sample_vorschrift.pdf"
+    output_dir = tmp_path / "docling-markdown"
+    document = MagicMock()
+    items = [
+        (SimpleNamespace(text="DGUV Vorschrift 1 Grundsätze der Prävention"), 1),
+        (SimpleNamespace(text="§ 1 Geltungsbereich"), 1),
+        (SimpleNamespace(text="Body text."), 1),
+    ]
+    document.iterate_items.side_effect = lambda: iter(items)
+    document.export_to_markdown.return_value = (
+        "# DGUV Vorschrift 1 Grundsätze der Prävention\n\n"
+        "## § 1 Geltungsbereich\n\nBody text.\n"
+    )
+
+    class DeterministicEmbeddingModel:
+        def embed(self, _text):
+            return [0.0] * 1024
+
+    monkeypatch.setattr(dguv, "extract_document", lambda _path: document)
+    monkeypatch.setattr(runner, "EmbeddingModel", DeterministicEmbeddingModel)
+    arguments = [
+        "ingest",
+        "dguv",
+        "--directory",
+        str(FIXTURE_DIR),
+        "--docling-markdown-dir",
+        str(output_dir),
+    ]
+
+    assert main(arguments) == 0
+    first_run_output = capsys.readouterr().out
+    markdown_paths = list(output_dir.glob("*.md"))
+    assert len(markdown_paths) == 1
+    markdown_path = markdown_paths[0]
+    markdown = markdown_path.read_text(encoding="utf-8")
+    source_digest = hashlib.sha256(pdf_path.read_bytes()).hexdigest()
+    assert source_digest in markdown_path.name
+    assert "DGUV Vorschrift 1" in markdown
+    assert "failed=0" in first_run_output
+
+    assert main(arguments) == 0
+    second_run_output = capsys.readouterr().out
+
+    assert "skipped=1" in second_run_output
+    assert list(output_dir.glob("*.md")) == [markdown_path]
+    assert markdown_path.read_text(encoding="utf-8") == markdown
+    assert document.export_to_markdown.call_count == 2
+    with committed_db.connect() as connection:
+        deliveries = connection.execute(
+            sa.select(sa.func.count()).select_from(DeliveryORM)
+        ).scalar_one()
+    assert deliveries == 1
 
 
 def test_main_ingests_a_baua_directory_end_to_end(committed_db, capsys, tmp_path):
