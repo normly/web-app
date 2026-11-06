@@ -4,8 +4,11 @@
 
 from datetime import datetime, timedelta, timezone
 
+import sqlalchemy as sa
+
 from normly_accounts.google_oauth import GoogleProfile
 from normly_core.graph.postgres.repositories import (
+    PostgresAccountGoogleIdentityRepository,
     PostgresAccountRepository,
     PostgresOAuthStateRepository,
 )
@@ -302,3 +305,149 @@ def test_google_callback_stores_the_locale_on_a_new_account(client, db_session):
     assert response.status_code == 200
     account = PostgresAccountRepository(db_session).get_account_by_email("google-en@example.de")
     assert account.locale == "en"
+
+
+def test_google_callback_refuses_a_blocked_account_without_linking_it(client, db_session):
+    from normly_core.graph.postgres.repositories import PostgresAccountGoogleIdentityRepository
+    from tests.admin_support import make_account
+
+    account = make_account(db_session, "blocked-google@example.de", blocked=True)
+    _override_google_client(
+        client.app, GoogleProfile(
+            subject_id="google-sub-blocked", email="blocked-google@example.de",
+            email_verified=True,
+        )
+    )
+    _seed_state(db_session, "blocked-state")
+
+    response = client.get(
+        "/v1/accounts/google/callback", params={"code": "fake-code", "state": "blocked-state"}
+    )
+
+    assert (response.status_code, response.json()["detail"]) == (403, "account_blocked")
+    assert not PostgresAccountGoogleIdentityRepository(db_session).has_google_identity(account.id)
+
+
+# --- A Google-verified address marks the account verified (ADR-027, ADR-030) ---
+
+def _callback(client, db_session, profile: GoogleProfile, state: str):
+    _override_google_client(client.app, profile)
+    _seed_state(db_session, state)
+    return client.get(
+        "/v1/accounts/google/callback", params={"code": f"code-{state}", "state": state}
+    )
+
+
+def _verified(db_session, email: str) -> bool:
+    db_session.expire_all()
+    account = PostgresAccountRepository(db_session).get_account_by_email(email)
+    return account.email_verified_at is not None
+
+
+def test_a_verified_google_address_verifies_a_new_account(client, db_session):
+    response = _callback(client, db_session, GoogleProfile(
+        subject_id="verify-new", email="verify-new@example.de", email_verified=True,
+    ), "verify-new")
+
+    assert response.json()["account"]["email_verified"] is True
+    assert _verified(db_session, "verify-new@example.de")
+
+
+def test_a_verified_google_address_verifies_an_account_it_links(client, db_session):
+    client.post("/v1/accounts/register",
+                json={"email": "verify-link@example.de", "password": "correct horse"})
+    assert not _verified(db_session, "verify-link@example.de")
+
+    response = _callback(client, db_session, GoogleProfile(
+        subject_id="verify-link", email="verify-link@example.de", email_verified=True,
+    ), "verify-link")
+
+    assert response.json()["account"]["email_verified"] is True
+    assert _verified(db_session, "verify-link@example.de")
+
+
+def test_a_verified_google_address_verifies_an_already_linked_account(client, db_session):
+    """Google-only accounts from before this rule were linked but never verified."""
+    accounts = PostgresAccountRepository(db_session)
+    legacy = accounts.create_account(email="verify-old@example.de", password_hash=None)
+    PostgresAccountGoogleIdentityRepository(db_session).link_google_identity(
+        account_id=legacy.id, google_subject_id="verify-old",
+    )
+    db_session.flush()
+
+    response = _callback(client, db_session, GoogleProfile(
+        subject_id="verify-old", email="verify-old@example.de", email_verified=True,
+    ), "verify-old")
+
+    assert response.json()["account"]["id"] == str(legacy.id)
+    assert response.json()["account"]["email_verified"] is True
+    assert _verified(db_session, "verify-old@example.de")
+
+
+def test_an_unverified_google_assertion_verifies_nothing(client, db_session):
+    _callback(client, db_session, GoogleProfile(
+        subject_id="no-verify", email="no-verify@example.de", email_verified=False,
+    ), "no-verify-1")
+    assert not _verified(db_session, "no-verify@example.de")
+
+    # Returning with the same unverified assertion changes nothing either.
+    response = _callback(client, db_session, GoogleProfile(
+        subject_id="no-verify", email="no-verify@example.de", email_verified=False,
+    ), "no-verify-2")
+    assert response.json()["account"]["email_verified"] is False
+    assert not _verified(db_session, "no-verify@example.de")
+
+
+def test_a_google_address_other_than_the_accounts_verifies_nothing(client, db_session):
+    """
+    The account's address may have changed since linking (e-mail change);
+    Google then vouches for a different mailbox, not this account's.
+    """
+    accounts = PostgresAccountRepository(db_session)
+    account = accounts.create_account(email="changed@example.de", password_hash=None)
+    PostgresAccountGoogleIdentityRepository(db_session).link_google_identity(
+        account_id=account.id, google_subject_id="changed-sub",
+    )
+    db_session.flush()
+
+    _callback(client, db_session, GoogleProfile(
+        subject_id="changed-sub", email="original@gmail.example", email_verified=True,
+    ), "changed")
+
+    assert not _verified(db_session, "changed@example.de")
+
+
+def test_a_google_link_removed_mid_flight_refuses_the_sign_in(client, db_session, monkeypatch):
+    """
+    An invitation accept resets the account right after the callback resolved
+    it through its Google link (ADR-030): the callback must not create a
+    session for a link that no longer exists.
+    """
+    accounts = PostgresAccountRepository(db_session)
+    squatted = accounts.create_account(email="google-race@example.de", password_hash=None)
+    PostgresAccountGoogleIdentityRepository(db_session).link_google_identity(
+        account_id=squatted.id, google_subject_id="race-sub",
+    )
+    db_session.flush()
+    original = PostgresAccountGoogleIdentityRepository.get_account_by_google_subject
+    calls = []
+
+    def lookup_then_concurrent_reset(self, subject):
+        found = original(self, subject)
+        if not calls:
+            PostgresAccountGoogleIdentityRepository(db_session).unlink_all_for_account(squatted.id)
+        calls.append(subject)
+        return found
+
+    monkeypatch.setattr(PostgresAccountGoogleIdentityRepository, "get_account_by_google_subject",
+                        lookup_then_concurrent_reset)
+
+    response = _callback(client, db_session, GoogleProfile(
+        subject_id="race-sub", email="google-race@example.de", email_verified=False,
+    ), "google-race")
+
+    assert response.status_code == 401
+    sessions = db_session.execute(
+        sa.text("SELECT count(*) FROM account_session WHERE account_id = :a"), {"a": squatted.id},
+    ).scalar_one()
+    assert sessions == 0

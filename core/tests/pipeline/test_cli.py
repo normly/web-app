@@ -57,6 +57,7 @@ _WRITTEN_TABLES = (
     "delivery",
     "source",
     "account",
+    "admin_audit_log",
 )
 
 
@@ -454,3 +455,22 @@ def test_cleanup_notifications_command_deletes_old_read_notifications(committed_
         assert session.execute(
             sa.select(sa.func.count()).select_from(NotificationORM)
         ).scalar_one() == 0
+
+
+def test_main_grant_admin_promotes_an_account_and_reports_failures(committed_db, capsys):
+    from sqlalchemy.orm import Session
+
+    with Session(committed_db) as session:
+        account = PostgresAccountRepository(session).create_account(
+            email="cli-grant-admin@example.de", password_hash=None,
+        )
+        session.commit()
+        account_id = account.id
+
+    assert main(["grant-admin", "--email", "cli-grant-admin@example.de"]) == 0
+    assert "grant-admin: granted" in capsys.readouterr().out
+    with Session(committed_db) as session:
+        assert PostgresAccountRepository(session).get_account_by_id(account_id).role.value == "administrator"
+
+    assert main(["grant-admin", "--email", "nobody@example.de"]) == 1
+    assert "no account" in capsys.readouterr().err

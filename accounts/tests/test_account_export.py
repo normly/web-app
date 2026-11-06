@@ -326,3 +326,21 @@ def test_export_includes_the_session_title(client, db_session):
     body = client.get("/v1/accounts/export", headers=headers).json()
 
     assert body["chat_sessions"][0]["title"] == "Schutzbrillen"
+
+
+def test_export_contains_role_publisher_and_admin_actions_without_the_actor(client, db_session):
+    from normly_core.graph.domain import Role
+    from tests.admin_support import auth_headers, make_account, make_admin, make_publisher
+
+    admin, headers = make_admin(db_session)
+    din, vde = make_publisher(db_session, "DIN Media"), make_publisher(db_session, "VDE Verlag")
+    partner = make_account(db_session, "export-partner@example.de", role=Role.PUBLISHER, publisher_id=din.id)
+    client.patch(f"/v1/admin/accounts/{partner.id}", json={"publisher_id": str(vde.id)}, headers=headers)
+
+    body = client.get("/v1/accounts/export", headers=auth_headers(db_session, partner)).json()
+
+    assert body["account"]["role"] == "publisher"
+    assert body["account"]["publisher_name"] == "VDE Verlag"
+    [action] = body["admin_actions"]
+    assert action["action"] == "publisher_changed"
+    assert str(admin.id) not in str(body)

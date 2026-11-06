@@ -17,6 +17,7 @@ from normly_core.graph.postgres.repositories import (
     PostgresAccountTokenRepository,
 )
 
+from normly_accounts.credentials import reset_credentials
 from normly_accounts.dependencies import get_email_sender, get_session
 from normly_core.notifications.email import EmailSender
 from normly_core.notifications.mail import format_duration, render_email
@@ -42,6 +43,9 @@ def request_magic_link(
     email_sender: EmailSender = Depends(get_email_sender),
 ) -> dict:
     account = PostgresAccountRepository(session).get_account_by_email(payload.email)
+    if account is not None and account.blocked_at is not None:
+        # Same neutral answer as for any address: no token, no mail.
+        return {"status": "if_the_request_is_valid_an_email_was_sent"}
 
     token_repo = PostgresAccountTokenRepository(session)
     now = datetime.now(timezone.utc)
@@ -85,35 +89,50 @@ def request_magic_link(
 def confirm_magic_link(
     payload: MagicLinkConfirmRequest, session: Session = Depends(get_session),
 ) -> SessionResponse:
-    consumed = PostgresAccountTokenRepository(session).consume_token(
-        payload.token, AccountTokenPurpose.MAGIC_LINK
+    tokens = PostgresAccountTokenRepository(session)
+    account_repo = PostgresAccountRepository(session)
+
+    pending = tokens.find_unconsumed_token(payload.token, AccountTokenPurpose.MAGIC_LINK)
+    if pending is None:
+        raise HTTPException(status_code=400, detail="invalid or expired token")
+    # A token naming a bare address may find its account created in the
+    # meantime (a registration or a Google login could have claimed the
+    # address between the request and this confirm).
+    existing = (
+        account_repo.get_account_by_id(pending.account_id)
+        if pending.account_id is not None
+        else account_repo.get_account_by_email(pending.email)
     )
+    if existing is not None:
+        # Lock order (ADR-030): account row before token rows. The re-read
+        # also sees the latest committed state, as on password login.
+        existing = account_repo.lock_account(existing.id)
+
+    consumed = tokens.consume_token(payload.token, AccountTokenPurpose.MAGIC_LINK)
     if consumed is None:
         raise HTTPException(status_code=400, detail="invalid or expired token")
 
-    account_repo = PostgresAccountRepository(session)
-    if consumed.account_id is not None:
-        account = account_repo.get_account_by_id(consumed.account_id)
-    else:
+    account = existing
+    if account is None:
         # The token named a bare address, and following the link has just
         # proven the mailbox readable -- so this, not the request, is where
-        # the account comes into being. It may nevertheless exist by now: a
-        # registration or a Google login could have claimed the address
-        # between the request and this confirm.
+        # the account comes into being.
         assert consumed.email is not None  # ck_account_token_account_or_email
-        account = account_repo.get_account_by_email(consumed.email)
-        if account is None:
-            account = account_repo.create_account(
-                email=consumed.email, password_hash=None,
-                locale=payload.locale,
-            )
+        account = account_repo.create_account(
+            email=consumed.email, password_hash=None, locale=payload.locale,
+        )
+    elif account.email_verified_at is None and account.blocked_at is None:
+        # The mailbox is proven only now. Whoever registered the address
+        # before may not be its owner: their way in goes, the content stays
+        # (ADR-030). A blocked account is refused below without changes.
+        reset_credentials(session, account.id)
 
-    if account.email_verified_at is None:
+    if account.email_verified_at is None and account.blocked_at is None:
         # Completing a magic-link login proves control of the mailbox --
         # the same proof email verification exists to establish. No
         # separate verification step needed for a magic-link-created or
         # magic-link-confirmed account.
         account_repo.mark_email_verified(account.id, datetime.now(timezone.utc))
-        account = account_repo.get_account_by_id(account.id)
+    account = account_repo.get_account_by_id(account.id)
 
     return _create_session_response(account, session)

@@ -34,10 +34,13 @@ KNOWLEDGE_TABLES: tuple[str, ...] = (
 )
 
 USER_TABLES: tuple[str, ...] = (
+    "publisher",
     "account",
     "account_session",
     "account_google_identity",
     "account_token",
+    "account_invitation",
+    "admin_audit_log",
     "oauth_state",
     "watchlist",
     "notification",

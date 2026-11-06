@@ -40,7 +40,7 @@ def request_password_reset(
     email_sender: EmailSender = Depends(get_email_sender),
 ) -> dict:
     account = PostgresAccountRepository(session).get_account_by_email(payload.email)
-    if account is not None:
+    if account is not None and account.blocked_at is None:
         now = datetime.now(timezone.utc)
         token = PostgresAccountTokenRepository(session).create_token(
             account_id=account.id, purpose=AccountTokenPurpose.PASSWORD_RESET,

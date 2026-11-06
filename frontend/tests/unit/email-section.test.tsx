@@ -13,6 +13,7 @@ const originalFetch = global.fetch;
 const account: AccountSummary = {
   accountId: "acc-1", email: "old@example.de", firstName: null, lastName: null,
   hasAvatar: false, hasPassword: true, notificationPreference: "immediate",
+  role: "user", publisherId: null,
 };
 
 describe("EmailSection", () => {

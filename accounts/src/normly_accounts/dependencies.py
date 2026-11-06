@@ -17,6 +17,7 @@ from normly_core.graph.postgres.repositories import (
 )
 
 from normly_accounts.google_oauth import build_google_oauth_client_from_env
+from normly_accounts.permissions import allows
 
 _BEARER_PREFIX = "Bearer "
 _SESSION_LIFETIME = timedelta(days=30)
@@ -46,13 +47,38 @@ def get_current_account(
     # session-check endpoint -- any proof of activity is a reasonable signal
     # to extend a session, matching the same sliding-window philosophy
     # session.py's own validate_session already applies.
-    session_repo.extend_session(
+    extended = session_repo.extend_session(
         account_session.id, datetime.now(timezone.utc) + _SESSION_LIFETIME
     )
-    session.commit()
+    if not extended:
+        # Deleted between lookup and update (block, invitation reset):
+        # the UPDATE waited for that commit and then matched no row.
+        raise HTTPException(status_code=401, detail="invalid or expired session")
 
+    # Read the account before committing: until the commit, the extend holds
+    # the session row, so a block or invitation accept that deletes it waits
+    # and cannot change the role this request acts with (ADR-030).
     account = PostgresAccountRepository(session).get_account_by_id(account_session.account_id)
+    if account.blocked_at is not None:
+        # Blocking deletes all sessions; this also covers a session created
+        # in the moment between the block and that deletion.
+        raise HTTPException(status_code=401, detail="invalid or expired session")
+    session.commit()
     return account
+
+
+def require_capability(key: str):
+    """
+    Dependency factory: the current account must hold `key` per
+    permissions.CAPABILITIES. The role comes from the database on every
+    request, so a downgrade or block takes effect on the next one.
+    """
+    def dependency(account: Account = Depends(get_current_account)) -> Account:
+        if not allows(account.role, key):
+            raise HTTPException(status_code=403, detail="forbidden")
+        return account
+
+    return dependency
 
 
 def get_email_sender(request: Request):

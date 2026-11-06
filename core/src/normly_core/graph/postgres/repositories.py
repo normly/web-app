@@ -11,6 +11,20 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
 from normly_core.graph.domain import (
+    AccountInvitation,
+    AdminAction,
+    AdminAuditEntry,
+    AdminAuditRepository,
+    AdminDirectoryRepository,
+    AdminSummary,
+    AdminUserPage,
+    AdminUserRow,
+    BlockReason,
+    InvitationRepository,
+    Publisher,
+    Role,
+    PublisherNameTakenError,
+    PublisherRepository,
     LlmPoolTotals,
     Account,
     AccountGoogleIdentityRepository,
@@ -85,6 +99,9 @@ from normly_core.graph.postgres.orm import (
     AccountORM,
     AccountSessionORM,
     AccountTokenORM,
+    AccountInvitationORM,
+    AdminAuditLogORM,
+    PublisherORM,
     ChatMessageCitationORM,
     ChatMessageORM,
     ChatSessionORM,
@@ -2163,7 +2180,8 @@ def _account_to_domain(orm: AccountORM) -> Account:
         first_name=orm.first_name, last_name=orm.last_name,
         avatar_image=orm.avatar_image, avatar_content_type=orm.avatar_content_type,
         notification_preference=orm.notification_preference,
-        locale=orm.locale,
+        locale=orm.locale, role=orm.role, publisher_id=orm.publisher_id,
+        blocked_at=orm.blocked_at, block_reason=orm.block_reason,
     )
 
 
@@ -2193,6 +2211,17 @@ class PostgresAccountRepository(AccountRepository):
         ).scalar_one_or_none()
         return _account_to_domain(orm) if orm else None
 
+    def lock_account(self, account_id: uuid.UUID) -> Account | None:
+        # SELECT ... FOR UPDATE, refreshed past the identity map: the caller
+        # sees the latest committed row and holds it until its commit.
+        orm = self._session.execute(
+            select(AccountORM)
+            .where(AccountORM.id == account_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        ).scalar_one_or_none()
+        return _account_to_domain(orm) if orm else None
+
     def mark_email_verified(self, account_id: uuid.UUID, verified_at: datetime) -> None:
         self._session.execute(
             sa.update(AccountORM)
@@ -2205,6 +2234,13 @@ class PostgresAccountRepository(AccountRepository):
             sa.update(AccountORM)
             .where(AccountORM.id == account_id)
             .values(password_hash=password_hash)
+        )
+
+    def clear_password_hash(self, account_id: uuid.UUID) -> None:
+        self._session.execute(
+            sa.update(AccountORM)
+            .where(AccountORM.id == account_id)
+            .values(password_hash=None)
         )
 
     def update_email(self, account_id: uuid.UUID, new_email: str) -> None:
@@ -2271,6 +2307,23 @@ class PostgresAccountRepository(AccountRepository):
         # default now would also silently affect every other code path that
         # might ever delete an account row. Children before parents,
         # respecting every FK in this dependency chain.
+        self._delete_account_content(account_id)
+        self._session.execute(
+            sa.delete(AccountTokenORM).where(AccountTokenORM.account_id == account_id)
+        )
+        self._session.execute(
+            sa.delete(AccountSessionORM).where(AccountSessionORM.account_id == account_id)
+        )
+        self._session.execute(
+            sa.delete(AccountGoogleIdentityORM).where(
+                AccountGoogleIdentityORM.account_id == account_id
+            )
+        )
+        self._session.execute(sa.delete(AccountORM).where(AccountORM.id == account_id))
+
+    def _delete_account_content(self, account_id: uuid.UUID) -> None:
+        # What the person accumulated -- chats, watches, notifications and
+        # their bookkeeping -- but no credential and not the account row.
         session_ids = self._session.execute(
             select(ChatSessionORM.id).where(ChatSessionORM.account_id == account_id)
         ).scalars().all()
@@ -2291,17 +2344,6 @@ class PostgresAccountRepository(AccountRepository):
                 sa.delete(ChatSessionORM).where(ChatSessionORM.account_id == account_id)
             )
         self._session.execute(
-            sa.delete(AccountTokenORM).where(AccountTokenORM.account_id == account_id)
-        )
-        self._session.execute(
-            sa.delete(AccountSessionORM).where(AccountSessionORM.account_id == account_id)
-        )
-        self._session.execute(
-            sa.delete(AccountGoogleIdentityORM).where(
-                AccountGoogleIdentityORM.account_id == account_id
-            )
-        )
-        self._session.execute(
             sa.delete(NotificationORM).where(NotificationORM.account_id == account_id)
         )
         self._session.execute(
@@ -2320,7 +2362,21 @@ class PostgresAccountRepository(AccountRepository):
         self._session.execute(
             sa.delete(WatchlistORM).where(WatchlistORM.account_id == account_id)
         )
-        self._session.execute(sa.delete(AccountORM).where(AccountORM.id == account_id))
+
+    def reset_unverified_account_content(self, account_id: uuid.UUID, *, locale: str) -> None:
+        # Invitation accept on a pre-registered, unverified account (ADR-030):
+        # whatever the registrant left behind goes; the row, its address and
+        # role binding stay. Credentials are reset separately by the caller.
+        self._delete_account_content(account_id)
+        self._session.execute(
+            sa.update(AccountORM)
+            .where(AccountORM.id == account_id)
+            .values(
+                first_name=None, last_name=None, avatar_image=None,
+                avatar_content_type=None,
+                notification_preference=NotificationPreference.NONE, locale=locale,
+            )
+        )
 
     def delete_account(self, account_id: uuid.UUID) -> None:
         # The log entry shares the transaction with the deletion: either both
@@ -2336,9 +2392,15 @@ class PostgresAccountRepository(AccountRepository):
         # Abandoned = never verified, old, no Google link, no session and no
         # sign-in within the period. A Google or password account in use has a
         # link, sessions or a recent last_login_at (which outlives a logout)
-        # though email_verified_at stays empty. The one place of this condition.
+        # though email_verified_at may be empty (a password account, or a
+        # Google link without a Google-verified address). A blocked account is kept so
+        # the block outlives the cleanup, and an account with a role above
+        # user was given it on purpose (ADR-030). The one place of this
+        # condition.
         return [
             AccountORM.email_verified_at.is_(None),
+            AccountORM.blocked_at.is_(None),
+            AccountORM.role == Role.USER,
             AccountORM.created_at < cutoff,
             sa.or_(AccountORM.last_login_at.is_(None), AccountORM.last_login_at < cutoff),
             ~sa.exists().where(AccountGoogleIdentityORM.account_id == AccountORM.id),
@@ -2416,6 +2478,41 @@ class PostgresAccountRepository(AccountRepository):
             .values(deletion_warned_at=warned_at)
         )
 
+    def set_role(
+        self, account_id: uuid.UUID, *, role: Role, publisher_id: uuid.UUID | None
+    ) -> None:
+        self._session.execute(
+            sa.update(AccountORM)
+            .where(AccountORM.id == account_id)
+            .values(role=role, publisher_id=publisher_id)
+        )
+
+    def block_account(
+        self, account_id: uuid.UUID, *, reason: BlockReason, blocked_at: datetime
+    ) -> None:
+        self._session.execute(
+            sa.update(AccountORM)
+            .where(AccountORM.id == account_id)
+            .values(blocked_at=blocked_at, block_reason=reason)
+        )
+
+    def unblock_account(self, account_id: uuid.UUID) -> None:
+        self._session.execute(
+            sa.update(AccountORM)
+            .where(AccountORM.id == account_id)
+            .values(blocked_at=None, block_reason=None)
+        )
+
+    def lock_active_administrator_ids(self) -> list[uuid.UUID]:
+        # FOR UPDATE: two administrators demoting each other at the same time
+        # serialize here, so the second one sees that only one remains.
+        return list(self._session.execute(
+            select(AccountORM.id)
+            .where(AccountORM.role == Role.ADMINISTRATOR, AccountORM.blocked_at.is_(None))
+            .order_by(AccountORM.id)
+            .with_for_update()
+        ).scalars())
+
 
 class PostgresDeletionLogRepository:
     def __init__(self, session: Session):
@@ -2442,6 +2539,303 @@ class PostgresDeletionLogRepository:
             sa.delete(DeletionLogORM).where(DeletionLogORM.deleted_at < cutoff)
         )
         return result.rowcount
+
+
+def _publisher_to_domain(orm: PublisherORM) -> Publisher:
+    return Publisher(id=orm.id, name=orm.name, created_at=orm.created_at)
+
+
+class PostgresPublisherRepository(PublisherRepository):
+    def __init__(self, session: Session):
+        self._session = session
+
+    def create_publisher(self, *, name: str, created_at: datetime) -> Publisher:
+        orm = PublisherORM(id=uuid.uuid4(), name=name, created_at=created_at)
+        # Savepoint like create_account: uq_publisher_name_lower surfaces as a
+        # clean domain error instead of aborting the whole session.
+        try:
+            with self._session.begin_nested():
+                self._session.add(orm)
+                self._session.flush()
+        except IntegrityError as exc:
+            raise PublisherNameTakenError(name) from exc
+        return _publisher_to_domain(orm)
+
+    def get_publisher(self, publisher_id: uuid.UUID) -> Publisher | None:
+        orm = self._session.get(PublisherORM, publisher_id)
+        return _publisher_to_domain(orm) if orm else None
+
+    def list_publishers(self) -> list[Publisher]:
+        rows = self._session.execute(
+            select(PublisherORM).order_by(sa.func.lower(PublisherORM.name))
+        ).scalars()
+        return [_publisher_to_domain(orm) for orm in rows]
+
+
+def _invitation_to_domain(orm: AccountInvitationORM) -> AccountInvitation:
+    return AccountInvitation(
+        id=orm.id, email=orm.email, role=orm.role, publisher_id=orm.publisher_id,
+        locale=orm.locale, token=orm.token, invited_by=orm.invited_by,
+        created_at=orm.created_at, expires_at=orm.expires_at,
+    )
+
+
+class PostgresInvitationRepository(InvitationRepository):
+    def __init__(self, session: Session):
+        self._session = session
+
+    def save_invitation(
+        self, *, email: str, role: Role, publisher_id: uuid.UUID | None, locale: str,
+        token: str, invited_by: uuid.UUID | None, created_at: datetime, expires_at: datetime,
+    ) -> AccountInvitation:
+        values = dict(
+            email=email, role=role, publisher_id=publisher_id, locale=locale, token=token,
+            invited_by=invited_by, created_at=created_at, expires_at=expires_at,
+        )
+        # One invitation per address: a new one replaces the old row but keeps
+        # its ID, so audit entries of both refer to the same invitation.
+        statement = (
+            pg_insert(AccountInvitationORM)
+            .values(id=uuid.uuid4(), **values)
+            .on_conflict_do_update(
+                index_elements=[sa.func.lower(AccountInvitationORM.email)], set_=values,
+            )
+            .returning(AccountInvitationORM.id)
+        )
+        invitation_id = self._session.execute(statement).scalar_one()
+        self._session.expire_all()
+        return self.get_invitation(invitation_id)
+
+    def get_invitation(self, invitation_id: uuid.UUID) -> AccountInvitation | None:
+        orm = self._session.get(AccountInvitationORM, invitation_id)
+        return _invitation_to_domain(orm) if orm else None
+
+    def get_invitation_by_email(self, email: str) -> AccountInvitation | None:
+        orm = self._session.execute(
+            select(AccountInvitationORM).where(
+                sa.func.lower(AccountInvitationORM.email) == email.lower()
+            )
+        ).scalar_one_or_none()
+        return _invitation_to_domain(orm) if orm else None
+
+    def get_invitation_by_token(
+        self, token: str, *, lock: bool = False
+    ) -> AccountInvitation | None:
+        query = select(AccountInvitationORM).where(AccountInvitationORM.token == token)
+        if lock:
+            # Two clicks on the same link: the second waits and then finds no row.
+            query = query.with_for_update()
+        orm = self._session.execute(query).scalar_one_or_none()
+        return _invitation_to_domain(orm) if orm else None
+
+    def renew_invitation(
+        self, invitation_id: uuid.UUID, *, token: str, expires_at: datetime
+    ) -> AccountInvitation | None:
+        result = self._session.execute(
+            sa.update(AccountInvitationORM)
+            .where(AccountInvitationORM.id == invitation_id)
+            .values(token=token, expires_at=expires_at)
+        )
+        if result.rowcount == 0:
+            return None
+        self._session.expire_all()
+        return self.get_invitation(invitation_id)
+
+    def delete_invitation(self, invitation_id: uuid.UUID) -> bool:
+        result = self._session.execute(
+            sa.delete(AccountInvitationORM).where(AccountInvitationORM.id == invitation_id)
+        )
+        return result.rowcount == 1
+
+    def delete_expired_before(self, cutoff: datetime) -> int:
+        result = self._session.execute(
+            sa.delete(AccountInvitationORM).where(AccountInvitationORM.expires_at < cutoff)
+        )
+        return result.rowcount
+
+
+def _audit_to_domain(orm: AdminAuditLogORM) -> AdminAuditEntry:
+    return AdminAuditEntry(
+        id=orm.id, occurred_at=orm.occurred_at, action=orm.action,
+        actor_account_id=orm.actor_account_id, target_account_id=orm.target_account_id,
+        target_invitation_id=orm.target_invitation_id,
+        target_publisher_id=orm.target_publisher_id, details=dict(orm.details),
+    )
+
+
+class PostgresAdminAuditRepository(AdminAuditRepository):
+    def __init__(self, session: Session):
+        self._session = session
+
+    def record(
+        self, *, action: AdminAction, actor_account_id: uuid.UUID | None,
+        occurred_at: datetime, target_account_id: uuid.UUID | None = None,
+        target_invitation_id: uuid.UUID | None = None,
+        target_publisher_id: uuid.UUID | None = None, details: dict | None = None,
+    ) -> None:
+        self._session.add(AdminAuditLogORM(
+            id=uuid.uuid4(), occurred_at=occurred_at, action=action,
+            actor_account_id=actor_account_id, target_account_id=target_account_id,
+            target_invitation_id=target_invitation_id,
+            target_publisher_id=target_publisher_id, details=details or {},
+        ))
+        self._session.flush()
+
+    def list_for_target_account(self, account_id: uuid.UUID) -> list[AdminAuditEntry]:
+        rows = self._session.execute(
+            select(AdminAuditLogORM)
+            .where(AdminAuditLogORM.target_account_id == account_id)
+            .order_by(AdminAuditLogORM.occurred_at, AdminAuditLogORM.id)
+        ).scalars()
+        return [_audit_to_domain(orm) for orm in rows]
+
+    def delete_older_than(self, cutoff: datetime) -> int:
+        result = self._session.execute(
+            sa.delete(AdminAuditLogORM).where(AdminAuditLogORM.occurred_at < cutoff)
+        )
+        return result.rowcount
+
+
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+class PostgresAdminDirectoryRepository(AdminDirectoryRepository):
+    def __init__(self, session: Session):
+        self._session = session
+
+    def _union(self, now: datetime):
+        google = sa.exists().where(AccountGoogleIdentityORM.account_id == AccountORM.id)
+        accounts = (
+            select(
+                sa.literal("account").label("kind"),
+                AccountORM.id.label("id"),
+                AccountORM.email.label("email"),
+                AccountORM.first_name.label("first_name"),
+                AccountORM.last_name.label("last_name"),
+                google.label("google"),
+                # Without Google there is always e-mail (password or magic link).
+                sa.or_(AccountORM.password_hash.is_not(None), ~google).label("email_sign_in"),
+                AccountORM.role.label("role"),
+                AccountORM.publisher_id.label("publisher_id"),
+                PublisherORM.name.label("publisher_name"),
+                AccountORM.last_login_at.label("last_login_at"),
+                AccountORM.created_at.label("created_at"),
+                sa.case(
+                    (AccountORM.blocked_at.is_not(None), "blocked"), else_="active"
+                ).label("status"),
+                AccountORM.block_reason.label("block_reason"),
+                sa.cast(sa.null(), sa.DateTime(timezone=True)).label("expires_at"),
+            )
+            .outerjoin(PublisherORM, PublisherORM.id == AccountORM.publisher_id)
+        )
+        invitations = (
+            select(
+                sa.literal("invitation"),
+                AccountInvitationORM.id,
+                AccountInvitationORM.email,
+                sa.cast(sa.null(), sa.String),
+                sa.cast(sa.null(), sa.String),
+                sa.false(),
+                sa.false(),
+                AccountInvitationORM.role,
+                AccountInvitationORM.publisher_id,
+                PublisherORM.name,
+                sa.cast(sa.null(), sa.DateTime(timezone=True)),
+                sa.cast(sa.null(), sa.DateTime(timezone=True)),
+                sa.case(
+                    (AccountInvitationORM.expires_at > now, "invited"), else_="expired"
+                ),
+                sa.cast(sa.null(), sa.String(20)),
+                AccountInvitationORM.expires_at,
+            )
+            .outerjoin(PublisherORM, PublisherORM.id == AccountInvitationORM.publisher_id)
+        )
+        return sa.union_all(accounts, invitations).subquery("directory")
+
+    def list_users(
+        self, *, query: str | None, role: Role | None, status: str | None, sort: str,
+        descending: bool, page: int, page_size: int, now: datetime,
+    ) -> AdminUserPage:
+        u = self._union(now)
+        conditions = []
+        if query:
+            pattern = f"%{_escape_like(query.strip())}%"
+            conditions.append(sa.or_(
+                u.c.email.ilike(pattern, escape="\\"),
+                u.c.first_name.ilike(pattern, escape="\\"),
+                u.c.last_name.ilike(pattern, escape="\\"),
+            ))
+        if role is not None:
+            conditions.append(u.c.role == role)
+        if status is not None:
+            conditions.append(u.c.status == status)
+
+        sort_columns = {
+            "email": u.c.email, "first_name": u.c.first_name, "last_name": u.c.last_name,
+            "sign_in": u.c.google, "role": u.c.role, "publisher": u.c.publisher_name,
+            "last_login_at": u.c.last_login_at, "created_at": u.c.created_at,
+            "status": u.c.status,
+        }
+        column = sort_columns[sort]
+        ordered = (column.desc() if descending else column.asc()).nulls_last()
+
+        total = self._session.execute(
+            select(sa.func.count()).select_from(u).where(*conditions)
+        ).scalar_one()
+        rows = self._session.execute(
+            select(u).where(*conditions).order_by(ordered, u.c.id)
+            .offset((page - 1) * page_size).limit(page_size)
+        ).all()
+        return AdminUserPage(rows=[self._row(r) for r in rows], total=total)
+
+    @staticmethod
+    def _row(r) -> AdminUserRow:
+        methods = tuple(
+            name for name, present in (("email", r.email_sign_in), ("google", r.google))
+            if present
+        )
+        return AdminUserRow(
+            kind=r.kind, id=r.id, email=r.email, first_name=r.first_name,
+            last_name=r.last_name, sign_in_methods=methods, role=Role(r.role),
+            publisher_id=r.publisher_id, publisher_name=r.publisher_name,
+            last_login_at=r.last_login_at, created_at=r.created_at, status=r.status,
+            block_reason=BlockReason(r.block_reason) if r.block_reason else None,
+            expires_at=r.expires_at,
+        )
+
+    def summarize(self, *, now: datetime, active_since: datetime) -> AdminSummary:
+        count = sa.func.count()
+        accounts_total, accounts_active, blocked, publishers = self._session.execute(
+            select(
+                count,
+                sa.func.count().filter(AccountORM.last_login_at >= active_since),
+                sa.func.count().filter(AccountORM.blocked_at.is_not(None)),
+                sa.func.count(sa.distinct(AccountORM.publisher_id)),
+            ).select_from(AccountORM)
+        ).one()
+        by_role = {role: 0 for role in Role}
+        for role, n in self._session.execute(
+            select(AccountORM.role, count).group_by(AccountORM.role)
+        ):
+            by_role[role] = n
+        open_invitations = self._session.execute(
+            select(count).select_from(AccountInvitationORM)
+            .where(AccountInvitationORM.expires_at > now)
+        ).scalar_one()
+        top_reason = self._session.execute(
+            select(AccountORM.block_reason)
+            .where(AccountORM.block_reason.is_not(None))
+            .group_by(AccountORM.block_reason)
+            .order_by(count.desc(), AccountORM.block_reason)
+            .limit(1)
+        ).scalar_one_or_none()
+        return AdminSummary(
+            accounts_total=accounts_total, accounts_active=accounts_active,
+            accounts_by_role=by_role, publishers_with_accounts=publishers,
+            open_invitations=open_invitations, blocked=blocked,
+            most_frequent_block_reason=top_reason,
+        )
 
 
 class PostgresAccountGoogleIdentityRepository(AccountGoogleIdentityRepository):
@@ -2504,6 +2898,13 @@ class PostgresAccountGoogleIdentityRepository(AccountGoogleIdentityRepository):
     def has_google_identity(self, account_id: uuid.UUID) -> bool:
         return self._session.get(AccountGoogleIdentityORM, account_id) is not None
 
+    def unlink_all_for_account(self, account_id: uuid.UUID) -> int:
+        result = self._session.execute(
+            sa.delete(AccountGoogleIdentityORM)
+            .where(AccountGoogleIdentityORM.account_id == account_id)
+        )
+        return result.rowcount
+
 
 def _account_session_to_domain(orm: AccountSessionORM) -> AccountSession:
     return AccountSession(
@@ -2548,12 +2949,13 @@ class PostgresAccountSessionRepository(AccountSessionRepository):
         ).scalar_one_or_none()
         return _account_session_to_domain(orm) if orm else None
 
-    def extend_session(self, session_id: uuid.UUID, new_expires_at: datetime) -> None:
-        self._session.execute(
+    def extend_session(self, session_id: uuid.UUID, new_expires_at: datetime) -> bool:
+        result = self._session.execute(
             sa.update(AccountSessionORM)
             .where(AccountSessionORM.id == session_id)
             .values(expires_at=new_expires_at)
         )
+        return result.rowcount > 0
 
     def revoke_session(self, session_token: str) -> None:
         self._session.execute(
@@ -2584,6 +2986,12 @@ class PostgresAccountSessionRepository(AccountSessionRepository):
         )
         return result.rowcount > 0
 
+    def delete_sessions_for_account(self, account_id: uuid.UUID) -> int:
+        result = self._session.execute(
+            sa.delete(AccountSessionORM).where(AccountSessionORM.account_id == account_id)
+        )
+        return result.rowcount
+
 
 def _account_token_to_domain(orm: AccountTokenORM) -> AccountToken:
     return AccountToken(
@@ -2602,11 +3010,18 @@ class PostgresAccountTokenRepository(AccountTokenRepository):
         purpose: AccountTokenPurpose, token: str, created_at: datetime,
         expires_at: datetime,
     ) -> AccountToken:
-        if (account_id is None) == (email is None):
-            # Mirrors ck_account_token_account_or_email. Catching it here keeps
-            # the caller's session usable: an IntegrityError from the check
-            # constraint would abort the surrounding transaction, and this is a
-            # programming error at the call site, never user input.
+        # Mirrors ck_account_token_account_or_email. Catching it here keeps
+        # the caller's session usable: an IntegrityError from the check
+        # constraint would abort the surrounding transaction, and this is a
+        # programming error at the call site, never user input.
+        if purpose is AccountTokenPurpose.EMAIL_CHANGE:
+            # The account to change and the pending address it changes to.
+            if account_id is None or email is None:
+                raise ValueError(
+                    "an email_change token needs both account_id and email, "
+                    f"got account_id={account_id!r} and email={email!r}"
+                )
+        elif (account_id is None) == (email is None):
             raise ValueError(
                 "create_token needs exactly one of account_id and email, "
                 f"got account_id={account_id!r} and email={email!r}"
@@ -2627,6 +3042,25 @@ class PostgresAccountTokenRepository(AccountTokenRepository):
             )
         )
         return result.rowcount
+
+    def delete_for_account(self, account_id: uuid.UUID) -> int:
+        result = self._session.execute(
+            sa.delete(AccountTokenORM).where(AccountTokenORM.account_id == account_id)
+        )
+        return result.rowcount
+
+    def find_unconsumed_token(
+        self, token: str, purpose: AccountTokenPurpose
+    ) -> AccountToken | None:
+        orm = self._session.execute(
+            sa.select(AccountTokenORM).where(
+                AccountTokenORM.token == token,
+                AccountTokenORM.purpose == purpose,
+                AccountTokenORM.used_at.is_(None),
+                AccountTokenORM.expires_at > datetime.now(timezone.utc),
+            )
+        ).scalar_one_or_none()
+        return _account_token_to_domain(orm) if orm else None
 
     def consume_token(
         self, token: str, purpose: AccountTokenPurpose

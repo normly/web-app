@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 normly contributors
 
+import { getInstanceConfig } from "@/lib/config";
 import { MagicLinkPageContent } from "./magic-link-page-content";
 
 export default function MagicLinkPage() {
-  return <MagicLinkPageContent />;
+  return <MagicLinkPageContent contact={getInstanceConfig().contactAddress} />;
 }

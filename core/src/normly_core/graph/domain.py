@@ -43,6 +43,40 @@ class AccountTokenPurpose(str, Enum):
     EMAIL_CHANGE = "email_change"
 
 
+class Role(str, Enum):
+    """Exactly one per account. Publisher and administrator include everything a user can do."""
+    USER = "user"
+    PUBLISHER = "publisher"
+    ADMINISTRATOR = "administrator"
+
+
+class BlockReason(str, Enum):
+    BULK_RETRIEVAL = "bulk_retrieval"
+    ABUSE = "abuse"
+    TERMS_VIOLATION = "terms_violation"
+    OTHER = "other"
+
+
+class AdminAction(str, Enum):
+    INVITATION_CREATED = "invitation_created"
+    INVITATION_RESENT = "invitation_resent"
+    INVITATION_WITHDRAWN = "invitation_withdrawn"
+    INVITATION_ACCEPTED = "invitation_accepted"
+    ROLE_CHANGED = "role_changed"
+    PUBLISHER_CHANGED = "publisher_changed"
+    ACCOUNT_BLOCKED = "account_blocked"
+    ACCOUNT_UNBLOCKED = "account_unblocked"
+    ACCOUNT_REMOVED = "account_removed"
+    PUBLISHER_CREATED = "publisher_created"
+    ADMINISTRATOR_GRANTED_CLI = "administrator_granted_cli"
+
+
+class PublisherNameTakenError(Exception):
+    def __init__(self, name: str):
+        super().__init__(f"a publisher named {name!r} already exists")
+        self.name = name
+
+
 class WithdrawnDeliveryError(Exception):
     """
     Raised when an artifact would be created or updated on a delivery that is
@@ -1096,6 +1130,10 @@ class Account:
     avatar_content_type: str | None
     notification_preference: NotificationPreference
     locale: str | None  # None = unknown (account created before it was stored)
+    role: Role = Role.USER
+    publisher_id: uuid.UUID | None = None
+    blocked_at: datetime | None = None
+    block_reason: BlockReason | None = None
 
 
 @dataclass(frozen=True)
@@ -1141,6 +1179,75 @@ class OAuthState:
     used_at: datetime | None
 
 
+@dataclass(frozen=True)
+class Publisher:
+    """A contract partner whose content usage a publisher account may later see."""
+    id: uuid.UUID
+    name: str
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class AccountInvitation:
+    id: uuid.UUID
+    email: str
+    role: Role
+    publisher_id: uuid.UUID | None
+    locale: str
+    token: str
+    invited_by: uuid.UUID | None
+    created_at: datetime
+    expires_at: datetime
+
+
+@dataclass(frozen=True)
+class AdminAuditEntry:
+    id: uuid.UUID
+    occurred_at: datetime
+    action: AdminAction
+    actor_account_id: uuid.UUID | None
+    target_account_id: uuid.UUID | None
+    target_invitation_id: uuid.UUID | None
+    target_publisher_id: uuid.UUID | None
+    details: dict
+
+
+@dataclass(frozen=True)
+class AdminUserRow:
+    """One row of the admin table: an account or an open/expired invitation."""
+    kind: str  # "account" | "invitation"
+    id: uuid.UUID
+    email: str
+    first_name: str | None
+    last_name: str | None
+    sign_in_methods: tuple[str, ...]  # subset of ("email", "google"), in that order
+    role: Role
+    publisher_id: uuid.UUID | None
+    publisher_name: str | None
+    last_login_at: datetime | None
+    created_at: datetime | None  # None for invitations
+    status: str  # "active" | "blocked" | "invited" | "expired"
+    block_reason: BlockReason | None
+    expires_at: datetime | None  # invitations only
+
+
+@dataclass(frozen=True)
+class AdminUserPage:
+    rows: list[AdminUserRow]
+    total: int
+
+
+@dataclass(frozen=True)
+class AdminSummary:
+    accounts_total: int
+    accounts_active: int
+    accounts_by_role: dict[Role, int]
+    publishers_with_accounts: int
+    open_invitations: int
+    blocked: int
+    most_frequent_block_reason: BlockReason | None
+
+
 class AccountRepository(Protocol):
     """
     Account identity — email/password accounts. Google-only accounts have
@@ -1160,9 +1267,15 @@ class AccountRepository(Protocol):
 
     def get_account_by_email(self, email: str) -> Account | None: ...
 
+    def lock_account(self, account_id: uuid.UUID) -> Account | None:
+        """Re-reads the committed row and locks it until the transaction ends."""
+        ...
+
     def mark_email_verified(self, account_id: uuid.UUID, verified_at: datetime) -> None: ...
 
     def set_password_hash(self, account_id: uuid.UUID, password_hash: str) -> None: ...
+
+    def clear_password_hash(self, account_id: uuid.UUID) -> None: ...
 
     def update_email(self, account_id: uuid.UUID, new_email: str) -> None: ...
 
@@ -1181,6 +1294,15 @@ class AccountRepository(Protocol):
     ) -> None: ...
 
     def clear_avatar(self, account_id: uuid.UUID) -> None: ...
+
+    def reset_unverified_account_content(self, account_id: uuid.UUID, *, locale: str) -> None:
+        """
+        Deletes what the account accumulated (chats, watches, notifications
+        and their bookkeeping), clears names and avatar, resets the
+        notification preference and sets `locale`. Keeps the account row and
+        leaves credentials to the caller (invitation accept, ADR-030).
+        """
+        ...
 
     def delete_account(self, account_id: uuid.UUID) -> None:
         """Deletes the account and everything it owns; writes a deletion_log entry."""
@@ -1207,6 +1329,82 @@ class AccountRepository(Protocol):
         ...
 
     def mark_deletion_warned(self, account_id: uuid.UUID, warned_at: datetime) -> None: ...
+
+    def set_role(
+        self, account_id: uuid.UUID, *, role: Role, publisher_id: uuid.UUID | None
+    ) -> None: ...
+
+    def block_account(
+        self, account_id: uuid.UUID, *, reason: BlockReason, blocked_at: datetime
+    ) -> None: ...
+
+    def unblock_account(self, account_id: uuid.UUID) -> None: ...
+
+    def lock_active_administrator_ids(self) -> list[uuid.UUID]:
+        """Unblocked administrators, row-locked until the transaction ends."""
+        ...
+
+
+class PublisherRepository(Protocol):
+    def create_publisher(self, *, name: str, created_at: datetime) -> Publisher: ...
+
+    def get_publisher(self, publisher_id: uuid.UUID) -> Publisher | None: ...
+
+    def list_publishers(self) -> list[Publisher]: ...
+
+
+class InvitationRepository(Protocol):
+    """
+    Open and expired invitations. A row exists only until it is accepted or
+    withdrawn; one row per address (case-insensitive).
+    """
+
+    def save_invitation(
+        self, *, email: str, role: Role, publisher_id: uuid.UUID | None, locale: str,
+        token: str, invited_by: uuid.UUID | None, created_at: datetime, expires_at: datetime,
+    ) -> AccountInvitation: ...
+
+    def get_invitation(self, invitation_id: uuid.UUID) -> AccountInvitation | None: ...
+
+    def get_invitation_by_email(self, email: str) -> AccountInvitation | None: ...
+
+    def get_invitation_by_token(
+        self, token: str, *, lock: bool = False
+    ) -> AccountInvitation | None: ...
+
+    def renew_invitation(
+        self, invitation_id: uuid.UUID, *, token: str, expires_at: datetime
+    ) -> AccountInvitation | None: ...
+
+    def delete_invitation(self, invitation_id: uuid.UUID) -> bool: ...
+
+    def delete_expired_before(self, cutoff: datetime) -> int: ...
+
+
+class AdminDirectoryRepository(Protocol):
+    """The admin table: accounts and invitations in one paged list."""
+
+    def list_users(
+        self, *, query: str | None, role: Role | None, status: str | None, sort: str,
+        descending: bool, page: int, page_size: int, now: datetime,
+    ) -> AdminUserPage: ...
+
+    def summarize(self, *, now: datetime, active_since: datetime) -> AdminSummary: ...
+
+
+class AdminAuditRepository(Protocol):
+    """Administrative actions. IDs only, never an e-mail address (ADR-030)."""
+
+    def record(
+        self, *, action: AdminAction, actor_account_id: uuid.UUID | None,
+        occurred_at: datetime, target_account_id: uuid.UUID | None = None,
+        target_invitation_id: uuid.UUID | None = None,
+        target_publisher_id: uuid.UUID | None = None, details: dict | None = None,
+    ) -> None: ...
+
+    def list_for_target_account(self, account_id: uuid.UUID) -> list[AdminAuditEntry]: ...
+
+    def delete_older_than(self, cutoff: datetime) -> int: ...
 
 
 class DeletionLogRepository(Protocol):
@@ -1250,6 +1448,10 @@ class AccountGoogleIdentityRepository(Protocol):
 
     def has_google_identity(self, account_id: uuid.UUID) -> bool: ...
 
+    def unlink_all_for_account(self, account_id: uuid.UUID) -> int:
+        """Removes the account's Google link, if any; returns the rows deleted."""
+        ...
+
 
 class GoogleIdentityAlreadyLinkedError(Exception):
     def __init__(self, account_id: uuid.UUID, google_subject_id: str):
@@ -1269,7 +1471,9 @@ class AccountSessionRepository(Protocol):
 
     def get_session_by_token(self, session_token: str) -> AccountSession | None: ...
 
-    def extend_session(self, session_id: uuid.UUID, new_expires_at: datetime) -> None: ...
+    def extend_session(self, session_id: uuid.UUID, new_expires_at: datetime) -> bool:
+        """False when the session no longer exists (deleted concurrently)."""
+        ...
 
     def revoke_session(self, session_token: str) -> None: ...
 
@@ -1278,6 +1482,8 @@ class AccountSessionRepository(Protocol):
     def revoke_session_by_id(self, session_id: uuid.UUID, account_id: uuid.UUID) -> bool: ...
 
     def delete_sessions_expired_before(self, cutoff: datetime) -> int: ...
+
+    def delete_sessions_for_account(self, account_id: uuid.UUID) -> int: ...
 
 
 class AccountTokenRepository(Protocol):
@@ -1296,7 +1502,9 @@ class AccountTokenRepository(Protocol):
     requested — otherwise anyone could conjure an account for any address they
     can type without proving they can read that mailbox. `create_token`
     therefore takes exactly one of `account_id` and `email`; passing both or
-    neither is a programming error and raises `ValueError`.
+    neither is a programming error and raises `ValueError`. The exception is
+    `EMAIL_CHANGE`, which needs both: the account to change and the pending
+    address, bound server-side so the confirm link cannot redirect the change.
     """
 
     def create_token(
@@ -1308,6 +1516,16 @@ class AccountTokenRepository(Protocol):
     def consume_token(
         self, token: str, purpose: AccountTokenPurpose
     ) -> AccountToken | None: ...
+
+    def find_unconsumed_token(
+        self, token: str, purpose: AccountTokenPurpose
+    ) -> AccountToken | None:
+        """An unused, unexpired token without locking it; consume_token still decides."""
+        ...
+
+    def delete_for_account(self, account_id: uuid.UUID) -> int:
+        """Deletes every token bound to the account; returns the rows deleted."""
+        ...
 
     def delete_tokens_done_before(self, cutoff: datetime) -> int:
         """Deletes tokens whose expires_at or used_at lies before cutoff."""

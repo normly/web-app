@@ -99,6 +99,9 @@ def google_callback(
         # of creating a duplicate.
         existing = account_repo.get_account_by_email(profile.email)
         if existing is not None:
+            if existing.blocked_at is not None:
+                # Refuse before linking: a blocked account gains no new sign-in path.
+                raise HTTPException(status_code=403, detail="account_blocked")
             # Linking hands whoever completed this flow full control of an
             # account that already belongs to someone. A Google identity may
             # *assert* any address, so an unverified one is no evidence at
@@ -130,5 +133,29 @@ def google_callback(
                 status_code=409,
                 detail="this account is already linked to a different Google identity",
             )
+
+    # Same locked re-check as the password login: an invitation accept may
+    # have reset this account since it was resolved (ADR-030). Under the row
+    # lock, held until the session commits, the link this request used must
+    # still exist; accept takes the same lock before removing it.
+    locked = account_repo.lock_account(account.id)
+    relinked = google_repo.get_account_by_google_subject(profile.subject_id)
+    if locked is None or relinked is None or relinked.id != locked.id:
+        raise HTTPException(status_code=401, detail="Google sign-in is no longer valid")
+    account = locked
+
+    # Google vouching for this very address proves the mailbox as well as our
+    # own verification link would -- new, linked and returning accounts
+    # alike. Only for the account's current address (it may have changed
+    # since linking), and never for a blocked account, which
+    # _create_session_response refuses below without any change to it.
+    if (
+        profile.email_verified
+        and profile.email == account.email
+        and account.email_verified_at is None
+        and account.blocked_at is None
+    ):
+        account_repo.mark_email_verified(account.id, datetime.now(timezone.utc))
+        account = account_repo.get_account_by_id(account.id)
 
     return _create_session_response(account, session)

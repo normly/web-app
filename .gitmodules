@@ -1,0 +1,3 @@
+[submodule "web-app-raw-data"]
+	path = web-app-raw-data
+	url = git@github.com:normly/web-app-raw-data.git

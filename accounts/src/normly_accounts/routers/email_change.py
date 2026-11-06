@@ -50,21 +50,15 @@ def request_email_change(
 
     now = datetime.now(timezone.utc)
     token = PostgresAccountTokenRepository(session).create_token(
-        account_id=account.id, purpose=AccountTokenPurpose.EMAIL_CHANGE,
-        # The token's `email` field carries the PENDING new address here --
-        # a different use than the "address with no account yet" case
-        # magic-link/registration use it for, but the same nullable column;
-        # account_id is set to the existing account in both this case and
-        # that one, which is what account.email is actually changed to.
+        # The pending address is bound to the token server-side: confirm takes
+        # it from here, never from the link, so the link cannot redirect the
+        # change to a mailbox nobody proved.
+        account_id=account.id, email=payload.new_email,
+        purpose=AccountTokenPurpose.EMAIL_CHANGE,
         token=generate_token(), created_at=now, expires_at=now + _EMAIL_CHANGE_TOKEN_LIFETIME,
     )
-    # create_token's own signature takes email= as an alternative to
-    # account_id=, not alongside it (see ck_account_token_account_or_email) --
-    # so the pending address cannot travel on this token as written. Store it
-    # via a second, minimal mechanism instead: reuse the token string itself
-    # as the pointer, and re-derive the pending address from the *request*
-    # this handler is already holding, encoding it into the emailed link
-    # instead of the token record.
+    # `email=` in the link only lets the confirm page show the address; the
+    # confirm endpoint refuses a link whose address differs from the token's.
     confirm_url = (
         f"{_public_base_url()}/confirm-email-change"
         f"?token={quote(token.token)}&email={quote(payload.new_email)}"
@@ -86,13 +80,23 @@ def request_email_change(
 
 @email_change_router.get("/confirm")
 def confirm_email_change(
-    token: str, email: str, session: Session = Depends(get_session),
+    token: str, email: str | None = None, session: Session = Depends(get_session),
 ) -> dict:
-    consumed = PostgresAccountTokenRepository(session).consume_token(
-        token, AccountTokenPurpose.EMAIL_CHANGE
-    )
-    if consumed is None:
+    tokens = PostgresAccountTokenRepository(session)
+    pending = tokens.find_unconsumed_token(token, AccountTokenPurpose.EMAIL_CHANGE)
+    if pending is None or pending.account_id is None:
         raise HTTPException(status_code=400, detail="invalid or expired token")
+    # Lock order (ADR-030): account row before token rows, like invitation accept.
+    PostgresAccountRepository(session).lock_account(pending.account_id)
+    consumed = tokens.consume_token(token, AccountTokenPurpose.EMAIL_CHANGE)
+    # A token without a stored address predates migration 0042; one whose
+    # link carries a different address was tampered with. Neither proves the
+    # mailbox the account would move to.
+    if consumed is None or consumed.email is None or (
+        email is not None and email != consumed.email
+    ):
+        raise HTTPException(status_code=400, detail="invalid or expired token")
+    email = consumed.email
 
     account_repo = PostgresAccountRepository(session)
     if account_repo.get_account_by_email(email) is not None:

@@ -42,7 +42,7 @@ Split into chapters so that readers can read selectively instead of the whole do
 
 ## Requirement index
 
-78 requirements in 17 groups. All in [03-requirements.md](03-requirements.md).
+80 requirements in 17 groups. All in [03-requirements.md](03-requirements.md).
 
 ### REQ-UI — User interface
 
@@ -207,3 +207,4 @@ Split into chapters so that readers can read selectively instead of the whole do
 | [`REQ-ACC-003`](03-requirements.md#req-acc-003-quota-for-anonymous-use) | Quota for anonymous use | 3.16 |
 | [`REQ-ACC-004`](03-requirements.md#req-acc-004-functions-requiring-an-account) | Functions requiring an account | 3.16 |
 | [`REQ-ACC-005`](03-requirements.md#req-acc-005-cost-budget-for-language-model-use) | Cost budget for language-model use | 3.16 |
+| [`REQ-ACC-006`](03-requirements.md#req-acc-006-roles-and-user-management) | Roles and user management | 3.16 |

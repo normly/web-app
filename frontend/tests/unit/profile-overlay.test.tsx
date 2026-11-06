@@ -18,6 +18,7 @@ const ACCOUNT: AccountSummary = {
   hasAvatar: false,
   hasPassword: true,
   notificationPreference: "immediate",
+  role: "user", publisherId: null,
 };
 
 function renderOverlay(account: AccountSummary | null, open = true) {

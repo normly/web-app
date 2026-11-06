@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 import sqlalchemy as sa
 
 from normly_core import retention
+from normly_core.graph.domain import BlockReason, Role
 from normly_core.graph.postgres.orm import AccountORM
 from normly_core.graph.postgres.repositories import (
     PostgresAccountGoogleIdentityRepository,
@@ -292,3 +293,32 @@ def test_delete_recheck_includes_the_warning_condition(db_session):
     assert repo._abandoned_registration_ids(
         cutoff, warned_before=NOW - NOTICE, only=selected
     ) == []
+
+
+def test_blocked_and_privileged_accounts_are_never_abandoned(db_session, monkeypatch):
+    """
+    A block must outlive the cleanup (else the address is free to re-register),
+    and an unverified account with a role was granted that role on purpose.
+    Already-warned rows check the delete step too, not only the warning.
+    """
+    monkeypatch.setenv("NORMLY_PUBLIC_BASE_URL", "https://app.example.org")
+    repo = PostgresAccountRepository(db_session)
+    blocked = _account(db_session, "blocked@example.de")
+    repo.block_account(blocked.id, reason=BlockReason.ABUSE, blocked_at=OLD)
+    admin = _account(db_session, "admin@example.de")
+    repo.set_role(admin.id, role=Role.ADMINISTRATOR, publisher_id=None)
+    warned_blocked = _account(db_session, "warned-blocked@example.de", warned_at=NOW - NOTICE - timedelta(days=1))
+    repo.block_account(warned_blocked.id, reason=BlockReason.ABUSE, blocked_at=OLD)
+    warned_admin = _account(db_session, "warned-admin@example.de", warned_at=NOW - NOTICE - timedelta(days=1))
+    repo.set_role(warned_admin.id, role=Role.ADMINISTRATOR, publisher_id=None)
+    sender = RecordingEmailSender()
+
+    summary = _summary(_cleanup_user_data(db_session, NOW, sender))
+
+    assert summary["warnings_sent"] == 0
+    assert summary["unverified_accounts"] == 0
+    assert sender.sent == []
+    for account in (blocked, admin, warned_blocked, warned_admin):
+        assert _exists(db_session, account.id)
+    assert _warned_at(db_session, blocked.id) is None
+    assert _warned_at(db_session, admin.id) is None

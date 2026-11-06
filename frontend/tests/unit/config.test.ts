@@ -27,4 +27,14 @@ describe("getInstanceConfig", () => {
     expect(config.brandColorHsl).toBe("0 84% 60%");
     expect(config.logoPath).toBe("/custom-logo.svg");
   });
+
+  it("prefers NORMLY_CONTACT_EMAIL, then the imprint URL, for the contact address", () => {
+    vi.stubEnv("NORMLY_CONTACT_EMAIL", "kontakt@normly.example");
+    vi.stubEnv("NORMLY_IMPRINT_URL", "https://normly.example/impressum");
+    expect(getInstanceConfig().contactAddress).toBe("kontakt@normly.example");
+    vi.stubEnv("NORMLY_CONTACT_EMAIL", "");
+    expect(getInstanceConfig().contactAddress).toBe("https://normly.example/impressum");
+    vi.stubEnv("NORMLY_IMPRINT_URL", "");
+    expect(getInstanceConfig().contactAddress).toBeNull();
+  });
 });

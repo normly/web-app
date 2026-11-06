@@ -20,13 +20,20 @@ COMMON: dict[str, dict[str, str]] = {
         "imprint": "Impressum",
         "privacy": "Datenschutz",
         "fallback_link": "Falls der Button nicht funktioniert, öffne diesen Link:",
+        "personal_message": "Persönliche Nachricht:",
     },
     "en": {
         "claim": "AI-powered Norms and Standards, Open to Everyone",
         "imprint": "Imprint",
         "privacy": "Privacy Policy",
         "fallback_link": "If the button does not work, open this link:",
+        "personal_message": "Personal message:",
     },
+}
+
+ROLE_LABELS: dict[str, dict[str, str]] = {
+    "de": {"user": "Nutzer", "publisher": "Publisher", "administrator": "Administrator"},
+    "en": {"user": "User", "publisher": "Publisher", "administrator": "Administrator"},
 }
 
 KINDS: dict[str, dict[str, dict[str, str | None]]] = {
@@ -103,6 +110,33 @@ KINDS: dict[str, dict[str, dict[str, str | None]]] = {
             "button": "Bei normly anmelden",
             "note": None,
         },
+        "invitation": {
+            "subject": "Einladung zu normly",
+            "heading": "Du wurdest zu normly eingeladen",
+            "paragraph": "Du wurdest eingeladen, normly mit der Rolle „{role}“{publisher} zu "
+                         "nutzen. Mit dem Klick auf den Button nimmst du die Einladung an und "
+                         "wirst angemeldet; ein bestehendes Konto mit dieser Adresse erhält "
+                         "dabei die Rolle.",
+            "button": "Einladung annehmen",
+            "note": "Der Link ist {validity} gültig und nur einmal verwendbar. Du hast keine "
+                    "Einladung erwartet? Dann ignoriere diese Mail.",
+        },
+        "account_blocked": {
+            "subject": "Dein normly-Konto wurde gesperrt",
+            "heading": "Dein Konto wurde gesperrt",
+            "paragraph": "Dein normly-Konto wurde gesperrt; eine Anmeldung ist nicht mehr "
+                         "möglich. Frei verfügbare Inhalte bleiben ohne Anmeldung nutzbar.",
+            "button": None,
+            "note": "Bei Fragen wende dich an {contact}.",
+        },
+        "account_removed": {
+            "subject": "Dein normly-Konto wurde entfernt",
+            "heading": "Dein Konto wurde entfernt",
+            "paragraph": "Dein normly-Konto und die zugehörigen Daten wurden gelöscht. Frei "
+                         "verfügbare Inhalte bleiben ohne Anmeldung nutzbar.",
+            "button": None,
+            "note": "Bei Fragen wende dich an {contact}.",
+        },
     },
     "en": {
         "verification": {
@@ -177,6 +211,32 @@ KINDS: dict[str, dict[str, dict[str, str | None]]] = {
                          "in before then.",
             "button": "Sign in to normly",
             "note": None,
+        },
+        "invitation": {
+            "subject": "Invitation to normly",
+            "heading": "You have been invited to normly",
+            "paragraph": "You have been invited to use normly with the role “{role}”"
+                         "{publisher}. Clicking the button accepts the invitation and signs "
+                         "you in; an existing account with this address receives the role.",
+            "button": "Accept invitation",
+            "note": "The link is valid for {validity} and can be used once. You did not "
+                    "expect an invitation? Then ignore this email.",
+        },
+        "account_blocked": {
+            "subject": "Your normly account has been blocked",
+            "heading": "Your account has been blocked",
+            "paragraph": "Your normly account has been blocked; you can no longer sign in. "
+                         "Freely available content remains usable without signing in.",
+            "button": None,
+            "note": "If you have questions, contact {contact}.",
+        },
+        "account_removed": {
+            "subject": "Your normly account has been removed",
+            "heading": "Your account has been removed",
+            "paragraph": "Your normly account and its data have been deleted. Freely "
+                         "available content remains usable without signing in.",
+            "button": None,
+            "note": "If you have questions, contact {contact}.",
         },
     },
 }

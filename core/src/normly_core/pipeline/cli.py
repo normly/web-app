@@ -14,12 +14,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from normly_core import retention
+from normly_core.admin import AdminGrantError, grant_administrator
 from normly_core.graph.postgres.repositories import (
     PostgresAccountRepository,
     PostgresAccountSessionRepository,
     PostgresAccountTokenRepository,
+    PostgresAdminAuditRepository,
     PostgresChatRepository,
     PostgresDeletionLogRepository,
+    PostgresInvitationRepository,
     PostgresLlmUsageRepository,
     PostgresNotificationRepository,
     PostgresSourceRepository,
@@ -118,6 +121,12 @@ def _cleanup_user_data(session: Session, now: datetime, email_sender: EmailSende
         question_before=today - retention.LLM_QUESTION_COUNT_RETENTION,
         usage_before=today - retention.LLM_USAGE_RETENTION,
     )
+    invitations = PostgresInvitationRepository(session).delete_expired_before(
+        now - retention.INVITATION_EXPIRED_GRACE
+    )
+    admin_audit = PostgresAdminAuditRepository(session).delete_older_than(
+        now - retention.ADMIN_AUDIT_RETENTION
+    )
     # Last: this run's own entries are far newer than the cutoff.
     log = PostgresDeletionLogRepository(session).delete_older_than(
         now - retention.DELETION_LOG_MAX_AGE
@@ -126,7 +135,8 @@ def _cleanup_user_data(session: Session, now: datetime, email_sender: EmailSende
         f"sessions={sessions} tokens={tokens} unverified_accounts={unverified} "
         f"warnings_sent={warnings_sent} "
         f"notifications_read={read} notifications_unread={unread} "
-        f"anonymous_chats={anonymous_chats} deletion_log={log}"
+        f"anonymous_chats={anonymous_chats} invitations={invitations} "
+        f"admin_audit={admin_audit} deletion_log={log}"
     )
 
 
@@ -148,6 +158,9 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("cleanup-user-data")
 
     subparsers.add_parser("notify-watchers")
+
+    grant_parser = subparsers.add_parser("grant-admin")
+    grant_parser.add_argument("--email", required=True, help="address of an existing account")
 
     args = parser.parse_args(argv)
 
@@ -186,6 +199,16 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 session.commit()
                 print(summary)
+            elif args.command == "grant-admin":
+                try:
+                    outcome = grant_administrator(
+                        session, email=args.email, now=datetime.now(timezone.utc)
+                    )
+                except AdminGrantError as exc:
+                    print(f"grant-admin: {exc}", file=sys.stderr)
+                    return 1
+                session.commit()
+                print(f"grant-admin: {outcome}")
             elif args.command == "notify-watchers":
                 email_sender = _build_email_sender()
                 acquired = session.execute(

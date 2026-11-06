@@ -26,6 +26,12 @@ with them, pause and ask rather than working around them.
   live on GitHub (`github.com/normly/web-app`) for easier collaboration;
   STACKIT Git is no longer used. The knowledge base is a separately
   versioned dump in STACKIT Object Storage (ADR-025).
+- **Raw source data and licensed data must never be public.** A private Git
+  repository may hold only a limited, legally authorized corpus for local
+  testing—not general, operational, production, or knowledge-base data. Keep
+  such corpora out of CI and public or production artifacts. This does not
+  relax REQ-INST-001's restriction on licensed content in development/testing.
+  → ADR-021
 - **Do not scrape commercially exploited catalog collections** (DIN Media,
   Nautos, or comparable holdings). Obtain them only by contract. Public
   accessibility does not change this rule. → ADR-012
@@ -100,7 +106,7 @@ costly.
 - Debug systematically. Run relevant checks before reporting completion and
   report any checks that could not be run; see the
   [repository-workflow skill](.agents/skills/repository-workflow/SKILL.md).
-- LLM coding agents must consult the root [`review.md`](review.md) index and
+- LLM coding agents must consult the root [`REVIEW.md`](REVIEW.md) index and
   follow the applicable module review guide as part of testing a change.
   Treat those review-specific checks as additional to the shared contribution
   and CI checks; report any required validation that could not be completed.

@@ -7,6 +7,8 @@
 // accountId for the frontend -- every other account-data BFF route follows
 // the same camelCase convention here, rather than mixing raw snake_case
 // bodies with this one already-translated shape.
+export type AccountRole = "user" | "publisher" | "administrator";
+
 export interface AccountSummary {
   accountId: string;
   email: string;
@@ -15,6 +17,10 @@ export interface AccountSummary {
   hasAvatar: boolean;
   hasPassword: boolean;
   notificationPreference: string;
+  // Only decides what the menu shows; the server checks the role again on
+  // every admin request.
+  role: AccountRole;
+  publisherId: string | null;
 }
 
 interface RawAccountFields {
@@ -23,6 +29,8 @@ interface RawAccountFields {
   has_avatar: boolean;
   has_password: boolean;
   notification_preference: string;
+  role?: AccountRole;
+  publisher_id?: string | null;
 }
 
 export function mapAccountSummary(
@@ -32,5 +40,6 @@ export function mapAccountSummary(
     accountId, email, firstName: raw.first_name, lastName: raw.last_name,
     hasAvatar: raw.has_avatar, hasPassword: raw.has_password,
     notificationPreference: raw.notification_preference,
+    role: raw.role ?? "user", publisherId: raw.publisher_id ?? null,
   };
 }

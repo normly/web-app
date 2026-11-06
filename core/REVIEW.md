@@ -11,8 +11,14 @@ requirements and architecture documents.
   [template](../docs/guide/adapters/TEMPLATE.md) for new notes.
 - Consult that note for required checks. Report unavailable checks as
   outstanding; synthetic tests do not replace real-source validation.
-- Generate synthetic test inputs; never commit publisher PDFs or extracted
-  full text. Process source material only under its registered legal basis.
+- Generate synthetic test inputs for CI. Keep publisher PDFs out of this
+  repository's Git history, CI, and images. Authorized real-source samples are
+  kept in the private `web-app-raw-data` submodule as a limited local test
+  corpus, not as general or production data storage. Ordinary clones do not
+  initialize it; local use requires explicit
+  initialization and read access to the private repo. Do not initialize that
+  submodule in CI. Keep extracted full text out of Git and CI, and process
+  source material only under its registered legal basis.
 - For pipeline/database changes, exercise the runner and repositories as
   appropriate. `db_session` uses disposable PostgreSQL with pgvector and needs
   Docker. Deterministic embeddings test plumbing, not semantic quality; keep
@@ -25,6 +31,14 @@ requirements and architecture documents.
 Use the layers appropriate to each source; the linked
 [adapter status notes](../docs/guide/adapters/index.md) specify its fixtures
 and required commands:
+
+For a quick local synthetic check, run the adapter-specific test module from
+the repository root, replacing `<adapter>` with its module name (for example,
+`baua`). CI still runs the full Core suite:
+
+```bash
+cd core && ../.venv/bin/pytest tests/pipeline/test_<adapter>_adapter.py -v
+```
 
 - **Unit:** test parsing and mapping with controlled inputs.
 - **Synthetic integration (CI):** generate safe fixtures and pass them through

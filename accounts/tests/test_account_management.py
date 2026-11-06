@@ -13,6 +13,8 @@ from normly_core.graph.postgres.repositories import (
     PostgresWatchlistRepository, PostgresWorkRepository,
 )
 
+from tests.admin_support import make_admin
+
 
 def _register(client, email="delete-target@example.de", password="correct horse"):
     response = client.post(
@@ -74,3 +76,22 @@ def test_deleting_an_account_commits_before_the_response_is_returned(real_client
 def test_account_deletion_requires_authorization(client):
     response = client.request("DELETE", "/v1/accounts/me", json={"password": "x"})
     assert response.status_code == 401
+
+
+def test_the_last_administrator_cannot_delete_their_own_account(client, db_session):
+    admin, headers = make_admin(db_session)
+
+    response = client.request("DELETE", "/v1/accounts/me", json={"password": None}, headers=headers)
+
+    assert (response.status_code, response.json()["detail"]) == (409, "last_administrator")
+    assert PostgresAccountRepository(db_session).get_account_by_id(admin.id) is not None
+
+
+def test_an_administrator_can_delete_their_account_while_another_remains(client, db_session):
+    make_admin(db_session, "other-admin@normly.example")
+    admin, headers = make_admin(db_session)
+
+    response = client.request("DELETE", "/v1/accounts/me", json={"password": None}, headers=headers)
+
+    assert response.status_code == 200
+    assert PostgresAccountRepository(db_session).get_account_by_id(admin.id) is None

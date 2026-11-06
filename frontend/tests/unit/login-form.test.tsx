@@ -78,4 +78,21 @@ describe("LoginForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "Zurück zur Anmeldung" }));
     expect(screen.getByRole("button", { name: "Anmelden" })).toBeInTheDocument();
   });
+
+  it("shows the blocked notice with the contact on account_blocked", async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ detail: "account_blocked" }), { status: 403 }),
+    );
+    render(
+      <LocaleProvider initialLocale="de">
+        <LoginForm onSuccess={vi.fn()} contact="kontakt@normly.example" />
+      </LocaleProvider>,
+    );
+    fireEvent.change(screen.getByLabelText("E-Mail-Adresse"), { target: { value: "a@b.de" } });
+    fireEvent.change(screen.getByLabelText("Passwort"), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Anmelden" }));
+    expect(await screen.findByText("Dein Konto ist gesperrt. Eine Anmeldung ist nicht möglich.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "kontakt@normly.example" }))
+      .toHaveAttribute("href", "mailto:kontakt@normly.example");
+  });
 });

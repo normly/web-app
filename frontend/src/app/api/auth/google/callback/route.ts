@@ -22,6 +22,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   );
   const body = await backendResponse.json();
 
+  if (backendResponse.status === 403 && body.detail === "account_blocked") {
+    return NextResponse.redirect(new URL("/login?auth_error=blocked", request.url));
+  }
+
   if (!backendResponse.ok) {
     return NextResponse.redirect(new URL("/?auth_error=1", request.url));
   }

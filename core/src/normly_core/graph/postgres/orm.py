@@ -7,10 +7,13 @@ from enum import Enum
 
 import sqlalchemy as sa
 from pgvector.sqlalchemy import Vector
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from normly_core.graph.domain import (
+    AdminAction,
+    BlockReason,
+    Role,
     AccountTokenPurpose,
     ChatAnswerType,
     ChatMessageRole,
@@ -468,6 +471,29 @@ class AccountORM(Base):
     # NULL = unknown (account created before it was stored).
     locale: Mapped[str | None] = mapped_column(sa.String(2), nullable=True)
 
+    # Exactly one role (ck_account_role); a publisher is bound to one publisher
+    # (ck_account_publisher_binding). Read on every request, never cached.
+    role: Mapped[Role] = mapped_column(
+        sa.Enum(
+            Role, name="account_role", native_enum=False, create_constraint=False,
+            values_callable=_enum_values, length=16,
+        ),
+        nullable=False, default=Role.USER, server_default=Role.USER.value,
+    )
+    publisher_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        sa.ForeignKey("publisher.id", name="fk_account_publisher_id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    blocked_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    block_reason: Mapped[BlockReason | None] = mapped_column(
+        sa.Enum(
+            BlockReason, name="block_reason", native_enum=False, create_constraint=False,
+            values_callable=_enum_values, length=20,
+        ),
+        nullable=True,
+    )
+
     __table_args__ = (
         sa.UniqueConstraint("email", name="uq_account_email"),
         sa.CheckConstraint("locale IN ('de', 'en')", name="ck_account_locale"),
@@ -534,8 +560,11 @@ class AccountTokenORM(Base):
 
     __table_args__ = (
         sa.UniqueConstraint("token", name="uq_account_token_token"),
+        # An email_change token carries the account and the pending address
+        # (0042); every other purpose exactly one of the two (0014).
         sa.CheckConstraint(
-            "(account_id IS NULL) != (email IS NULL)",
+            "(purpose = 'email_change' AND account_id IS NOT NULL)"
+            " OR (purpose <> 'email_change' AND (account_id IS NULL) != (email IS NULL))",
             name="ck_account_token_account_or_email",
         ),
     )
@@ -556,6 +585,76 @@ class OAuthStateORM(Base):
 
     __table_args__ = (
         sa.UniqueConstraint("state", name="uq_oauth_state_state"),
+    )
+
+
+class PublisherORM(Base):
+    __tablename__ = "publisher"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str]
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
+
+
+sa.Index("uq_publisher_name_lower", sa.func.lower(PublisherORM.name), unique=True)
+
+
+class AccountInvitationORM(Base):
+    __tablename__ = "account_invitation"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email: Mapped[str]
+    role: Mapped[Role] = mapped_column(
+        sa.Enum(
+            Role, name="account_role", native_enum=False, create_constraint=False,
+            values_callable=_enum_values, length=16,
+        )
+    )
+    publisher_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("publisher.id", ondelete="RESTRICT"), nullable=True
+    )
+    locale: Mapped[str] = mapped_column(sa.String(2))
+    token: Mapped[str]
+    invited_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), sa.ForeignKey("account.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
+
+    __table_args__ = (
+        sa.UniqueConstraint("token", name="uq_account_invitation_token"),
+        sa.Index("ix_account_invitation_expires_at", "expires_at"),
+    )
+
+
+sa.Index(
+    "uq_account_invitation_email_lower", sa.func.lower(AccountInvitationORM.email), unique=True
+)
+
+
+class AdminAuditLogORM(Base):
+    __tablename__ = "admin_audit_log"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    occurred_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
+    action: Mapped[AdminAction] = mapped_column(
+        sa.Enum(
+            AdminAction, name="admin_action", native_enum=False, create_constraint=False,
+            values_callable=_enum_values, length=32,
+        )
+    )
+    # No foreign keys: an entry outlives the account it names (ADR-030).
+    actor_account_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    target_account_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    target_invitation_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    target_publisher_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    details: Mapped[dict] = mapped_column(JSONB, default=dict)
+
+    __table_args__ = (
+        sa.Index("ix_admin_audit_log_occurred_at", "occurred_at"),
+        sa.Index("ix_admin_audit_log_target_account_id", "target_account_id"),
     )
 
 

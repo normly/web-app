@@ -510,7 +510,7 @@ def test_cleanup_user_data_command_runs_all_periods_and_commits(
     out = capsys.readouterr().out
     assert (
         "sessions=1 tokens=1 unverified_accounts=1 warnings_sent=0 notifications_read=1 "
-        "notifications_unread=1 anonymous_chats=1 deletion_log=1"
+        "notifications_unread=1 anonymous_chats=1 invitations=0 admin_audit=0 deletion_log=1"
     ) in out
     with Session(committed_db) as session:
         assert _count(session, AccountORM) == 1
@@ -524,5 +524,32 @@ def test_cleanup_user_data_command_runs_all_periods_and_commits(
     assert main(["cleanup-user-data"]) == 0
     assert (
         "sessions=0 tokens=0 unverified_accounts=0 warnings_sent=0 notifications_read=0 "
-        "notifications_unread=0 anonymous_chats=0 deletion_log=0"
+        "notifications_unread=0 anonymous_chats=0 invitations=0 admin_audit=0 deletion_log=0"
     ) in capsys.readouterr().out
+
+
+def test_cleanup_removes_old_invitations_and_audit_entries(db_session):
+    from normly_core.graph.domain import AdminAction, Role
+    from normly_core.graph.postgres.repositories import (
+        PostgresAdminAuditRepository,
+        PostgresInvitationRepository,
+    )
+
+    invitations = PostgresInvitationRepository(db_session)
+    for email, expired_days_ago in (("old@example.de", 31), ("recent@example.de", 29)):
+        invitations.save_invitation(
+            email=email, role=Role.USER, publisher_id=None, locale="de",
+            token=f"tok-{email}", invited_by=None, created_at=NOW - timedelta(days=40),
+            expires_at=NOW - timedelta(days=expired_days_ago),
+        )
+    audit = PostgresAdminAuditRepository(db_session)
+    for days in (731, 729):
+        audit.record(action=AdminAction.ROLE_CHANGED, actor_account_id=None,
+                     occurred_at=NOW - timedelta(days=days))
+
+    summary = _cleanup_user_data(db_session, NOW, NullEmailSender())
+
+    assert "invitations=1" in summary
+    assert "admin_audit=1" in summary
+    assert invitations.get_invitation_by_email("recent@example.de") is not None
+    assert invitations.get_invitation_by_email("old@example.de") is None
