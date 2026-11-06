@@ -1,14 +1,18 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 normly contributors
 
-"""Opt-in BAuA extraction checks using PDFs kept outside the repository.
+"""Opt-in BAuA extraction checks using samples from the private data submodule.
 
-Run explicitly with:
-    BAUA_REAL_DOCUMENTS_DIR=/tmp/opencode/baua-review \
+Initialize the submodule from the repository root with:
+    git submodule update --init web-app-raw-data
+
+Then run from core/ with:
+    BAUA_REAL_DOCUMENTS_DIR=../web-app-raw-data/raw_data_test/BAuA \
         ../.venv/bin/pytest tests/pipeline/test_baua_adapter_real.py
 
-The module is skipped in CI and ordinary local runs unless the environment
-variable is set. It reports no extracted document text.
+The submodule is not initialized in CI. This module is skipped in CI and
+ordinary local runs unless the environment variable is set. It reports no
+extracted document text.
 """
 
 import os

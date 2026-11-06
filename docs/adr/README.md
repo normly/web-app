@@ -763,6 +763,21 @@ The original wording remains in place as the decision history.
 **Carried out 2026-10-17:** The operator deleted the repository
 `jwokittel/normly-webapp` in the STACKIT portal.
 
+**Addendum 2026-11-06 — Raw and licensed data:** Raw source data and licensed
+data must never be made public through a repository, artifact, container image,
+or export. The permission to publish on GitHub remains limited to source code,
+CI/CD, and the free core's container registry; the private test-corpus exception
+below does not permit publication.
+
+A private Git repository may hold only a limited corpus for local testing; it
+is not a general raw-data archive, licensed collection, operational dataset,
+production knowledge base, or backup location. Such a corpus must remain
+private, be excluded from CI and public/production artifacts, and have a source
+register entry and legal basis that permit its storage and intended local use.
+Private visibility does not grant processing rights. This addendum does not
+relax REQ-INST-001's restriction on using licensed content in development or
+testing. Operational, production, and knowledge-base data remain on STACKIT.
+
 ---
 
 ## ADR-022 — Operating environment phase 1 and model-origin rule

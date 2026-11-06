@@ -21,3 +21,4 @@ site
 **/.env.*
 !.env.example
 data
+web-app-raw-data

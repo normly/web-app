@@ -26,6 +26,12 @@ with them, pause and ask rather than working around them.
   live on GitHub (`github.com/normly/web-app`) for easier collaboration;
   STACKIT Git is no longer used. The knowledge base is a separately
   versioned dump in STACKIT Object Storage (ADR-025).
+- **Raw source data and licensed data must never be public.** A private Git
+  repository may hold only a limited, legally authorized corpus for local
+  testing—not general, operational, production, or knowledge-base data. Keep
+  such corpora out of CI and public or production artifacts. This does not
+  relax REQ-INST-001's restriction on licensed content in development/testing.
+  → ADR-021
 - **Do not scrape commercially exploited catalog collections** (DIN Media,
   Nautos, or comparable holdings). Obtain them only by contract. Public
   accessibility does not change this rule. → ADR-012
