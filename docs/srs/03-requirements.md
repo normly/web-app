@@ -1052,13 +1052,15 @@ This section supplements the general security requirements from section 3.3.2 wi
 
 ### REQ-SEC-001 — Encryption of data at rest
 
-**Statement:** All persisted data is stored encrypted: database contents, object storage, search indexes, log data and all backups. This applies regardless of whether the content is freely available or licensed.
+**Statement:** Except for the narrow local-test exception below, all persisted data is stored encrypted: database contents, object storage, search indexes, log data and all backups. This applies regardless of whether the content is freely available or licensed.
 
 **Rationale:** The previous requirements cover only transport encryption. As soon as licensed full texts are in the collection, the encryption of data at rest is the subject of every contract review by the publishers. A uniform treatment of all collections also avoids the protective effect depending on a correct classification.
 
-**Acceptance criteria:** Encryption is demonstrably active for all storage locations; unencrypted storage is technically ruled out; backups are included.
+**Local-test exception:** The limited, legally authorized corpus held in the private `web-app-raw-data` submodule and artifacts directly derived by explicit local tests may reside without at-rest encryption on contributor-controlled developer machines in Europe, including local disk and swap. This exception does not authorize additional sources or processing rights, licensed-content use prohibited by REQ-INST-001, or storage/use in CI, logs, public or production artifacts, production, or backups. It does not alter encryption requirements for production, operational, shared, or other persisted data.
 
-**Acceptance test:** A security audit demonstrates the active encryption state for every storage location.
+**Acceptance criteria:** Encryption is demonstrably active for all non-exempt storage locations; unencrypted storage is technically ruled out there, including backups. Any local-test exception is limited to the private authorized corpus and its direct test derivatives, on contributor-controlled developer machines in Europe, and remains excluded from CI, logs, public/production artifacts, production, and backups.
+
+**Acceptance test:** A security audit demonstrates active encryption for all non-exempt storage locations. Review of local-test procedures confirms that the private corpus is authorized and limited, use is explicitly local and opt-in, and neither corpus nor derived content enters CI, logs, public/production artifacts, production, or backups.
 
 ### REQ-SEC-002 — Key management
 

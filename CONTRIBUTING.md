@@ -231,6 +231,18 @@ the API and accounts services and loads the embedding model. CI omits
 `chat/tests/test_structural_end_to_end.py` to avoid downloading that model on
 every run; run the full command locally when the model is available.
 
+### Authorized local real-source tests
+
+The limited corpus in the private `web-app-raw-data` submodule is for explicit
+local tests only. Under the narrow exception in [ADR-021](docs/adr/README.md#adr-021-return-to-github-for-source-code-ci-and-registry)
+and [REQ-SEC-001](docs/srs/03-requirements.md#req-sec-001-encryption-of-data-at-rest),
+the authorized corpus and artifacts directly derived by those tests may reside
+without at-rest encryption on contributor-controlled developer machines in
+Europe, including local disk and swap. This does not authorize licensed-content
+processing beyond the source's registered legal basis, and it does not permit
+the corpus or derivatives in CI, logs, public/production artifacts, production,
+or backups. Follow the module review guide and test-specific cleanup instructions.
+
 For frontend tests:
 
 ```bash

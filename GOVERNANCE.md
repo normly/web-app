@@ -61,7 +61,9 @@ explicit approval of the Trägerorganisation:
 - Independence of the core from proprietary components
 - Free access to freely licensable content without an account
 - Exclusion of personalized advertising
-- Data storage and operation in Europe
+- Data storage and operation in Europe for production and operational data;
+  the narrow local-test corpus exception is governed by ADR-021 and does not
+  change this commitment.
 
 ## Changes to this document
 

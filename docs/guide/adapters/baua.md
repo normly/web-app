@@ -1,7 +1,7 @@
 # BAuA adapter status
 
-> **Status reviewed:** 2026-10-30 (test-coverage review; synthetic and local real-source tests run
-> with Docling 2.132.0; locked 2.135.0 verification remains open)
+> **Status reviewed:** 2026-11-06 (synthetic and local real-source extraction plus full-pipeline
+> checks passed with locked Docling 2.135.0 and the pinned local E5 model)
 > **Implementation:** [`baua.py`](../../../core/src/normly_core/pipeline/adapters/baua.py)  
 > **Design:** [BAuA adapter design](../../superpowers/specs/2026-09-01-baua-adapter-design.md)
 
@@ -34,8 +34,8 @@ complete based on this adapter.
 | Designation and issuer | **Implemented with fail-closed identity handling.** | Searches bounded front matter for a unique TRGS/TRBS/TRBA designation. Filename hints only narrow candidates when corroborated in extracted text. Synthetic and local real-document checks cover selected cases. | Ambiguous or absent candidates remain unresolved for the existing review path. The behavior depends on Docling's extracted ordering and front-matter representation. |
 | Title and metadata | **Partial.** | A short, clearly bounded title may be extracted; language is set to German; content hash and fetch time are recorded. | No English title, structured publication date, validity, or version extraction is implemented. `RawRecord.edition` is not populated by this adapter; `Teil N` remains part of the designation string rather than a structured part field. No metadata expansion is committed for this adapter. |
 | Numbered section extraction | **Implemented conservatively; layout-dependent.** | Standalone numbered headings with accepted Docling labels are split in document order. Preamble is retained, ambiguous numbered prose stays in body, and a no-heading document falls back to one full-text section. | Merged headings or unsupported Docling classifications may be missed. See layout canaries and the locked-version verification gap below. |
-| Shared pipeline persistence and embeddings | **Unverified for a BAuA end-to-end run.** | The shared runner stores extracted sections and embeddings when the rights rule permits indexing. | No BAuA-specific synthetic test currently runs extraction through database persistence and embedding creation. Add a CI-safe integration test with generated synthetic PDF input and a deterministic test embedder. |
-| Semantic retrieval | **Unverified for BAuA content and the real embedding model.** | Repository-level similarity search is tested separately with controlled vectors in [`test_segment_similarity_search.py`](../../../core/tests/graph/test_segment_similarity_search.py). | Those tests do not prove BAuA end-to-end retrieval or real-model semantic quality. Keep a real-model check separate and local/offline unless a compliant pre-provisioned model test is established. |
+| Shared pipeline persistence and embeddings | **Locally validated for selected real PDFs; not CI.** | The opt-in [`test_baua_full_pipeline_local.py`](../../../core/tests/pipeline/test_baua_full_pipeline_local.py) runs TRGS-401/402 through the shared runner with the real embedding model, and checks that TRGS-001 remains unresolved. It uses a tmpfs-backed disposable PostgreSQL container. | Coverage is limited to the three private local samples. Add a separate CI-safe integration test with generated synthetic PDFs and deterministic embeddings to verify plumbing in CI. |
+| Vector retrieval | **Locally validated for selected samples and the real embedding model.** | `test_baua_full_pipeline_local.py` embeds queries derived from the shared heading canaries and checks that the corresponding stored sections appear in the repository's top-five results. | This is a small vector-retrieval canary, not a broad semantic-quality benchmark; CI still uses deterministic vectors and must not initialize the private corpus or download the model. |
 
 The adapter's rights classification and source-register entry encode the
 project's current Category A treatment. They are not a substitute for keeping
@@ -48,16 +48,19 @@ source-register rules.
 |---|---|---|---|---|---|
 | Series discovery, designation/title parsing, ambiguity, filename corroboration, and extraction failures | **CI synthetic** | [`test_baua_adapter.py`](../../../core/tests/pipeline/test_baua_adapter.py) | PDFs generated at test time with ReportLab | TRGS/TRBS/TRBA patterns, optional `Teil N`, missing/competing identities, title fallback, unreadable-file isolation, and pipeline initialization failure behavior | Synthetic documents exercise designed layouts, not the distribution of real BAuA layouts. |
 | Numbered section parsing and fallbacks | **CI synthetic** | [`test_baua_adapter.py`](../../../core/tests/pipeline/test_baua_adapter.py) | Generated synthetic PDFs and controlled adapter records | Heading splits, preamble retention, ambiguous numbered prose, conservative Docling labels, full-text fallback, and empty input. Two generated PDFs also use the exact first/last heading canaries from the local TRGS-401/402 checks and pass through the shared heading assertions. | Synthetic layout and body text remain designed, not copied from publisher documents; this does not demonstrate the distribution of real BAuA layouts. |
-| Real PDF designation and section canaries | **Local real-source; opt-in** | [`test_baua_adapter_real.py`](../../../core/tests/pipeline/test_baua_adapter_real.py); instructions in repository `core/REVIEW.md` | Optional private submodule: `web-app-raw-data/raw_data_test/BAuA` | Designation and first/last headings for TRGS-401/402; unresolved identity for TRGS-001; contiguous section sequence. TRGS-401/402 use the same shared assertions and expected heading values as their generated CI equivalents. | Not run by CI; the submodule is not initialized there. Only selected samples and boundaries are checked. The recorded real-document run used Docling 2.132.0; verification with locked 2.135.0 remains open. |
+| Real PDF designation and section canaries | **Local real-source; opt-in** | [`test_baua_adapter_real.py`](../../../core/tests/pipeline/test_baua_adapter_real.py); instructions in repository `core/REVIEW.md` | Optional private submodule: `web-app-raw-data/raw_data_test/BAuA` | Designation and first/last headings for TRGS-401/402; unresolved identity for TRGS-001; contiguous section sequence. TRGS-401/402 use the same shared assertions and expected heading values as their generated CI equivalents. | Not run by CI; the submodule is not initialized there. Only selected samples and boundaries are checked. The locked Docling 2.135.0 run passed on 2026-11-06. |
 | pgvector ranking, rights gate, and model-name filtering | **CI integration, generic repository behavior** | [`test_segment_similarity_search.py`](../../../core/tests/graph/test_segment_similarity_search.py) | Controlled test vectors in disposable PostgreSQL | Similarity order, threshold, rights filtering, and model filter | Does not ingest BAuA records, call the real embedder, or establish semantic quality. |
-| BAuA persistence and retrieval assertions | **Partial / not verified** | [`test_main_ingests_a_baua_directory_end_to_end`](../../../core/tests/pipeline/test_cli.py) | Generated synthetic PDF and test database | CLI ingestion succeeds and the BAuA designation is persisted. | The test does not assert persisted segments or embeddings, or retrieve an ingested BAuA result. Add focused CI coverage with a deterministic test embedder if those boundaries change; this is not a semantic-quality test. |
+| BAuA persistence and retrieval assertions | **Local real-source; opt-in** | [`test_baua_full_pipeline_local.py`](../../../core/tests/pipeline/test_baua_full_pipeline_local.py); local setup in the test module and [`core/REVIEW.md`](https://github.com/normly/web-app/blob/develop/core/REVIEW.md) | TRGS-401/402/001 from the private submodule, pinned local Docling/E5 artifacts, and a tmpfs-backed disposable PostgreSQL container | TRGS-401/402 sections and segment embeddings persist and are retrieved with the real model; TRGS-001 is sent to identity review without creating a document or segments. The container, anonymous volume, and temporary symlinks are removed at teardown. | Not run by CI. A deterministic synthetic CI test for persistence/retrieval wiring remains open; it does not replace this local semantic check. |
 | XML input | **Not covered; unsupported** | No XML adapter tests | — | — | Implement and add format-specific tests only if XML is brought into the adapter's agreed scope. |
 
 ### Required local validation for BAuA-related changes
 
 For every change to the BAuA adapter, its extraction/section behavior, or a
 shared domain interface used by it, run the opt-in checks against local samples
-from the optional private data submodule. This requires read access to
+from the optional private data submodule. The narrow local storage exception
+and its limits are documented in [ADR-021](../../adr/README.md#adr-021-return-to-github-for-source-code-ci-and-registry)
+and [REQ-SEC-001](../../srs/03-requirements.md#req-sec-001-encryption-of-data-at-rest).
+This requires read access to
 `normly/web-app-raw-data` and working GitHub SSH authentication.
 
 An ordinary `git clone` does not initialize submodules. If you want the samples
@@ -107,18 +110,19 @@ classification.
 | PDF layout remains within the variants represented by the local samples. | A new BAuA layout or edition behaves differently from the existing sample set. | **No automatic upstream layout monitoring.** Detection depends on a maintainer obtaining/being authorized to test a new representative local sample and running the real-document checks. | Record the new layout variant and its coverage. Extend local assertions or synthetic tests as appropriate without copying real PDFs or extracted full text into this repository. |
 
 The synthetic fixtures are manually designed to exercise parser cases; they
-are not publisher-layout monitors. The real-PDF checks are opt-in and test
-extraction only. They stage temporary symlinks, do not write to a database,
-and do not print extracted document text. If local samples are unavailable,
-record the real-source validation as outstanding rather than treating
-synthetic coverage as a substitute.
+are not publisher-layout monitors. The real-PDF extraction canaries remain
+opt-in and extraction-only. The separate full-pipeline check stages temporary
+symlinks and writes sections and embeddings only to a tmpfs-backed disposable
+database, which is removed after the run. Neither test prints extracted
+document text. If local samples are unavailable, record real-source validation
+as outstanding rather than treating synthetic coverage as a substitute.
 
 ## Open work and non-goals
 
 | Item | State | Next action / trigger | Owner or dependency |
 |---|---|---|---|
-| Validate real-PDF behavior with locked Docling 2.135.0 | **Open** | Run the opt-in canaries in the locked environment and record the result before relying on larger ingestion. | Local approved sample files and pinned project environment. |
-| BAuA extraction-to-database/embedding/retrieval integration coverage | **Open** | Add a synthetic CI test using generated PDFs and deterministic embeddings; verify stored sections/embeddings and retrieved result. | Core pipeline tests; disposable pgvector test database. |
+| Validate real-PDF behavior with locked Docling 2.135.0 | **Complete for the three selected samples (2026-11-06)** | `test_baua_adapter_real.py`: 3 passed, zero skips. | Private test corpus and locked project environment. |
+| CI-safe BAuA persistence/retrieval plumbing coverage | **Open** | Add a synthetic CI test using generated PDFs and deterministic embeddings; verify stored sections/embeddings and retrieved result. Keep it separate from the local real-model check. | Core pipeline tests; disposable pgvector test database. |
 | XML support | **Not implemented; no current BAuA plan** | Revisit only if XML is an agreed source format for this adapter; then specify metadata and parsing behavior and add tests. | Scope decision and XML source/schema. |
 | API/SFTP contractual publisher integration | **Out of scope for this Category A adapter** | Assess separately against REQ-INT-002 and Category C source-registration/contract requirements; do not count this adapter as fulfillment. | System-level integration design and contract basis. |
 | Automatic detection of upstream BAuA layout changes | **Not implemented** | No automatic source monitoring is part of the current adapter. Reassess if a lawful, maintainable change-notification mechanism is available. | Upstream BAuA publication/access mechanism. |

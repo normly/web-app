@@ -78,7 +78,14 @@ with them, pause and ask rather than working around them.
   configured trusted reverse proxy.** Direct public access would permit header
   spoofing.
 - Encrypt everything persisted, including databases, object storage, indexes,
-  logs, and backups. Store keys separately from data.
+  logs, and backups. Store keys separately from data. Narrow exception: the
+  authorized limited corpus in the private `web-app-raw-data` submodule and
+  artifacts directly derived by explicit local tests may be stored on
+  contributor-controlled developer machines in Europe without at-rest
+  encryption, including local disk and swap. This does not authorize additional
+  sources or licensed-content processing, and does not permit the data or its
+  derivatives in CI, logs, public/production artifacts, production, or backups.
+  See ADR-021 and REQ-SEC-001.
 
 ## Identifiers
 

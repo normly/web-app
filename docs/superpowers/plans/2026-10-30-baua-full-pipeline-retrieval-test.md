@@ -1,8 +1,9 @@
 # BAuA Full-Pipeline Retrieval Test Plan
 
-**Status:** Planned; documentation only. The real-document pipeline check is
-local-only and opt-in, with an ephemeral database that leaves no retained test
-data. No test code or CI configuration is changed by this plan.
+**Status:** Implemented as a local-only opt-in test; no CI configuration was
+changed. Functional local validation passed on 2026-11-06. The local-only
+storage exception is documented in ADR-021 and REQ-SEC-001; the execution
+record below notes the conditions of the run.
 
 ## Goal
 
@@ -37,16 +38,16 @@ private data submodule.
 - `core/tests/pipeline/test_baua_adapter_real.py` already checks designation
   and section extraction for private local samples, but does not run the
   pipeline, write to a database, create embeddings, or retrieve results. The
-  planned test should extend those same samples and reuse the heading canaries,
-  rather than add new real PDFs or duplicate extraction assertions.
+  full-pipeline test extends those same samples and reuses the heading canaries,
+  rather than adding new real PDFs or duplicating extraction assertions.
 - `test_main_ingests_a_baua_directory_end_to_end` in
   `core/tests/pipeline/test_cli.py` sends a generated PDF through the CLI and
   checks that its designation is persisted. It does not assert stored sections
   or embeddings, or retrieve a BAuA result.
 - Generic runner and similarity-search tests cover persistence and pgvector
-  ranking separately. `docs/guide/adapters/baua.md` still identifies
-  BAuA-specific persistence/retrieval as unverified and calls for a separate
-  deterministic CI plumbing test.
+  ranking separately. The opt-in local test now covers BAuA persistence and
+  retrieval with real samples and embeddings; `docs/guide/adapters/baua.md`
+  keeps the separate deterministic CI plumbing test open.
 
 ## Local data boundary and cleanup
 
@@ -60,20 +61,25 @@ basis and local-test-corpus authorization for these specific samples. Database
 cleanup does not broaden those rights. If the source-register basis or corpus
 authorization no longer permits this processing, stop.
 
-Database writes are allowed here only as non-persistent test state. Use a
-test-specific PostgreSQL fixture with `PGDATA` on `tmpfs`, no bind or named
-database volume, and no unencrypted swap for that data. Roll back the test
-transaction and remove the container and any anonymous volume on both success
-and failure. Do not create dumps, backups, logs, or other artifacts containing
-source text or embeddings. The normal disk-backed `db_session` setup is not
-sufficient unless it is configured to meet these ephemeral-storage conditions.
+Database writes are allowed here only as local test state. Use a test-specific
+PostgreSQL fixture with `PGDATA` on `tmpfs`, no bind or named database volume,
+and container memory/swap limits that prevent the database container from
+swapping. Roll back the test transaction and remove the container and any
+anonymous volume on both success and failure. Do not create dumps, backups,
+logs, or other artifacts containing source text or embeddings. The local-only
+storage exception permits the source corpus and directly derived test state to
+reside on contributor-controlled developer machines in Europe, including local
+disk and host-managed swap; it does not permit reuse in CI, logs,
+public/production artifacts, production, or backups.
 
 Keep the private source PDFs in the submodule only. Do not copy them into this
 repository, CI, Docker images, logs, or public artifacts. Do not print extracted
-full text or use assertions that cause pytest to display it. With those cleanup
-conditions, no database or derived test data is retained after the local run.
+full text or use assertions that cause pytest to display it. Teardown removes
+the explicit database container and temporary symlinks; the host operating
+system may retain pages in swap, which is permitted only within the local-test
+storage exception and is not a substitute for test cleanup.
 
-## Planned local-only implementation
+## Local-only implementation
 
 1. Add `core/tests/pipeline/test_baua_full_pipeline_local.py`, following the
    opt-in pattern in `test_baua_adapter_real.py`. Require both
@@ -119,9 +125,10 @@ conditions, no database or derived test data is retained after the local run.
 9. Use the real model's `embed_query()` with a short synthetic query targeted
    at a known heading canary, then call
    `PostgresSegmentRepository.find_similar_segments_for_jurisdiction()` with
-   `MODEL_NAME` and jurisdiction `DE`. Assert retrieval using segment IDs and
-   sample names only, not object representations that might expose text. Avoid
-   brittle exact-distance or unrelated-result ordering assertions.
+   `MODEL_NAME`, jurisdiction `DE`, and a top-five limit. Assert retrieval
+   using segment IDs and sample names only, not object representations that
+   might expose text. Avoid brittle exact-distance or unrelated-result ordering
+   assertions; this remains a retrieval canary, not a semantic-quality test.
 
 The test must use the existing repository interfaces for persistence and
 retrieval. It must not use a production database, add SQL to pipeline/domain
@@ -225,6 +232,14 @@ read access (ordinary clones intentionally leave it uninitialized):
 git submodule update --init web-app-raw-data
 ```
 
+The local-test storage exception permits the authorized private corpus and
+directly derived test artifacts on contributor-controlled developer machines
+in Europe without at-rest encryption, including local disk and host swap. It
+does not permit the corpus or derivatives in CI, logs, public/production
+artifacts, production, or backups. The existing source-registration and rights
+gate still apply; this storage exception grants no additional processing
+rights.
+
 Then, from the repository root, first run the existing extraction canaries and
 require all three to pass without skips:
 
@@ -255,9 +270,29 @@ temporary staging directories. The test must not initialize the submodule in
 CI, create persistent database volumes or dumps, or emit full text in logs or
 artifacts.
 
+## Execution record (2026-11-06)
+
+- Added `core/tests/pipeline/test_baua_full_pipeline_local.py` with a
+  `tmpfs`-backed PostgreSQL data directory and an opt-in gate. Updated the
+  existing real-source canary test to resolve relative corpus paths before
+  creating symlinks.
+- Prepared the E5 and Docling artifacts at the pinned revisions above. Model
+  loading passed in offline mode; the Docling offline test passed.
+- The real-source extraction canaries passed: 3 passed, zero skips with locked
+  Docling 2.135.0. The full-pipeline test passed: 1 passed. The full Core suite
+  passed with the local test opt-in unset: 757 passed, 4 skipped.
+- Testcontainers removed the PostgreSQL container after the run, and no
+  container based on `pgvector/pgvector:pg16` remained. The host uses an ext4
+  filesystem and an active swap file; unencrypted local disk and swap are
+  expressly covered by the storage exception adopted in ADR-021 and REQ-SEC-001.
+  The exception applies only on developer machines in Europe, and physical host
+  location was not independently verified from the available environment
+  metadata. The full-pipeline test was rerun after adding equal container memory
+  and memory+swap limits and passed (1 passed, 4 Pydantic deprecation warnings).
+  The private submodule checkout remains local and uncommitted.
+
 ## Out of scope
 
-- Implementing the local integration test in this documentation-only change.
 - Implementing or enabling the separate deterministic CI integration test.
 - Retaining database rows, embeddings, dumps, or backups after the local run.
 - Downloading model weights or BAuA documents during the test.

@@ -18,7 +18,12 @@ requirements and architecture documents.
   initialize it; local use requires explicit
   initialization and read access to the private repo. Do not initialize that
   submodule in CI. Keep extracted full text out of Git and CI, and process
-  source material only under its registered legal basis.
+  source material only under its registered legal basis. The narrow exception
+  in ADR-021 permits this authorized corpus and directly derived local-test
+  artifacts to reside without at-rest encryption on contributor-controlled
+  developer machines in Europe, including local disk and swap. It does not
+  permit their use in CI, logs, public/production artifacts, production, or
+  backups.
 - For pipeline/database changes, exercise the runner and repositories as
   appropriate. `db_session` uses disposable PostgreSQL with pgvector and needs
   Docker. Deterministic embeddings test plumbing, not semantic quality; keep
