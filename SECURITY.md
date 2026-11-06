@@ -48,6 +48,17 @@ those there; a note to us is still welcome), attacks that require physical
 access or an already-compromised account, and reports from automated
 scanners without demonstrated impact.
 
+## Authorized local test data
+
+The project permits a narrowly limited, legally authorized corpus in the
+private `web-app-raw-data` submodule and artifacts directly derived from
+explicit local tests to reside without at-rest encryption on contributor-
+controlled developer machines in Europe, including local disk and swap. This
+exception does not authorize new sources or processing rights and does not
+permit the data or derivatives in CI, logs, public/production artifacts,
+production, or backups. Production and other persisted data remain subject to
+the encryption requirement in [REQ-SEC-001](docs/srs/03-requirements.md#req-sec-001-encryption-of-data-at-rest).
+
 ## Rules for security research
 
 Permitted and welcome, as long as you test on your **own instance**, don't

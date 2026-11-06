@@ -47,7 +47,7 @@ def test_real_document_designation_and_section_extraction(
     expected_first_heading: str,
     expected_last_heading: str,
 ):
-    source = Path(_DOCUMENT_DIR) / filename
+    source = Path(_DOCUMENT_DIR).resolve() / filename
     if not source.is_file():
         pytest.skip(f"local real-document sample is absent: {filename}")
 
@@ -68,7 +68,7 @@ def test_real_document_designation_and_section_extraction(
 
 
 def test_real_document_without_matching_designation_remains_unresolved(tmp_path: Path):
-    source = Path(_DOCUMENT_DIR) / "TRGS-001.pdf"
+    source = Path(_DOCUMENT_DIR).resolve() / "TRGS-001.pdf"
     if not source.is_file():
         pytest.skip("local real-document sample is absent: TRGS-001.pdf")
 

@@ -778,6 +778,16 @@ Private visibility does not grant processing rights. This addendum does not
 relax REQ-INST-001's restriction on using licensed content in development or
 testing. Operational, production, and knowledge-base data remain on STACKIT.
 
+**Addendum 2026-11-06 — Local test storage:** For explicit local tests only,
+the limited authorized corpus in the private `web-app-raw-data` submodule and
+artifacts directly derived by those tests may reside without at-rest encryption
+on contributor-controlled developer machines in Europe, including local disk
+and swap. This exception changes only the storage-encryption requirement in
+REQ-SEC-001. It does not add sources or processing rights, permit licensed
+content prohibited by REQ-INST-001, or allow the corpus or derivatives in CI,
+logs, public/production artifacts, production, or backups. All other persisted
+data remains subject to REQ-SEC-001.
+
 ---
 
 ## ADR-022 — Operating environment phase 1 and model-origin rule
